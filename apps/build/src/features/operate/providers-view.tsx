@@ -4,7 +4,7 @@
 // assignment, and rotate/remove flows. Key material is write-only — only the
 // stored prefix is ever shown.
 //
-// Styling follows the settings-redesign inventory, mapped onto apps/build's
+// Styling follows the settings-redesign inventory, mapped onto agents/build's
 // radius scale: rounded-md (12px) cards/tables, rounded-sm (8px) in-card
 // controls, rounded-full pills. 10px uppercase tracked micro-labels, neutral
 // badges for facts and sky-tinted badges for state, mono for key prefixes,
@@ -43,8 +43,8 @@ export type ModelKeyUsage = {
   costUsd?: number;
 };
 
-export type ModelKeyAppUsage = {
-  applicationId: number;
+export type ModelKeyAgentUsage = {
+  agentId: number;
   inputTokens: number;
   outputTokens: number;
   costCredits: number;
@@ -58,22 +58,22 @@ export type ModelKey = {
   keyPrefix: string;
   createdAt: number;
   updatedAt: number;
-  applicationIds: number[];
-  grants?: { applicationId: number; keyId: number; modelIds: "*" | string[] }[];
-  /** Wire form from the Build server: all-time funded-turn sums per application. */
-  usageByApplication?: ModelKeyAppUsage[];
-  /** applicationId -> usage, derived from `usageByApplication` on load. */
+  agentIds: number[];
+  grants?: { agentId: number; keyId: number; modelIds: "*" | string[] }[];
+  /** Wire form from the Build server: all-time funded-turn sums per agent. */
+  usageByAgent?: ModelKeyAgentUsage[];
+  /** agentId -> usage, derived from `usageByAgent` on load. */
   usage?: Record<number, ModelKeyUsage>;
 };
 
 const USD_PER_CREDIT = 0.01;
 
 export function withUsage(key: ModelKey): ModelKey {
-  const rows = key.usageByApplication ?? [];
+  const rows = key.usageByAgent ?? [];
   if (rows.length === 0) return key;
   const usage: Record<number, ModelKeyUsage> = {};
   for (const row of rows) {
-    usage[row.applicationId] = {
+    usage[row.agentId] = {
       tokens: row.inputTokens + row.outputTokens,
       costUsd: row.costCredits * USD_PER_CREDIT,
     };
@@ -85,7 +85,7 @@ export type KeySource = {
   id: number;
   repositoryLink?: string | null;
   githubAccount?: string | null;
-  apps?: { id: number; name: string }[];
+  agents?: { id: number; name: string }[];
 };
 
 export type ProvidersPayload = {
@@ -118,12 +118,12 @@ const costCell = (usd?: number) =>
   usd === undefined ? "—" : `$${usd.toFixed(2)}`;
 
 function sumUsage(
-  options: AppOption[],
+  options: AgentOption[],
   usage: ModelKey["usage"],
 ): { tokens?: number; costUsd?: number } {
   const total: { tokens?: number; costUsd?: number } = {};
   for (const option of options) {
-    const entry = usage?.[option.applicationId];
+    const entry = usage?.[option.agentId];
     if (entry?.tokens !== undefined)
       total.tokens = (total.tokens ?? 0) + entry.tokens;
     if (entry?.costUsd !== undefined)
@@ -132,13 +132,13 @@ function sumUsage(
   return total;
 }
 
-type AppOption = { applicationId: number; name: string; projectLabel: string };
+type AgentOption = { agentId: number; name: string; projectLabel: string };
 
-function appOptions(projects: KeySource[]): AppOption[] {
+function agentOptions(projects: KeySource[]): AgentOption[] {
   return projects.flatMap((source) =>
-    (source.apps ?? []).map((app) => ({
-      applicationId: app.id,
-      name: app.name,
+    (source.agents ?? []).map((agent) => ({
+      agentId: agent.id,
+      name: agent.name,
       projectLabel:
         source.repositoryLink || source.githubAccount || `Source ${source.id}`,
     })),
@@ -206,7 +206,7 @@ function FundingSummary({
   onRemove,
 }: {
   keyRow: ModelKey;
-  options: AppOption[];
+  options: AgentOption[];
   fundedNames: string[];
   rotateDisabled: boolean;
   onRotate: () => void;
@@ -320,10 +320,10 @@ function ProjectsTable({
   onToggle,
 }: {
   keyRow: ModelKey;
-  options: AppOption[];
+  options: AgentOption[];
   fundedBy: Map<number, ModelKey[]>;
   checked: Set<number>;
-  onToggle: (applicationId: number, isChecked: boolean) => void;
+  onToggle: (agentId: number, isChecked: boolean) => void;
 }) {
   const total = sumUsage(options, keyRow.usage);
   return (
@@ -340,11 +340,11 @@ function ProjectsTable({
         </thead>
         <tbody className="divide-border divide-y">
           {options.map((option) => {
-            const isChecked = checked.has(option.applicationId);
-            const holders = fundedBy.get(option.applicationId) ?? [];
+            const isChecked = checked.has(option.agentId);
+            const holders = fundedBy.get(option.agentId) ?? [];
             return (
               <tr
-                key={option.applicationId}
+                key={option.agentId}
                 className="hover:bg-surface-2/60 transition-colors"
               >
                 <td className="px-3 py-2">
@@ -354,7 +354,7 @@ function ProjectsTable({
                       className="sr-only"
                       checked={isChecked}
                       onChange={(event) =>
-                        onToggle(option.applicationId, event.target.checked)
+                        onToggle(option.agentId, event.target.checked)
                       }
                     />
                     <CheckboxGlyph checked={isChecked} />
@@ -367,13 +367,23 @@ function ProjectsTable({
                   {option.projectLabel}
                 </td>
                 <td className="px-3 py-2 text-xs">
-                  <span className="text-dim">{holders.length ? holders.map((key) => key.id === keyRow.id ? "This key" : keyDisplayName(key)).join(", ") : "—"}</span>
+                  <span className="text-dim">
+                    {holders.length
+                      ? holders
+                          .map((key) =>
+                            key.id === keyRow.id
+                              ? "This key"
+                              : keyDisplayName(key),
+                          )
+                          .join(", ")
+                      : "—"}
+                  </span>
                 </td>
                 <td className="text-dim whitespace-nowrap px-3 py-2 text-right font-mono text-xs">
-                  {tokensCell(keyRow.usage?.[option.applicationId]?.tokens)}
+                  {tokensCell(keyRow.usage?.[option.agentId]?.tokens)}
                 </td>
                 <td className="text-dim whitespace-nowrap px-3 py-2 text-right font-mono text-xs">
-                  {costCell(keyRow.usage?.[option.applicationId]?.costUsd)}
+                  {costCell(keyRow.usage?.[option.agentId]?.costUsd)}
                 </td>
               </tr>
             );
@@ -407,42 +417,47 @@ function KeyRow({
   busy,
 }: {
   keyRow: ModelKey;
-  options: AppOption[];
+  options: AgentOption[];
   fundedBy: Map<number, ModelKey[]>;
-  onGrants: (key: ModelKey, applicationIds: number[], modelIds: "*" | string[]) => Promise<void>;
+  onGrants: (
+    key: ModelKey,
+    agentIds: number[],
+    modelIds: "*" | string[],
+  ) => Promise<void>;
   onRotate: (key: ModelKey, material: string) => Promise<void>;
   onRemove: (key: ModelKey) => Promise<void>;
   busy: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [checked, setChecked] = useState<Set<number>>(
-    () => new Set(keyRow.applicationIds),
+    () => new Set(keyRow.agentIds),
   );
   const savedModels = keyRow.grants?.[0]?.modelIds ?? "*";
-  const savedCoverage = Array.isArray(savedModels) ? savedModels.join(", ") : savedModels;
+  const savedCoverage = Array.isArray(savedModels)
+    ? savedModels.join(", ")
+    : savedModels;
   const [coverage, setCoverage] = useState(savedCoverage);
   const [flow, setFlow] = useState<"rotate" | "remove" | null>(null);
   const [material, setMaterial] = useState("");
 
   useEffect(() => {
-    setChecked(new Set(keyRow.applicationIds));
+    setChecked(new Set(keyRow.agentIds));
     setCoverage(savedCoverage);
-  }, [keyRow.applicationIds, savedCoverage]);
+  }, [keyRow.agentIds, savedCoverage]);
 
   const dirty =
-    coverage !== savedCoverage || checked.size !== keyRow.applicationIds.length ||
-    keyRow.applicationIds.some((id) => !checked.has(id));
-  const projectCount = keyRow.applicationIds.length;
+    coverage !== savedCoverage ||
+    checked.size !== keyRow.agentIds.length ||
+    keyRow.agentIds.some((id) => !checked.has(id));
+  const projectCount = keyRow.agentIds.length;
   /** Names of the projects this key funds, so the closed row answers
    *  "which ones?" without being expanded. */
   const fundedNames = useMemo(
     () =>
       options
-        .filter((option) =>
-          keyRow.applicationIds.includes(option.applicationId),
-        )
+        .filter((option) => keyRow.agentIds.includes(option.agentId))
         .map((option) => option.name),
-    [options, keyRow.applicationIds],
+    [options, keyRow.agentIds],
   );
 
   return (
@@ -453,7 +468,7 @@ function KeyRow({
           setOpen((v) => !v);
           setFlow(null);
           setMaterial("");
-          setChecked(new Set(keyRow.applicationIds));
+          setChecked(new Set(keyRow.agentIds));
         }}
         aria-expanded={open}
         className="hover:bg-surface-2/60 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
@@ -567,9 +582,18 @@ function KeyRow({
           ) : null}
 
           <div className="pt-2">
-            <label className="block text-sm">Sponsored models
-              <input aria-label="Sponsored models" value={coverage} onChange={(event) => setCoverage(event.target.value)} className="mt-2 w-full rounded border border-border bg-surface-1 p-2" />
-              <span className="mt-1 block text-xs text-dim">Use * for this provider&apos;s models, or comma-separated route IDs such as openai:gpt-6.1-sol.</span>
+            <label className="block text-sm">
+              Sponsored models
+              <input
+                aria-label="Sponsored models"
+                value={coverage}
+                onChange={(event) => setCoverage(event.target.value)}
+                className="border-border bg-surface-1 mt-2 w-full rounded border p-2"
+              />
+              <span className="text-dim mt-1 block text-xs">
+                Use * for this provider&apos;s models, or comma-separated route
+                IDs such as openai:gpt-6.1-sol.
+              </span>
             </label>
             <div className="mb-2 mt-4">
               <h4 className="text-sm font-medium">Add to project</h4>
@@ -588,11 +612,11 @@ function KeyRow({
                 options={options}
                 fundedBy={fundedBy}
                 checked={checked}
-                onToggle={(applicationId, isChecked) => {
+                onToggle={(agentId, isChecked) => {
                   setChecked((current) => {
                     const next = new Set(current);
-                    if (isChecked) next.add(applicationId);
-                    else next.delete(applicationId);
+                    if (isChecked) next.add(agentId);
+                    else next.delete(agentId);
                     return next;
                   });
                 }}
@@ -602,7 +626,7 @@ function KeyRow({
               <div className="mt-2.5 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setChecked(new Set(keyRow.applicationIds))}
+                  onClick={() => setChecked(new Set(keyRow.agentIds))}
                   className={GHOST_BTN}
                 >
                   Cancel
@@ -610,7 +634,18 @@ function KeyRow({
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => void onGrants(keyRow, [...checked], coverage.trim() === "*" ? "*" : coverage.split(",").map((id) => id.trim()).filter(Boolean))}
+                  onClick={() =>
+                    void onGrants(
+                      keyRow,
+                      [...checked],
+                      coverage.trim() === "*"
+                        ? "*"
+                        : coverage
+                            .split(",")
+                            .map((id) => id.trim())
+                            .filter(Boolean),
+                    )
+                  }
                   className={COMMIT_BTN}
                 >
                   {busy ? "Saving…" : "Save"}
@@ -636,13 +671,17 @@ function ProviderSection({
 }: {
   provider: Provider;
   keys: ModelKey[];
-  options: AppOption[];
+  options: AgentOption[];
   onCreate: (
     provider: Provider,
     material: string,
     label: string,
   ) => Promise<void>;
-  onGrants: (key: ModelKey, applicationIds: number[], modelIds: "*" | string[]) => Promise<void>;
+  onGrants: (
+    key: ModelKey,
+    agentIds: number[],
+    modelIds: "*" | string[],
+  ) => Promise<void>;
   onRotate: (key: ModelKey, material: string) => Promise<void>;
   onRemove: (key: ModelKey) => Promise<void>;
   busy: boolean;
@@ -653,7 +692,7 @@ function ProviderSection({
   const fundedBy = useMemo(() => {
     const map = new Map<number, ModelKey[]>();
     for (const key of keys) {
-      for (const id of key.applicationIds) map.set(id, [...(map.get(id) ?? []), key]);
+      for (const id of key.agentIds) map.set(id, [...(map.get(id) ?? []), key]);
     }
     return map;
   }, [keys]);
@@ -765,7 +804,7 @@ export function ProvidersView() {
   const reload = providers.refetch;
 
   const options = useMemo(
-    () => appOptions(payload?.projects ?? []),
+    () => agentOptions(payload?.projects ?? []),
     [payload?.projects],
   );
   const keysByProvider = useMemo(() => {
@@ -826,12 +865,12 @@ export function ProvidersView() {
     [run],
   );
   const onGrants = useCallback(
-    (key: ModelKey, applicationIds: number[], modelIds: "*" | string[]) =>
+    (key: ModelKey, agentIds: number[], modelIds: "*" | string[]) =>
       run(() =>
         fetch(API_PATHS.build.operate.modelKeys, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ keyId: key.id, applicationIds, modelIds }),
+          body: JSON.stringify({ keyId: key.id, agentIds, modelIds }),
         }),
       ),
     [run],
@@ -871,11 +910,11 @@ export function ProvidersView() {
           </h1>
         </div>
         <p className="text-dim mt-1.5 max-w-3xl text-sm leading-5">
-          Your keys fund inference for your apps&apos; users — model cost is
+          Your keys fund inference for your agents&apos; users — model cost is
           waived when a key covers their selected model.
         </p>
         <p className="text-dim mt-1 max-w-3xl text-xs leading-5">
-          Keys are encrypted and never shown again. App tool secrets live in
+          Keys are encrypted and never shown again. Agent tool secrets live in
           each project&apos;s Environment.
         </p>
       </header>

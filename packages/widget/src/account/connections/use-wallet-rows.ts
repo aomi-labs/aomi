@@ -33,7 +33,7 @@ function walletViewRows(
       kind: "agent",
       brand: AGENT_WALLET,
       addresses: wallet.addresses,
-      app: wallet.app?.label ?? null,
+      agent: wallet.toolset?.label ?? null,
       paused: wallet.paused,
     }));
   const signIn = new Map<string, WalletViewRow>();

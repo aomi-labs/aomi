@@ -7,10 +7,10 @@ describe("buildWalletKitActions", () => {
     const switchChainAsync = vi.fn();
     const evmSelect = vi.fn(async () => undefined);
     const svmSelect = vi.fn();
-    const svmAppSelect = vi.fn(async () => undefined);
+    const svmAgentSelect = vi.fn(async () => undefined);
     const actions = buildWalletKitActions({
       selectAgentEvmNetwork: evmSelect,
-      selectAgentSvmNetwork: svmAppSelect,
+      selectAgentSvmNetwork: svmAgentSelect,
       accounts: [],
       auth: {} as never,
       evm: {
@@ -19,7 +19,7 @@ describe("buildWalletKitActions", () => {
       } as never,
       svm: {
         selectNetwork: svmSelect,
-        selectAppNetwork: svmAppSelect,
+        selectAgentNetwork: svmAgentSelect,
       } as never,
       execution: {
         evm: { activeConnector: connector, switchChainAsync },
@@ -33,7 +33,7 @@ describe("buildWalletKitActions", () => {
     expect(switchChainAsync).not.toHaveBeenCalled();
     expect(svmSelect).not.toHaveBeenCalled();
     expect(evmSelect).toHaveBeenCalledWith(8453);
-    expect(svmAppSelect).toHaveBeenCalledWith("devnet");
+    expect(svmAgentSelect).toHaveBeenCalledWith("devnet");
   });
 
   it("rejects provider sign-in when the current runtime has no login capability", async () => {

@@ -47,7 +47,7 @@ export function AomiWalletKitComposer({
   const accountId = account.guest ? undefined : account.user?.id;
   const [selectionVersion, setSelectionVersion] = useState(0);
   // A connected connector can keep following its own chain. The server
-  // wallet's application network is independent of that connector.
+  // wallet's agent network is independent of that connector.
   const [agentEvmChainId, setAgentEvmChainId] = useState<number>();
   // An address the user removed from the account; no Verify nag for it
   // until the wallet app moves to another address.
@@ -389,7 +389,7 @@ export function AomiWalletKitComposer({
     const actions = buildWalletKitActions({
       selectAgentEvmNetwork: agentEvm ? setAgentEvmChainId : undefined,
       selectAgentSvmNetwork: agentSvm
-        ? (id) => svm?.selectAppNetwork?.(id)
+        ? (id) => svm?.selectAgentNetwork?.(id)
         : undefined,
       accounts,
       auth: { ...auth, login: account.loginProvider ?? auth.login },

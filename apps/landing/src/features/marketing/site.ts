@@ -63,7 +63,7 @@ export const products = [
     flow: [
       {
         title: "Authenticate",
-        body: "Resolve the signed-in account, wallet, chain, and application before an execution thread begins.",
+        body: "Resolve the signed-in account, wallet, chain, and agent before an execution thread begins.",
       },
       {
         title: "Interpret",
@@ -149,7 +149,7 @@ export const products = [
     capabilities: [
       {
         title: "Agents API",
-        body: "Submit natural-language intent, application context, and constraints while Aomi manages the model-to-tool loop.",
+        body: "Submit natural-language intent, agent context, and constraints while Aomi manages the model-to-tool loop.",
       },
       {
         title: "Pipeline API",
@@ -184,20 +184,20 @@ export const products = [
     ],
   },
   {
-    slug: "plugin-sdk",
-    title: "Plugin SDK",
-    href: `${MARKETING_ROOT}/products/plugin-sdk`,
+    slug: "package-sdk",
+    title: "Package SDK",
+    href: `${MARKETING_ROOT}/products/package-sdk`,
     description: "Build and host applications on Aomi's shared runtime.",
-    eyebrow: "Product / Plugin SDK",
+    eyebrow: "Product / Package SDK",
     headline:
-      "Turn an API and operating mandate into a hosted transactional application.",
+      "Turn an API and operating mandate into a hosted transactional agent.",
     summary:
-      "Package prompts, typed tools, policy, and protocol knowledge as an Aomi App. Deploy through the developer console and let Aomi operate the model-to-tool loop over the same transaction pipeline used by every surface.",
+      "Package prompts, typed tools, policy, and protocol knowledge as an Aomi Agent. Deploy through the developer console and let Aomi operate the model-to-tool loop over the same transaction pipeline used by every surface.",
     tone: "ink",
     audience:
       "Protocol teams, fintech developers, exchanges, and application partners.",
     proof:
-      "Aomi Apps behave like hosted connectors with transaction capability: versioned, deployable, observable, and bound to the partner platform that owns them.",
+      "Aomi Agents behave like hosted connectors with transaction capability: versioned, deployable, observable, and bound to the partner platform that owns them.",
     capabilities: [
       {
         title: "Typed tools",
@@ -213,7 +213,7 @@ export const products = [
       },
       {
         title: "Built-in observability",
-        body: "Inspect application sessions, tool calls, execution traces, releases, and receipts without building a second control plane.",
+        body: "Inspect agent sessions, tool calls, execution traces, releases, and receipts without building a second control plane.",
       },
     ],
     flow: [
@@ -231,7 +231,7 @@ export const products = [
       },
       {
         title: "Operate",
-        body: "Observe live sessions and evolve the application without changing the user's signer or product surface.",
+        body: "Observe live sessions and evolve the agent without changing the user's signer or product surface.",
       },
     ],
   },
@@ -357,7 +357,7 @@ export const solutions = [
     audience:
       "Trading platforms, exchanges, prediction markets, funds, and sophisticated individual desks.",
     proof:
-      "A hosted Aomi App can wrap proprietary APIs, while Agents API and Pipeline API let an external orchestrator keep judgment and use Aomi only for guarded execution.",
+      "A hosted Aomi Agent can wrap proprietary APIs, while Agents API and Pipeline API let an external orchestrator keep judgment and use Aomi only for guarded execution.",
     capabilities: [
       {
         title: "Venue abstraction",
@@ -409,7 +409,7 @@ export const solutions = [
     audience:
       "NFT marketplaces, creator platforms, gaming economies, and collection-management products.",
     proof:
-      "One-shot light agents can be scoped to a single collection or campaign, while durable hosted bots can serve the broader branded marketplace.",
+      "One-shot light agents can be scoped to a single collection or campaign, while durable hosted agents can serve the broader branded marketplace.",
     capabilities: [
       {
         title: "Marketplace tools",
@@ -549,7 +549,7 @@ export const pricingLinks = [
   {
     title: "Pricing",
     href: `${MARKETING_ROOT}/pricing`,
-    description: "What a turn costs, and when an app takes a cut.",
+    description: "What a turn costs, and when an agent takes a cut.",
   },
   {
     title: "Payment rails",

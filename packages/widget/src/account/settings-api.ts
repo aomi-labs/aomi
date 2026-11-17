@@ -45,7 +45,7 @@ export async function sessionScopedFetch<T>(
 ): Promise<T> {
   const { secret, ...init } = options ?? {};
   const headers = new Headers(init.headers);
-  if (secret?.trim()) headers.set("Aomi-App-Key", secret.trim());
+  if (secret?.trim()) headers.set("Aomi-Agent-Key", secret.trim());
   // eslint-disable-next-line no-restricted-syntax -- deprecated path passthrough
   return same().raw.request<T>((init.method ?? "GET") as AomiHttpMethod, path, {
     headers,

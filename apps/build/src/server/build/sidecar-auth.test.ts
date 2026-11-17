@@ -41,7 +41,7 @@ const publicKeyPem = publicKey
   .export({ type: "spki", format: "pem" })
   .toString();
 
-const RUN_ID = "smither-my-app-0db9a0f6-0000-0000-0000-000000000000";
+const RUN_ID = "smither-my-package-0db9a0f6-0000-0000-0000-000000000000";
 
 const b64url = (data: Buffer | string) =>
   Buffer.from(data).toString("base64url");

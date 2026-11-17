@@ -59,13 +59,13 @@ afterEach(() => {
 
 describe("AomiWidget props", () => {
   it.each([
-    [{ agent: "main" }, /agent must look like/],
+    [{ agent: "default" }, /agent must look like/],
     [{ agent: "a/b/c" }, /agent must look like/],
-    [{ agent: "acme/bot", baseUrl: "aomi.chat" }, /baseUrl must be/],
-    [{ agent: "acme/bot", theme: "blue" }, /theme must be/],
-    [{ agent: "acme/bot", auth: privyAuth({ appId: " " }) }, /needs appId/],
-    [{ agent: "acme/bot", auth: paraAuth({ apiKey: "" }) }, /needs apiKey/],
-    [{ agent: "acme/bot", auth: { type: "magic" } }, /Unknown auth type/],
+    [{ agent: "acme/assistant", baseUrl: "aomi.chat" }, /baseUrl must be/],
+    [{ agent: "acme/assistant", theme: "blue" }, /theme must be/],
+    [{ agent: "acme/assistant", auth: privyAuth({ appId: " " }) }, /needs appId/],
+    [{ agent: "acme/assistant", auth: paraAuth({ apiKey: "" }) }, /needs apiKey/],
+    [{ agent: "acme/assistant", auth: { type: "magic" } }, /Unknown auth type/],
   ])("explains invalid props inside the widget: %o", (props, message) => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     render(<AomiWidget {...(props as unknown as AomiWidgetProps)} />);
@@ -80,7 +80,7 @@ describe("AomiWidget props", () => {
       "https://example.test",
     );
     expect(kit.provider.mock.calls[0]![0]).toMatchObject({
-      applicationId: "aomi/main",
+      agent: "aomi/main",
     });
     expect(screen.getByTestId("widget-root").dataset.target).toBe(
       JSON.stringify({ mode: "direct", agent: "aomi/main" }),
@@ -88,16 +88,14 @@ describe("AomiWidget props", () => {
   });
 
   it("creates every thread for the configured agent", () => {
-    render(<AomiWidget agent="acme/bot" />);
+    render(<AomiWidget agent="acme/assistant" />);
     expect(screen.getByTestId("widget-root").dataset.target).toBe(
-      JSON.stringify({ mode: "direct", agent: "acme/bot" }),
+      JSON.stringify({ mode: "direct", agent: "acme/assistant" }),
     );
   });
 
   it("keeps the host's transform on the widget root", () => {
-    render(
-      <AomiWidget agent="acme/bot" style={{ transform: "scale(0.5)" }} />,
-    );
+    render(<AomiWidget agent="acme/assistant" style={{ transform: "scale(0.5)" }} />);
     expect(screen.getByTestId("widget-root").style.transform).toBe(
       "scale(0.5) translateZ(0)",
     );
@@ -108,12 +106,12 @@ describe("AomiWidget props", () => {
     ["dark", "dark"],
     ["system", "light"],
   ] as const)("applies theme=%s as the %s class", (theme, className) => {
-    render(<AomiWidget agent="acme/bot" theme={theme} />);
+    render(<AomiWidget agent="acme/assistant" theme={theme} />);
     expect(screen.getByTestId("widget-root").classList).toContain(className);
   });
 
   it("passes Para's environment, defaulting to PROD", () => {
-    render(<AomiWidget agent="acme/bot" auth={paraAuth({ apiKey: "k" })} />);
+    render(<AomiWidget agent="acme/assistant" auth={paraAuth({ apiKey: "k" })} />);
     expect(kit.provider.mock.calls[0]![0]).toMatchObject({
       auth: { provider: "para" },
       providers: { para: { apiKey: "k", environment: "PROD" } },

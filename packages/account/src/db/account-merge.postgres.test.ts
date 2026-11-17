@@ -147,7 +147,7 @@ describe.skipIf(!enabled)("merge_accounts", () => {
     );
     await db.query(
       `insert into user_application_secrets
-         (user_id, application_id, slot_name, secret_ciphertext)
+         (user_id, agent_id, slot_name, secret_ciphertext)
        values ($1, $3, 'api_key', 'target-secret'),
               ($1, $3, 'target_only', 'target-only-secret'),
               ($2, $3, 'api_key', 'source-secret'),
@@ -204,19 +204,19 @@ describe.skipIf(!enabled)("merge_accounts", () => {
     });
 
     const secrets = await db.query(
-      `select user_id, application_id, slot_name, secret_ciphertext
+      `select user_id, agent_id, slot_name, secret_ciphertext
          from user_application_secrets order by slot_name`,
     );
     expect(secrets.rows).toEqual([
       {
         user_id: target,
-        application_id: app.rows[0].id,
+        agent_id: app.rows[0].id,
         slot_name: "api_key",
         secret_ciphertext: "target-secret",
       },
       {
         user_id: target,
-        application_id: app.rows[0].id,
+        agent_id: app.rows[0].id,
         slot_name: "target_only",
         secret_ciphertext: "target-only-secret",
       },

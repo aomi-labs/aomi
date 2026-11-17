@@ -1,17 +1,15 @@
 import { type AgentMode, type AgentTarget } from "@aomi-labs/client";
 
-export type DirectRoutingApp =
-  | { app: string; applicationId?: never }
-  | { applicationId: number; app?: string };
+export type DirectRoutingAgent = { agent: string };
 
 export type AomiRoutingTarget =
   | { mode: "auto" }
-  | { mode: "direct"; apps: readonly DirectRoutingApp[] };
+  | { mode: "direct"; agents: readonly DirectRoutingAgent[] };
 
 /**
  * Host-owned agent routing. Users get no mode control: every chat runs
- * `defaultMode`, and Direct keeps the thread's app when `targets` allows it,
- * else the first listed app.
+ * `defaultMode`, and Direct keeps the thread's agent when `targets` allows it,
+ * else the first listed agent.
  */
 export type AomiRoutingConfig = {
   targets?: readonly AomiRoutingTarget[];
@@ -20,35 +18,33 @@ export type AomiRoutingConfig = {
 
 export type NormalizedAomiRouting = {
   modes: readonly AgentMode[];
-  directApps: readonly DirectRoutingApp[];
+  directAgents: readonly DirectRoutingAgent[];
   defaultMode: AgentMode;
   error: string | null;
 };
 
 const DEFAULT_ROUTING: NormalizedAomiRouting = {
   modes: ["auto"],
-  directApps: [],
+  directAgents: [],
   defaultMode: "auto",
   error: null,
 };
 
-function directAppKey(target: DirectRoutingApp): string {
-  return typeof target.applicationId === "number"
-    ? `id:${target.applicationId}`
-    : `app:${target.app ?? ""}`;
+function directAgentKey(target: DirectRoutingAgent): string {
+  return target.agent;
 }
 
 export function toAgentTarget(
-  target: DirectRoutingApp,
+  target: DirectRoutingAgent,
 ): Extract<AgentTarget, { mode: "direct" }> {
   return { mode: "direct", ...target };
 }
 
-export function sameDirectRoutingApp(
-  left: DirectRoutingApp,
-  right: DirectRoutingApp,
+export function sameDirectRoutingAgent(
+  left: DirectRoutingAgent,
+  right: DirectRoutingAgent,
 ): boolean {
-  return directAppKey(left) === directAppKey(right);
+  return directAgentKey(left) === directAgentKey(right);
 }
 
 export function normalizeAomiRouting(
@@ -68,32 +64,27 @@ export function normalizeAomiRouting(
     (target): target is Extract<AomiRoutingTarget, { mode: "direct" }> =>
       target.mode === "direct",
   );
-  const directApps = [
+  const directAgents = [
     ...new Map(
       directTargets
-        .flatMap((target) => target.apps)
-        .map((target) => [directAppKey(target), target]),
+        .flatMap((target) => target.agents)
+        .map((target) => [directAgentKey(target), target]),
     ).values(),
   ];
-  const invalidDirectApp = directApps.some(
+  const invalidDirectAgent = directAgents.some(
     (target) =>
-      (typeof target.applicationId === "number" &&
-        (!Number.isSafeInteger(target.applicationId) ||
-          target.applicationId <= 0)) ||
-      (typeof target.applicationId !== "number" &&
-        (target.app ?? "").trim().length === 0),
+      !/^[a-z0-9][a-z0-9_-]*\/[a-z0-9][a-z0-9_-]*$/.test(target.agent),
   );
-  if (invalidDirectApp) {
+  if (invalidDirectAgent) {
     return {
       ...DEFAULT_ROUTING,
-      error:
-        "Direct routing apps need a non-empty app or positive applicationId.",
+      error: "Direct routing agents need a publisher/name slug.",
     };
   }
-  if (directTargets.length > 0 && directApps.length === 0) {
+  if (directTargets.length > 0 && directAgents.length === 0) {
     return {
       ...DEFAULT_ROUTING,
-      error: "Direct routing must include at least one app.",
+      error: "Direct routing must include at least one agent.",
     };
   }
 
@@ -111,14 +102,14 @@ export function normalizeAomiRouting(
   if (!modes.includes(defaultMode)) {
     return {
       modes,
-      directApps,
+      directAgents,
       defaultMode: modes[0]!,
       error: `The default mode ${defaultMode} is not enabled by routing.`,
     };
   }
   return {
     modes,
-    directApps,
+    directAgents,
     defaultMode,
     error: null,
   };

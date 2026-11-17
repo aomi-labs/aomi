@@ -4,8 +4,7 @@
 // brand check rejects the cross-realm signal).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  applyLockedAppScope,
-  getRequestedAppConfig,
+  getRequestedAgentConfig,
   withDebugLogging,
 } from "./portal-client-options";
 
@@ -63,65 +62,11 @@ describe("withDebugLogging", () => {
   });
 });
 
-describe("applyLockedAppScope", () => {
-  it("pins app params on string inputs for send-path routes", async () => {
-    const result = await applyLockedAppScope(
-      "http://localhost:3000/v1/agent/chat",
-      "my-app",
-      "app-123",
-    );
-    const url = new URL(String(result));
-    expect(url.searchParams.get("app")).toBe("my-app");
-    expect(url.searchParams.get("application_id")).toBe("app-123");
-  });
-
-  it("rewrites Request inputs without losing the buffered body", async () => {
-    const request = new Request("http://localhost:3000/v1/agent/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: '{"message":"hi"}',
-    });
-    const result = (await applyLockedAppScope(
-      request,
-      "my-app",
-      null,
-    )) as Request;
-
-    expect(result).toBeInstanceOf(Request);
-    expect(new URL(result.url).searchParams.get("app")).toBe("my-app");
-    expect(result.method).toBe("POST");
-    expect(result.headers.get("Content-Type")).toBe("application/json");
-    // The rebuilt body must be buffered (clone-able), not a one-shot stream.
-    expect(await result.clone().text()).toBe('{"message":"hi"}');
-    expect(await result.text()).toBe('{"message":"hi"}');
-    // And the caller's Request stays usable.
-    expect(request.bodyUsed).toBe(false);
-  });
-
-  it("leaves non-send-path routes and unlocked sessions alone", async () => {
-    const request = new Request("http://localhost:3000/api/exec/simulate", {
-      method: "POST",
-      body: "{}",
-    });
-    expect(await applyLockedAppScope(request, "my-app", null)).toBe(request);
+describe("getRequestedAgentConfig", () => {
+  it("reads the one canonical slug and its lock flag", () => {
     expect(
-      await applyLockedAppScope(
-        "http://localhost:3000/api/v1/agent/chat",
-        null,
-        null,
-      ),
-    ).toBe("http://localhost:3000/api/v1/agent/chat");
+      getRequestedAgentConfig("?agent=publisher%2Fname&lock_agent=1"),
+    ).toEqual({ agent: "publisher/name", locked: true });
+    expect(getRequestedAgentConfig("")).toEqual({ agent: null, locked: false });
   });
-});
-
-describe("getRequestedAppConfig", () => {
-  it("reads app and lock flags from the query string", () => {
-    expect(getRequestedAppConfig("?app=foo&lock_app=1")).toEqual({
-      app: "foo",
-      applicationId: null,
-      locked: true,
-    });
-  });
-
-
 });

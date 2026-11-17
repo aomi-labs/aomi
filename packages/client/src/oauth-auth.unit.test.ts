@@ -27,12 +27,18 @@ describe("public API OAuth transport", () => {
       oauth,
     });
 
-    await authorized("https://aomi.chat/api/commits/c0ffee00-0000-4000-8000-000000000001", {
-      method: "GET",
-    });
-    await authorized("https://aomi.chat/api/commits/c0ffee00-0000-4000-8000-000000000001/manual", {
-      method: "POST",
-    });
+    await authorized(
+      "https://aomi.chat/api/commits/c0ffee00-0000-4000-8000-000000000001",
+      {
+        method: "GET",
+      },
+    );
+    await authorized(
+      "https://aomi.chat/api/commits/c0ffee00-0000-4000-8000-000000000001/manual",
+      {
+        method: "POST",
+      },
+    );
 
     expect(oauth).toHaveBeenNthCalledWith(1, {
       resource: "https://aomi.chat/v1/agent",
@@ -129,13 +135,10 @@ describe("public API OAuth transport", () => {
 
     await authorized("https://aomi.chat/v1/account/credits");
     await authorized("https://aomi.chat/v1/account/statement");
-    await authorized(
-      "https://aomi.chat/v1/account/credits/funding-events",
-      {
-        method: "POST",
-        headers: { "payment-signature": "signed" },
-      },
-    );
+    await authorized("https://aomi.chat/v1/account/credits/funding-events", {
+      method: "POST",
+      headers: { "payment-signature": "signed" },
+    });
 
     expect(oauth).toHaveBeenNthCalledWith(1, {
       resource: "https://aomi.chat/v1/account",
@@ -309,9 +312,7 @@ describe("Better Auth guest bootstrap", () => {
     await expect(guest({ forceRefresh: true })).resolves.toBeNull();
     await expect(guest()).resolves.toBeNull();
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(String(fetchImpl.mock.calls[0]?.[0])).toContain(
-      "/api/auth/guest",
-    );
+    expect(String(fetchImpl.mock.calls[0]?.[0])).toContain("/api/auth/guest");
   });
 
   it("falls back to the anonymous cookie when Better Auth refuses a second anonymous sign-in", async () => {
@@ -359,17 +360,15 @@ describe("Better Auth guest bootstrap", () => {
       (await authorized("https://aomi.chat/v1/agent/sessions")).status,
     ).toBe(200);
     expect(authFetch).toHaveBeenCalledTimes(1);
-    expect(String(authFetch.mock.calls[0]?.[0])).toContain(
-      "/api/auth/guest",
-    );
+    expect(String(authFetch.mock.calls[0]?.[0])).toContain("/api/auth/guest");
     expect(upstream).toHaveBeenCalledTimes(2);
     for (const [, init] of upstream.mock.calls) {
       expect(new Headers(init?.headers).has("authorization")).toBe(false);
     }
   });
 
-  it.each(["app_key_required", "app_key_not_scoped"])(
-    "keeps the guest identity when an App rejects access (%s)",
+  it.each(["agent_key_required", "agent_key_not_scoped"])(
+    "keeps the guest identity when an Agent rejects access (%s)",
     async (code) => {
       vi.stubGlobal("location", { origin: "https://aomi.chat" });
       const authFetch = vi.fn().mockResolvedValue(
@@ -378,14 +377,14 @@ describe("Better Auth guest bootstrap", () => {
           user: { id: "guest-user", isAnonymous: true },
         }),
       );
-      const upstream = vi
-        .fn()
-        .mockResolvedValue(
-          Response.json(
-            { error: { code, message: "App access denied", retryable: false } },
-            { status: 401 },
-          ),
-        );
+      const upstream = vi.fn().mockResolvedValue(
+        Response.json(
+          {
+            error: { code, message: "Agent access denied", retryable: false },
+          },
+          { status: 401 },
+        ),
+      );
       const authorized = wrapFetchWithPublicApiAuthorization({
         fetch: upstream as typeof fetch,
         baseUrl: "https://aomi.chat",
@@ -410,12 +409,12 @@ describe("Better Auth guest bootstrap", () => {
     },
   );
 
-  it("does not refresh an OAuth grant for an App access failure", async () => {
+  it("does not refresh an OAuth grant for an Agent access failure", async () => {
     const upstream = vi
       .fn()
       .mockResolvedValue(
         Response.json(
-          { error: { code: "app_key_not_scoped", message: "Wrong App" } },
+          { error: { code: "agent_key_not_scoped", message: "Wrong Agent" } },
           { status: 403 },
         ),
       );
@@ -513,9 +512,7 @@ describe("Better Auth guest bootstrap", () => {
       "Aomi guest sign-in failed with HTTP 503",
     );
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(String(fetchImpl.mock.calls[0]?.[0])).toContain(
-      "/api/auth/guest",
-    );
+    expect(String(fetchImpl.mock.calls[0]?.[0])).toContain("/api/auth/guest");
   });
 });
 

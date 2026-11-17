@@ -279,7 +279,7 @@ test("controlled delayed child activity follows inner layout growth without movi
       call_id: callId,
       agent_id: agentId,
       label: "Controlled child",
-      app: "default",
+      agent: "aomi/main",
       resumed: false,
     }),
     event("turn_state_changed", { state: "processing" }),
@@ -306,7 +306,7 @@ test("controlled delayed child activity follows inner layout growth without movi
     event("task_completed", {
       call_id: callId,
       agent_id: agentId,
-      app: "default",
+      agent: "aomi/main",
       status: "completed",
       message: "Child finished",
       staged_count: 0,

@@ -16,14 +16,14 @@ import {
 type LogRow = Record<string, any>;
 
 export type LogsPageFilter = {
-  app: string | null;
+  agent: string | null;
   tool: string | null;
   errorsOnly: boolean;
   paymentsOnly: boolean;
 };
 
 export const EMPTY_LOGS_PAGE_FILTER: LogsPageFilter = {
-  app: null,
+  agent: null,
   tool: null,
   errorsOnly: false,
   paymentsOnly: false,
@@ -102,7 +102,7 @@ function ExpandedDetail({ row }: { row: LogRow }) {
       <div className="text-dim text-xs lg:col-span-2">
         {row.retries ? `${row.retries} retries · ` : ""}
         {row.threadId ? `${row.threadId} · ` : ""}
-        {row.application}
+        {row.agent}
       </div>
     </div>
   );
@@ -181,7 +181,7 @@ function PaymentDetail({
 
 export function LogRows({
   rows,
-  apps,
+  agents,
   tools,
   filter,
   onFilterChange,
@@ -189,7 +189,7 @@ export function LogRows({
   onToggle,
 }: {
   rows: LogRow[];
-  apps: string[];
+  agents: string[];
   tools: string[];
   filter: LogsPageFilter;
   onFilterChange: (next: LogsPageFilter) => void;
@@ -197,7 +197,7 @@ export function LogRows({
   onToggle: (id: string | null) => void;
 }) {
   const visible = rows.filter((row) => {
-    if (filter.app && row.application !== filter.app) return false;
+    if (filter.agent && row.agent !== filter.agent) return false;
     if (filter.tool && (!isInvocation(row) || row.tool !== filter.tool))
       return false;
     if (filter.errorsOnly && statusOf(row) !== "error") return false;
@@ -205,23 +205,23 @@ export function LogRows({
     return true;
   });
   const active =
-    filter.app || filter.tool || filter.errorsOnly || filter.paymentsOnly;
+    filter.agent || filter.tool || filter.errorsOnly || filter.paymentsOnly;
 
   return (
     <div className="space-y-3">
       {/* Filter bar */}
       <div className="border-border bg-surface-subtle flex flex-wrap items-center gap-2 rounded-md border px-3 py-2">
         <select
-          value={filter.app ?? ""}
+          value={filter.agent ?? ""}
           onChange={(event) =>
-            onFilterChange({ ...filter, app: event.target.value || null })
+            onFilterChange({ ...filter, agent: event.target.value || null })
           }
           className={SELECT_CLS}
         >
-          <option value="">All apps</option>
-          {apps.map((app) => (
-            <option key={app} value={app}>
-              {app}
+          <option value="">All agents</option>
+          {agents.map((agent) => (
+            <option key={agent} value={agent}>
+              {agent}
             </option>
           ))}
         </select>
@@ -349,7 +349,7 @@ export function LogRows({
                   ) : null}
                 </span>
                 <span className="text-dim hidden truncate text-right sm:block">
-                  {row.application}
+                  {row.agent}
                 </span>
               </div>
               {open ? (

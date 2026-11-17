@@ -19,7 +19,7 @@ import type { AomiActiveWallet } from "../account/wallets";
 export type SendOptions = {
   regenerate?: string;
   edit?: string;
-  /** Private app credential for this message only; sent as a header, never in the intent. */
+  /** Private agent credential for this message only; sent as a header, never in the intent. */
   apiKey?: string;
 };
 
@@ -81,11 +81,7 @@ export type SessionOptions = {
   sessionId?: string;
   /** Typed execution target. Omission is Auto. */
   target?: AgentTarget;
-  /** @deprecated Use `target: { mode: "direct", app }`. */
-  app?: string;
   model?: string | null;
-  /** @deprecated Use `target: { mode: "direct", applicationId }`. */
-  applicationId?: number | string | null;
   getUserState?: () => UserState | undefined;
   /** Explicit account funding lane for inference execution. */
   clientId?: string;
@@ -96,11 +92,7 @@ export type SessionOptions = {
 export type SessionRuntimeOptions = {
   commits?: CommitCapabilities;
   target?: AgentTarget;
-  /** @deprecated Legacy Direct app selection. */
-  app?: string;
   model?: string | null;
-  /** @deprecated Legacy Direct hosted-app selection. */
-  applicationId?: number | string | null;
   clientId?: string;
   getUserState?: () => UserState | undefined;
   actions?: ActionCapabilities;

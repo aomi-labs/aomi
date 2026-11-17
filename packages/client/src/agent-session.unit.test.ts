@@ -225,7 +225,7 @@ describe("ClientSession Agent transport", () => {
     session.close();
   });
 
-  it("serializes Auto and Direct targets without rewriting legacy app callers", async () => {
+  it("serializes Auto and Direct targets without rewriting legacy agent callers", async () => {
     const api = client();
     const start = vi
       .spyOn(api.agent, "start")
@@ -243,28 +243,15 @@ describe("ClientSession Agent transport", () => {
         expected: { mode: "direct" },
       },
       {
-        options: { target: { mode: "direct" as const, app: "  " } },
-        expected: { mode: "direct" },
-      },
-      {
-        options: { target: { mode: "direct" as const, applicationId: 42 } },
-        expected: { mode: "direct", applicationId: 42 },
-      },
-      {
-        options: { target: { mode: "direct" as const, app: "zerox" } },
-        expected: { mode: "direct", app: "zerox" },
-      },
-      {
         options: {
-          target: {
-            mode: "direct" as const,
-            applicationId: 42,
-            app: "partner",
-          },
+          target: { mode: "direct" as const, agent: "partner/venue" },
         },
-        expected: { mode: "direct", applicationId: 42, app: "partner" },
+        expected: { mode: "direct", agent: "partner/venue" },
       },
-      { options: { app: "legacy" }, expected: { app: "legacy" } },
+      {
+        options: { target: { mode: "auto" as const, agent: "partner/venue" } },
+        expected: { mode: "auto", agent: "partner/venue" },
+      },
     ];
 
     for (const [index, testCase] of cases.entries()) {
@@ -283,29 +270,12 @@ describe("ClientSession Agent transport", () => {
     }
   });
 
-  it("rejects ambiguous or invalid Direct session targets before transport", () => {
-    const api = client();
-    expect(
-      () =>
-        new Session(api, {
-          target: { mode: "auto" },
-          app: "legacy",
-        }),
-    ).toThrow("target cannot be combined");
-    expect(
-      () =>
-        new Session(api, {
-          target: { mode: "direct", applicationId: 0 },
-        }),
-    ).toThrow("Direct applicationId must be a positive integer");
-  });
-
-  it("clears a prior app identity when switching to the default Direct runtime", async () => {
+  it("clears a prior agent identity when switching to the default Direct runtime", async () => {
     const api = client();
     const start = vi.spyOn(api.agent, "start").mockResolvedValue(page());
     const session = new Session(api, {
       sessionId: "session-agent",
-      target: { mode: "direct", applicationId: 42, app: "partner" },
+      target: { mode: "direct", agent: "partner/venue" },
     });
     session.syncRuntimeOptions({ target: { mode: "direct" } });
     await session.sendAsync("hello");
@@ -343,7 +313,7 @@ describe("ClientSession Agent transport", () => {
     );
     const session = new Session(api, {
       sessionId: "session-agent",
-      app: "default",
+      target: { mode: "direct", agent: "aomi/main" },
     });
     const snapshots: number[][] = [];
     const unsubscribe = session.subscribe(() => {
@@ -366,7 +336,8 @@ describe("ClientSession Agent transport", () => {
       expect.objectContaining({
         sessionId: "session-agent",
         message: "hello",
-        app: "default",
+        mode: "direct",
+        agent: "aomi/main",
       }),
       { idempotencyKey: expect.stringMatching(/^idem_[a-f0-9]{32}$/) },
     );
@@ -698,7 +669,7 @@ describe("ClientSession Agent transport", () => {
   });
 });
 
-it("sends a message's app key only in its header and never on later messages", async () => {
+it("sends a message's agent key only in its header and never on later messages", async () => {
   const calls: RequestInit[] = [];
   const api = new AomiClient({
     baseUrl: "https://portal.example",
@@ -716,19 +687,23 @@ it("sends a message's app key only in its header and never on later messages", a
   });
   const session = new Session(api, {
     sessionId: "keys",
-    target: { mode: "direct", applicationId: 7 },
+    target: { mode: "direct", agent: "partner/one" },
   });
   await session.sendAsync("one", { apiKey: "key-one" });
-  session.syncRuntimeOptions({ target: { mode: "direct", applicationId: 8 } });
+  session.syncRuntimeOptions({
+    target: { mode: "direct", agent: "partner/two" },
+  });
   await session.sendAsync("two", { apiKey: "key-two" });
   session.syncRuntimeOptions({ target: { mode: "auto" } });
   await session.sendAsync("public");
   expect(
-    calls.map((call) => new Headers(call.headers).get("aomi-app-key")),
+    calls.map((call) => new Headers(call.headers).get("aomi-agent-key")),
   ).toEqual(["key-one", "key-two", null]);
-  expect(
-    calls.map((call) => JSON.parse(call.body as string).applicationId),
-  ).toEqual([7, 8, undefined]);
+  expect(calls.map((call) => JSON.parse(call.body as string).agent)).toEqual([
+    "partner/one",
+    "partner/two",
+    undefined,
+  ]);
   expect(calls.map((call) => call.body).join("")).not.toContain("key-one");
   await session.close();
 });

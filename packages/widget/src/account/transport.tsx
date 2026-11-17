@@ -19,7 +19,7 @@ import { useWidgetStorage } from "../lib/widget-storage";
 
 /**
  * The account shell's one `Aomi`: the configured Portal origin and, embedded,
- * the wallet credential. Public reads (catalogs, an App key lookup) go
+ * the wallet credential. Public reads (catalogs, an Agent key lookup) go
  * credential-free and never ask for that credential.
  */
 export function createShellTransport(

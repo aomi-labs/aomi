@@ -48,7 +48,12 @@ export function MarketingNav() {
   return (
     <header ref={rootRef} className={styles.navDock}>
       <nav className={styles.navPill} aria-label="Primary">
-        <Link to="/" reloadDocument className={styles.navBrand} aria-label="Aomi home">
+        <Link
+          to="/"
+          reloadDocument
+          className={styles.navBrand}
+          aria-label="Aomi home"
+        >
           <AomiLogo
             className={styles.navLogo}
             markClassName={styles.navLogoMark}
@@ -107,8 +112,8 @@ export function MarketingNav() {
           <a href="https://build.aomi.dev" className={styles.navConsole}>
             Console
           </a>
-          <a href="https://aomi.chat" className={styles.navApp}>
-            App <span aria-hidden>→</span>
+          <a href="https://aomi.chat" className={styles.navAgent}>
+            Agent <span aria-hidden>→</span>
           </a>
         </div>
 

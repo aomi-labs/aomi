@@ -1,4 +1,4 @@
-import {Link} from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { Children, isValidElement, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -9,10 +9,13 @@ type Props = { post: ResearchPost & { body: string } };
 
 const sections = [
   ["intent-build-sign-settle", "Intent → build → sign → settle"],
-  ["the-risk-landscape-attacks-vs-defects", "The risk landscape: attacks vs defects"],
+  [
+    "the-risk-landscape-attacks-vs-defects",
+    "The risk landscape: attacks vs defects",
+  ],
   ["a-gate-is-defined-by-its-enforcement-point", "The enforcement map"],
   [
-    "gate-0-5-runtime-controls-remain-inside-the-application-boundary",
+    "gate-0-5-runtime-controls-remain-inside-the-agent-boundary",
     "0.5 / Runtime controls",
   ],
   [
@@ -93,7 +96,10 @@ const components: Components = {
     />
   ),
   a: ({ href, children }) => (
-    <a href={href} rel={href?.startsWith("http") ? "noopener noreferrer" : undefined}>
+    <a
+      href={href}
+      rel={href?.startsWith("http") ? "noopener noreferrer" : undefined}
+    >
       {children}
     </a>
   ),
@@ -142,8 +148,8 @@ export function ThreeGatesResearch({ post }: Props) {
           <span>Abstract</span>
           <p>
             Agentic finance relies on multiple security controls between user
-            authorization and onchain settlement. Two failure classes define
-            the problem. Adversarial attacks corrupt intent, observed state or
+            authorization and onchain settlement. Two failure classes define the
+            problem. Adversarial attacks corrupt intent, observed state or
             transaction handling. Capability defects produce incorrect
             transactions without hostile input. Gates can constrain unsafe
             outcomes from either class, while the model and execution harness
@@ -155,12 +161,12 @@ export function ThreeGatesResearch({ post }: Props) {
           <span className={styles.findingsLabel}>Key findings</span>
           <ul>
             <li>
-              Runtime controls improve transaction construction and enforce local
-              policy, but remain inside the application trust boundary.
+              Runtime controls improve transaction construction and enforce
+              local policy, but remain inside the agent trust boundary.
             </li>
             <li>
-              A wallet becomes an independent gate only when the application
-              cannot relax its policy or bypass its signing route.
+              A wallet becomes an independent gate only when the agent cannot
+              relax its policy or bypass its signing route.
             </li>
             <li>
               Onchain mandates provide authoritative enforcement only for the

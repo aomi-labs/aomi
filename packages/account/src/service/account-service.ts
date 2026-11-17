@@ -73,7 +73,7 @@ const NON_EXPIRING_IDENTITY_EXPIRES_AT = Number.MAX_SAFE_INTEGER;
 
 export async function ensureAccountSchema(): Promise<void> {
   if (!accountSchemaReady) {
-    accountSchemaReady = runAomiAuthSchema(getPool()).catch((error) => {
+    accountSchemaReady = runAomiAuthSchema().catch((error) => {
       accountSchemaReady = null;
       throw error;
     });

@@ -61,7 +61,7 @@ const body = (extra: object = {}) => ({
   wallet_name: WALLET.name,
   revision: 3,
   rules: {
-    apps: ["jupiter", "kamino"],
+    protocols: ["jupiter", "kamino"],
     limits: [{ asset: USDC, amount: "200000000", symbol: "USDC", decimals: 6 }],
     not_after: 1795219200,
     owner_only: true,
@@ -90,7 +90,7 @@ const provider = (extra: object = {}) => ({
   name: "Vault",
   network: "solana:mainnet-beta",
   state: "off",
-  covers: { apps: [], limits: [], not_after: false, owner_only: false },
+  covers: { protocols: [], limits: [], not_after: false, owner_only: false },
   left: {},
   note: null,
   ready: true,
@@ -102,7 +102,7 @@ const enforcementRow = () =>
   document.querySelector("[data-rule-enforcement]") as HTMLElement;
 
 const catalog = {
-  apps: [
+  protocols: [
     { id: "jupiter", label: "Jupiter", chains: ["solana:mainnet-beta"] },
     { id: "kamino", label: "Kamino", chains: ["solana:mainnet-beta"] },
     { id: "uniswap", label: "Uniswap", chains: ["eip155:1", "eip155:8453"] },
@@ -168,7 +168,12 @@ async function renderRules() {
   });
   return screen.findByRole("region", { name: "Rules" });
 }
-const NO_RULES = { apps: null, limits: [], not_after: null, owner_only: false };
+const NO_RULES = {
+  protocols: null,
+  limits: [],
+  not_after: null,
+  owner_only: false,
+};
 const sentRules = (index: number) =>
   (writes()[index]!.body as { rules: AomiRuleSet }).rules;
 const row = (kind: string) =>
@@ -210,7 +215,7 @@ describe("Wallet rules", () => {
   it("shows each rule as a sentence with its control, today's use and the admin", async () => {
     const section = await renderRules();
     expect(within(section).getByText("Enforced by Aomi")).toBeTruthy();
-    expect(row("apps")).toHaveTextContent("Can use Jupiter, Kamino");
+    expect(row("protocols")).toHaveTextContent("Can use Jupiter, Kamino");
     const cap = document.querySelector(`[data-asset="${USDC}"]`) as HTMLElement;
     expect(cap).toHaveTextContent("Up to 200 USDC a day");
     expect(within(cap).getByText("Base")).toBeTruthy();
@@ -249,7 +254,7 @@ describe("Wallet rules", () => {
     expect(writes()).toEqual([]);
   });
 
-  it("keeps the usage bar neutral under 80% and says when the agent stopped the wallet", async () => {
+  it("keeps the usage bar neutral under 80% and says when the protocol stopped the wallet", async () => {
     rules = body({
       stopped_until: 1795046400,
       usage: [{ ...body().usage[0], used: "100000000" }],
@@ -346,10 +351,10 @@ describe("Wallet rules", () => {
         ? refused("unavailable", 503)
         : undefined;
     await renderRules();
-    fireEvent.click(screen.getByRole("button", { name: "App" }));
-    const picker = screen.getByRole("group", { name: "Allowed apps" });
-    // The rule's own apps stay removable; nothing claims to be loading.
-    expect(screen.queryByText("Loading apps…")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Protocol" }));
+    const picker = screen.getByRole("group", { name: "Allowed protocols" });
+    // The rule's own protocols stay removable; nothing claims to be loading.
+    expect(screen.queryByText("Loading protocols…")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Limit" }));
     const limit = screen.getByRole("group", { name: "New limit" });
     expect(
@@ -434,7 +439,7 @@ describe("Wallet rules", () => {
       path: "/v1/account/agent-wallets/g-trading/rules",
       body: {
         rules: {
-          apps: ["jupiter", "kamino"],
+          protocols: ["jupiter", "kamino"],
           limits: [{ asset: USDC, amount: "100000000" }],
           not_after: 1795219200,
           owner_only: true,
@@ -489,7 +494,7 @@ describe("Wallet rules", () => {
     ).toHaveValue("400");
   });
 
-  it("shows a change the agent filed as a banner, then Review or Decline", async () => {
+  it("shows a change the protocol filed as a banner, then Review or Decline", async () => {
     rules = body({
       pending: change({ proposed_by: "agent:telegram:7712345678" }),
     });
@@ -675,9 +680,9 @@ describe("Wallet rules", () => {
         "No rules. This wallet follows only who approves trades.",
       ),
     ).toBeTruthy();
-    expect(row("apps")).toBeNull();
+    expect(row("protocols")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Set rules" }));
-    expect(row("apps")).toHaveTextContent("Can use any app");
+    expect(row("protocols")).toHaveTextContent("Can use any protocol");
     expect(row("not_after")).toHaveTextContent("No end date");
     expect(row("owner_only")).toHaveTextContent("Sends to any address");
     expect(screen.getByText("No limits. Any token can be spent.")).toBeTruthy();
@@ -704,14 +709,14 @@ describe("Wallet rules", () => {
     );
   });
 
-  it("says an app list already keeps sends to the owner's wallets", async () => {
+  it("says a protocol list already keeps sends to the owner's wallets", async () => {
     rules = body({
-      rules: { ...NO_RULES, apps: ["jupiter"] },
+      rules: { ...NO_RULES, protocols: ["jupiter"] },
       usage: [],
     });
     await renderRules();
     expect(row("owner_only")).toHaveTextContent("Sends only to your wallets");
-    expect(row("owner_only")).toHaveTextContent("With an app list");
+    expect(row("owner_only")).toHaveTextContent("With a protocol list");
     const toggle = screen.getByRole("switch", {
       name: "Sends only to your wallets",
     });
@@ -728,7 +733,7 @@ describe("Wallet rules", () => {
   it("says who checks each rule once a provider is on, and what the chain has left", async () => {
     rules = body({
       rules: {
-        apps: ["jupiter", "uniswap"],
+        protocols: ["jupiter", "uniswap"],
         limits: [
           { asset: SOL, amount: "500000000", symbol: "SOL", decimals: 9 },
           { asset: USDC, amount: "200000000", symbol: "USDC", decimals: 6 },
@@ -742,7 +747,7 @@ describe("Wallet rules", () => {
           state: "on",
           ready: false,
           covers: {
-            apps: ["jupiter"],
+            protocols: ["jupiter"],
             limits: [SOL],
             not_after: false,
             owner_only: false,
@@ -757,7 +762,7 @@ describe("Wallet rules", () => {
     expect(within(section).getByText("Enforced by Aomi + Vault")).toBeTruthy();
     const checkedBy = (element: Element) =>
       element.querySelector("[data-checked-by]")?.textContent;
-    expect(checkedBy(row("apps"))).toBe("Aomi + Vault");
+    expect(checkedBy(row("protocols"))).toBe("Aomi + Vault");
     const sol = document.querySelector(`[data-asset="${SOL}"]`)!;
     expect(checkedBy(sol)).toBe("Aomi + Vault");
     expect(sol).toHaveTextContent("0.3 left on Vault");
@@ -1014,7 +1019,7 @@ describe("Wallet rules", () => {
       });
       rules = body({
         pending: change({
-          lines: [{ text: "Can use any app", loosens: true }],
+          lines: [{ text: "Can use any protocol", loosens: true }],
         }),
       });
       return Response.json({ status: "waiting", rules });
@@ -1023,8 +1028,8 @@ describe("Wallet rules", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Use Only my wallets" }),
     );
-    expect(await screen.findByText("Can use any app")).toBeTruthy();
-    expect(rules.rules.apps).toEqual(["jupiter", "kamino"]);
+    expect(await screen.findByText("Can use any protocol")).toBeTruthy();
+    expect(rules.rules.protocols).toEqual(["jupiter", "kamino"]);
   });
 
   it("adds a limit for a catalog token in human units", async () => {
@@ -1050,16 +1055,18 @@ describe("Wallet rules", () => {
     ]);
   });
 
-  it("picks apps from the catalog, several at once, and removes one", async () => {
+  it("picks protocols from the catalog, several at once, and removes one", async () => {
     await renderRules();
-    fireEvent.click(screen.getByRole("button", { name: "App" }));
-    const picker = screen.getByRole("group", { name: "Allowed apps" });
+    fireEvent.click(screen.getByRole("button", { name: "Protocol" }));
+    const picker = screen.getByRole("group", { name: "Allowed protocols" });
     expect(within(picker).getByLabelText("Jupiter")).toBeChecked();
     fireEvent.click(within(picker).getByLabelText("Uniswap"));
     fireEvent.click(within(picker).getByLabelText("Kamino"));
-    fireEvent.click(within(picker).getByRole("button", { name: "Save apps" }));
+    fireEvent.click(
+      within(picker).getByRole("button", { name: "Save protocols" }),
+    );
     await waitFor(() => expect(writes()).toHaveLength(1));
-    expect(sentRules(0).apps).toEqual(["jupiter", "uniswap"]);
+    expect(sentRules(0).protocols).toEqual(["jupiter", "uniswap"]);
   });
 
   it("moves the end date and removes it", async () => {
@@ -1074,7 +1081,7 @@ describe("Wallet rules", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove end date" }));
     await waitFor(() => expect(writes()).toHaveLength(2));
     expect(sentRules(1)).toEqual({
-      apps: ["jupiter", "kamino"],
+      protocols: ["jupiter", "kamino"],
       limits: [{ asset: USDC, amount: "200000000" }],
       not_after: null,
       owner_only: true,

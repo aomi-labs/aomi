@@ -37,7 +37,7 @@ export function TradingPage() {
           <div className={styles.integrationScreen}>
             <img
               src="/assets/landing/solutions/trading/aomi-build-integrations.png"
-              alt="Aomi Build Integrations screen showing Telegram setup, BotFather commands, and an attached app"
+              alt="Aomi Build Integrations screen showing Telegram setup, BotFather commands, and an attached agent"
               width={2328}
               height={1964}
               loading="eager"

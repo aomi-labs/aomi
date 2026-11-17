@@ -177,7 +177,7 @@ export class Thread {
     private readonly agent: AgentTransport,
   ) {}
 
-  /** Send `text`; `options` pick the app, model and wallet state for this turn. */
+  /** Send `text`; `options` pick the toolset, model and wallet state for this turn. */
   send(text: string, options?: Omit<AgentRunOptions, "sessionId">): Turn {
     return new Turn(this.start(text, this.id, options), this.open);
   }

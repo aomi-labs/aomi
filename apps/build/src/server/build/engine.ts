@@ -15,7 +15,7 @@ import {
   readRunView,
   requestRunCancel,
   resolveRunBackend,
-  sanitizeAppName,
+  sanitizePackageName,
   stageKeyForNode,
   stagesFor,
   type AomiSmitherApi,
@@ -32,7 +32,7 @@ import {
 } from "./run-view";
 import {
   findRunById,
-  findRunByOwnerApp,
+  findRunByOwnerPackage,
   registerRun,
   updateRun,
   type BuildRunRecord,
@@ -75,9 +75,9 @@ function identifyEngineFailure(
  * In-process aomi-smither engine behind the /build page.
  *
  * Durable run state lives in the backend `resolveRunBackend` picks (postgres
- * via SMITHER_DATABASE_URL, else an embedded PGlite dir per app), so a server
+ * via SMITHER_DATABASE_URL, else an embedded PGlite dir per package), so a server
  * restart loses only this in-memory registry, not the run — re-creating the
- * same app resumes it. The registry itself is process-local: on multi-instance
+ * same package resumes it. The registry itself is process-local: on multi-instance
  * deployments, polling must reach the instance that executes the run (pin the
  * Build server to one instance, or move execution into a sandbox provider — v2).
  *
@@ -99,7 +99,7 @@ type EngineEvent = {
 
 type RunHandle = {
   runId: string;
-  app: string;
+  packageName: string;
   /** GitHub login that owns this run ("dev" in anonymous local mode). */
   owner: string;
   plan: BuildPlan;
@@ -122,8 +122,8 @@ type RunHandle = {
 
 type Registry = {
   byRunId: Map<string, RunHandle>;
-  byApp: Map<string, RunHandle>;
-  /** One open store handle per app — the embedded PGlite backend cannot be
+  byPackage: Map<string, RunHandle>;
+  /** One open store handle per package — the embedded PGlite backend cannot be
    *  opened twice on one dataDir in a process. */
   apis: Map<string, Promise<AomiSmitherApi>>;
 };
@@ -134,26 +134,26 @@ function registry(): Registry {
   const holder = globalThis as { [REGISTRY_KEY]?: Registry };
   holder[REGISTRY_KEY] ??= {
     byRunId: new Map(),
-    byApp: new Map(),
+    byPackage: new Map(),
     apis: new Map(),
   };
   return holder[REGISTRY_KEY];
 }
 
-function apiFor(app: string): Promise<AomiSmitherApi> {
+function apiFor(packageName: string): Promise<AomiSmitherApi> {
   const { apis } = registry();
-  let api = apis.get(app);
+  let api = apis.get(packageName);
   if (!api) {
     api = (async () => {
-      const backend = resolveRunBackend(app, { runsRoot: runsRoot() });
+      const backend = resolveRunBackend(packageName, { runsRoot: runsRoot() });
       if (backend.kind === "pglite") {
         // PGlite's Node filesystem creates only its final directory.
         await mkdir(backend.dataDir, { recursive: true });
       }
       return createAomiSmither(backend);
     })();
-    api.catch(() => apis.delete(app));
-    apis.set(app, api);
+    api.catch(() => apis.delete(packageName));
+    apis.set(packageName, api);
   }
   return api;
 }
@@ -186,8 +186,8 @@ function runsRoot(): string {
 }
 
 /** Package-name slug from a free-text prompt, e.g. "Hyperliquid & Binance
- *  arb bot" → "hyperliquid-binance-arb-bot". */
-export function appSlugFromPrompt(prompt: string): string {
+ *  arb agent" → "hyperliquid-binance-arb-agent". */
+export function packageSlugFromPrompt(prompt: string): string {
   const slug = prompt
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -196,7 +196,7 @@ export function appSlugFromPrompt(prompt: string): string {
     .filter(Boolean)
     .slice(0, 5)
     .join("-");
-  return slug || "aomi-app";
+  return slug || "aomi-package";
 }
 
 function pushLine(handle: RunHandle, line: string) {
@@ -355,26 +355,26 @@ function execute(handle: RunHandle, prepared: PreparedRun) {
     });
 }
 
-/** The BuildPlan for an app — deterministic given (app, story), so observer
+/** The BuildPlan for a package — deterministic given (package, story), so observer
  *  processes can recompose the identical stage shape without the original
  *  request (the story only flavors agent prompts). `sdkRootOverride` targets
  *  a filesystem this process can't see (the sandbox image); spec detection
  *  is skipped there, so remote runs always go through discovery for now. */
 function composePlan(
-  app: string,
+  packageName: string,
   userStory: string,
   autoApprove = true,
   sdkRootOverride?: string,
   builder: "claude" | "codex" | "none" = "claude",
 ): BuildPlan {
   const root = sdkRootOverride ?? sdkRoot();
-  // An app that already carries a discovered/curated spec resumes idempotently
-  // (gen-* keeps curated projects); a fresh app goes through spec discovery.
+  // A package that already carries a discovered/curated spec resumes idempotently
+  // (gen-* keeps curated projects); a fresh package goes through spec discovery.
   const hasSpec = sdkRootOverride
     ? false
-    : existsSync(path.join(root, "apps", app, "openapi.yaml"));
+    : existsSync(path.join(root, "packages", packageName, "openapi.yaml"));
   const { plan, issues } = finalizePlan({
-    app,
+    packageName: packageName,
     sdkRoot: root,
     source: hasSpec ? "existing" : "discover",
     userStory,
@@ -395,15 +395,16 @@ function composePlan(
 export async function startBuildRun(options: {
   prompt: string;
   owner: string;
-  app?: string;
+  packageName?: string;
   autoApprove?: boolean;
   builder?: "claude" | "codex" | "none";
 }): Promise<RunHandle> {
-  const app = options.app ?? appSlugFromPrompt(options.prompt);
-  const api = await apiFor(app);
-  // Identity lives in the registry: (owner, app) → run. Alice's arb-bot and
-  // Bob's arb-bot are distinct rows, distinct runs, distinct sandboxes.
-  const record = await findRunByOwnerApp(api, options.owner, app);
+  const packageName =
+    options.packageName ?? packageSlugFromPrompt(options.prompt);
+  const api = await apiFor(packageName);
+  // Identity lives in the registry: (owner, package) → run. Alice's arb-agent and
+  // Bob's arb-agent are distinct rows, distinct runs, distinct sandboxes.
+  const record = await findRunByOwnerPackage(api, options.owner, packageName);
 
   const inMemory = record && registry().byRunId.get(record.runId);
   if (
@@ -443,27 +444,28 @@ export async function startBuildRun(options: {
 
   if (runnerKind() === "vercel-sandbox") {
     // The BFF composes and registers; the sandbox executes. Re-creating a
-    // settled app reuses its run id so run-plan resumes from store state.
+    // settled package reuses its run id so run-plan resumes from store state.
     const config = sandboxRunnerConfig();
     const plan = composePlan(
-      app,
+      packageName,
       options.prompt,
       options.autoApprove ?? true,
       config.sdkRoot,
       options.builder,
     );
     const runId =
-      record?.runId ?? `smither-${sanitizeAppName(app)}-${crypto.randomUUID()}`;
+      record?.runId ??
+      `smither-${sanitizePackageName(packageName)}-${crypto.randomUUID()}`;
     const dispatch = await dispatchSandboxRun({
       planJson: JSON.stringify(plan),
-      app,
+      packageName,
       runId,
       config,
       sidecarPublicKeyPem: sidecarVerifierPublicKeyPem(),
     });
     handle = {
       runId,
-      app,
+      packageName,
       owner: options.owner,
       plan,
       api,
@@ -481,7 +483,7 @@ export async function startBuildRun(options: {
     await registerRun(api, {
       runId,
       ownerLogin: options.owner,
-      app,
+      packageName,
       runner: "vercel-sandbox",
       status: "running",
       sandboxId: dispatch.sandbox.sandboxId,
@@ -492,7 +494,7 @@ export async function startBuildRun(options: {
     ensureSupervisorInterval();
   } else {
     const plan = composePlan(
-      app,
+      packageName,
       options.prompt,
       options.autoApprove ?? true,
       undefined,
@@ -506,7 +508,7 @@ export async function startBuildRun(options: {
     });
     handle = {
       runId: prepared.runId,
-      app,
+      packageName,
       owner: options.owner,
       plan,
       api: prepared.api,
@@ -524,7 +526,7 @@ export async function startBuildRun(options: {
     await registerRun(api, {
       runId: prepared.runId,
       ownerLogin: options.owner,
-      app,
+      packageName,
       runner: "local",
       status: "running",
       sandboxId: "",
@@ -535,7 +537,7 @@ export async function startBuildRun(options: {
   }
 
   registry().byRunId.set(handle.runId, handle);
-  registry().byApp.set(app, handle);
+  registry().byPackage.set(packageName, handle);
   return handle;
 }
 
@@ -595,19 +597,23 @@ const MAX_SERVED_FILE_BYTES = 256 * 1024;
  * One file of the generated crate, from the freshest available source:
  * local disk (local runner) → live sidecar (sandbox mid-run) → the store's
  * embedded tarball (after the sandbox is gone). Paths use the display shape
- * ("<app>/src/tool.rs"). Null = not found anywhere.
+ * ("<package>/src/tool.rs"). Null = not found anywhere.
  */
 export async function readRunFile(
   handle: RunHandle,
   relPath: string,
 ): Promise<Buffer | null> {
-  const prefix = `${handle.app}/`;
+  const prefix = `${handle.packageName}/`;
   if (!relPath.startsWith(prefix)) return null;
   // Local disk, path-jailed.
-  const appDir = path.join(handle.plan.sdkRoot, "apps", handle.app);
-  const resolved = path.resolve(appDir, relPath.slice(prefix.length));
+  const packageDir = path.join(
+    handle.plan.sdkRoot,
+    "packages",
+    handle.packageName,
+  );
+  const resolved = path.resolve(packageDir, relPath.slice(prefix.length));
   if (
-    (resolved === appDir || resolved.startsWith(appDir + path.sep)) &&
+    (resolved === packageDir || resolved.startsWith(packageDir + path.sep)) &&
     existsSync(resolved)
   ) {
     const { readFileSync, statSync } = await import("node:fs");
@@ -675,7 +681,7 @@ function planFromRecord(record: BuildRunRecord): BuildPlan {
     );
     // Fall through to recomposition.
   }
-  return composePlan(record.app, "observed run");
+  return composePlan(record.packageName, "observed run");
 }
 
 /** Handle that observes a run without executing it (used for runs another
@@ -689,7 +695,7 @@ async function observerHandle(
   const now = new Date().toISOString();
   const handle: RunHandle = {
     runId: record.runId,
-    app: record.app,
+    packageName: record.packageName,
     owner: record.ownerLogin,
     plan: planFromRecord(record),
     api,
@@ -715,11 +721,12 @@ export async function reconstructBuildRun(
   runId: string,
 ): Promise<RunHandle | undefined> {
   // Registry rows are keyed by run id but the api connection is keyed by
-  // app, which we don't know yet — parse the id for the app either way.
-  const app = RUN_ID.exec(runId)?.[1];
-  if (!app || sanitizeAppName(app) !== app) return undefined;
+  // package, which we don't know yet — parse the id for the package either way.
+  const packageName = RUN_ID.exec(runId)?.[1];
+  if (!packageName || sanitizePackageName(packageName) !== packageName)
+    return undefined;
   try {
-    const api = await apiFor(app);
+    const api = await apiFor(packageName);
     const record = await findRunById(api, runId);
     if (record) return await observerHandle(record, api);
     const view = await readRunView(api, runId);
@@ -727,9 +734,9 @@ export async function reconstructBuildRun(
     const now = new Date().toISOString();
     const handle: RunHandle = {
       runId,
-      app,
+      packageName,
       owner: "unknown",
-      plan: composePlan(app, "observed run"),
+      plan: composePlan(packageName, "observed run"),
       api,
       status: runStatusFromView(view.status) ?? "running",
       stageStatus: {},
@@ -827,12 +834,12 @@ export async function snapshotBuildRun(
   // back to the artifact persisted by the result phase — the only source for
   // sandbox runs, whose filesystem this process never sees.
   const codegenDone =
-    stageStatus[`${handle.app}:codegen`] === "complete" ||
+    stageStatus[`${handle.packageName}:codegen`] === "complete" ||
     status === "completed";
   let fileTree = codegenDone
     ? crateFileTree(
-        path.join(handle.plan.sdkRoot, "apps", handle.app),
-        handle.app,
+        path.join(handle.plan.sdkRoot, "packages", handle.packageName),
+        handle.packageName,
       )
     : [];
   if (fileTree.length === 0) {
@@ -840,7 +847,7 @@ export async function snapshotBuildRun(
   }
   return {
     runId: handle.runId,
-    app: handle.app,
+    packageName: handle.packageName,
     status,
     stages,
     approvals: handle.approvals,

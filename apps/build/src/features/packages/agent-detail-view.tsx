@@ -21,7 +21,7 @@ import {
 type Config = NonNullable<Agent["live"]>["config"];
 
 const CHANNEL_KIND: Record<string, string> = {
-  telegram: "Telegram bot",
+  telegram: "Telegram channel",
   widget: "Widget",
   page: "Page",
   api: "API",
@@ -32,9 +32,9 @@ function StatusNotice({ agent, name }: { agent: Agent; name: string }) {
   if (status === "needs_rebuild")
     return (
       <Notice>
-        Needs a rebuild: this agent was carried over from an app and its
-        packages have no live release yet. Publish the packages and the agent
-        from your repo with{" "}
+        Needs a rebuild: this agent was carried over from an earlier deployment
+        and its packages have no live release yet. Publish the packages and the
+        agent from your repo with{" "}
         <code className="font-mono">aomi publish --agent {name}</code>, then
         promote them.
       </Notice>

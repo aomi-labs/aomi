@@ -31,7 +31,7 @@ export type AomiClientOptions = {
   baseUrl: string;
   /** Optional fetch implementation for payment-aware browser transports and tests. */
   fetch?: typeof fetch;
-  /** App key sent as `Aomi-App-Key`. Only private Apps need one; the App owner issues it. */
+  /** Agent key sent as `Aomi-Agent-Key`. Only private Agents need one; the Agent owner issues it. */
   apiKey?: string;
   /** Optional x402 signer used by the bounded payment retry transport. */
   x402?: x402Client | x402HTTPClient;
@@ -78,9 +78,6 @@ export type AomiRequestQueryValue =
 
 export type AomiPlatformFilter = string | readonly string[] | null | undefined;
 
-/** Stable id of a hosted app; null/empty means "not app-scoped". */
-export type ApplicationId = number | string | null;
-
 export type AomiHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export interface AomiRequestOptions {
@@ -88,7 +85,7 @@ export interface AomiRequestOptions {
   signal?: AbortSignal;
   /** Thread id for thread-scoped routes. Kept as sessionId for SDK compatibility. */
   sessionId?: string;
-  /** App key for app-key checked routes; defaults to the client's apiKey. */
+  /** Agent key for agent-key checked routes; defaults to the client's apiKey. */
   apiKey?: string;
   /** Query params appended to the request URL. */
   query?: Record<string, AomiRequestQueryValue>;
@@ -186,9 +183,9 @@ export type AomiAccountResponse = AomiAccountProfile;
 export interface AomiUser {
   user_id: string;
   username: string | null;
-  apps: string[];
-  /** Exact hosted application rows installed by this account. */
-  application_ids?: number[];
+  agents: string[];
+  /** Exact hosted agent rows installed by this account. */
+  agent_ids?: number[];
   tier: "anon" | "free" | "pro";
   verified_email: string | null;
   status: string;
@@ -347,20 +344,12 @@ export interface AomiDeleteSecretResponse {
 
 /**
  * GET /v1/account/keys
- * Per-app slot names currently filled for the session's client. The
+ * Client slot names currently filled for the session's client. The
  * backend never returns raw values; only the names.
  */
 export interface AomiListSecretsResponse {
   /** Client-scoped handle names (`BYOK:*`, `PAYMENT:*`). */
   names?: string[];
-  /**
-   * Retired. Per-user app-scoped secrets no longer exist — an application's
-   * Environment belongs to its Builder. A backend that predates that change
-   * still answers with this shape, and the one that follows it sends an empty
-   * object for a release so pre-deploy browser tabs do not throw, so keep
-   * reading it until every deployed backend is past the cutover.
-   */
-  by_app?: Record<string, string[]>;
 }
 
 /** Why a package is on or off for the next turn (`GET /api/account/packages`). */
@@ -438,50 +427,24 @@ export interface AomiPackageSecretStatus {
   status: "ready" | "missing";
 }
 
-/**
- * One per-app secret slot declared by a plugin manifest. Surfaced via
- * `AomiAppDescriptor.secrets` so the frontend can render input rows and
- * gate app load on `required` slots being filled.
- */
-export interface AomiSecretSlot {
+/** A builtin tool surface available to the thread. */
+export interface ToolsetCard {
   name: string;
-  description: string;
-  required: boolean;
-  /** Whether each signed-in user supplies their own value. Missing means false. */
-  user_own?: boolean;
+  display_name: string;
 }
 
-/** Hosted application artifact availability reported by the backend catalog. */
-export type AomiArtifactStatus = "ready" | "pending" | "fetch_backoff";
+/** The one live hosted agent resolved by an agent key. */
+export interface AgentCard {
+  agent_id: number;
+  agent: string;
+  display_name: string;
+  metadata: Record<string, unknown>;
+}
 
-/**
- * GET /api/thread/apps
- * One entry per app the user can use. `secrets` is empty for apps that
- * declare no slots.
- */
-export interface AomiAppDescriptor {
-  name: string;
-  /** Backend-owned Library taxonomy. Empty means the "More" fallback. */
-  featureCatalog?: AomiFeatureCategory[];
-  /** Backend-controlled registration metadata used to identify official apps. */
-  metadata?: {
-    [key: string]: unknown;
-    fundedModelOnly?: boolean;
-    sponsoredModelIds?: string[];
-  } | null;
-  applicationId?: number | string | null;
-  platform?: string | null;
-  label?: string | null;
-  appReleaseTag?: string | null;
-  isActive?: boolean | null;
-  isPublic?: boolean | null;
-  /** Exact installed state for this application row. */
-  isInstalled?: boolean | null;
-  artifactReady?: boolean | null;
-  artifactStatus?: AomiArtifactStatus | null;
-  secrets?: AomiSecretSlot[];
-  /** Exact EVM chain IDs declared by the official app release. */
-  chainIds?: number[];
+/** Account- and thread-scoped catalog, including effective Library state. */
+export interface ThreadCatalog {
+  toolsets: ToolsetCard[];
+  packages: AomiPackage[];
 }
 
 export type AomiFeatureCategory =

@@ -17,17 +17,17 @@ export const buildQueryKeys = {
       kind,
       projectId ?? "all",
     ] as const,
-  applicationDetail: (account: string, applicationId: number) =>
+  agentDetail: (account: string, agentId: number) =>
     [
       ...buildQueryKeys.all,
       "account",
       account,
       "operate",
       "observability-detail",
-      applicationId,
+      agentId,
     ] as const,
-  bots: (account: string) =>
-    [...buildQueryKeys.all, "account", account, "bots"] as const,
+  channels: (account: string) =>
+    [...buildQueryKeys.all, "account", account, "channels"] as const,
   modelKeys: (account: string) =>
     [...buildQueryKeys.all, "account", account, "model-keys"] as const,
   githubApp: (account: string) =>

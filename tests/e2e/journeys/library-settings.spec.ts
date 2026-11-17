@@ -12,8 +12,8 @@ test("Library and Settings reopen without rereading history or changing the conv
     const path = new URL(request.url()).pathname;
     if (
       request.method() === "GET" &&
-      (/\/api\/public\/catalog\/(?:apps|skills)$/.test(path) ||
-        /\/api\/(?:thread|account)\/(?:apps|skills)$/.test(path))
+      (/\/api\/public\/catalog\/(?:toolsets|skills)$/.test(path) ||
+        /\/api\/(?:thread|account)\/(?:catalog|packages|skills)$/.test(path))
     )
       catalogReads.push(path);
   });

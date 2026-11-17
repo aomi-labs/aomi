@@ -1,47 +1,13 @@
-// =============================================================================
-// createLaunchClient — the browser seam of the launch flow.
-//
-// Talks only to the host's same-origin BFF (the launch and GitHub auth
-// routes); the GitHub session cookie and the activation/service bearer stay
-// server-side.
-//
-// Two mounts, two shapes: the launch flow (`/api/build/deployments/*`) sits on the
-// client itself, the project console (`/api/build/deployments/*`) under
-// `.deployments`. They are different handlers, not aliases, so the namespace
-// says which one you are calling instead of a `deployment` name prefix.
-// =============================================================================
-
+// Browser client for project reads, agent keys and GitHub sign-in.
 import type {
-  DeploymentFeedResult,
-  DeploymentHistoryResult,
-  DeploymentPromoteResult,
-  DeploymentSecretsResult,
   DeploymentProjectsResult,
-  LaunchActivateResult,
-  LaunchAppStatusesResult,
-  LaunchCreateRepoResult,
-  LaunchDeployInput,
-  LaunchDeployResult,
-  LaunchPreflightInput,
-  LaunchRedeployResult,
-  LaunchSdkStatus,
-  LaunchStatus,
-  RequiredSecretsResult,
+  LaunchAgentStatusesResult,
 } from "./contracts";
-import type {
-  DeploymentProgressEvent,
-  GitHubAppInstallationsResult,
-  ListDeploymentRecordsResult,
-  ProjectSdkUpgradeResult,
-  ProjectSdkUpgradeStatusResult,
-} from "../types";
+import type { GitHubAppInstallationsResult, UserProject } from "../types";
 import { normalizeRepo } from "./state";
-import { watchDeploymentLoop, type WatchLoopOptions } from "./watch";
-import type { UserProject } from "../types";
 
 export type { UserProject };
 
-export const DEFAULT_LAUNCH_BASE_PATH = "/api/build/deployments";
 export const DEFAULT_DEPLOYMENTS_BASE_PATH = "/api/build/deployments";
 export const DEFAULT_GITHUB_AUTH_BASE_PATH = "/api/build/auth/github";
 
@@ -89,7 +55,7 @@ export interface GitHubSessionInfo {
   signedIn: boolean;
   githubLogin: string | null;
   githubAvatarUrl?: string | null;
-  /** Present when the one-shot App is already installed (skip-install). */
+  /** Present when the GitHub App is already installed (skip-install). */
   installationId?: string | null;
 }
 
@@ -104,8 +70,6 @@ export type GithubAppOAuthStartResponse = {
 };
 
 export type LaunchClientOptions = {
-  /** Where the launch routes are mounted. Default `/api/build/deployments`. */
-  basePath?: string;
   /** Where the deployments console routes are mounted. Default `/api/build/deployments`. */
   deploymentsBasePath?: string;
   /** Where the GitHub auth routes are mounted. Default `/api/build/auth/github`. */
@@ -129,10 +93,6 @@ export type LaunchClientOptions = {
 };
 
 function createBaseClient(options: LaunchClientOptions) {
-  const basePath = (options.basePath ?? DEFAULT_LAUNCH_BASE_PATH).replace(
-    /\/+$/,
-    "",
-  );
   const deploymentsPath = (
     options.deploymentsBasePath ?? DEFAULT_DEPLOYMENTS_BASE_PATH
   ).replace(/\/+$/, "");
@@ -169,12 +129,6 @@ function createBaseClient(options: LaunchClientOptions) {
     return explicit?.trim() || boundPlatform;
   }
 
-  /** Same, for a request body that carries `platform` to the BFF. */
-  function withPlatform<T extends { platform?: string }>(input: T): T {
-    const platform = platformOf(input.platform);
-    return platform ? { ...input, platform } : input;
-  }
-
   function query(
     parts: Record<string, string | number | undefined>,
     platform?: string,
@@ -189,47 +143,9 @@ function createBaseClient(options: LaunchClientOptions) {
     return search ? `?${search}` : "";
   }
 
-  /**
-   * Project-scoped query: never carries a platform. The BFF derives the
-   * bound platform from the project row, so sending one here would only
-   * reintroduce the wrong-platform default this refactor removes.
-   */
-  function projectQuery(
-    parts: Record<string, string | number | undefined>,
-  ): string {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(parts)) {
-      if (value !== undefined) params.set(key, String(value));
-    }
-    const search = `${params}`;
-    return search ? `?${search}` : "";
-  }
-
-  function postJson<T>(
-    path: string,
-    label: string,
-    input: unknown,
-  ): Promise<T> {
-    return launchFetch<T>(path, label, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
-  }
-
   const backendFetch =
     options.backendFetch ??
     (<T>(path: string) => launchFetch<T>(path, "backend request"));
-
-  function status(input: {
-    deploymentId: string;
-    platform?: string;
-  }): Promise<LaunchStatus> {
-    return launchFetch(
-      `${basePath}/status${query({ deploymentId: input.deploymentId }, input.platform)}`,
-      "launch status",
-    );
-  }
 
   /** The project console — `/api/build/deployments/*`. */
   const deployments = {
@@ -241,235 +157,28 @@ function createBaseClient(options: LaunchClientOptions) {
         "deployment projects",
       );
     },
-
-    status(input: {
-      deploymentId: string;
-      platform?: string;
-    }): Promise<LaunchStatus> {
-      return launchFetch(
-        `${deploymentsPath}/status${query({ deploymentId: input.deploymentId }, input.platform)}`,
-        "deployment status",
-      );
-    },
-
-    upgradeSdk(input: { projectId: number }): Promise<ProjectSdkUpgradeResult> {
-      return postJson(
-        `${deploymentsPath}/sdk-upgrade`,
-        "project SDK upgrade",
-        input,
-      );
-    },
-
-    sdkUpgradeStatus(input: {
-      projectId: number;
-    }): Promise<ProjectSdkUpgradeStatusResult> {
-      return launchFetch(
-        `${deploymentsPath}/sdk-upgrade-status${projectQuery({ projectId: input.projectId })}`,
-        "project SDK upgrade status",
-      );
-    },
-
-    /** GitHub App access for the signed-in builder's connected repositories. */
     githubAppInstallations(): Promise<GitHubAppInstallationsResult> {
       return launchFetch(
         `${deploymentsPath}/github-app`,
         "GitHub App installations",
       );
     },
-
-    history(input: {
-      projectId: number;
-      limit?: number;
-    }): Promise<DeploymentHistoryResult> {
-      return launchFetch(
-        `${deploymentsPath}/history${projectQuery({ projectId: input.projectId, limit: input.limit })}`,
-        "deployment history",
-      );
-    },
-
-    /** Activity feed for the selected platform. */
-    feed(
-      input: {
-        platform?: string;
-        limit?: number;
-        cursor?: DeploymentFeedResult["nextCursor"];
-      } = {},
-    ): Promise<DeploymentFeedResult> {
-      const params = new URLSearchParams({ limit: String(input.limit ?? 50) });
-      if (input.platform?.trim()) {
-        params.set("platform", input.platform.trim());
-      }
-      if (input.cursor) {
-        params.set("cursorCreatedAt", String(input.cursor.createdAt));
-        params.set("cursorId", String(input.cursor.id));
-      }
-      return launchFetch(
-        `${deploymentsPath}/feed?${params}`,
-        "deployment feed",
-      );
-    },
-
-    secrets(input: {
-      applicationId: number;
-    }): Promise<DeploymentSecretsResult> {
-      return launchFetch(
-        `${deploymentsPath}/secrets?applicationId=${encodeURIComponent(String(input.applicationId))}`,
-        "deployment secrets",
-      );
-    },
-
-    requiredSecrets(input: {
-      projectId: number;
-    }): Promise<RequiredSecretsResult> {
-      return launchFetch(
-        `${deploymentsPath}/required-secrets${projectQuery({ projectId: input.projectId })}`,
-        "required secrets",
-      );
-    },
-
-    setSecrets(input: {
-      applicationId: number;
-      secrets: Record<string, string>;
-    }): Promise<{ ok: boolean; keys: string[] }> {
-      return postJson(
-        `${deploymentsPath}/secrets`,
-        "set environment variables",
-        input,
-      );
-    },
-
-    deleteSecret(input: {
-      applicationId: number;
-      name: string;
-    }): Promise<{ ok: boolean; removed: boolean }> {
-      return launchFetch(
-        `${deploymentsPath}/secrets`,
-        "delete environment variable",
-        {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(input),
-        },
-      );
-    },
-
-    records(input: {
-      /** Only meaningful without `projectId`; a project's records derive
-       *  their platform from the project row. */
-      platform?: string;
-      app: string;
-      projectId?: number;
-    }): Promise<ListDeploymentRecordsResult> {
-      return launchFetch(
-        input.projectId !== undefined
-          ? `${deploymentsPath}/records${projectQuery({ app: input.app, projectId: input.projectId })}`
-          : `${deploymentsPath}/records${query({ app: input.app }, input.platform)}`,
-        "deployment records",
-      );
-    },
-
-    promote(input: {
-      deploymentId: string;
-      projectId: number;
-      apps?: string[];
-      actor?: string;
-    }): Promise<DeploymentPromoteResult> {
-      return postJson(
-        `${deploymentsPath}/promote`,
-        "deployment promote",
-        input,
-      );
-    },
-
-    deactivate(input: {
-      projectId: number;
-      apps: string[];
-    }): Promise<{ ok: boolean; apps: string[] }> {
-      return postJson(
-        `${deploymentsPath}/deactivate`,
-        "deployment deactivate",
-        input,
-      );
-    },
   };
 
   return {
-    /** Where the "Sign in with GitHub" button points. */
     githubSigninUrl: `${authBasePath}/login`,
-
-    /** The platform bound at construction, if any. */
     platform: boundPlatform,
-
-    preflight(input: LaunchPreflightInput): Promise<LaunchDeployResult> {
-      return postJson(`${basePath}/preflight`, "launch preflight", input);
-    },
-
-    deploy(input: LaunchDeployInput): Promise<LaunchDeployResult> {
-      return postJson(`${basePath}/deploy`, "launch deploy", input);
-    },
-
-    redeploy(input: { projectId: number }): Promise<LaunchRedeployResult> {
-      return postJson(`${basePath}/redeploy`, "launch redeploy", input);
-    },
-
-    createRepo(input: {
-      platform?: string;
-      installationId: string;
-      repoName?: string;
-    }): Promise<LaunchCreateRepoResult> {
-      return postJson(
-        `${basePath}/create`,
-        "launch repo creation",
-        withPlatform(input),
-      );
-    },
-
-    status,
-
-    /**
-     * Poll a deployment to completion, reporting every tick.
-     *
-     * Never throws: a failure arrives as an `error` event, so a render loop
-     * has one code path. Backs off 3s → 30s, treats a 4xx as fatal, and
-     * cancels via `options.signal`.
-     */
-    watch(
-      input: { deploymentId: string; platform?: string },
-      onEvent: (event: DeploymentProgressEvent) => void,
-      watchOptions: WatchLoopOptions = {},
-    ): Promise<void> {
-      return watchDeploymentLoop(() => status(input), onEvent, {
-        isFatal: isFatalLaunchRequestError,
-        ...watchOptions,
-      });
-    },
-
-    /**
-     * SDK version status. The launch and deployments mounts serve this from
-     * the same handler, so there is one method.
-     */
-    sdkStatus(): Promise<LaunchSdkStatus> {
-      return launchFetch(`${basePath}/sdk-status`, "launch SDK status");
-    },
-
-    activate(input: {
+    agentStatuses(input: {
       projectId: number;
-      releaseTags: string[];
-      apps?: string[];
-      actor?: string;
-    }): Promise<LaunchActivateResult> {
-      return postJson(`${basePath}/activate`, "launch activation", input);
-    },
-
-    appStatuses(input: {
-      projectId: number;
-    }): Promise<LaunchAppStatusesResult> {
+    }): Promise<LaunchAgentStatusesResult> {
       const params = new URLSearchParams({
         projectId: String(input.projectId),
       });
-      return launchFetch(`${basePath}/apps?${params}`, "launch app statuses");
+      return launchFetch(
+        `${deploymentsPath}/agents?${params}`,
+        "launch agent statuses",
+      );
     },
-
     async fetchGitHubSession(): Promise<GitHubSessionInfo> {
       try {
         const res = await doFetch(`${authBasePath}/status`, {
@@ -481,35 +190,10 @@ function createBaseClient(options: LaunchClientOptions) {
         return { signedIn: false, githubLogin: null };
       }
     },
-
     async signOutGitHub(): Promise<void> {
       await doFetch(`${authBasePath}/signout`, { method: "POST" });
     },
-
-    /** The signed-in user's projects on the launch mount. */
-    async projects(): Promise<UserProjectsResult> {
-      const res = await doFetch(`${basePath}/projects`, { cache: "no-store" });
-      const json = (await res.json().catch(() => ({}))) as
-        | UserProjectsResult
-        | { error?: string };
-      if (!res.ok) {
-        const message =
-          "error" in json && json.error
-            ? json.error
-            : `failed to load projects (${res.status})`;
-        throw new Error(message);
-      }
-      return json as UserProjectsResult;
-    },
-
     deployments,
-
-    /**
-     * Ask the backend for the GitHub entry URL. The backend picks the
-     * ceremony — OAuth consent when an installation already covers the repo,
-     * the install flow otherwise — so callers never choose a mode. Reaches
-     * the backend through `backendFetch` — same-origin widget proxy by default.
-     */
     async githubAppInstallUrl(args: {
       platform?: string;
       repo?: string;

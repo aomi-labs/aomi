@@ -16,23 +16,35 @@ import { adaptTaskBuild, taskDocument } from "./task";
 import { listOnBazaar } from "./task/bazaar";
 
 /**
- * Hosted-app placement: keep only the targets that hold the app's active
+ * Hosted-agent placement: keep only the targets that hold the agent's active
  * artifact right now. A miss wakes that backend's reconciler, so the request
  * waits at the edge (bounded) while a small artifact materializes.
  */
-async function placed(route: Route, env: EdgeEnv, fetchImpl: FetchLike, waitImpl: WaitLike): Promise<URL[]> {
+async function placed(
+  route: Route,
+  env: EdgeEnv,
+  fetchImpl: FetchLike,
+  waitImpl: WaitLike,
+): Promise<URL[]> {
   if (!route.appId) return route.targets;
   // Up to ten probes a second apart: long enough for a small artifact to land.
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const available = await Promise.all(
       route.targets.map(async (url) => {
         // A dedicated probe, not /health: liveness stays a process-level signal.
-        const probe = target(url.origin, "/availability", `?application_id=${encodeURIComponent(route.appId!)}`);
+        const probe = target(
+          url.origin,
+          "/availability",
+          `?agent_id=${encodeURIComponent(route.appId!)}`,
+        );
         // Placement must not wait indefinitely for a hung pool member.
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 1_500);
         try {
-          const response = await fetchImpl(new Request(probe, { signal: controller.signal }), { cache: "no-store" });
+          const response = await fetchImpl(
+            new Request(probe, { signal: controller.signal }),
+            { cache: "no-store" },
+          );
           void response.body?.cancel();
           return response.ok;
         } catch {
@@ -46,7 +58,7 @@ async function placed(route: Route, env: EdgeEnv, fetchImpl: FetchLike, waitImpl
     if (targets.length) return targets;
     if (attempt + 1 < 10) await waitImpl(1_000);
   }
-  throw new EdgeError(503, "app_unavailable");
+  throw new EdgeError(503, "agent_unavailable");
 }
 
 export async function handleApiRequest(
@@ -67,14 +79,22 @@ export async function handleApiRequest(
       ? request.headers.get("access-control-request-method")?.toUpperCase()
       : request.method;
   const taskBuild = route.name === "task" && url.pathname === TASK_BUILD_PATH;
-  const policy = CORS[taskBuild && (method === "GET" || method === "HEAD") ? "task-discovery" : route.name];
+  const policy =
+    CORS[
+      taskBuild && (method === "GET" || method === "HEAD")
+        ? "task-discovery"
+        : route.name
+    ];
   const cfg = config(env);
 
   if (route.methods && method && !route.methods.includes(method))
     return withCors(
       policy,
       request,
-      new Response("Method not allowed", { status: 405, headers: { allow: route.methods.join(", ") } }),
+      new Response("Method not allowed", {
+        status: 405,
+        headers: { allow: route.methods.join(", ") },
+      }),
       cfg,
     );
   if (request.method === "OPTIONS") return preflight(policy, request, cfg);
@@ -82,28 +102,58 @@ export async function handleApiRequest(
   let response: Response;
   try {
     if (route.document) {
-      return withCors(policy, request, await taskDocument(route.document, request, route.targets[0], env, fetchImpl), cfg);
+      return withCors(
+        policy,
+        request,
+        await taskDocument(
+          route.document,
+          request,
+          route.targets[0],
+          env,
+          fetchImpl,
+        ),
+        cfg,
+      );
     }
     let outbound = request;
     if (taskBuild) {
-      const adapted = await adaptTaskBuild(request, route.targets[0], env, fetchImpl);
-      if ("respond" in adapted) return withCors(policy, request, adapted.respond, cfg);
+      const adapted = await adaptTaskBuild(
+        request,
+        route.targets[0],
+        env,
+        fetchImpl,
+      );
+      if ("respond" in adapted)
+        return withCors(policy, request, adapted.respond, cfg);
       outbound = adapted.forward;
     }
-    response = await proxy(outbound, await placed(route, env, fetchImpl, waitImpl), {
-      fetchImpl,
-      headers: route.headers,
-      forwarded: true,
-    });
+    response = await proxy(
+      outbound,
+      await placed(route, env, fetchImpl, waitImpl),
+      {
+        fetchImpl,
+        headers: route.headers,
+        forwarded: true,
+      },
+    );
     if (taskBuild) response = await listOnBazaar(response);
   } catch (error) {
-    response = errorResponse(error, { surface: "api", operation: route.name, request });
+    response = errorResponse(error, {
+      surface: "api",
+      operation: route.name,
+      request,
+    });
   }
-  return response.status === 101 ? response : withCors(policy, request, response, cfg);
+  return response.status === 101
+    ? response
+    : withCors(policy, request, response, cfg);
 }
 
 /** The RC token exchange; a deployment that is not RC answers like any unknown path. */
-async function handleRcToken(request: Request, env: EdgeEnv): Promise<Response> {
+async function handleRcToken(
+  request: Request,
+  env: EdgeEnv,
+): Promise<Response> {
   const cfg = rcOidcConfig(env);
   if (!cfg) return new Response("Not found", { status: 404 });
   const edge = config(env);
@@ -112,7 +162,11 @@ async function handleRcToken(request: Request, env: EdgeEnv): Promise<Response> 
   try {
     response = await exchangeRcToken(request, env, cfg);
   } catch (error) {
-    response = errorResponse(error, { surface: "api", operation: "rc-token", request });
+    response = errorResponse(error, {
+      surface: "api",
+      operation: "rc-token",
+      request,
+    });
   }
   return withCors(CORS.agent, request, response, edge);
 }

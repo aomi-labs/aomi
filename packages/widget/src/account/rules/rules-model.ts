@@ -136,7 +136,7 @@ export function ruleTemplates(
   now = Date.now(),
 ): RuleTemplate[] {
   const off: AomiRuleSet = {
-    apps: null,
+    protocols: null,
     limits: [],
     not_after: null,
     owner_only: false,
@@ -198,7 +198,7 @@ export const rulesErrorCode = (error: unknown): string | undefined =>
   error instanceof AomiApiError ? error.code : undefined;
 
 const FAILURES: Record<string, string> = {
-  rules_app_unknown: "That app isn't available.",
+  rules_protocol_unknown: "That protocol isn't available.",
   rules_asset_invalid: "That token isn't supported.",
   rules_amount_invalid: "Enter a valid amount.",
   rules_duplicate: "That rule is already there.",

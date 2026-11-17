@@ -3,7 +3,7 @@ import type { RuntimeAccount } from "../query/display-cache";
 /** Everything that decides whose chats this runtime may show. */
 export type RuntimeOwner = {
   backendUrl: string;
-  appId: string;
+  agentScope: string;
   account: RuntimeAccount | null | undefined;
   /** The credential source requests are signed with. */
   authSource: unknown;
@@ -21,7 +21,10 @@ export function accountChange(
   previous: RuntimeOwner,
   next: RuntimeOwner,
 ): AccountChange {
-  if (previous.backendUrl !== next.backendUrl || previous.appId !== next.appId)
+  if (
+    previous.backendUrl !== next.backendUrl ||
+    previous.agentScope !== next.agentScope
+  )
     return "start-over";
   const previousUser =
     previous.account?.kind === "user" ? previous.account.id : null;

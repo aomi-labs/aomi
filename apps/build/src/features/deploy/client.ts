@@ -1,4 +1,4 @@
-// GitHub session and App client — one @aomi-labs/deploy/launch client instance
+// GitHub session and Agent client — one @aomi-labs/deploy/launch client instance
 // bound to Aomi Build's route mounts, re-exported as the named functions the
 // call sites (and their test mocks) already use. Only `githubAppInstallUrl`
 // leaves the Build server: the Edge forwards its install start to the backend.
@@ -6,7 +6,6 @@
 import type { GitHubAppInstallationsResult } from "@aomi-labs/deploy";
 import {
   createLaunchClient,
-  resetLaunch,
   LaunchRequestError,
   type DeploymentProjectsResult,
   type GithubAppOAuthStartResponse,
@@ -30,7 +29,11 @@ export async function launchSignOutGitHub(): Promise<void> {
     await client.signOutGitHub();
   } finally {
     // Clear the previous account's wizard state even when sign-out fails.
-    resetLaunch();
+    try {
+      window.localStorage.removeItem("aomi_launch");
+    } catch {
+      /* Storage may be unavailable. */
+    }
   }
 }
 
@@ -59,5 +62,3 @@ export function deploymentProjects(
 export function deploymentGitHubAppInstallations(): Promise<GitHubAppInstallationsResult> {
   return client.deployments.githubAppInstallations();
 }
-
-/** Hard-delete a project in this Build environment. GitHub is untouched. */

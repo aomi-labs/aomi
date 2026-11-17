@@ -175,7 +175,7 @@ export function GET() {
     "</urlset>\n";
   return new Response(body, {
     headers: {
-      "Content-Type": "application/xml; charset=utf-8",
+      "Content-Type": "agent/xml; charset=utf-8",
       "Cache-Control": "public, max-age=0, must-revalidate",
     },
   });

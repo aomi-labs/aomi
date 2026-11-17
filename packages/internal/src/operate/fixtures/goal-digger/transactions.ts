@@ -1,6 +1,6 @@
 import type { TxRecord } from "../types";
 
-// goal-digger is an SVM (Solana) app: portfolio goals + swaps via Jupiter.
+// goal-digger is an SVM (Solana) agent: portfolio goals + swaps via Jupiter.
 
 export const transactions: TxRecord[] = [
   {
@@ -8,7 +8,7 @@ export const transactions: TxRecord[] = [
     family: "svm",
     ts: 1784560078,
     time: "7/15/2026, 5:47:58 PM",
-    app: "goal-digger",
+    agent: "goal-digger",
     status: "confirmed",
     chain: "Solana",
     from: "7fUAJdStEuGbc3sM84cKRL6yYaaSstyLSU4ve5oovLS7",
@@ -42,7 +42,7 @@ export const transactions: TxRecord[] = [
     family: "svm",
     ts: 1784556550,
     time: "7/15/2026, 4:49:10 PM",
-    app: "goal-digger",
+    agent: "goal-digger",
     status: "submitted",
     chain: "Solana",
     from: "7fUAJdStEuGbc3sM84cKRL6yYaaSstyLSU4ve5oovLS7",
@@ -69,7 +69,7 @@ export const transactions: TxRecord[] = [
     family: "svm",
     ts: 1784552350,
     time: "7/15/2026, 3:39:10 PM",
-    app: "goal-digger",
+    agent: "goal-digger",
     status: "failed",
     chain: "Solana",
     from: "3mQxKcVdRz81uHtWyLpJgNaEoS5fBiC70DkYevUnGqTb",
@@ -100,7 +100,7 @@ export const transactions: TxRecord[] = [
     family: "svm",
     ts: 1784475550,
     time: "7/14/2026, 6:19:10 PM",
-    app: "goal-digger",
+    agent: "goal-digger",
     status: "created",
     chain: "Solana",
     from: "7fUAJdStEuGbc3sM84cKRL6yYaaSstyLSU4ve5oovLS7",

@@ -24,14 +24,14 @@ const agent = {
   provider: "para",
   created_at: 1_760_000_000,
   agent_wallet_id: "6f1c2b8e-0000-4000-8000-000000000001",
-  maker_app: null,
+  maker_agent: null,
 };
 const hoodit = {
   ...agent,
   id: "w_31",
   label: "Hoodit",
   agent_wallet_id: "6f1c2b8e-0000-4000-8000-000000000002",
-  maker_app: "Hoodit",
+  maker_agent: "Hoodit",
 };
 // The contract's example omits fields on non-agent entries.
 const privy = {
@@ -87,14 +87,17 @@ describe("account wallets", () => {
     expect(calls[0]!.headers.has("x-aomi-csrf")).toBe(false);
     expect(wallets.map((wallet) => wallet.id)).toEqual(["w_12", "w_31", "w_9"]);
     expect(wallets[0]).toEqual(agent satisfies AomiAccountWallet);
-    expect(wallets[1]).toMatchObject({ label: "Hoodit", maker_app: "Hoodit" });
+    expect(wallets[1]).toMatchObject({
+      label: "Hoodit",
+      maker_agent: "Hoodit",
+    });
     expect(wallets[2]).toEqual({
       ...privy,
       custom_label: null,
       browser_app: null,
       created_at: 0,
       agent_wallet_id: null,
-      maker_app: null,
+      maker_agent: null,
     });
   });
 
@@ -212,7 +215,7 @@ describe("agent wallets", () => {
     name: "Trading",
     paused: false,
     archived_at: null,
-    app: null,
+    toolset: null,
     last_used_at: 1_760_000_100,
     created_at: 1_760_000_000,
     addresses: [
@@ -232,7 +235,7 @@ describe("agent wallets", () => {
     name: "World",
     paused: true,
     archived_at: 1_760_000_200,
-    app: { id: 90, name: "world" },
+    toolset: { id: 90, name: "world" },
     last_used_at: null,
     addresses: [{ family: "evm", address: "0x41c2", wallet_id: "w_31" }],
     connections: [
@@ -281,7 +284,7 @@ describe("agent wallets", () => {
     expect(listed.wallets[0]).toEqual(trading);
     expect(listed.wallets[1]).toMatchObject({
       archived_at: 1_760_000_200,
-      app: { id: 90, name: "world", label: "world" },
+      toolset: { id: 90, name: "world", label: "world" },
       connections: [
         { key: "telegram:42", label: "telegram:42", lane: "instant" },
         { key: "cli", label: "cli", lane: "ask_client" },
@@ -404,7 +407,7 @@ describe("connections", () => {
               kind: "portal",
               name: "Aomi",
               detail: null,
-              application: null,
+              agent: null,
               ask_only: false,
               wallets: [],
               last_used_at: null,
@@ -416,7 +419,7 @@ describe("connections", () => {
               kind: "telegram",
               name: "@HooditBot",
               detail: "Telegram @arixon",
-              application: { id: 86, name: "hoodit", label: "Hoodit" },
+              agent: { id: 86, name: "hoodit", label: "Hoodit" },
               ask_only: true,
               wallets: [
                 { id: "g-1", name: "Hoodit", lane: "instant", archived: true },
@@ -448,12 +451,12 @@ describe("connections", () => {
     ]);
     expect(connections[1]).toMatchObject({
       detail: "Telegram @arixon",
-      application: { id: 86, name: "hoodit", label: "Hoodit" },
+      agent: { id: 86, name: "hoodit", label: "Hoodit" },
       ask_only: true,
       wallets: [{ id: "g-1", name: "Hoodit", lane: "instant", archived: true }],
     });
     expect(connections[2]).toMatchObject({
-      application: null,
+      agent: null,
       ask_only: false,
       wallets: [],
       last_used_at: null,
@@ -476,7 +479,7 @@ describe("connections", () => {
 
     const update = {
       wallets: [{ id: "g-1", lane: "ask_aomi" }],
-      application: "world",
+      agent: "world",
       new_app_wallet: { lane: "ask_aomi" },
       ask_only: true,
     };

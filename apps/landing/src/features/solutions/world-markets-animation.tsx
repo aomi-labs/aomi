@@ -364,7 +364,7 @@ function MandateScene() {
           <b>✓</b>
         </div>
         <footer>
-          Current app release: preview-only. Live execution is not claimed.
+          Current agent release: preview-only. Live execution is not claimed.
         </footer>
       </div>
     </div>

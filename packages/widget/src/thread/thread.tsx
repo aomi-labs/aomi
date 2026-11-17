@@ -50,7 +50,7 @@ import {
   useThreadContext,
   useThreadTaskRuns,
 } from "@aomi-labs/react";
-import { AppIndicator } from "@/controls/app-indicator";
+import { AgentIndicator } from "@/controls/agent-indicator";
 import { useComposerControl } from "@/frame/aomi-frame";
 import { AomiMark } from "@/ui/aomi-mark";
 import { AssistantMessageRow } from "./assistant-message-row";
@@ -110,9 +110,9 @@ const ThreadBody = memo(function ThreadBody({
 
   return (
     <CapabilityComposerProvider
-      enabledAppIds={controlBarProps.enabledAppIds}
+      enabledAgentIds={controlBarProps.enabledAgentIds}
       routing={controlBarProps.routing}
-      initialAppTag={controlBarProps.initialAppTag}
+      initialAgentTag={controlBarProps.initialAgentTag}
     >
       <ThreadSafetyProvider
         enabled={composerControl.enabled && !controlBarProps.hideSafety}
@@ -465,8 +465,8 @@ const CapabilityPickerButton: FC = () => {
   return (
     <button
       type="button"
-      aria-label="Add app, skill, or chain"
-      title="Add app, skill, or chain"
+      aria-label="Add agent, skill, or chain"
+      title="Add agent, skill, or chain"
       onMouseDown={(event) => event.preventDefault()}
       onClick={openCapabilityPicker}
       className="text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors"
@@ -485,7 +485,7 @@ const ComposerAction: FC = () => {
   const hideApiKey = controlBarProps.hideApiKey ?? false;
   const hideWallet = controlBarProps.hideWallet ?? true;
   const hideNetwork = controlBarProps.hideNetwork ?? false;
-  const { hostError, selectedApp } = useCapabilityComposer();
+  const { hostError, selectedAgent } = useCapabilityComposer();
   const safety = useThreadSafety();
   const committingSafety = Boolean(safety?.pending && safety.busy);
   const running = useThread((thread) => thread.isRunning);
@@ -506,7 +506,7 @@ const ComposerAction: FC = () => {
           <CapabilityPickerButton />
           {!hideModel && <ModelSelect />}
           {!hideSafety && <SafetySelect />}
-          <AppIndicator app={selectedApp ?? undefined} />
+          <AgentIndicator agent={selectedAgent ?? undefined} />
           {!hideWallet && <ConnectButton />}
           {!hideApiKey && <ApiKeyInput />}
         </div>
@@ -631,7 +631,7 @@ const AssistantMessageBody = memo(function AssistantMessageBody({
       }
     | undefined;
   // Notices are runtime records, not model turns: a payment gate, or a turn
-  // the app failed to answer. They share one card treatment; only the accent
+  // the agent failed to answer. They share one card treatment; only the accent
   // and the default title differ.
   const noticeKind = notice?.aomiNoticeKind;
   const isNotice = noticeKind === "payment_required" || noticeKind === "error";

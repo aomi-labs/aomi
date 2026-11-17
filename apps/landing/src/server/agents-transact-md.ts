@@ -19,7 +19,10 @@ const FILES = [
     rel: "references/account-abstraction.md",
     heading: "## Account abstraction (signing internals)",
   },
-  { rel: "references/apps.md", heading: "## Apps catalog and per-app usage" },
+  {
+    rel: "references/agents.md",
+    heading: "## Agents catalog and per-agent usage",
+  },
   { rel: "references/examples.md", heading: "## End-to-end example flows" },
   { rel: "references/session.md", heading: "## Sessions and local storage" },
   { rel: "references/troubleshooting.md", heading: "## Troubleshooting" },
@@ -27,7 +30,7 @@ const FILES = [
 
 const PREAMBLE = `---
 title: Transact with Aomi — for agents
-description: Self-contained guide for an AI agent told "swap 1 ETH for USDC" or "send 0.1 ETH to vitalik.eth". Inlines the aomi-transact skill, AA signing internals, app catalog, end-to-end examples, session model, and troubleshooting. One fetch — everything an agent needs to drive the aomi CLI.
+description: Self-contained guide for an AI agent told "swap 1 ETH for USDC" or "send 0.1 ETH to vitalik.eth". Inlines the aomi-transact skill, AA signing internals, agent catalog, end-to-end examples, session model, and troubleshooting. One fetch — everything an agent needs to drive the aomi CLI.
 source: https://aomi.dev/agents/transact.md
 ---
 

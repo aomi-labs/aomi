@@ -455,7 +455,11 @@ describe("active address and the step it needs", () => {
       input({
         linked: [
           { ...linkedEvm("w1", MAIN), walletApp: "Rabby" },
-          { ...linkedEvm("w2", TRADING), label: "Trading", walletApp: "Rabby" },
+          {
+            ...linkedEvm("w2", TRADING),
+            label: "Trading",
+            walletApp: "Rabby",
+          },
         ],
         connections: [{ ...external("rabby#new", NEW), walletName: "Rabby" }],
         selection: { evm: key(MAIN) },
@@ -510,7 +514,11 @@ describe("active address and the step it needs", () => {
       input({
         linked: [
           { ...linkedEvm("w1", MAIN), walletApp: "Rabby" },
-          { ...linkedEvm("w2", TRADING), label: "Trading", walletApp: "Rabby" },
+          {
+            ...linkedEvm("w2", TRADING),
+            label: "Trading",
+            walletApp: "Rabby",
+          },
           { ...linkedEvm("w3", METAMASK), walletApp: "MetaMask" },
           { ...linkedEvm("w4", RABBY), label: "Main" },
         ],

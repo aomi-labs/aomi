@@ -132,12 +132,13 @@ export class PipelineOperationTransport {
 
   constructor(
     private readonly requestResponse: RequestResponse,
-    scope: "apps" | "skills",
+    scope: "toolsets" | "skills",
     owner: string,
   ) {
     const name = required("name", owner);
     this.href = `/v1/pipeline/${scope}/${encodeURIComponent(name)}`;
-    this.executionScope = scope === "apps" ? { app: name } : { skills: [name] };
+    this.executionScope =
+      scope === "toolsets" ? { toolset: name } : { skills: [name] };
   }
 
   directory(): Promise<PipelineDirectory> {
@@ -189,15 +190,19 @@ export class PipelineSkillTransport extends PipelineOperationTransport {
   }
 }
 
-export class PipelineAppsTransport {
+export class PipelineToolsetsTransport {
   constructor(private readonly requestResponse: RequestResponse) {}
 
   list(): Promise<PipelineDirectory> {
-    return json(this.requestResponse, "GET", "/v1/pipeline/apps");
+    return json(this.requestResponse, "GET", "/v1/pipeline/toolsets");
   }
 
-  get(app: string): PipelineOperationTransport {
-    return new PipelineOperationTransport(this.requestResponse, "apps", app);
+  get(toolset: string): PipelineOperationTransport {
+    return new PipelineOperationTransport(
+      this.requestResponse,
+      "toolsets",
+      toolset,
+    );
   }
 }
 
@@ -217,13 +222,13 @@ export class PipelineSkillsTransport {
 export class PipelineTransport {
   readonly evm: EvmPipelineTransport;
   readonly svm: SvmPipelineTransport;
-  readonly apps: PipelineAppsTransport;
+  readonly toolsets: PipelineToolsetsTransport;
   readonly skills: PipelineSkillsTransport;
 
   constructor(private readonly requestResponse: RequestResponse) {
     this.evm = new EvmPipelineTransport(requestResponse);
     this.svm = new SvmPipelineTransport(requestResponse);
-    this.apps = new PipelineAppsTransport(requestResponse);
+    this.toolsets = new PipelineToolsetsTransport(requestResponse);
     this.skills = new PipelineSkillsTransport(requestResponse);
   }
 
@@ -235,8 +240,8 @@ export class PipelineTransport {
     return json(this.requestResponse, "GET", pipelinePath(path));
   }
 
-  app(name: string): PipelineOperationTransport {
-    return this.apps.get(name);
+  toolset(name: string): PipelineOperationTransport {
+    return this.toolsets.get(name);
   }
 
   skill(name: string): PipelineSkillTransport {

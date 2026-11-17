@@ -37,7 +37,7 @@ const ADDRESSES: Record<Chains, string> = {
 
 /**
  * The "New agent wallet" sheet: a name and its chains (EVM, SVM or both),
- * then those addresses at once. No app choice; apps create and name their own
+ * then those addresses at once. No agent choice; agents create and name their own
  * wallets when they need one.
  */
 export function NewAgentWalletStep({

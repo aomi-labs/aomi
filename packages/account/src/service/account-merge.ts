@@ -25,7 +25,7 @@ export type AccountMergeOffer = {
     chats: number;
     wallets: number;
     credits: string;
-    /** All source model keys and app secrets, with the reason each is dropped. */
+    /** All source model keys and package secrets, with the reason each is dropped. */
     dropped: string[];
   };
 };

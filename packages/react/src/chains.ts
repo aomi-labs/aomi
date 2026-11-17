@@ -45,7 +45,7 @@ export const getNetworkName = (
 
 export type { ChainInfo } from "@aomi-labs/client";
 
-/** All chains supported by the application. Sourced from @aomi-labs/client. */
+/** All chains supported by the agent. Sourced from @aomi-labs/client. */
 export const SUPPORTED_CHAINS: ChainInfo[] = [...CLIENT_SUPPORTED_CHAINS];
 
 /** Look up ChainInfo by chain ID. Returns undefined for unknown chains. */

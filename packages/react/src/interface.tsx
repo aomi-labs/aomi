@@ -196,7 +196,7 @@ export function useAomiRuntime(): AomiRuntimeApi {
   if (!context) {
     throw new Error(
       "useAomiRuntime must be used within AomiRuntimeProvider. " +
-        "Wrap your app with <AomiRuntimeProvider>...</AomiRuntimeProvider>",
+        "Wrap your agent with <AomiRuntimeProvider>...</AomiRuntimeProvider>",
     );
   }
   return context;

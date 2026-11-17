@@ -11,14 +11,14 @@ describe("project FFI wire validation", () => {
         required_ffi_version: value,
         configuration: {
           status: "valid",
-          applications: [{ ffi_version: value }],
+          agents: [{ ffi_version: value }],
         },
       });
       expect(project.ffiVersion).toBeNull();
       expect(project.requiredFfiVersion).toBeNull();
       expect(
         project.configuration?.status === "valid" &&
-          project.configuration.applications[0].ffiVersion,
+          project.configuration.agents[0].ffiVersion,
       ).toBeNull();
     },
   );
@@ -32,13 +32,13 @@ describe("project FFI wire validation", () => {
       const project = UserProject.parse({
         platform_name: "community",
         ...fields,
-        configuration: { status: "valid", applications: [fields] },
+        configuration: { status: "valid", agents: [fields] },
       });
       expect(project.ffiVersion).toBe(1);
       expect(project.requiredFfiVersion).toBe(2);
       expect(
         project.configuration?.status === "valid" &&
-          project.configuration.applications[0].ffiVersion,
+          project.configuration.agents[0].ffiVersion,
       ).toBe(1);
     },
   );

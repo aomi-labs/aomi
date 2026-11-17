@@ -21,8 +21,8 @@ beforeEach(() => {
 });
 
 const fold = (nodeId: string) =>
-  nodeId === "app:validate" || nodeId === "app:fix"
-    ? "app:validate-loop"
+  nodeId === "package:validate" || nodeId === "package:fix"
+    ? "package:validate-loop"
     : nodeId;
 
 function node(nodeId: string, state: string, updatedAtMs = 0) {
@@ -46,18 +46,18 @@ describe("stageStatusesFromView", () => {
       {
         status: "running",
         nodes: [
-          node("app:binaries", "finished"),
-          node("app:codegen", "finished"),
-          node("app:curate", "running"),
+          node("package:binaries", "finished"),
+          node("package:codegen", "finished"),
+          node("package:curate", "running"),
         ],
       },
       fold,
       {},
     );
     expect(merged).toMatchObject({
-      "app:binaries": "complete",
-      "app:codegen": "complete",
-      "app:curate": "running",
+      "package:binaries": "complete",
+      "package:codegen": "complete",
+      "package:curate": "running",
     });
   });
 
@@ -65,33 +65,36 @@ describe("stageStatusesFromView", () => {
     const merged = stageStatusesFromView(
       {
         status: "running",
-        nodes: [node("app:validate", "finished"), node("app:fix", "running")],
+        nodes: [
+          node("package:validate", "finished"),
+          node("package:fix", "running"),
+        ],
       },
       fold,
       {},
     );
     // A later repair round runs while the validate row is finished — the
     // folded stage should not regress below the strongest durable signal.
-    expect(merged["app:validate-loop"]).toBe("complete");
+    expect(merged["package:validate-loop"]).toBe("complete");
   });
 
   it("settles running/waiting rows when the run finished (replays)", () => {
     const merged = stageStatusesFromView(
-      { status: "finished", nodes: [node("app:curate", "running")] },
+      { status: "finished", nodes: [node("package:curate", "running")] },
       fold,
-      { "app:result": "running" },
+      { "package:result": "running" },
     );
-    expect(merged["app:curate"]).toBe("complete");
-    expect(merged["app:result"]).toBe("complete");
+    expect(merged["package:curate"]).toBe("complete");
+    expect(merged["package:result"]).toBe("complete");
   });
 
   it("keeps live-only signals the store has not written yet", () => {
     const merged = stageStatusesFromView(
       { status: "running", nodes: [] },
       fold,
-      { "app:binaries": "running" },
+      { "package:binaries": "running" },
     );
-    expect(merged["app:binaries"]).toBe("running");
+    expect(merged["package:binaries"]).toBe("running");
   });
 });
 
@@ -109,7 +112,7 @@ describe("curationFromOutputs", () => {
 });
 
 describe("artifactFromOutputs", () => {
-  const tree = [{ path: "app", type: "folder", children: [] }];
+  const tree = [{ path: "package", type: "folder", children: [] }];
 
   it("parses the embedded tree and tarball", () => {
     expect(

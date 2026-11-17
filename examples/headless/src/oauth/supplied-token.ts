@@ -30,6 +30,6 @@ if (resource.endsWith("/v1/agent")) {
   const sessions = await aomi.raw.agent.sessions.list({ limit: 5 });
   console.log(`OAuth can read ${sessions.sessions.length} Agent session(s)`);
 } else {
-  const catalog = await aomi.raw.pipeline.apps.list();
-  console.log(`OAuth can read ${catalog.entries.length} Pipeline app(s)`);
+  const catalog = await aomi.raw.pipeline.toolsets.list();
+  console.log(`OAuth can read ${catalog.entries.length} Pipeline toolset(s)`);
 }

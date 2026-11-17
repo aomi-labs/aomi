@@ -6,13 +6,13 @@ import {
 } from "@/features/deploy/query-keys";
 import {
   modelKeysFetch,
-  operateAppDetailFetch,
+  operateAgentDetailFetch,
   operateFetch,
   type OperateKind,
 } from "@/features/operate/client";
 
 const OPERATE_ROUTES: Record<string, OperateKind> = {
-  "/operate/bots": "bots",
+  "/operate/channels": "channels",
   "/operate/logs": "logs",
   "/operate/observability": "observability",
   "/operate/transactions": "transactions",
@@ -34,10 +34,10 @@ export function prefetchControlPlaneRoute(
   const searchParams = new URLSearchParams(href.split("?")[1]);
   const detailMatch = path.match(/^\/operate\/observability\/([1-9]\d*)$/);
   if (detailMatch) {
-    const applicationId = Number(detailMatch[1]);
+    const agentId = Number(detailMatch[1]);
     void queryClient.prefetchQuery({
-      queryKey: buildQueryKeys.applicationDetail(accountKey, applicationId),
-      queryFn: () => operateAppDetailFetch(applicationId),
+      queryKey: buildQueryKeys.agentDetail(accountKey, agentId),
+      queryFn: () => operateAgentDetailFetch(agentId),
       staleTime: buildQueryStaleTime.operate,
       retry: false,
     });
@@ -46,8 +46,8 @@ export function prefetchControlPlaneRoute(
 
   if (path === "/integrations") {
     void queryClient.prefetchQuery({
-      queryKey: buildQueryKeys.bots(accountKey),
-      queryFn: () => operateFetch("bots"),
+      queryKey: buildQueryKeys.channels(accountKey),
+      queryFn: () => operateFetch("channels"),
       staleTime: buildQueryStaleTime.operate,
       retry: false,
     });
@@ -71,11 +71,11 @@ export function prefetchControlPlaneRoute(
     Number.isSafeInteger(projectId) && projectId > 0 ? projectId : null;
   void queryClient.prefetchQuery({
     queryKey:
-      kind === "bots"
-        ? buildQueryKeys.bots(accountKey)
+      kind === "channels"
+        ? buildQueryKeys.channels(accountKey)
         : buildQueryKeys.operate(accountKey, kind, scopedProjectId),
     queryFn: () =>
-      kind === "bots"
+      kind === "channels"
         ? operateFetch(kind)
         : operateFetch(kind, { projectId: scopedProjectId }),
     staleTime: buildQueryStaleTime.operate,

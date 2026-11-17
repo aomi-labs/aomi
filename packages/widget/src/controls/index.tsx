@@ -7,9 +7,9 @@ import { ModelSelect } from "./model-select";
 import { SafetySelect } from "./safety-select";
 import { ApiKeyInput } from "./api-key-input";
 import { ConnectButton } from "@/wallet/connect-button";
-import { SecretInput } from "@/account/app-secrets/secret-input";
+import { SecretInput } from "@/account/agent-secrets/secret-input";
 import type { AomiRoutingConfig } from "./routing";
-import type { AppTagRequest } from "@/composer/capability-composer/model";
+import type { AgentTagRequest } from "@/composer/capability-composer/model";
 
 // =============================================================================
 // Types
@@ -23,17 +23,17 @@ export type ControlBarProps = {
   hideModel?: boolean;
   /** Hide the per-chat transaction safety selector (signed-in accounts only) */
   hideSafety?: boolean;
-  /** @deprecated There is no app selector; pin a Direct app with `routing`. */
-  hideApp?: boolean;
+  /** @deprecated There is no agent selector; pin a Direct agent with `routing`. */
+  hideAgent?: boolean;
   /**
    * Host-owned agent routing with no user-facing control. Chats run
    * `defaultMode`: Auto unless the host allows only Direct.
    */
   routing?: AomiRoutingConfig;
-  /** Account-enabled app names offered by the composer capability picker. */
-  enabledAppIds?: readonly string[];
-  /** Open the composer with this app tagged, as if chosen from the + picker. */
-  initialAppTag?: AppTagRequest;
+  /** Account-enabled agent names offered by the composer capability picker. */
+  enabledAgentIds?: readonly string[];
+  /** Open the composer with this agent tagged, as if chosen from the + picker. */
+  initialAgentTag?: AgentTagRequest;
   /** Hide the API key input */
   hideApiKey?: boolean;
   /** Hide the wallet connect button (default: true) */
@@ -77,7 +77,7 @@ export const ControlBar: FC<ControlBarProps> = ({
 
 export { ModelSelect, type ModelSelectProps } from "./model-select";
 export { SafetySelect, type SafetySelectProps } from "./safety-select";
-export type { AomiRoutingConfig, DirectRoutingApp } from "./routing";
+export type { AomiRoutingConfig, DirectRoutingAgent } from "./routing";
 export { ApiKeyInput, type ApiKeyInputProps } from "./api-key-input";
 export {
   ConnectButton,
@@ -87,4 +87,4 @@ export { NetworkSelect, type NetworkSelectProps } from "./network-select";
 export {
   SecretInput,
   type SecretInputProps,
-} from "@/account/app-secrets/secret-input";
+} from "@/account/agent-secrets/secret-input";

@@ -3,29 +3,27 @@ import { readAgentFile } from "./assets";
 
 const FILES = [
   { rel: "SKILL.md", heading: "## Procedure — the aomi-build skill" },
-  { rel: "references/aomi-sdk-patterns.md", heading: "## SDK patterns" },
-  { rel: "references/spec-to-tools.md", heading: "## Spec to tools" },
 ];
 
 const PREAMBLE = `---
-title: Build an Aomi app — for agents
-description: Self-contained guide for an AI agent told "build an Aomi app for our API". Inlines the aomi-build skill, SDK patterns, spec-to-tools rubric, and how to wire up a chat frontend. Read this once and you have everything to scaffold an Aomi SDK crate end-to-end.
+title: Build an Aomi package — for agents
+description: Self-contained guide for an AI agent told "build an Aomi package for our API". Inlines the aomi-build skill, SDK patterns, spec-to-tools rubric, and how to wire up a chat frontend. Read this once and you have everything to scaffold an Aomi SDK crate end-to-end.
 source: https://aomi.dev/agents/build.md
 ---
 
-# Build an Aomi app
+# Build an Aomi package
 
-This page is for an AI agent that has been told something like *"build an Aomi app for our REST API at api.acme.com"*. Read it once — it contains the full build procedure, SDK patterns, and how to add a chat frontend on top.
+This page is for an AI agent that has been told something like *"build an Aomi package for our REST API at api.acme.com"*. Read it once — it contains the full build procedure, SDK patterns, and how to add a chat frontend on top.
 
 > If the agent has access to the canonical \`aomi-build\` skill at [github.com/aomi-labs/skills](https://github.com/aomi-labs/skills/tree/main/aomi-build), prefer that — same content, kept in sync. To install: \`npx skills add aomi-labs/skills\`.
 
 ## Quick orientation
 
-An **Aomi App** is a Rust crate built on \`aomi-sdk\` that exposes an external service (REST, GraphQL, JSON-RPC, gRPC, or any callable surface) as a small set of intent-shaped tools the Aomi agent can invoke during a conversation. The standard file split is:
+An **Aomi package** is a Rust crate built on \`aomi-sdk\` that exposes an external service (REST, GraphQL, JSON-RPC, gRPC, or any callable surface) as a small set of intent-shaped tools the Aomi agent can invoke during a conversation. The standard file split is:
 
 - \`lib.rs\` — manifest, preamble, tool registration
 - \`client.rs\` — HTTP client, auth, typed models, response normalization
-- \`tool.rs\` — \`DynAomiTool\` implementations
+- \`tool.rs\` — \`Tool\` implementations
 
 The procedure below converts a spec or repo into that shape.
 
@@ -35,7 +33,7 @@ const FRONTEND_SECTION = `
 
 ## Adding a chat frontend
 
-If the user also asked for a chat UI to interact with the app you just built, you have two options.
+If the user also asked for a chat UI to interact with the agent you just built, you have two options.
 
 ### Option A — Packaged widget (fastest, "ChatGPT-style" out of the box)
 
@@ -64,7 +62,7 @@ export default function AssistantPage() {
 }
 \`\`\`
 
-Set \`NEXT_PUBLIC_AOMI_API_URL=https://aomi.chat\` and the deployed App's canonical \`NEXT_PUBLIC_AOMI_APPLICATION_ID\` in \`.env.local\`. The Application ID selects an activated App; it is not an API key. Browser-wallet mode uses an origin-bound session, and users approve wallet actions explicitly.
+Set \`NEXT_PUBLIC_AOMI_API_URL=https://aomi.chat\` and the deployed Agent's canonical \`NEXT_PUBLIC_AOMI_AGENT\` in \`.env.local\`. The agent slug selects the thread’s agent; it is not an API key. Browser-wallet mode uses an origin-bound session, and users approve wallet actions explicitly.
 
 Full quickstart with wallet integration: <https://aomi.dev/docs/build/quickstart.md>
 
@@ -94,24 +92,17 @@ Then read:
 ## Deeper reference (fetch these only if you need them)
 
 - API reference (HTTP backend): <https://aomi.dev/docs/build/services/api-reference.md>
-- Building apps overview: <https://aomi.dev/docs/build/services/building-apps.md>
 - Namespaces and tool naming: <https://aomi.dev/docs/build/namespaces.md>
 - SDK reference (React): <https://aomi.dev/docs/reference/sdk.md>
 - Architecture: <https://aomi.dev/docs/reference/architecture.md>
-- Account abstraction (for execution apps): <https://aomi.dev/docs/reference/account-abstraction.md>
+- Account abstraction (for execution agents): <https://aomi.dev/docs/reference/account-abstraction.md>
 - Sessions and state: <https://aomi.dev/docs/build/services/sessions.md>
 
 ## Verification
 
-After scaffolding the app:
-
-\`\`\`bash
-# From the aomi-sdk root, with the new app at apps/<name>/
-cargo build --manifest-path apps/<name>/Cargo.toml
-cargo run -p xtask -- build-aomi --app <name>
-\`\`\`
-
-If \`build-aomi\` reports zero built plugins for a brand-new app, the manifest is probably untracked by git — \`build-aomi\` uses \`git ls-files\` for discovery. \`cargo build --manifest-path apps/<name>/Cargo.toml\` is the fastest direct compile signal until that's fixed.
+From the SDK checkout, validate the generated package with mocked upstreams and
+build its component for \`wasm32-wasip2\`. Publish and promote numbered package
+releases through Manager, then configure an agent with that package.
 
 ## Source
 

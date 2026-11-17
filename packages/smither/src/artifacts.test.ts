@@ -8,10 +8,10 @@ import { crateFileTree, packageCrate } from "./artifacts";
 
 let roots: string[] = [];
 
-function fixtureSdkRoot(app: string): string {
+function fixtureSdkRoot(packageName: string): string {
   const root = mkdtempSync(path.join(tmpdir(), "artifacts-test-"));
   roots.push(root);
-  const appDir = path.join(root, "apps", app);
+  const appDir = path.join(root, "packages", packageName);
   mkdirSync(path.join(appDir, "src", "client"), { recursive: true });
   mkdirSync(path.join(appDir, "target", "release"), { recursive: true });
   writeFileSync(path.join(appDir, "Cargo.toml"), "[package]\n");
@@ -30,16 +30,19 @@ afterEach(() => {
 
 describe("crateFileTree", () => {
   it("walks the crate, folders first, skipping target and Cargo.lock", () => {
-    const root = fixtureSdkRoot("my-app");
-    const tree = crateFileTree(path.join(root, "apps", "my-app"), "my-app");
+    const root = fixtureSdkRoot("my-package");
+    const tree = crateFileTree(
+      path.join(root, "packages", "my-package"),
+      "my-package",
+    );
     expect(tree).toHaveLength(1);
     const paths = JSON.stringify(tree);
-    expect(paths).toContain("my-app/src/tool.rs");
-    expect(paths).toContain("my-app/src/client/client.rs");
+    expect(paths).toContain("my-package/src/tool.rs");
+    expect(paths).toContain("my-package/src/client/client.rs");
     expect(paths).not.toContain("target");
     expect(paths).not.toContain("Cargo.lock");
     // Folders sort before files.
-    expect(tree[0].children?.[0].path).toBe("my-app/src");
+    expect(tree[0].children?.[0].path).toBe("my-package/src");
   });
 
   it("returns empty for a missing directory", () => {
@@ -49,14 +52,17 @@ describe("crateFileTree", () => {
 
 describe("packageCrate", () => {
   it("embeds a decodable tarball plus the tree", async () => {
-    const root = fixtureSdkRoot("my-app");
-    const artifact = await packageCrate({ sdkRoot: root, app: "my-app" });
+    const root = fixtureSdkRoot("my-package");
+    const artifact = await packageCrate({
+      sdkRoot: root,
+      packageName: "my-package",
+    });
     expect(artifact.warning).toBe("");
     expect(JSON.parse(artifact.fileTreeJson)).toHaveLength(1);
     const tarPath = path.join(roots[0], "roundtrip.tar.gz");
     writeFileSync(tarPath, Buffer.from(artifact.crateTarB64, "base64"));
     const listing = execSync(`tar -tzf ${JSON.stringify(tarPath)}`).toString();
-    expect(listing).toContain("my-app/src/tool.rs");
+    expect(listing).toContain("my-package/src/tool.rs");
     expect(listing).not.toContain("target/");
     expect(listing).not.toContain("Cargo.lock");
   });
@@ -64,7 +70,10 @@ describe("packageCrate", () => {
   it("degrades to tree-only with a warning when the crate is missing", async () => {
     const root = mkdtempSync(path.join(tmpdir(), "artifacts-test-"));
     roots.push(root);
-    const artifact = await packageCrate({ sdkRoot: root, app: "ghost" });
+    const artifact = await packageCrate({
+      sdkRoot: root,
+      packageName: "ghost",
+    });
     expect(artifact.crateTarB64).toBe("");
     expect(artifact.warning).toContain("no generated crate");
   });

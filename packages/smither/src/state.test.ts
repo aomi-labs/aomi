@@ -23,7 +23,9 @@ describe("run state", () => {
 
     expect(loaded?.runId).toBe(created.runId);
     expect(created.runId).toMatch(/^smither-demo-/);
-    expect(smitherDbPath("demo", root)).toBe(path.join(runDir("demo", root), "smithers.sqlite"));
+    expect(smitherDbPath("demo", root)).toBe(
+      path.join(runDir("demo", root), "smithers.sqlite"),
+    );
   });
 
   it("reset removes the pointer so a fresh run gets a new id", async () => {
@@ -37,22 +39,30 @@ describe("run state", () => {
     expect(second.runId).not.toBe(first.runId);
   });
 
-  it("sanitizes app names used for run directories", async () => {
+  it("sanitizes package names used for run directories", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "aomi-runs-"));
-    await createRunState("weird/app name", root);
-    expect(await loadRunState("weird/app name", root)).not.toBeNull();
-    expect(runDir("weird/app name", root)).toBe(path.join(root, "weird_app_name"));
+    await createRunState("weird/package name", root);
+    expect(await loadRunState("weird/package name", root)).not.toBeNull();
+    expect(runDir("weird/package name", root)).toBe(
+      path.join(root, "weird_package_name"),
+    );
   });
 
   it("round-trips the BuildPlan for external observers", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "aomi-runs-"));
-    const plan = finalizePlan({ app: "demo", sdkRoot: "/tmp/sdk", builder: "none" }).plan;
+    const plan = finalizePlan({
+      packageName: "demo",
+      sdkRoot: "/tmp/sdk",
+      builder: "none",
+    }).plan;
     expect(plan).not.toBeNull();
 
     await savePlan(plan!, root);
     const loaded = await loadPlan("demo", root);
 
-    expect(planPath("demo", root)).toBe(path.join(runDir("demo", root), "plan.json"));
+    expect(planPath("demo", root)).toBe(
+      path.join(runDir("demo", root), "plan.json"),
+    );
     expect(loaded).toEqual(plan);
   });
 

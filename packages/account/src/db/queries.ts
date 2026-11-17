@@ -1102,7 +1102,7 @@ export async function listOAuthConnections(
 }
 
 /**
- * The account's own connection settings: label, last use, the app it is
+ * The account's own connection settings: label, last use, the agent it is
  * locked to, whether it may only Ask, and the agent wallets it may use. Pairs of archived
  * wallets come back marked, so a full replacement keeps them for a restore.
  */
@@ -1114,7 +1114,7 @@ export async function listConnectionSettings(
     key: string;
     label: string | null;
     lastUsedAt: number | null;
-    application: { id: number; name: string; label: string } | null;
+    agent: { id: number; name: string; label: string } | null;
     askOnly: boolean;
     wallets: {
       id: string;
@@ -1126,7 +1126,7 @@ export async function listConnectionSettings(
 > {
   const result = await db.query(
     `select c.key, c.label, c.last_used_at, c.ask_only,
-            a.id as app_id, a.name as app_name, a.display_name as app_label,
+            a.id as agent_id, a.publisher || '/' || a.name as agent_name, a.display_name as agent_label,
             coalesce((
               select json_agg(json_build_object(
                        'id', aw.id::text, 'name', aw.name, 'lane', wa.lane,
@@ -1145,13 +1145,13 @@ export async function listConnectionSettings(
     key: String(row.key),
     label: optionalString(row.label),
     lastUsedAt: row.last_used_at == null ? null : Number(row.last_used_at),
-    application:
-      row.app_id == null
+    agent:
+      row.agent_id == null
         ? null
         : {
-            id: Number(row.app_id),
-            name: String(row.app_name),
-            label: optionalString(row.app_label) ?? String(row.app_name),
+            id: Number(row.agent_id),
+            name: String(row.agent_name),
+            label: optionalString(row.agent_label) ?? String(row.agent_name),
           },
     askOnly: row.ask_only === true,
     wallets: (

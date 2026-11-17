@@ -23,7 +23,7 @@ export function useApiKeyImpl(
     return createScopedStorage(scope, {
       storage: persistence === "session" ? session : null,
     });
-  }, [scope.backendUrl, scope.appId, scope.principal, persistence]);
+  }, [scope.backendUrl, scope.agentScope, scope.principal, persistence]);
   const [{ apiKey, revision }, setCredential] = useState({
     apiKey: null as string | null,
     revision: 0,

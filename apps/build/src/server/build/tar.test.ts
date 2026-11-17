@@ -17,19 +17,22 @@ afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 describe("extractFileFromTarGz", () => {
   it("round-trips a file out of a real tar.gz", () => {
-    mkdirSync(path.join(root, "my-app", "src"), { recursive: true });
-    writeFileSync(path.join(root, "my-app", "src", "tool.rs"), "// tools\n");
-    writeFileSync(path.join(root, "my-app", "Cargo.toml"), "[package]\n");
-    execSync(`tar -czf out.tar.gz my-app`, { cwd: root });
-    const tarGz = readFileSync(path.join(root, "out.tar.gz"));
-
-    expect(extractFileFromTarGz(tarGz, "my-app/src/tool.rs")?.toString()).toBe(
+    mkdirSync(path.join(root, "my-package", "src"), { recursive: true });
+    writeFileSync(
+      path.join(root, "my-package", "src", "tool.rs"),
       "// tools\n",
     );
-    expect(extractFileFromTarGz(tarGz, "my-app/Cargo.toml")?.toString()).toBe(
-      "[package]\n",
-    );
-    expect(extractFileFromTarGz(tarGz, "my-app/nope.rs")).toBeNull();
+    writeFileSync(path.join(root, "my-package", "Cargo.toml"), "[package]\n");
+    execSync(`tar -czf out.tar.gz my-package`, { cwd: root });
+    const tarGz = readFileSync(path.join(root, "out.tar.gz"));
+
+    expect(
+      extractFileFromTarGz(tarGz, "my-package/src/tool.rs")?.toString(),
+    ).toBe("// tools\n");
+    expect(
+      extractFileFromTarGz(tarGz, "my-package/Cargo.toml")?.toString(),
+    ).toBe("[package]\n");
+    expect(extractFileFromTarGz(tarGz, "my-package/nope.rs")).toBeNull();
   });
 
   it("rejects garbage input gracefully", () => {

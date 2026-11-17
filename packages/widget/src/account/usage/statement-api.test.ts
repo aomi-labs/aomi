@@ -44,12 +44,12 @@ describe("statement adapter", () => {
           {
             usage_event_id: "usage-1",
             execution_id: "operation-1",
-            application_id: null,
+            agent_id: null,
             provider: "anthropic",
             model: "claude-sonnet-5",
             input_tokens: 3600,
             output_tokens: 700,
-            funding: { kind: "platform", application_id: null },
+            funding: { kind: "platform", agent_id: null },
             gross: 1_000_000,
             included: 1_000_000,
             credits: 0,
@@ -59,12 +59,12 @@ describe("statement adapter", () => {
           {
             usage_event_id: "usage-2",
             execution_id: "operation-2",
-            application_id: null,
+            agent_id: null,
             provider: "anthropic",
             model: "claude-haiku-4-5",
             input_tokens: 400,
             output_tokens: 200,
-            funding: { kind: "platform", application_id: null },
+            funding: { kind: "platform", agent_id: null },
             gross: 200_000,
             included: 0,
             credits: 200_000,
@@ -74,12 +74,12 @@ describe("statement adapter", () => {
           {
             usage_event_id: "usage-3",
             execution_id: "operation-3",
-            application_id: 7,
+            agent_id: 7,
             provider: "anthropic",
             model: "claude-sonnet-5",
             input_tokens: 800,
             output_tokens: 150,
-            funding: { kind: "builder_key", application_id: 7 },
+            funding: { kind: "builder_key", agent_id: 7 },
             gross: 300_000,
             included: 0,
             credits: 0,
@@ -102,21 +102,21 @@ describe("statement adapter", () => {
     expect(month.summary.computeUsd).toBeCloseTo(1.5);
     expect(month.summary.onchainUsd).toBe(0);
     // Unwritten subjects are absent, never invented.
-    expect(month.apps.every((a) => a.tool === null && a.outcome === null)).toBe(
-      true,
-    );
     expect(
-      month.byApp.every((r) => r.toolUsd === null && r.outcomeUsd === null),
+      month.agents.every((a) => a.tool === null && a.outcome === null),
+    ).toBe(true);
+    expect(
+      month.byAgent.every((r) => r.toolUsd === null && r.outcomeUsd === null),
     ).toBe(true);
 
-    const core = month.apps.find((a) => a.id === "default");
+    const core = month.agents.find((a) => a.id === "default");
     expect(core?.model.byModel).toHaveLength(2);
     expect(core?.model.turns).toBe(2);
-    expect(core?.settings.appByok).toBe(false);
+    expect(core?.settings.agentByok).toBe(false);
 
-    // An app whose every line is BYOK is marked as paying with its own key.
-    const uni = month.apps.find((a) => a.id === "uniswap");
-    expect(uni?.settings.appByok).toBe(true);
+    // An agent whose every line is BYOK is marked as paying with its own key.
+    const uni = month.agents.find((a) => a.id === "Agent 7");
+    expect(uni?.settings.agentByok).toBe(true);
     expect(uni?.model.billed).toBe(false);
     expect(uni?.model.byModel[0]?.note).toBe("paid by your own key");
 
@@ -131,12 +131,12 @@ describe("statement adapter", () => {
     const row = (index: number) => ({
       usage_event_id: `usage-${index}`,
       execution_id: `operation-${index}`,
-      application_id: 7,
+      agent_id: 7,
       provider: "openai",
       model: "gpt-test",
       input_tokens: 10,
       output_tokens: 5,
-      funding: { kind: "platform", application_id: 7 },
+      funding: { kind: "platform", agent_id: 7 },
       gross: 10_000,
       included: index < 125 ? 10_000 : 0,
       credits: index < 125 ? 0 : 10_000,
@@ -163,13 +163,17 @@ describe("statement adapter", () => {
 
     const statement = await fetchMonthlyStatement("2026-08", account);
 
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[0]?.[0]).toContain("from=1785542400");
     expect(fetchMock.mock.calls[1]?.[0]).toContain("cursor=page-2");
     expect(fetchMock.mock.calls[2]?.[0]).toContain("cursor=page-3");
-    expect(fetchMock.mock.calls[3]?.[0]).toBe("/api/account/packages");
-    expect(statement.apps[0]?.name).toBe("uniswap");
-    expect(statement.apps[0]?.model.turns).toBe(250);
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        String(url).includes("/account/packages"),
+      ),
+    ).toBe(false);
+    expect(statement.agents[0]?.name).toBe("Agent 7");
+    expect(statement.agents[0]?.model.turns).toBe(250);
     expect(statement.summary.totalUsd).toBe(2.5);
     expect(statement.payment).toMatchObject({
       allowanceAppliedUsd: 1.25,
@@ -181,12 +185,12 @@ describe("statement adapter", () => {
     const row = (funding: "platform" | "user_key") => ({
       usage_event_id: `usage-${funding}`,
       execution_id: `operation-${funding}`,
-      application_id: null,
+      agent_id: null,
       provider: "anthropic",
       model: "claude-sonnet-5",
       input_tokens: 10,
       output_tokens: 5,
-      funding: { kind: funding, application_id: null },
+      funding: { kind: funding, agent_id: null },
       gross: 10_000,
       included: funding === "platform" ? 10_000 : 0,
       credits: 0,
@@ -200,7 +204,7 @@ describe("statement adapter", () => {
 
     const month = await fetchMonthlyStatement("2026-07", account);
 
-    expect(month.apps[0]?.model.byModel).toMatchObject([
+    expect(month.agents[0]?.model.byModel).toMatchObject([
       {
         model: "claude-sonnet-5",
         provider: "anthropic",

@@ -90,7 +90,7 @@ export function useRenameWallet(onRename: AgentWalletActions["onRename"]): {
       rename({
         title: "Rename agent wallet",
         description:
-          "Only you see this name. Apps and chats show it when they ask to use the wallet.",
+          "Only you see this name. Agents and chats show it when they ask to use the wallet.",
         value: wallet.name,
         onSave: (name) => onRename(wallet, name),
       }),
@@ -101,7 +101,7 @@ export function useRenameWallet(onRename: AgentWalletActions["onRename"]): {
 /**
  * One agent wallet. With two addresses it is a parent row (name, "used by",
  * Paused, ⋯) that expands to its EVM and SVM rows, open while one is Active;
- * with one address (an app chose one family) it is that address row.
+ * with one address (an agent chose one family) it is that address row.
  */
 export function AgentWalletRow({
   wallet,

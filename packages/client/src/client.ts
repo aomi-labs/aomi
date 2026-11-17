@@ -4,7 +4,8 @@ import { ROUTE_SCOPES } from "./generated/route-scopes";
 import type {
   AomiAccountProfile,
   AomiAccountResponse,
-  AomiAppDescriptor,
+  AgentCard,
+  ThreadCatalog,
   AomiClientOptions,
   AomiClearSecretsResponse,
   AomiDeleteSecretResponse,
@@ -16,9 +17,8 @@ import type {
   Logger,
   AomiHttpMethod,
   AomiPlatformFilter,
-  ApplicationId,
 } from "./types";
-import { normalizeAppDescriptor } from "./app-descriptor";
+import { normalizeAgentCard } from "./agent-card";
 import { UserState } from "./user-state";
 import { AgentApiError, AgentTransport } from "./agent/transport";
 import { PipelineTransport } from "./pipeline/transport";
@@ -42,7 +42,7 @@ const SESSION_ID_HEADER = "X-Session-Id";
 // Non-Agent control endpoints still identify their owning session with both
 // headers. Agent v1 carries the session id in its resource path.
 const THREAD_ID_HEADER = "X-Thread-Id";
-const APP_KEY_HEADER = "Aomi-App-Key";
+const AGENT_KEY_HEADER = "Aomi-Agent-Key";
 
 function joinApiPath(baseUrl: string, path: string): string {
   const normalizedBase = baseUrl === "/" ? "" : baseUrl.replace(/\/+$/, "");
@@ -51,13 +51,6 @@ function joinApiPath(baseUrl: string, path: string): string {
 }
 
 type ApiQueryValue = string | readonly string[] | undefined;
-
-// Every session-scoped request of a hosted-app thread carries application_id
-// (discovery and polls included): the edge routes on it to a backend that
-// holds the app's artifact.
-function applicationIdParam(id: ApplicationId | undefined): string | undefined {
-  return id?.toString().trim() || undefined;
-}
 
 function buildApiUrl(
   baseUrl: string,
@@ -266,7 +259,7 @@ export function wrapFetchWithPublicApiAuthorization(input: {
     const response = await attempt(false);
     if (response.status !== 401 && response.status !== 403) return response;
     if (input.guest && response.status === 403) return response;
-    // App access failures concern the App, not this credential. Refreshing
+    // Agent access failures concern the Agent, not this credential. Refreshing
     // would mint a new guest identity (orphaning its threads) for nothing.
     const failure = (await response
       .clone()
@@ -276,7 +269,7 @@ export function wrapFetchWithPublicApiAuthorization(input: {
       typeof failure?.error === "object" && failure.error !== null
         ? (failure.error as { code?: unknown }).code
         : failure?.error;
-    if (AgentApiError.APP_ACCESS_CODES.some((code) => code === failureCode)) {
+    if (AgentApiError.AGENT_ACCESS_CODES.some((code) => code === failureCode)) {
       return response;
     }
     const dpopNonce = response.headers.get("dpop-nonce") ?? undefined;
@@ -325,7 +318,7 @@ async function readErrorDetail(response: Response): Promise<string | null> {
 
 export function secretNamesFrom(response: AomiListSecretsResponse): string[] {
   if (response.names) return response.names;
-  return Object.values(response.by_app ?? {}).flat();
+  return [];
 }
 
 export class AomiClient {
@@ -470,7 +463,7 @@ export class AomiClient {
     }
     const apiKey = options?.apiKey ?? this.apiKey;
     if (apiKey) {
-      headers.set(APP_KEY_HEADER, apiKey);
+      headers.set(AGENT_KEY_HEADER, apiKey);
     }
     if (options?.body !== undefined && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json");
@@ -498,7 +491,7 @@ export class AomiClient {
   /**
    * Ingest client-scoped secrets. Returns opaque `$SECRET:<name>` handles.
    *
-   * There is no app scope. A hosted app's Environment belongs to its Builder
+   * There is no package scope. A hosted agent's Environment belongs to its Builder
    * and is configured in Aomi Build; a per-user copy of it was a second,
    * process-local store that answered the same handle differently depending on
    * which fleet host served the turn. The backend answers 410 to any request
@@ -559,12 +552,12 @@ export class AomiClient {
 
   /** Credential-free projection suitable for shared caching and public persistence. */
   async getPublicCatalog<T = unknown>(
-    kind: "models" | "apps" | "skills",
+    kind: "models" | "toolsets" | "skills",
     options?: { signal?: AbortSignal; platforms?: AomiPlatformFilter },
   ): Promise<T> {
     const url = buildApiUrl(this.baseUrl, `/api/public/catalog/${kind}`, {
       platform:
-        kind === "apps"
+        kind === "toolsets"
           ? normalizePlatformFilter(options?.platforms)
           : undefined,
     });
@@ -583,67 +576,36 @@ export class AomiClient {
   // Control API
   // ===========================================================================
 
-  /**
-   * Get available apps as full descriptors (name + declared secret slots).
-   * The settings page consumes the slot info to render per-app inputs and
-   * the chat shell uses it to gate app load when required slots are unfilled.
-   */
-  async getApps(
+  /** Effective package state and builtin toolsets for this account and thread. */
+  async listCatalog(
     sessionId: string,
-    options?: {
-      signal?: AbortSignal;
-      apiKey?: string;
-      platforms?: AomiPlatformFilter;
-      applicationId?: ApplicationId;
-    },
-  ): Promise<AomiAppDescriptor[]> {
-    const platforms = normalizePlatformFilter(options?.platforms);
-    const url = buildApiUrl(this.baseUrl, "/api/thread/apps", {
-      platform: platforms.length > 0 ? platforms : undefined,
-      application_id: applicationIdParam(options?.applicationId),
+    options: { signal?: AbortSignal; apiKey?: string } = {},
+  ): Promise<ThreadCatalog> {
+    return this.request<ThreadCatalog>("GET", "/api/thread/catalog", {
+      sessionId,
+      apiKey: options.apiKey,
+      signal: options.signal,
     });
-
-    const apiKey = options?.apiKey ?? this.apiKey;
-    const headers = new Headers(withSessionHeader(sessionId));
-    if (apiKey) {
-      headers.set(APP_KEY_HEADER, apiKey);
-    }
-
-    const response = await this.rawFetchImpl(url, {
-      headers,
-      signal: options?.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to get apps: HTTP ${response.status}`);
-    }
-
-    const data = (await response.json()) as unknown;
-    if (!Array.isArray(data)) return [];
-    return data
-      .map((item) => normalizeAppDescriptor(item))
-      .filter((item): item is AomiAppDescriptor => item !== null);
   }
 
-  /** The one private app an App key opens. Credential-free. */
-  async resolveAppKey(
-    appKey: string,
+  /** Resolve the one live agent an explicit key opens, without ambient credentials. */
+  async resolveAgentKey(
+    agentKey: string,
     options: { signal?: AbortSignal } = {},
-  ): Promise<AomiAppDescriptor[]> {
+  ): Promise<AgentCard> {
     const response = await this.publicFetchImpl(
-      buildApiUrl(this.baseUrl, "/api/thread/apps", { resolve_key: "true" }),
-      { headers: { [APP_KEY_HEADER]: appKey }, signal: options.signal },
+      buildApiUrl(this.baseUrl, "/api/agents/resolve"),
+      { headers: { [AGENT_KEY_HEADER]: agentKey }, signal: options.signal },
     );
     if (!response.ok)
       throw new AomiApiError(
         response.status,
-        "app_key_unresolved",
-        `Failed to resolve the App key: HTTP ${response.status}`,
+        "agent_key_unresolved",
+        `Failed to resolve the agent key: HTTP ${response.status}`,
       );
-    const rows: unknown = await response.json();
-    return (Array.isArray(rows) ? rows : []).flatMap(
-      (row) => normalizeAppDescriptor(row) ?? [],
-    );
+    const card = normalizeAgentCard(await response.json());
+    if (!card) throw new TypeError("Invalid agent card");
+    return card;
   }
 
   /**
@@ -722,16 +684,13 @@ export class AomiClient {
     options?: {
       signal?: AbortSignal;
       apiKey?: string;
-      applicationId?: ApplicationId;
     },
   ): Promise<string[]> {
-    const url = buildApiUrl(this.baseUrl, "/api/thread/models", {
-      application_id: applicationIdParam(options?.applicationId),
-    });
+    const url = buildApiUrl(this.baseUrl, "/api/thread/models", {});
     const apiKey = options?.apiKey ?? this.apiKey;
     const headers = new Headers(withSessionHeader(sessionId));
     if (apiKey) {
-      headers.set(APP_KEY_HEADER, apiKey);
+      headers.set(AGENT_KEY_HEADER, apiKey);
     }
 
     const response = await this.rawFetchImpl(url, {
@@ -753,8 +712,8 @@ export class AomiClient {
     sessionId: string,
     rig: string,
     options?: {
-      app?: string;
-      applicationId?: ApplicationId;
+      toolset?: string;
+
       apiKey?: string;
       clientId?: string;
     },
@@ -767,14 +726,14 @@ export class AomiClient {
     const apiKey = options?.apiKey ?? this.apiKey;
     const url = buildApiUrl(this.baseUrl, "/api/thread/model", {
       rig,
-      app: options?.app,
-      application_id: applicationIdParam(options?.applicationId),
+      toolset: options?.toolset,
+
       client_id: options?.clientId,
     });
 
     const headers = new Headers(withSessionHeader(sessionId));
     if (apiKey) {
-      headers.set(APP_KEY_HEADER, apiKey);
+      headers.set(AGENT_KEY_HEADER, apiKey);
     }
 
     const response = await this.fetchImpl(url, {
@@ -820,7 +779,7 @@ export class AomiClient {
       withSessionHeader(sessionId, { "Content-Type": "application/json" }),
     );
     if (this.apiKey) {
-      headers.set(APP_KEY_HEADER, this.apiKey);
+      headers.set(AGENT_KEY_HEADER, this.apiKey);
     }
 
     const normalizedTransactions = transactions.map((transaction) => ({

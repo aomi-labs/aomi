@@ -335,8 +335,8 @@ describe("account changes without remounting the shell", () => {
           status: "regular",
           control: {
             model: null,
-            app: null,
-            applicationId: null,
+            agent: null,
+            agentId: null,
             controlDirty: false,
           },
         }),

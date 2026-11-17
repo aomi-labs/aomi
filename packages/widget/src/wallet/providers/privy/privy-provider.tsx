@@ -32,7 +32,7 @@ import {
 import { normalizeSvmNetworkOptions } from "@/wallet/catalog/svm-networks";
 import type { SvmCluster, SvmNetworkOption } from "@/wallet/types";
 import type { EvmWalletsConfig, ExecutionConfig } from "@/wallet/config/types";
-import { AomiPrivyPluginProvider } from "./privy-plugin-provider";
+import { AomiPrivyAdapterProvider } from "./privy-adapter-provider";
 import { buildPrivyClientConfig } from "./privy-auth";
 
 const defaultNetworks = [
@@ -105,14 +105,14 @@ function AomiPrivyProviderInner({
     <QueryClientProvider client={queryClient}>
       <WagmiProvider config={wagmiConfig}>
         <SmartWalletsProvider>
-          <AomiPrivyPluginProvider
+          <AomiPrivyAdapterProvider
             supportedChains={networks}
             loginMethods={loginMethods}
             execution={execution}
             preferDirectSend={solana?.preferDirectSend}
           >
             {children}
-          </AomiPrivyPluginProvider>
+          </AomiPrivyAdapterProvider>
         </SmartWalletsProvider>
       </WagmiProvider>
     </QueryClientProvider>

@@ -27,7 +27,7 @@ import {
 import { connectionsQuery } from "@/account/account-queries";
 import { ExpandableRow } from "@/account/account-management/expandable-row";
 import { CHILD_INDENT } from "@/account/account-management/wallet-rows";
-import { withApp } from "@/account/account-management/labels";
+import { withAgent } from "@/account/account-management/labels";
 import { plural } from "@/account/account-management/wallet-model";
 import { ConnectAppSheet } from "./connect-app-sheet";
 import { ConnectionMark } from "./connection-mark";
@@ -102,18 +102,18 @@ const liveWallets = (row: AomiAccountConnection) =>
 
 /**
  * A connection's title. A Telegram bot's is your own name for it, else the
- * app it is locked to, else its @handle.
+ * agent it is locked to, else its @handle.
  */
 export function connectionTitle(row: AomiAccountConnection): string {
   if (row.kind !== "telegram") return row.name;
   const handle = row.telegram?.bot;
   if (handle && row.name !== handle) return row.name;
-  return row.application?.label ?? row.name;
+  return row.agent?.label ?? row.name;
 }
 
 /**
- * `AI client · [app] Hoodit · Instant on 1 wallet · used 2 h ago`. A
- * Telegram bot is titled by its app already, so its line starts with its
+ * `AI client · [agent] Hoodit · Instant on 1 wallet · used 2 h ago`. A
+ * Telegram bot is titled by its agent already, so its line starts with its
  * @handle instead.
  */
 function description(row: AomiAccountConnection): ReactNode {
@@ -139,7 +139,7 @@ function description(row: AomiAccountConnection): ReactNode {
   return (
     <>
       {lead}
-      {telegram ? null : withApp(row.application)}
+      {telegram ? null : withAgent(row.agent)}
       {lead && rest ? " · " : null}
       {rest}
     </>

@@ -69,7 +69,10 @@ export async function signInGuest({ request, auth }: Call): Promise<Response> {
   if (!claimed || claimed === new URL(request.url).origin) {
     if (await auth.api.getSession({ headers: request.headers }))
       return Response.json({ code: "session_exists" }, { status: 409 });
-    const { headers, response } = await auth.api.signInAnonymous({ headers: request.headers, returnHeaders: true });
+    const { headers, response } = await auth.api.signInAnonymous({
+      headers: request.headers,
+      returnHeaders: true,
+    });
     return Response.json(response, { headers });
   }
   const origin = requireWidgetOrigin(request);
@@ -220,7 +223,7 @@ export async function issueOAuthBootstrap({
   const policy = aomiOAuthResourcePolicy(input.resource);
   if (
     !policy ||
-    policy.kind === "agentMcp" ||
+    policy.kind === "agentGatewayMcp" ||
     policy.kind === "pipelineMcp" ||
     !client.resources.includes(policy.identifier)
   )

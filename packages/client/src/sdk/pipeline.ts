@@ -129,7 +129,7 @@ export class AomiEvmPipeline {
       "actions" in input
         ? input
         : {
-            app: input.app,
+            toolset: input.toolset,
             skills: input.skills,
             transactionSafetyMode: input.transactionSafetyMode,
             actions: input.calls.map((call) => ({
@@ -316,8 +316,8 @@ export class AomiPipelineSkillScope extends AomiPipelineOperationScope {
   }
 }
 
-/** The app a build runs in when none is named, like Auto in the portal. */
-const DEFAULT_APP = "default";
+/** The toolset a build runs in when none is named, like Auto in the portal. */
+const DEFAULT_AGENT = "default";
 
 export class AomiPipeline {
   readonly evm: AomiEvmPipeline;
@@ -335,33 +335,41 @@ export class AomiPipeline {
     this.skills = { list: () => raw.skills.list() };
   }
 
-  /** Operations of `app`, the default app unless named. */
-  operations(options: { app?: string } = {}): Promise<PipelineDirectory> {
-    return this.app(options.app ?? DEFAULT_APP).operations();
+  /** Operations of `toolset`, the default toolset unless named. */
+  operations(options: { toolset?: string } = {}): Promise<PipelineDirectory> {
+    return this.toolset(options.toolset ?? DEFAULT_AGENT).operations();
   }
 
   invoke<T = unknown>(
     name: string,
     args: Record<string, unknown>,
-    options: PipelineInvokeOptions & { app?: string } = {},
+    options: PipelineInvokeOptions & { toolset?: string } = {},
   ): Promise<T> {
-    const { app, ...invokeOptions } = options;
-    return this.app(app ?? DEFAULT_APP).invoke<T>(name, args, invokeOptions);
+    const { toolset, ...invokeOptions } = options;
+    return this.toolset(toolset ?? DEFAULT_AGENT).invoke<T>(
+      name,
+      args,
+      invokeOptions,
+    );
   }
 
   /**
    * Stage and simulate one operation. Nothing is signed until `commit()`.
-   * EVM or Solana follows from the operation; `app` defaults to the default
-   * app.
+   * EVM or Solana follows from the operation; `toolset` defaults to the default
+   * toolset.
    */
   async build(
     name: string,
     args: Record<string, unknown>,
-    options: AomiOperationBuildOptions & { app?: string } = {},
+    options: AomiOperationBuildOptions & { toolset?: string } = {},
   ): Promise<Build> {
-    const { app, ...buildOptions } = options;
+    const { toolset, ...buildOptions } = options;
     return new Build(
-      await this.app(app ?? DEFAULT_APP).build(name, args, buildOptions),
+      await this.toolset(toolset ?? DEFAULT_AGENT).build(
+        name,
+        args,
+        buildOptions,
+      ),
       (result) => {
         const controller =
           result.family === "svm"
@@ -374,9 +382,9 @@ export class AomiPipeline {
     );
   }
 
-  app(name: string): AomiPipelineOperationScope {
+  toolset(name: string): AomiPipelineOperationScope {
     return new AomiPipelineOperationScope(
-      this.raw.app(name),
+      this.raw.toolset(name),
       this.evm,
       this.svm,
     );

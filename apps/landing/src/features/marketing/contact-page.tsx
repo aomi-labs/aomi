@@ -27,7 +27,7 @@ const paths = [
   {
     icon: Braces,
     title: "Developer platform",
-    body: "Build an Aomi App, connect Agents API, call Pipeline API, or add Aomi to an existing agent system.",
+    body: "Build an Aomi Agent, connect Agents API, call Pipeline API, or add Aomi to an existing agent system.",
     prompt:
       "Share the API, tool surface, execution environment, and the level of orchestration you want Aomi to own.",
   },

@@ -17,8 +17,8 @@ export function TraceAttributionProvider({
   const { state } = useControl();
   const { skills } = useSkillCatalog();
   const value = useMemo(
-    () => ({ apps: state.appDescriptors, skills: skills ?? [] }),
-    [state.appDescriptors, skills],
+    () => ({ agents: state.agentCards, skills: skills ?? [] }),
+    [state.agentCards, skills],
   );
   return (
     <TraceAttributionContext.Provider value={value}>

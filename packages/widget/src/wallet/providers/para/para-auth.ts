@@ -121,7 +121,7 @@ export function createParaCredentialGetter(
     ) => Promise<AomiAccountCredential | null>)
   | null {
   if (!paraClient || typeof paraClient.issueJwt !== "function") return null;
-  // Cooldown/in-flight state is scoped to this getter (one per plugin/adapter
+  // Cooldown/in-flight state is scoped to this getter (one per provider/adapter
   // instance) instead of module-level, so several widget instances mounted on
   // the same page each keep their own JWT-issuance backoff and never share or
   // clobber one another's cooldown window.

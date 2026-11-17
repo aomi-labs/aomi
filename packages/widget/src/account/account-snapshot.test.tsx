@@ -7,7 +7,7 @@ import {
 import type { ReactNode } from "react";
 import { useAccountSnapshot } from "./account-snapshot";
 
-const key = "aomi:account-chip:/backend|8";
+const key = "aomi:account-chip:/backend|publisher/eight";
 const saved = {
   accountId: "a",
   name: "Ada",
@@ -25,7 +25,7 @@ function wrapper(account: RuntimeAccount | null | undefined) {
     return (
       <DisplayCacheProvider
         backendUrl="/backend/"
-        applicationId={8}
+        agent="publisher/eight"
         account={account}
         persistence="none"
       >
@@ -77,13 +77,13 @@ describe("account snapshot display fields", () => {
     expect(view.result.current[0]).toBeNull();
   });
 
-  it("isolates backend and app scopes", () => {
+  it("isolates backend and agent scopes", () => {
     window.localStorage.setItem(key, JSON.stringify(saved));
     const view = renderHook(useAccountSnapshot, {
       wrapper: ({ children }) => (
         <DisplayCacheProvider
           backendUrl="/other"
-          applicationId={8}
+          agent="publisher/eight"
           account={undefined}
           persistence="none"
         >

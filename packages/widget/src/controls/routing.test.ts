@@ -5,7 +5,7 @@ describe("normalizeAomiRouting", () => {
   it("defaults an unconfigured widget to Auto only", () => {
     expect(normalizeAomiRouting()).toEqual({
       modes: ["auto"],
-      directApps: [],
+      directAgents: [],
       defaultMode: "auto",
       error: null,
     });
@@ -15,7 +15,7 @@ describe("normalizeAomiRouting", () => {
     expect(
       normalizeAomiRouting({
         targets: [
-          { mode: "direct", apps: [{ app: "uniswap" }] },
+          { mode: "direct", agents: [{ agent: "aomi/uniswap" }] },
           { mode: "auto" },
         ],
       }),
@@ -25,11 +25,11 @@ describe("normalizeAomiRouting", () => {
   it("supports a fixed Direct-only target", () => {
     expect(
       normalizeAomiRouting({
-        targets: [{ mode: "direct", apps: [{ applicationId: 42 }] }],
+        targets: [{ mode: "direct", agents: [{ agent: "aomi/aave" }] }],
       }),
     ).toMatchObject({
       modes: ["direct"],
-      directApps: [{ applicationId: 42 }],
+      directAgents: [{ agent: "aomi/aave" }],
       defaultMode: "direct",
       error: null,
     });
@@ -40,7 +40,7 @@ describe("normalizeAomiRouting", () => {
       normalizeAomiRouting({
         targets: [
           { mode: "auto" },
-          { mode: "direct", apps: [{ app: "uniswap" }] },
+          { mode: "direct", agents: [{ agent: "aomi/uniswap" }] },
         ],
         defaultMode: "direct",
       }),
@@ -49,7 +49,7 @@ describe("normalizeAomiRouting", () => {
 
   it("rejects Direct without a target", () => {
     expect(
-      normalizeAomiRouting({ targets: [{ mode: "direct", apps: [] }] }).error,
-    ).toContain("at least one app");
+      normalizeAomiRouting({ targets: [{ mode: "direct", agents: [] }] }).error,
+    ).toContain("at least one agent");
   });
 });

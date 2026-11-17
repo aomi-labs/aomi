@@ -1,20 +1,16 @@
 "use client";
 import { useMemo } from "react";
 import { AppWindowIcon, Globe2Icon, WandSparklesIcon } from "lucide-react";
-import {
-  isTestnetChain,
-  shortAddress,
-  UNTAGGABLE_APPS,
-} from "@aomi-labs/client";
+import { isTestnetChain, shortAddress } from "@aomi-labs/client";
 import { SUPPORTED_CHAINS, getChainInfo, useControl } from "@aomi-labs/react";
 import {
-  appName,
+  agentName,
   familyTag,
   walletGroups,
 } from "@/account/account-management/wallet-model";
-import { resolveAppIdentity } from "@/lib/apps/app-identity";
+import { resolveAgentIdentity } from "@aomi-labs/client";
 import { evmNetworkDescription } from "@/controls/network-metadata";
-import { getAppIcon } from "@/icons/app-map";
+import { getAgentIcon } from "@/icons/agent-map";
 import { getChainIcon } from "@/icons/chain-map";
 import { getSkillIcon } from "@/icons/skills/skill-icons";
 import { SolanaIcon } from "@/icons/chain-icons";
@@ -45,7 +41,7 @@ export function walletPickerItems(rows: readonly WalletRow[]): PickerItem[] {
   return groups.map(({ title, rows: own }) => {
     const walletIds = own.map((row) => `w_${row.linkedWalletId}`);
     const [first] = own;
-    const app = appName(first!);
+    const agent = agentName(first!);
     return {
       key: `wallet:${walletIds[0]}`,
       kind: "wallet" as const,
@@ -55,16 +51,16 @@ export function walletPickerItems(rows: readonly WalletRow[]): PickerItem[] {
       description:
         own.length > 1
           ? own.map((row) => shortAddress(row.address)).join(" · ")
-          : `${shortAddress(first!.address)} · ${first!.kind === "agent" ? app : familyTag(first!.family)}`,
-      // Not the family or app words: "solana" should find the chain first.
+          : `${shortAddress(first!.address)} · ${first!.kind === "agent" ? agent : familyTag(first!.family)}`,
+      // Not the family or agent words: "solana" should find the chain first.
       searchText: `${title} ${own.map((row) => row.address).join(" ")}`,
-      Icon: walletPickerIcon(app),
+      Icon: walletPickerIcon(agent),
     };
   });
 }
 
 export function useCapabilityCatalog(): PickerItem[] {
-  const { enabledAppIds, allowAppMentions } = useCapabilityComposer();
+  const { allowAgentMentions } = useCapabilityComposer();
   const { state, getCurrentThreadControl } = useControl();
   const control = getCurrentThreadControl();
   const model =
@@ -74,10 +70,6 @@ export function useCapabilityCatalog(): PickerItem[] {
   const networkPreferences = useOptionalAomiWalletNetworkPreferences();
   const { skills } = useSkillCatalog();
   const { wallets } = useAomiWalletKit();
-  const enabled = useMemo(
-    () => (enabledAppIds ? new Set(["default", ...enabledAppIds]) : null),
-    [enabledAppIds],
-  );
   const items = useMemo<PickerItem[]>(() => {
     const skillItems: PickerItem[] = (skills ?? []).map((skill) => ({
       key: `skill:${skill.id}`,
@@ -92,50 +84,36 @@ export function useCapabilityCatalog(): PickerItem[] {
         .join(" ")}`,
       Icon: getSkillIcon(skill.id) ?? WandSparklesIcon,
     }));
-    const appItems: PickerItem[] = allowAppMentions
-      ? state.appDescriptors
-          .filter(
-            (app) =>
-              !UNTAGGABLE_APPS.has(app.name) &&
-              (!enabled ||
-                enabled.has(app.name) ||
-                (app.isPublic === false && app.isInstalled === true)),
-          )
-          .map((app) => {
-            const info = resolveAppIdentity(app);
-            const metadata = app.metadata;
-            const known =
-              typeof metadata?.fundedModelOnly === "boolean" &&
-              Array.isArray(metadata.sponsoredModelIds);
-            const disabled =
-              !known ||
-              (metadata.fundedModelOnly === true &&
-                (!model || !metadata.sponsoredModelIds?.includes(model)));
-            const chainSearch = (app.chainIds ?? [])
-              .map((chainId) => getChainInfo(chainId)?.name ?? chainId)
-              .join(" ");
-            const sourceId =
-              app.applicationId !== null && app.applicationId !== undefined
-                ? `application:${app.applicationId}`
-                : `name:${app.name}`;
-            return {
-              key: `app:${sourceId}`,
-              kind: "app" as const,
-              id: sourceId,
-              label: info.displayName,
-              description: !known
-                ? "Checking model availability…"
-                : disabled
-                  ? "Choose a sponsored model"
-                  : info.category.label,
-              disabled,
-              chainIds: app.chainIds,
-              applicationId: app.applicationId,
-              appName: app.name,
-              searchText: `${app.name} ${app.label ?? ""} ${info.displayName} ${info.category.label} ${chainSearch}`,
-              Icon: getAppIcon(info.brandId) ?? AppWindowIcon,
-            };
-          })
+    const agentItems: PickerItem[] = allowAgentMentions
+      ? state.agentCards.map((agent) => {
+          const info = resolveAgentIdentity(agent);
+          const metadata = agent.metadata;
+          const known =
+            typeof metadata?.fundedModelOnly === "boolean" &&
+            Array.isArray(metadata.sponsoredModelIds);
+          const disabled =
+            !known ||
+            (metadata.fundedModelOnly === true &&
+              (!model ||
+                !(metadata.sponsoredModelIds as string[]).includes(model)));
+          const chainSearch = "";
+          const sourceId = `agent:${agent.agent}`;
+          return {
+            key: `agent:${sourceId}`,
+            kind: "agent" as const,
+            id: sourceId,
+            label: info.displayName,
+            description: !known
+              ? "Checking model availability…"
+              : disabled
+                ? "Choose a sponsored model"
+                : info.category.label,
+            disabled,
+            agentName: agent.agent,
+            searchText: `${agent.agent} ${agent.display_name ?? ""} ${info.displayName} ${info.category.label} ${chainSearch}`,
+            Icon: getAgentIcon(info.brandId) ?? AppWindowIcon,
+          };
+        })
       : [];
     const evmChains =
       networkPreferences?.supportedEvmChains ?? SUPPORTED_CHAINS;
@@ -167,17 +145,16 @@ export function useCapabilityCatalog(): PickerItem[] {
       })),
     ];
     return [
-      ...appItems,
+      ...agentItems,
       ...skillItems,
       ...chainItems,
       ...walletPickerItems(wallets),
     ];
   }, [
-    allowAppMentions,
-    enabled,
+    allowAgentMentions,
     networkPreferences,
     skills,
-    state.appDescriptors,
+    state.agentCards,
     model,
     wallets,
   ]);

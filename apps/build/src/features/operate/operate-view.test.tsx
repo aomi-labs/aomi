@@ -88,7 +88,7 @@ describe("OperateView transactions", () => {
       transactions: [
         {
           id: "1",
-          application: "demo",
+          agent: "demo",
           status: "confirmed",
           chainId: 8453,
           fromAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -131,9 +131,10 @@ describe("OperateView transactions", () => {
     await waitFor(() => {
       expect(screen.getByText(/no transactions yet/i)).toBeInTheDocument();
     });
-    expect(
-      screen.getByRole("link", { name: /open agents/i }),
-    ).toHaveAttribute("href", "/agents");
+    expect(screen.getByRole("link", { name: /open agents/i })).toHaveAttribute(
+      "href",
+      "/agents",
+    );
   });
 
   it("renders 24h trend tiles and error split when the manager emits them", async () => {
@@ -152,12 +153,12 @@ describe("OperateView transactions", () => {
     operateFetch.mockResolvedValue({
       projects: [],
       monitoring: { status: "ok", windowSeconds: 900 },
-      apps: [
+      agents: [
         {
-          applicationId: 77,
-          application: "goal-digger",
+          agentId: 77,
+          agent: "goal-digger",
           status: "healthy",
-          releaseTag: "apps-1-r0123abcdef-goal-digger-bbbbbbbbbbbb",
+          releaseTag: "agents-1-r0123abcdef-goal-digger-bbbbbbbbbbbb",
           sdkVersion: "3.0.2",
           metrics: {
             available: true,
@@ -221,15 +222,15 @@ describe("OperateView transactions", () => {
     ).toBeInTheDocument();
   });
 
-  it("links an owned app card to its live detail by stable ids", async () => {
+  it("links an owned agent card to its live detail by stable ids", async () => {
     operateFetch.mockResolvedValue({
       projects: [],
       example: true,
       monitoring: { status: "unconfigured", windowSeconds: 300 },
-      apps: [
+      agents: [
         {
-          applicationId: 2_937_099,
-          application: "playground-example",
+          agentId: 2_937_099,
+          agent: "playground-example",
           exampleFixture: "goal-digger",
           project: { id: 1586 },
           status: "healthy",
@@ -253,10 +254,10 @@ describe("OperateView transactions", () => {
     operateFetch.mockResolvedValue({
       projects: [],
       monitoring: { status: "ok", windowSeconds: 300 },
-      apps: [
+      agents: [
         {
-          applicationId: 78,
-          application: "playground-example",
+          agentId: 78,
+          agent: "playground-example",
           status: "healthy",
           metrics: {
             available: true,
@@ -288,7 +289,7 @@ describe("OperateView transactions", () => {
       transactions: [
         {
           id: "tx-svm",
-          application: "goal-digger",
+          agent: "goal-digger",
           status: "failed",
           family: "svm",
           chainName: "Solana",
@@ -334,7 +335,7 @@ describe("OperateView transactions", () => {
           id: "log-1",
           occurredAt: 1_700_000_000,
           eventType: "tool_invocation",
-          application: "goal-digger",
+          agent: "goal-digger",
           summary: "SOL → USDC 2.5 · out 412.34",
           kind: "invocation",
           status: "ok",
@@ -348,7 +349,7 @@ describe("OperateView transactions", () => {
           id: "log-2",
           occurredAt: 1_699_990_000,
           eventType: "deployment",
-          application: "goal-digger",
+          agent: "goal-digger",
           summary: "Activated release r1dac12ad71",
         },
       ],
@@ -378,7 +379,7 @@ describe("OperateView transactions", () => {
           id: "usage-1",
           occurredAt: 1_700_000_000,
           eventType: "usage",
-          application: "goal-digger",
+          agent: "goal-digger",
           summary: "Usage openai/gpt-5-nano",
           modelKey: {
             id: 7,
@@ -415,8 +416,8 @@ describe("OperateView transactions", () => {
         revenue: [
           {
             subject: "tool_invocation",
-            application: "goal-digger",
-            applicationId: 77,
+            agent: "goal-digger",
+            agentId: 77,
             events: 128,
             gross: 128.0,
             platformFee: 12.8,
@@ -426,8 +427,8 @@ describe("OperateView transactions", () => {
         charges: [
           {
             item: "hosting",
-            application: "goal-digger",
-            applicationId: 77,
+            agent: "goal-digger",
+            agentId: 77,
             events: 1,
             amount: 10.0,
           },
@@ -435,7 +436,7 @@ describe("OperateView transactions", () => {
         entries: [
           {
             day: "2026-07-15",
-            application: "goal-digger",
+            agent: "goal-digger",
             subject: "model",
             events: 68,
             gross: 4.1,
@@ -458,8 +459,8 @@ describe("OperateView transactions", () => {
           },
           resources: [
             {
-              application: "somm-agent",
-              applicationId: 2936606,
+              agent: "somm-agent",
+              agentId: 2936606,
               tool: "get_idle_assets",
               flatCredits: 100,
               flatUsd: 1,
@@ -474,7 +475,7 @@ describe("OperateView transactions", () => {
               id: "settle:proof",
               kind: "settlement_confirmed",
               occurredAt: 1_700_000_001,
-              application: "somm-agent",
+              agent: "somm-agent",
               credits: 100,
               usd: 1,
               recipient: "0x5D907BEa404e6F821d467314a9cA07663CF64c9B",
@@ -497,7 +498,7 @@ describe("OperateView transactions", () => {
     expect(screen.getByText("+$113.02")).toBeInTheDocument();
     expect(screen.getByText("Tool invocations")).toBeInTheDocument();
     expect(screen.getByText("$115.20")).toBeInTheDocument();
-    expect(screen.getByText("App hosting")).toBeInTheDocument();
+    expect(screen.getByText("Agent hosting")).toBeInTheDocument();
     expect(screen.getByText("Model usage")).toBeInTheDocument();
     expect(screen.getByText("−$4.10")).toBeInTheDocument();
     expect(screen.getAllByText("Jul 1 – Jul 15").length).toBeGreaterThan(0);
@@ -544,7 +545,7 @@ describe("OperateView transactions", () => {
         {
           id: "partner-payout:settle:proof",
           kind: "partner_payout",
-          application: "somm-agent",
+          agent: "somm-agent",
           status: "confirmed",
           family: "evm",
           chainName: "Base Sepolia",
@@ -600,7 +601,7 @@ describe("OperateView transactions", () => {
           id: "usage:fee",
           occurredAt: 1_700_000_000,
           eventType: "usage",
-          application: "somm-agent",
+          agent: "somm-agent",
           summary: "Partner fee accrued · 100.00 credits",
           details: {
             source: "partner_fee",
@@ -623,7 +624,7 @@ describe("OperateView transactions", () => {
           id: "ordinary",
           occurredAt: 1_699_999_999,
           eventType: "deployment",
-          application: "somm-agent",
+          agent: "somm-agent",
           summary: "Deployment activated",
           details: {},
         },
@@ -665,7 +666,7 @@ describe("OperateView transactions", () => {
       daily: [
         {
           periodUtcDay: "2026-07-15",
-          application: "demo",
+          agent: "demo",
           inputTokens: 412000,
           outputTokens: 58400,
           creditsUsed: 3.4182,
@@ -685,7 +686,7 @@ describe("OperateView transactions", () => {
   it("honors ?project= when loading operate data", async () => {
     searchParams.current = new URLSearchParams("project=42");
     operateFetch.mockResolvedValue({
-      projects: [{ id: 42, repositoryLink: "a/b", apps: [] }],
+      projects: [{ id: 42, repositoryLink: "a/b", agents: [] }],
       daily: [],
       breakdown: [],
     });
@@ -704,7 +705,7 @@ describe("OperateView transactions", () => {
       "project=1620&platform=somm.finance",
     );
     operateFetch.mockResolvedValue({
-      projects: [{ id: 1620, repositoryLink: "aomi/somm-agent", apps: [] }],
+      projects: [{ id: 1620, repositoryLink: "aomi/somm-agent", agents: [] }],
       daily: [],
       breakdown: [],
     });

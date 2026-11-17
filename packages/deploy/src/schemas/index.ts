@@ -4,6 +4,6 @@
 // without bringing zod along.
 export * from "./deploy";
 export * from "./projects";
-export * from "./bots";
+export * from "./channels";
 export * from "./operate";
 export { list, maybe, timestampSeconds } from "./wire";

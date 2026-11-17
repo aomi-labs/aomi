@@ -17,8 +17,8 @@ vi.mock("./provider", () => {
     hintsEnabled: false,
     capabilityPickerRequest: 0,
     consumeCapabilityPickerRequest: () => {},
-    appTagRequest: null,
-    consumeAppTagRequest: () => {},
+    agentTagRequest: null,
+    consumeAgentTagRequest: () => {},
   };
   return { useCapabilityComposer: () => stable };
 });

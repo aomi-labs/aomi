@@ -202,8 +202,8 @@ function TxDetail({ tx }: { tx: TxRow }) {
             {payout ? "Partner payment context" : "Agent context"}
           </div>
           <dl className="px-3 py-2">
-            <Field label="App">
-              <span className="font-medium">{tx.application}</span>
+            <Field label="Agent">
+              <span className="font-medium">{tx.agent}</span>
             </Field>
             {payout ? (
               <>
@@ -246,41 +246,39 @@ function TxDetail({ tx }: { tx: TxRow }) {
 
 export function TransactionRows({
   rows,
-  apps,
-  appFilter,
-  onAppFilterChange,
+  agents,
+  agentFilter,
+  onAgentFilterChange,
   openId,
   onToggle,
 }: {
   rows: TxRow[];
-  apps: string[];
-  appFilter: string | null;
-  onAppFilterChange: (app: string | null) => void;
+  agents: string[];
+  agentFilter: string | null;
+  onAgentFilterChange: (agent: string | null) => void;
   openId: string | null;
   onToggle: (id: string | null) => void;
 }) {
-  const visible = rows.filter(
-    (tx) => !appFilter || tx.application === appFilter,
-  );
+  const visible = rows.filter((tx) => !agentFilter || tx.agent === agentFilter);
   return (
     <div className="space-y-3">
       <div className="border-border bg-surface-subtle flex flex-wrap items-center gap-2 rounded-md border px-3 py-2">
         <select
-          value={appFilter ?? ""}
-          onChange={(event) => onAppFilterChange(event.target.value || null)}
+          value={agentFilter ?? ""}
+          onChange={(event) => onAgentFilterChange(event.target.value || null)}
           className="border-border bg-surface text-foreground h-8 rounded-md border px-2 text-xs"
         >
-          <option value="">All apps</option>
-          {apps.map((app) => (
-            <option key={app} value={app}>
-              {app}
+          <option value="">All agents</option>
+          {agents.map((agent) => (
+            <option key={agent} value={agent}>
+              {agent}
             </option>
           ))}
         </select>
-        {appFilter ? (
+        {agentFilter ? (
           <button
             type="button"
-            onClick={() => onAppFilterChange(null)}
+            onClick={() => onAgentFilterChange(null)}
             className="text-dim hover:text-foreground flex items-center gap-1 text-xs"
           >
             <X className="size-3" /> clear filter
@@ -296,7 +294,7 @@ export function TransactionRows({
             <tr>
               <th className="w-8 px-3 py-2" aria-label="expand" />
               <th className="w-44 px-3 py-2">Time</th>
-              <th className="w-44 px-3 py-2">App</th>
+              <th className="w-44 px-3 py-2">Agent</th>
               <th className="w-24 px-3 py-2">Status</th>
               <th className="w-28 px-3 py-2">Chain</th>
               <th className="w-28 px-3 py-2">From</th>
@@ -327,8 +325,8 @@ export function TransactionRows({
                     </td>
                     <td className="min-w-0 px-3 py-2">
                       <div className="flex min-w-0 items-center gap-2">
-                        <span className="truncate" title={tx.application}>
-                          {tx.application}
+                        <span className="truncate" title={tx.agent}>
+                          {tx.agent}
                         </span>
                         {tx.kind === "partner_payout" ? (
                           <span

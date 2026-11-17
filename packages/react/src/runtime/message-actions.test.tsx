@@ -150,7 +150,7 @@ describe("message action wiring", () => {
       metadata: {
         custom: {
           aomiUserMessageKey: "original:user",
-          aomiCapabilityHints: [{ kind: "app", id: "name:aave" }],
+          aomiCapabilityHints: [{ kind: "agent", id: "agent:aomi/aave" }],
         },
       },
     };
@@ -164,7 +164,7 @@ describe("message action wiring", () => {
       content: [{ type: "text", text: "Explain instead" }],
     } as AppendMessage);
     expect(send.mock.calls[0]![0]).toContain(
-      'Selected app task target: {"app":"aave"}',
+      'Selected agent task target: {"agent":"aomi/aave"}',
     );
   });
 
@@ -183,13 +183,13 @@ describe("message action wiring", () => {
       runConfig: {
         custom: {
           aomiCapabilityHints: {
-            capabilities: [{ kind: "app", id: "name:aave" }],
+            capabilities: [{ kind: "agent", id: "agent:aomi/aave" }],
           },
         },
       },
     } as AppendMessage);
     expect(send.mock.calls[0]![0]).toContain(
-      'Selected app task target: {"app":"aave"}',
+      'Selected agent task target: {"agent":"aomi/aave"}',
     );
     expect(restore).not.toHaveBeenCalled();
   });

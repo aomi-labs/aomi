@@ -168,9 +168,9 @@ export function useBuildSession() {
         status: flags.failed ? "failed" : "healthy",
         model: "Aomi",
         updatedAt: "just now",
-        runtime: snapshot.app,
+        runtime: snapshot.packageName,
         runId: snapshot.runId,
-        app: snapshot.app,
+        packageName: snapshot.packageName,
         stageId: flags.shipReady ? "ship" : "generate",
         messages: [...draft.messages],
         streamEvents,
@@ -235,8 +235,7 @@ export function useBuildSession() {
       const healthy = clean.status === "healthy" && clean.stageId === "ship";
       const needsVerify =
         !healthy &&
-        (clean.stageId === "compile_test" ||
-          clean.status === "running");
+        (clean.stageId === "compile_test" || clean.status === "running");
       let streamEvents = clean.streamEvents;
       if (needsVerify && streamEvents.length > 0) {
         // Persisted mid-verify runs may wrongly mark Ship done — coerce.
@@ -254,13 +253,16 @@ export function useBuildSession() {
           return {
             ...e,
             status: "pending" as const,
-            message: e.message || "Waiting for compile + smoke test before ship.",
+            message:
+              e.message || "Waiting for compile + smoke test before ship.",
           };
         });
       }
       setActiveSessionId(sessionId);
       setEngineRunId(clean.runId ?? null);
-      setStageId(healthy ? "ship" : needsVerify ? "compile_test" : clean.stageId);
+      setStageId(
+        healthy ? "ship" : needsVerify ? "compile_test" : clean.stageId,
+      );
       setMessages(clean.messages);
       setStreamEvents(streamEvents);
       setFileTree(clean.fileTree);
@@ -427,7 +429,10 @@ export function useBuildSession() {
             fail(body.error ?? `request failed (${res.status})`);
             return;
           }
-          const created = (await res.json()) as { runId: string; app: string };
+          const created = (await res.json()) as {
+            runId: string;
+            packageName: string;
+          };
           setEngineRunId(created.runId);
           // Persist immediately so a reload mid-build can reattach.
           savePersistedSession({
@@ -436,9 +441,9 @@ export function useBuildSession() {
             status: "running",
             model: "Aomi",
             updatedAt: "just now",
-            runtime: created.app,
+            runtime: created.packageName,
             runId: created.runId,
-            app: created.app,
+            packageName: created.packageName,
             stageId: "plan",
             messages: [userMsg],
             streamEvents: initial,
@@ -507,127 +512,130 @@ export function useBuildSession() {
       let finalNodes = plannedNodes;
 
       stages.forEach((stage, index) => {
-        const timerId = window.setTimeout(() => {
-          setStageId(STREAM_TO_JOURNEY[stage]);
+        const timerId = window.setTimeout(
+          () => {
+            setStageId(STREAM_TO_JOURNEY[stage]);
 
-          setStreamEvents((prev) => {
-            const next = prev.map((e) => {
-              if (e.stage === stage) {
-                return {
-                  ...e,
-                  status: "active" as const,
-                  time: nowStamp(),
-                  message: stageMessages[stage],
-                };
-              }
-              if (stages.indexOf(e.stage) < index && e.status !== "done") {
-                return {
-                  ...e,
-                  status: "done" as const,
-                  time: e.time || nowStamp(),
-                };
-              }
-              return e;
-            });
-            finalStreamEvents = next;
-            if (sessionDraftRef.current) {
-              sessionDraftRef.current.streamEvents = next;
-            }
-            return next;
-          });
-
-          if (stage === "plan") {
-            finalNodes = plannedNodes.map((n, i) => ({
-              ...n,
-              status: i === 0 ? "active" : "pending",
-            }));
-            setNodes(finalNodes);
-            const activateRest = window.setTimeout(() => {
-              finalNodes = plannedNodes.map((n) => ({
-                ...n,
-                status: n.id === "node_run" ? "pending" : "done",
-              }));
-              setNodes(finalNodes);
-              if (sessionDraftRef.current) {
-                sessionDraftRef.current.nodes = finalNodes;
-              }
-            }, 500);
-            timersRef.current.push(activateRest);
-          }
-
-          if (stage === "generate") {
-            const tree = deriveGeneratedFileTree(userText);
-            setFileTree(tree);
-            finalFileTree = tree;
-            if (sessionDraftRef.current) {
-              sessionDraftRef.current.fileTree = finalFileTree;
-            }
-
-            // End of generate → enter verify gates (do not mark Ship done).
             setStreamEvents((prev) => {
-              finalStreamEvents = prev.map((e) => {
-                if (e.stage === "plan" || e.stage === "generate") {
+              const next = prev.map((e) => {
+                if (e.stage === stage) {
+                  return {
+                    ...e,
+                    status: "active" as const,
+                    time: nowStamp(),
+                    message: stageMessages[stage],
+                  };
+                }
+                if (stages.indexOf(e.stage) < index && e.status !== "done") {
                   return {
                     ...e,
                     status: "done" as const,
                     time: e.time || nowStamp(),
                   };
                 }
-                if (e.stage === "validate") {
+                return e;
+              });
+              finalStreamEvents = next;
+              if (sessionDraftRef.current) {
+                sessionDraftRef.current.streamEvents = next;
+              }
+              return next;
+            });
+
+            if (stage === "plan") {
+              finalNodes = plannedNodes.map((n, i) => ({
+                ...n,
+                status: i === 0 ? "active" : "pending",
+              }));
+              setNodes(finalNodes);
+              const activateRest = window.setTimeout(() => {
+                finalNodes = plannedNodes.map((n) => ({
+                  ...n,
+                  status: n.id === "node_run" ? "pending" : "done",
+                }));
+                setNodes(finalNodes);
+                if (sessionDraftRef.current) {
+                  sessionDraftRef.current.nodes = finalNodes;
+                }
+              }, 500);
+              timersRef.current.push(activateRest);
+            }
+
+            if (stage === "generate") {
+              const tree = deriveGeneratedFileTree(userText);
+              setFileTree(tree);
+              finalFileTree = tree;
+              if (sessionDraftRef.current) {
+                sessionDraftRef.current.fileTree = finalFileTree;
+              }
+
+              // End of generate → enter verify gates (do not mark Ship done).
+              setStreamEvents((prev) => {
+                finalStreamEvents = prev.map((e) => {
+                  if (e.stage === "plan" || e.stage === "generate") {
+                    return {
+                      ...e,
+                      status: "done" as const,
+                      time: e.time || nowStamp(),
+                    };
+                  }
+                  if (e.stage === "validate") {
+                    return {
+                      ...e,
+                      status: "active" as const,
+                      time: nowStamp(),
+                      message: stageMessages.validate,
+                    };
+                  }
                   return {
                     ...e,
-                    status: "active" as const,
-                    time: nowStamp(),
-                    message: stageMessages.validate,
+                    status: "pending" as const,
+                    message: stageMessages.ready,
                   };
+                });
+                if (sessionDraftRef.current) {
+                  sessionDraftRef.current.streamEvents = finalStreamEvents;
                 }
-                return {
-                  ...e,
-                  status: "pending" as const,
-                  message: stageMessages.ready,
-                };
+                return finalStreamEvents;
               });
+              setStageId("compile_test");
+              setAwaitingVerify(true);
+              setIsGenerating(false);
+
+              const assistantMsg: BuildMessage = {
+                id: `a_${Date.now()}`,
+                role: "assistant",
+                content: mockBuildResponse,
+                timestamp: nowTime(),
+                model: "Aomi",
+              };
+              finalMessages = [...finalMessages, assistantMsg];
+              setMessages(finalMessages);
               if (sessionDraftRef.current) {
-                sessionDraftRef.current.streamEvents = finalStreamEvents;
+                sessionDraftRef.current.messages = finalMessages;
               }
-              return finalStreamEvents;
-            });
-            setStageId("compile_test");
-            setAwaitingVerify(true);
-            setIsGenerating(false);
+              onAssistantReady(assistantMsg);
 
-            const assistantMsg: BuildMessage = {
-              id: `a_${Date.now()}`,
-              role: "assistant",
-              content: mockBuildResponse,
-              timestamp: nowTime(),
-              model: "Aomi",
-            };
-            finalMessages = [...finalMessages, assistantMsg];
-            setMessages(finalMessages);
-            if (sessionDraftRef.current) {
-              sessionDraftRef.current.messages = finalMessages;
+              savePersistedSession({
+                id: sessionId,
+                title: title || "New build",
+                status: "running",
+                model: "Aomi",
+                updatedAt: "just now",
+                runtime: "local",
+                stageId: "compile_test",
+                messages: finalMessages,
+                streamEvents: finalStreamEvents,
+                fileTree:
+                  finalFileTree.length > 0
+                    ? finalFileTree
+                    : deriveGeneratedFileTree(userText),
+                nodes: finalNodes,
+              });
             }
-            onAssistantReady(assistantMsg);
-
-            savePersistedSession({
-              id: sessionId,
-              title: title || "New build",
-              status: "running",
-              model: "Aomi",
-              updatedAt: "just now",
-              runtime: "local",
-              stageId: "compile_test",
-              messages: finalMessages,
-              streamEvents: finalStreamEvents,
-              fileTree:
-                finalFileTree.length > 0
-                  ? finalFileTree
-                  : deriveGeneratedFileTree(userText),
-              nodes: finalNodes,
-            });
-          }
-        }, (index + 1) * 700);
+          },
+          (index + 1) * 700,
+        );
         timersRef.current.push(timerId);
       });
     },
@@ -695,9 +703,7 @@ export function useBuildSession() {
     const id = window.setTimeout(() => {
       setTestDone(true);
       setVerifyBusy(null);
-      setNodes((prev) =>
-        prev.map((n) => ({ ...n, status: "done" as const })),
-      );
+      setNodes((prev) => prev.map((n) => ({ ...n, status: "done" as const })));
       setAwaitingVerify(false);
       setShipReady(true);
       setStageId("ship");

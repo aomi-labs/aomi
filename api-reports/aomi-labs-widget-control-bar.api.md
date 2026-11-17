@@ -25,14 +25,6 @@ export type ApiKeyInputProps = {
     description?: string;
 };
 
-// @public
-export const AppSecretsDialog: FC<AppSecretsDialogProps>;
-
-// @public (undocumented)
-export type AppSecretsDialogProps = {
-    className?: string;
-};
-
 // @public (undocumented)
 export const ConnectButton: FC<ConnectButtonProps>;
 
@@ -54,24 +46,19 @@ export type ControlBarProps = {
     children?: ReactNode;
     hideModel?: boolean;
     hideSafety?: boolean;
-    hideApp?: boolean;
+    hideAgent?: boolean;
     routing?: AomiRoutingConfig;
-    enabledAppIds?: readonly string[];
-    initialAppTag?: AppTagRequest;
+    enabledAgentIds?: readonly string[];
+    initialAgentTag?: AgentTagRequest;
     hideApiKey?: boolean;
     hideWallet?: boolean;
     hideNetwork?: boolean;
     hideSecrets?: boolean;
-    hideAppSecrets?: boolean;
 };
 
 // @public (undocumented)
-export type DirectRoutingApp = {
-    app: string;
-    applicationId?: never;
-} | {
-    applicationId: number;
-    app?: string;
+export type DirectRoutingAgent = {
+    agent: string;
 };
 
 // @public (undocumented)

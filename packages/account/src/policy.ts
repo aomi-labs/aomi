@@ -50,9 +50,9 @@ export type ResourceKind =
   | "apiRest"
   | "agentRest"
   | "pipelineRest"
-  | "agentMcp"
+  | "agentGatewayMcp"
   | "pipelineMcp"
-  | "appMcp"
+  | "agentMcp"
   | "accountRest";
 
 export type ResourcePolicy = {
@@ -79,7 +79,7 @@ export type ResourcePolicy = {
 export type Resources = {
   portalOrigin: string;
   authorizationServerIssuer: string;
-  agentMcp: string;
+  agentGatewayMcp: string;
   pipelineMcp: string;
   agentRest: string;
   pipelineRest: string;
@@ -92,7 +92,7 @@ export function resourcesFor(portalOrigin: string): Resources {
   return {
     portalOrigin,
     authorizationServerIssuer: `${portalOrigin}${AOMI_OAUTH_BASE_PATH}`,
-    agentMcp: `${portalOrigin}/v1/agent/mcp`,
+    agentGatewayMcp: `${portalOrigin}/v1/agent/mcp`,
     pipelineMcp: `${portalOrigin}/v1/pipeline/mcp`,
     agentRest: `${portalOrigin}/v1/agent`,
     pipelineRest: `${portalOrigin}/v1/pipeline`,
@@ -166,8 +166,8 @@ export function resourcePolicies(
       dpopBoundAccessTokensRequired: false,
     },
     {
-      kind: "agentMcp",
-      identifier: resources.agentMcp,
+      kind: "agentGatewayMcp",
+      identifier: resources.agentGatewayMcp,
       allowedScopes: AGENT_SCOPES,
       guestScopes: [
         "mcp:agent",
@@ -196,31 +196,38 @@ export function resourcePolicies(
   }));
 }
 
-/** An app's name as it appears in its MCP path, `/v1/apps/<name>/mcp`. */
-const APP_NAME = /^[a-z0-9][a-z0-9-_]{0,62}$/;
+/** An agent's name as it appears in its MCP path, `/v1/agents/<name>/mcp`. */
+const AGENT_NAME = /^[a-z0-9][a-z0-9_-]{0,62}\/[a-z0-9][a-z0-9_-]{0,62}$/;
 
-/** The MCP resource locked to one app: the agent MCP with that app forced. */
-export function appMcpResource(
+/** The MCP resource locked to one agent: the agent MCP with that agent forced. */
+export function agentMcpResource(
   resources: Pick<Resources, "portalOrigin">,
   name: string,
 ): string {
-  return `${resources.portalOrigin}/v1/apps/${name}/mcp`;
+  return `${resources.portalOrigin}/v1/agents/${encodeURIComponent(name)}/mcp`;
 }
 
-/** The app an app-locked MCP resource names; undefined for any other resource. */
-export function appMcpName(
+/** The agent an agent-locked MCP resource names; undefined for any other resource. */
+export function agentMcpName(
   resources: Pick<Resources, "portalOrigin">,
   resource: string,
 ): string | undefined {
-  const prefix = `${resources.portalOrigin}/v1/apps/`;
+  const prefix = `${resources.portalOrigin}/v1/agents/`;
   if (!resource.startsWith(prefix) || !resource.endsWith("/mcp"))
     return undefined;
-  const name = resource.slice(prefix.length, -"/mcp".length);
-  return APP_NAME.test(name) ? name : undefined;
+  const encoded = resource.slice(prefix.length, -"/mcp".length);
+  try {
+    const name = decodeURIComponent(encoded);
+    return AGENT_NAME.test(name) && encodeURIComponent(name) === encoded
+      ? name
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
- * The policy of one resource: a fixed one, or an app-locked MCP resource,
+ * The policy of one resource: a fixed one, or an agent-locked MCP resource,
  * which carries the agent MCP's scopes. Null for anything else.
  */
 export function resourcePolicy(
@@ -231,9 +238,11 @@ export function resourcePolicy(
   const policies = resourcePolicies(resources, dpopRequired);
   const fixed = policies.find((policy) => policy.identifier === resource);
   if (fixed) return fixed;
-  const agentMcp = policies.find((policy) => policy.kind === "agentMcp")!;
-  return appMcpName(resources, resource)
-    ? { ...agentMcp, kind: "appMcp", identifier: resource }
+  const agentGatewayMcp = policies.find(
+    (policy) => policy.kind === "agentGatewayMcp",
+  )!;
+  return agentMcpName(resources, resource)
+    ? { ...agentGatewayMcp, kind: "agentMcp", identifier: resource }
     : null;
 }
 
@@ -424,14 +433,14 @@ export function authorize(
 // ── The route table ──────────────────────────────────────────────────────
 
 export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-/** `appMcp`: the agent MCP locked to the app the path names (`/v1/apps/<app>/mcp`). */
+/** `agentMcp`: the agent MCP locked to the agent the path names (`/v1/agents/<agent>/mcp`). */
 export type ResourceKey =
   | "agentRest"
   | "pipelineRest"
   | "accountRest"
-  | "agentMcp"
+  | "agentGatewayMcp"
   | "pipelineMcp"
-  | "appMcp";
+  | "agentMcp";
 
 /**
  * What a method needs: a scope on the row's resource, a capability (optionally
@@ -577,7 +586,7 @@ export const ROUTES: readonly Route[] = [
     path: /^\/v1\/agent\/mcp$/,
     operation: "agent.mcp",
     to: "mcp",
-    on: "agentMcp",
+    on: "agentGatewayMcp",
     paid: true,
     methods: { POST: "mcp:agent" },
     challengeScopes: [
@@ -604,12 +613,12 @@ export const ROUTES: readonly Route[] = [
     ],
   },
   {
-    // The agent MCP locked to one app; the token must be for exactly this
-    // path, and api-server resolves the app (404 app_not_found).
-    path: /^\/v1\/apps\/[^/]+\/mcp$/,
-    operation: "app.mcp",
+    // The agent MCP locked to one agent; the token must be for exactly this
+    // path, and api-server resolves the agent (404 agent_not_found).
+    path: /^\/v1\/agents\/[^/]+\/mcp$/,
+    operation: "agent.mcp",
     to: "mcp",
-    on: "appMcp",
+    on: "agentMcp",
     paid: true,
     methods: { POST: "mcp:agent" },
     challengeScopes: [
@@ -778,7 +787,7 @@ export const ROUTES: readonly Route[] = [
     ),
     methods: { POST: "agent:write" },
   },
-  // An OAuth client (the CLI, an AI or SDK app) reaches the backend, which
+  // An OAuth client (the CLI, an AI or SDK agent) reaches the backend, which
   // lets it approve only where its lane on the wallet asks in that client.
   {
     ...commit,
@@ -820,7 +829,8 @@ export const ROUTES: readonly Route[] = [
     DELETE: settings,
   }),
   backend(/^\/api\/integrations\/github-app\/oauth\/start$/, { GET: chat }),
-  backend(/^\/api\/thread\/apps$/, { GET: chat }),
+  backend(/^\/api\/agents\/resolve$/, { GET: "public" }),
+  backend(/^\/api\/thread\/catalog$/, { GET: signedIn }),
   backend(/^\/api\/thread\/models$/, { GET: "public" }),
   {
     ...backend(/^\/api\/thread\/model$/, {

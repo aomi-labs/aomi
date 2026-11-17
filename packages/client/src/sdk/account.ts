@@ -175,7 +175,7 @@ export class AomiGuard {
 
 /**
  * `aomi.account`: the signed-in account. Everything here is `/v1`. Profile,
- * logins and merge need a portal or CLI sign-in; OAuth apps get 401 there.
+ * logins and merge need a portal or CLI sign-in; OAuth toolsets get 401 there.
  */
 export class AomiAccount extends AccountTransport {
   declare readonly wallets: AomiAccountWallets;

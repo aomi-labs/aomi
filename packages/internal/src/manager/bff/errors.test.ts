@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { BackendError, DeployError } from "@aomi-labs/deploy";
 import { identifyLaunchError } from "./errors";
-import { RequiredSecretsCheckError } from "./release-manifest";
+import { RequiredSecretsCheckError } from "./required-secrets";
 
 describe("identifyLaunchError", () => {
   it.each([401, 403, 503])(
@@ -31,7 +31,9 @@ describe("identifyLaunchError", () => {
         .response,
     ).toEqual({ status: 400, error: "invalid release" });
 
-    expect(identifyLaunchError(new RequiredSecretsCheckError()).response).toEqual({
+    expect(
+      identifyLaunchError(new RequiredSecretsCheckError()).response,
+    ).toEqual({
       status: 503,
       error: "Unable to verify required secrets. Try again.",
       code: "required_secrets_github_unavailable",
@@ -57,11 +59,11 @@ describe("identifyLaunchError", () => {
     const deployError = {
       code: "github_app_permission_missing",
       message:
-        "The Aomi GitHub App cannot dispatch the deployment workflow on `aomi-labs/community-apps`",
+        "The Aomi GitHub App cannot dispatch the deployment workflow on `aomi-labs/community-agents`",
       hint: "Grant the Aomi GitHub App `actions: write` on the platform repository, then retry.",
       retryable: false,
       details: {
-        repository: "aomi-labs/community-apps",
+        repository: "aomi-labs/community-agents",
         permission: "actions:write",
       },
     };

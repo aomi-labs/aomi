@@ -21,7 +21,7 @@ import type { WalletFamily } from "@/wallet/types";
 import { BrandMark } from "./account-management/controls";
 import { FamilyTag } from "./account-management/family-tag";
 import {
-  appName,
+  agentName,
   familySlots,
   rowEmail,
   rowTitle,
@@ -336,10 +336,10 @@ function SignsWithRows({
     <div className="border-aomi-border/70 bg-aomi-raised mt-2.5 overflow-hidden rounded-lg border">
       {unlinked ? (
         <div className="bg-aomi-warning/15 flex items-center gap-2 px-2 py-1.5">
-          <BrandMark brand={appName(unlinked)} dot="off" size={15} box={26} />
+          <BrandMark brand={agentName(unlinked)} dot="off" size={15} box={26} />
           <span className="min-w-0 flex-1">
             <span className="text-aomi-fg block truncate text-[12px] font-medium">
-              New address in {appName(unlinked)}
+              New address in {agentName(unlinked)}
             </span>
             <span className="text-aomi-muted block truncate font-mono text-[11px]">
               {shortAddress(unlinked.address)}
@@ -474,7 +474,7 @@ function WalletLine({ row }: { row: WalletRow }) {
       )}
     >
       <BrandMark
-        brand={appName(row)}
+        brand={agentName(row)}
         dot={row.connected ? "on" : "off"}
         size={15}
         box={26}

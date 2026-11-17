@@ -68,7 +68,7 @@ const sheetExamples: Record<SourceKey, SheetExample> = {
       "",
       '{ "message": "Swap 0.5 ETH to USDC on Base",',
       '  "mode": "direct",',
-      '  "app": "default",',
+      '  "toolset": "default",',
       '  "userState": { "evm": { "address": "0xAb5…", "chain_id": 8453 } } }',
     ],
   },

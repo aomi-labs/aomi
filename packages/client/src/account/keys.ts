@@ -20,7 +20,7 @@ export class AccountKeysTransport {
   /** The stored names. */
   async list(scope: AccountKeyScope): Promise<string[]> {
     const response = await this.send<AomiListSecretsResponse>("GET", scope);
-    return response.names ?? Object.values(response.by_app ?? {}).flat();
+    return response.names ?? [];
   }
 
   /** Store `secrets` by name; resolves to each one's handle. */

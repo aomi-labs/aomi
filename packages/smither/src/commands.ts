@@ -1,6 +1,4 @@
 import path from "node:path";
-import os from "node:os";
-import { readFile } from "node:fs/promises";
 import type { CommandRunner, ResolvedBinaries } from "./types";
 import { defaultRunner } from "./binaries";
 
@@ -8,11 +6,7 @@ export type AomiBuildCommand =
   | "gen-specs"
   | "gen-client"
   | "gen-tool"
-  | "new-app"
-  | "compile"
-  | "deploy"
-  | "status"
-  | "activate";
+  | "new-package";
 
 export async function runAomiBuild(
   binaries: ResolvedBinaries,
@@ -27,23 +21,14 @@ export async function runAomiBuild(
   });
 }
 
-export async function runAomiRun(
-  binaries: ResolvedBinaries,
-  pluginPath: string,
-  args: string[] = [],
-  runner: CommandRunner = defaultRunner,
-) {
-  return runner(binaries.aomiRun, [pluginPath, ...args], { cwd: binaries.sdkRoot });
-}
-
-export async function runAppCargoChecks(
+export async function runPackageCargoChecks(
   sdkRoot: string,
-  app: string,
+  packageName: string,
   runner: CommandRunner = defaultRunner,
 ) {
-  // Apps are `exclude`d from the SDK root workspace (app-local mode), so
-  // `-p <app>` at the root never resolves; target the app's own manifest.
-  const manifest = path.join(sdkRoot, "apps", app, "Cargo.toml");
+  // Packages are `exclude`d from the SDK root workspace (package-local mode), so
+  // `-p <package>` at the root never resolves; target the package's own manifest.
+  const manifest = path.join(sdkRoot, "packages", packageName, "Cargo.toml");
   const fmt = await runner("cargo", ["fmt", "--manifest-path", manifest], {
     cwd: sdkRoot,
   });
@@ -65,8 +50,8 @@ export async function runAppCargoChecks(
   });
 }
 
-export function newAppArgs(input: {
-  app: string;
+export function newPackageArgs(input: {
+  packageName: string;
   source: "discover" | "url" | "existing";
   openApiUrl?: string;
   shared: boolean;
@@ -77,7 +62,7 @@ export function newAppArgs(input: {
   if (input.source === "existing") {
     return [
       "gen-client",
-      input.app,
+      input.packageName,
       ...(input.shared ? ["--shared"] : []),
       ...(input.force ? ["--force"] : []),
     ];
@@ -87,63 +72,12 @@ export function newAppArgs(input: {
   // picker, which dies under the workflow runner (no TTY). The agent
   // curation step prunes the tool surface afterwards.
   return [
-    "new-app",
-    input.app,
+    "new-package",
+    input.packageName,
     ...(input.openApiUrl ? ["--from-url", input.openApiUrl] : []),
     ...(input.shared ? ["--shared"] : []),
     "--all",
     ...(input.force ? ["--force"] : []),
     ...(input.build ? [] : ["--no-build"]),
   ];
-}
-
-export type ActivationCredential = {
-  source: "flag" | "env" | "config";
-  token: string;
-};
-
-export function activationConfigPath(env: NodeJS.ProcessEnv = process.env): string {
-  const root = env.XDG_CONFIG_HOME?.trim() || path.join(env.HOME || os.homedir(), ".config");
-  return path.join(root, "aomi", "config.toml");
-}
-
-export async function resolveActivationCredential(options: {
-  activationToken?: string;
-  env?: NodeJS.ProcessEnv;
-  configPath?: string;
-} = {}): Promise<ActivationCredential | null> {
-  const flagToken = options.activationToken?.trim();
-  if (flagToken) {
-    return { source: "flag", token: flagToken };
-  }
-
-  const env = options.env ?? process.env;
-  const envToken = env.AOMI_APP_ACTIVATION_TOKEN?.trim();
-  if (envToken) {
-    return { source: "env", token: envToken };
-  }
-
-  const configPath = options.configPath ?? activationConfigPath(env);
-  try {
-    const config = await readFile(configPath, "utf8");
-    const match = config.match(/^\s*activation_token\s*=\s*"([^"]+)"\s*$/m);
-    const token = match?.[1]?.trim();
-    return token ? { source: "config", token } : null;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      return null;
-    }
-    throw err;
-  }
-}
-
-export function pluginLibraryFileName(manifestName: string, platform = process.platform): string {
-  const baseName = manifestName.replaceAll("-", "_");
-  if (platform === "win32") {
-    return `${baseName}.dll`;
-  }
-  if (platform === "darwin") {
-    return `${baseName}.dylib`;
-  }
-  return `${baseName}.so`;
 }

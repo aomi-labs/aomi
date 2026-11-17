@@ -58,7 +58,7 @@ export interface PipelineExecutionScope {
    * omitted, the backend uses the thread's saved policy, else the account
    * default. */
   transactionSafetyMode?: TransactionSafetyMode;
-  app?: string;
+  toolset?: string;
   skills?: string[];
 }
 
@@ -71,7 +71,7 @@ export type PipelineOperationBuildInput<
   );
 
 export interface PipelineBuildOrigin {
-  app: string;
+  toolset: string;
   skills?: string[];
   operations: PipelineOperationInvocation[];
 }

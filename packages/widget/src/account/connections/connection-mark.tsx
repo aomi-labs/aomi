@@ -13,7 +13,7 @@ import {
 
 /**
  * A connection's mark: Aomi, Telegram, a known AI client, any other MCP
- * client, a terminal, or code for an app.
+ * client, a terminal, or code for an agent.
  */
 export function ConnectionMark({
   kind,

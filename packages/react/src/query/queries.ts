@@ -1,20 +1,10 @@
 import {
-  normalizeAppDescriptor,
-  type AomiAppDescriptor,
+  type AgentCard,
   type Aomi,
   type CreditBalance,
   type CreditLedger,
-  type AomiPlatformFilter,
 } from "@aomi-labs/client";
 import type { DisplayQuery } from "./display-cache";
-
-const platformKey = (platforms?: AomiPlatformFilter) =>
-  Array.isArray(platforms) ? platforms.join("\0") : (platforms ?? "");
-
-const normalizedApps = (rows: unknown[]) =>
-  rows
-    .map(normalizeAppDescriptor)
-    .filter((app): app is AomiAppDescriptor => app !== null);
 
 /** Display reads the runtime loads through its `Aomi`. */
 export const displayQueries = {
@@ -23,52 +13,24 @@ export const displayQueries = {
     fetcher: (signal) =>
       aomi.raw.getPublicCatalog<string[]>("models", { signal }),
   }),
-  appCatalog: (
-    aomi: Aomi,
-    platforms?: AomiPlatformFilter,
-  ): DisplayQuery<AomiAppDescriptor[]> => ({
-    resource: "app-catalog",
-    parameters: [platformKey(platforms)],
-    fetcher: async (signal) =>
-      normalizedApps(
-        await aomi.raw.getPublicCatalog<unknown[]>("apps", {
-          signal,
-          platforms,
-        }),
-      ),
-  }),
-  /** Models this app key or account may use. `credential` changes with the key. */
   authorizedModels: (
     aomi: Aomi,
-    input: { sessionId: () => string; appId: string; credential: number },
+    input: { sessionId: () => string; agentScope: string; credential: number },
   ): DisplayQuery<string[]> => ({
     resource: "authorized-models",
-    parameters: [input.appId, input.credential],
-    fetcher: (signal) =>
-      aomi.raw.getModels(input.sessionId(), {
-        applicationId: input.appId,
-        signal,
-      }),
+    parameters: [input.agentScope, input.credential],
+    fetcher: (signal) => aomi.raw.getModels(input.sessionId(), { signal }),
   }),
-  authorizedApps: (
+  authorizedAgents: (
     aomi: Aomi,
-    input: {
-      sessionId: () => string;
-      appId: string;
-      credential: number;
-      apiKey: () => string | null;
-      platforms?: AomiPlatformFilter;
+    input: { credential: number; apiKey: () => string | null },
+  ): DisplayQuery<AgentCard[]> => ({
+    resource: "authorized-agents",
+    parameters: [input.credential],
+    fetcher: async (signal) => {
+      const key = input.apiKey();
+      return key ? [await aomi.raw.resolveAgentKey(key, { signal })] : [];
     },
-  ): DisplayQuery<AomiAppDescriptor[]> => ({
-    resource: "authorized-apps",
-    parameters: [input.appId, platformKey(input.platforms), input.credential],
-    fetcher: (signal) =>
-      aomi.raw.getApps(input.sessionId(), {
-        apiKey: input.apiKey() ?? undefined,
-        platforms: input.platforms,
-        applicationId: input.appId,
-        signal,
-      }),
   }),
   credits: (aomi: Aomi, enabled = true): DisplayQuery<CreditBalance> => ({
     resource: "credits",

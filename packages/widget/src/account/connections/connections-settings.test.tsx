@@ -18,7 +18,7 @@ const connections = [
     name: "Aomi",
     detail: null,
     telegram: null,
-    application: null,
+    agent: null,
     ask_only: false,
     wallets: [],
     last_used_at: null,
@@ -31,7 +31,7 @@ const connections = [
     name: "@HooditBot",
     detail: "Telegram @arixon",
     telegram: { user: "@arixon", bot: "@HooditBot" },
-    application: { id: 86, name: "hoodit", label: "Hoodit" },
+    agent: { id: 86, name: "hoodit", label: "Hoodit" },
     ask_only: false,
     wallets: [
       { id: "g-hoodit", name: "Hoodit", lane: "instant", archived: false },
@@ -43,13 +43,13 @@ const connections = [
     removable: true,
   },
   {
-    // Renamed by the user, open to any app.
+    // Renamed by the user, open to any agent.
     key: "telegram:78",
     kind: "telegram",
     name: "Markets",
     detail: "Telegram @arixon",
     telegram: { user: "@arixon", bot: "@MarketsBot" },
-    application: null,
+    agent: null,
     ask_only: false,
     wallets: [
       { id: "g-trading", name: "Trading", lane: "ask_client", archived: false },
@@ -64,7 +64,7 @@ const connections = [
     name: "Claude",
     detail: null,
     telegram: null,
-    application: null,
+    agent: null,
     ask_only: true,
     wallets: [
       { id: "g-trading", name: "Trading", lane: "ask_aomi", archived: false },
@@ -84,7 +84,7 @@ const agentWallet = (
   name,
   paused: false,
   archived_at: null,
-  app: null,
+  agent: null,
   last_used_at: null,
   created_at: 1,
   addresses: [
@@ -186,7 +186,7 @@ describe("Connections tab", () => {
     ]);
   });
 
-  it("groups Telegram bots under one Telegram row, each titled by its app or your name", async () => {
+  it("groups Telegram bots under one Telegram row, each titled by its agent or your name", async () => {
     await renderTab();
     const telegram = rowOf("telegram");
     expect(telegram).toHaveTextContent(
@@ -196,7 +196,7 @@ describe("Connections tab", () => {
       name: "Hide Telegram bots",
     });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    // The bot is titled by its app, its @handle below; no Instant pill.
+    // The bot is titled by its agent, its @handle below; no Instant pill.
     expect(rowOf("telegram:77")).toHaveTextContent(
       "Hoodit@HooditBot · Instant on 1 wallet · used 2 h ago",
     );

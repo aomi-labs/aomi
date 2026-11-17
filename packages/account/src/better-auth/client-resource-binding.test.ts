@@ -81,7 +81,10 @@ describe("public OAuth client resource binding", () => {
         discoveryId: "cimd",
       });
       const resources = aomiOAuthResources();
-      for (const resource of [resources.agentMcp, resources.pipelineMcp]) {
+      for (const resource of [
+        resources.agentGatewayMcp,
+        resources.pipelineMcp,
+      ]) {
         await expect(
           bindAomiPublicClientResource({ clientId: "metadata", resource, db }),
         ).resolves.toBe("bound");
@@ -104,7 +107,7 @@ describe("public OAuth client resource binding", () => {
         }),
       ).resolves.toBe("resource_conflict");
       expect([...db.resources.get("metadata")!]).toEqual([
-        resources.agentMcp,
+        resources.agentGatewayMcp,
         resources.pipelineMcp,
       ]);
     },
@@ -238,11 +241,11 @@ describe("public OAuth client resource binding", () => {
   });
 
   it("lets a managed widget registered for a REST API use the /v1 sign-in", async () => {
-    const { agentRest, agentMcp, apiRest } = aomiOAuthResources();
+    const { agentRest, agentGatewayMcp, apiRest } = aomiOAuthResources();
     const db = new BindingDatabase();
     for (const [id, registered] of [
       ["rest", agentRest],
-      ["mcp", agentMcp],
+      ["mcp", agentGatewayMcp],
     ] as const) {
       db.clients.set(id, {
         authMethod: "none",

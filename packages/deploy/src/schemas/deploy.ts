@@ -1,21 +1,41 @@
-/** Deploys, activations, deployment status, projects and their applications. */
+/** Deploys, activations, deployment status, projects and their agents. */
 import { z } from "zod";
 
-import { confirmed, dict, flag, list, maybe, maybeNum, maybeText, num, oneOf, opaque, probe, seconds, strings, text, wire } from "./wire";
+import {
+  confirmed,
+  dict,
+  flag,
+  list,
+  maybe,
+  maybeNum,
+  maybeText,
+  num,
+  oneOf,
+  opaque,
+  probe,
+  seconds,
+  strings,
+  text,
+  wire,
+} from "./wire";
 
-export const AppFileRecord = wire({ path: text(), sha256: text(), bytes: num(0) });
-export type AppFileRecord = z.output<typeof AppFileRecord>;
+export const PackageFileRecord = wire({
+  path: text(),
+  sha256: text(),
+  bytes: num(0),
+});
+export type PackageFileRecord = z.output<typeof PackageFileRecord>;
 
-export const AppRecord = wire({
+export const PackageRecord = wire({
   name: text(),
   path: text(),
   aomiTomlPath: text(),
   releaseTag: text(),
   sdkVersion: maybeText,
   target: maybeText,
-  files: list(AppFileRecord),
+  files: list(PackageFileRecord),
 });
-export type AppRecord = z.output<typeof AppRecord>;
+export type PackageRecord = z.output<typeof PackageRecord>;
 
 export const Source = wire({
   installationId: num(),
@@ -37,7 +57,7 @@ export const Platform = wire({
   prUrl: maybeText,
   ciStatus: maybeText,
   ciUrl: maybeText,
-  apps: list(AppRecord),
+  agents: list(PackageRecord),
 });
 export type Platform = z.output<typeof Platform>;
 
@@ -70,8 +90,8 @@ export const ActivationPromotion = wire(
 );
 export type ActivationPromotion = z.output<typeof ActivationPromotion>;
 
-export const ActivatedApp = wire({
-  applicationId: maybeNum,
+export const ActivatedAgent = wire({
+  agentId: maybeNum,
   name: text(),
   path: maybeText,
   releaseTag: maybeText,
@@ -85,7 +105,7 @@ export const ActivatedApp = wire({
   activationPr: opaque<unknown>(),
   activationPrCloseError: maybeText,
 });
-export type ActivatedApp = z.output<typeof ActivatedApp>;
+export type ActivatedAgent = z.output<typeof ActivatedAgent>;
 
 export const ActivateResult = wire({
   ok: flag,
@@ -102,12 +122,12 @@ export const ActivateResult = wire({
       ciUrl: maybeText,
       promoted: list(ActivationPromotion),
     }),
-    apps: list(ActivatedApp),
+    agents: list(ActivatedAgent),
   }),
 });
 export type ActivateResult = z.output<typeof ActivateResult>;
 
-export const DeploymentAppStatus = wire({
+export const DeploymentAgentStatus = wire({
   name: text(),
   releaseTag: text(),
   releaseReady: flag,
@@ -115,15 +135,22 @@ export const DeploymentAppStatus = wire({
   releaseAssetDigests: dict(z.string()),
   message: maybeText,
 });
-export type DeploymentAppStatus = z.output<typeof DeploymentAppStatus>;
+export type DeploymentAgentStatus = z.output<typeof DeploymentAgentStatus>;
 
-export const DEPLOYMENT_STATES = ["no_ci", "building", "releasing", "ready", "failed", "pending"] as const;
+export const DEPLOYMENT_STATES = [
+  "no_ci",
+  "building",
+  "releasing",
+  "ready",
+  "failed",
+  "pending",
+] as const;
 
 export const DeploymentStatus = wire({
   state: oneOf(DEPLOYMENT_STATES, "pending"),
   deployment: maybe(DeployPayload),
   releaseTags: strings,
-  apps: list(DeploymentAppStatus),
+  agents: list(DeploymentAgentStatus),
   ci: maybe(wire({ status: maybeText, url: maybeText, commitHash: maybeText })),
   message: maybeText,
 });
@@ -143,18 +170,22 @@ export const projectFields = {
 export const Project = wire(projectFields);
 export type Project = z.output<typeof Project>;
 
-export const AppPricingSnapshot = wire({
+export const AgentPricingSnapshot = wire({
   loadedAt: seconds,
   config: wire({
     version: num(0),
-    beneficiaries: list(wire({ name: text(), type: text(), chain: text(), value: text() })),
-    resources: dict(wire({ pricing: wire({ flat: num(0) }), beneficiary: maybeText })),
+    beneficiaries: list(
+      wire({ name: text(), type: text(), chain: text(), value: text() }),
+    ),
+    resources: dict(
+      wire({ pricing: wire({ flat: num(0) }), beneficiary: maybeText }),
+    ),
     outcome: list(z.record(z.string(), z.unknown())),
   }),
 });
-export type AppPricingSnapshot = z.output<typeof AppPricingSnapshot>;
+export type AgentPricingSnapshot = z.output<typeof AgentPricingSnapshot>;
 
-export const PlatformApp = wire({
+export const PlatformAgent = wire({
   id: num(),
   name: text(),
   label: maybeText,
@@ -162,15 +193,14 @@ export const PlatformApp = wire({
   isActive: flag,
   isPublic: flag,
   projectId: maybeNum,
-  appReleaseTag: maybeText,
   targetTags: strings,
   artifactReady: flag,
   /** Runtime probe result; undefined until a probe has answered. */
   loaded: probe,
   /** Exact runtime-validated pricing sidecar for the loaded release. */
-  pricing: maybe(AppPricingSnapshot),
+  pricing: maybe(AgentPricingSnapshot),
 });
-export type PlatformApp = z.output<typeof PlatformApp>;
+export type PlatformAgent = z.output<typeof PlatformAgent>;
 
 export const ServerTagsResult = wire({
   serverTags: strings,
@@ -197,4 +227,6 @@ export const RerunDeploymentResult = wire({
   runId: maybeNum,
   ciUrl: maybeText,
 });
-export type RerunDeploymentResult = z.output<typeof RerunDeploymentResult> & { deploymentId: string };
+export type RerunDeploymentResult = z.output<typeof RerunDeploymentResult> & {
+  deploymentId: string;
+};

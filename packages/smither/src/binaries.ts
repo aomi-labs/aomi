@@ -51,10 +51,16 @@ export function defaultSdkRoot(cwd = process.cwd()): string {
   return path.resolve(cwd, "../aomi-sdk");
 }
 
-export function targetBinaryPaths(sdkRoot: string): Pick<ResolvedBinaries, "aomiBuild" | "aomiRun"> {
+export function targetBinaryPaths(
+  sdkRoot: string,
+): Pick<ResolvedBinaries, "aomiBuild"> {
   return {
-    aomiBuild: path.join(sdkRoot, "target", "release", `aomi-build${executable}`),
-    aomiRun: path.join(sdkRoot, "target", "release", `aomi-run${executable}`),
+    aomiBuild: path.join(
+      sdkRoot,
+      "target",
+      "release",
+      `aomi-build${executable}`,
+    ),
   };
 }
 
@@ -79,7 +85,10 @@ async function git(
   return runner("git", args, { cwd: sdkRoot });
 }
 
-async function remoteHeadRef(sdkRoot: string, runner: CommandRunner): Promise<string | null> {
+async function remoteHeadRef(
+  sdkRoot: string,
+  runner: CommandRunner,
+): Promise<string | null> {
   const symbolic = await git(
     sdkRoot,
     ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"],
@@ -90,7 +99,11 @@ async function remoteHeadRef(sdkRoot: string, runner: CommandRunner): Promise<st
     if (ref) return ref;
   }
   for (const candidate of ["origin/main", "origin/master"]) {
-    const verify = await git(sdkRoot, ["rev-parse", "--verify", "--quiet", candidate], runner);
+    const verify = await git(
+      sdkRoot,
+      ["rev-parse", "--verify", "--quiet", candidate],
+      runner,
+    );
     if (verify.exitCode === 0) return candidate;
   }
   return null;
@@ -111,20 +124,31 @@ export async function ensureFreshSdkCheckout(
   const resolvedRoot = path.resolve(sdkRoot);
   const stale = (freshness: SdkFreshness, reason: string): SdkFreshness => {
     if (allowStale) {
-      return { ...freshness, warning: `${reason} — continuing with a possibly stale SDK (--allow-stale-sdk)` };
+      return {
+        ...freshness,
+        warning: `${reason} — continuing with a possibly stale SDK (--allow-stale-sdk)`,
+      };
     }
     throw new Error(
       `${reason}. aomi-smither builds binaries from a GitHub-fresh SDK checkout; fix the checkout at ${resolvedRoot} or pass --allow-stale-sdk to override.`,
     );
   };
 
-  const isRepo = await git(resolvedRoot, ["rev-parse", "--is-inside-work-tree"], runner);
+  const isRepo = await git(
+    resolvedRoot,
+    ["rev-parse", "--is-inside-work-tree"],
+    runner,
+  );
   if (isRepo.exitCode !== 0) {
-    return stale({ headSha: null, action: "not-git" }, "SDK checkout is not a git repository");
+    return stale(
+      { headSha: null, action: "not-git" },
+      "SDK checkout is not a git repository",
+    );
   }
 
   const headOf = async () =>
-    (await git(resolvedRoot, ["rev-parse", "HEAD"], runner)).stdout.trim() || null;
+    (await git(resolvedRoot, ["rev-parse", "HEAD"], runner)).stdout.trim() ||
+    null;
 
   const fetch = await git(resolvedRoot, ["fetch", "--quiet", "origin"], runner);
   if (fetch.exitCode !== 0) {
@@ -142,13 +166,17 @@ export async function ensureFreshSdkCheckout(
     );
   }
 
-  const behind = await git(resolvedRoot, ["rev-list", "--count", `HEAD..${remoteRef}`], runner);
+  const behind = await git(
+    resolvedRoot,
+    ["rev-list", "--count", `HEAD..${remoteRef}`],
+    runner,
+  );
   const behindCount = Number(behind.stdout.trim() || "0");
   if (behindCount === 0) {
     return { headSha: await headOf(), action: "up-to-date" };
   }
 
-  // Untracked files (generated apps, the engine's own .smithers/ state) never
+  // Untracked files (generated packages, the engine's own .smithers/ state) never
   // block a fast-forward — git aborts on its own if one would be clobbered.
   const status = await git(
     resolvedRoot,
@@ -162,7 +190,11 @@ export async function ensureFreshSdkCheckout(
     );
   }
 
-  const ahead = await git(resolvedRoot, ["rev-list", "--count", `${remoteRef}..HEAD`], runner);
+  const ahead = await git(
+    resolvedRoot,
+    ["rev-list", "--count", `${remoteRef}..HEAD`],
+    runner,
+  );
   if (Number(ahead.stdout.trim() || "0") > 0) {
     return stale(
       { headSha: await headOf(), action: "stale-diverged" },
@@ -170,7 +202,11 @@ export async function ensureFreshSdkCheckout(
     );
   }
 
-  const merge = await git(resolvedRoot, ["merge", "--ff-only", remoteRef], runner);
+  const merge = await git(
+    resolvedRoot,
+    ["merge", "--ff-only", remoteRef],
+    runner,
+  );
   if (merge.exitCode !== 0) {
     return stale(
       { headSha: await headOf(), action: "stale-diverged" },
@@ -194,7 +230,7 @@ export async function resolveAomiBinaries(
     "--manifest-path",
     manifest,
     "--features",
-    "cli,dev-runtime",
+    "cli",
     "--bins",
     "--release",
   ];
@@ -207,7 +243,7 @@ export async function resolveAomiBinaries(
   // The fallbacks below hand out binaries that may lag the checkout, which
   // breaks the fresh-from-GitHub guarantee — only reachable with allowStale.
   if (allowStale) {
-    if ((await fileExists(bins.aomiBuild)) && (await fileExists(bins.aomiRun))) {
+    if (await fileExists(bins.aomiBuild)) {
       return {
         ...bins,
         sdkRoot: resolvedRoot,
@@ -218,11 +254,9 @@ export async function resolveAomiBinaries(
     }
 
     const pathBuild = await runner(`aomi-build${executable}`, ["--help"]);
-    const pathRun = await runner(`aomi-run${executable}`, ["--help"]);
-    if (pathBuild.exitCode === 0 && pathRun.exitCode === 0) {
+    if (pathBuild.exitCode === 0) {
       return {
         aomiBuild: `aomi-build${executable}`,
-        aomiRun: `aomi-run${executable}`,
         sdkRoot: resolvedRoot,
         source: "path-fallback",
         warning:
@@ -232,7 +266,7 @@ export async function resolveAomiBinaries(
   }
 
   throw new Error(
-    `Could not build aomi-build/aomi-run from the SDK checkout. Install Rust or fix the build${allowStale ? "" : ", or pass --allow-stale-sdk to fall back to existing binaries"}.\n\ncargo stderr:\n${cargo.stderr}`,
+    `Could not build aomi-build from the SDK checkout. Install Rust or fix the build${allowStale ? "" : ", or pass --allow-stale-sdk to fall back to existing binaries"}.\n\ncargo stderr:\n${cargo.stderr}`,
   );
 }
 
@@ -245,6 +279,8 @@ export async function resolveFreshAomiBinaries(
 ): Promise<ResolvedBinaries & { freshness: SdkFreshness }> {
   const freshness = await ensureFreshSdkCheckout(sdkRoot, runner, options);
   const binaries = await resolveAomiBinaries(sdkRoot, runner, options);
-  const warning = [freshness.warning, binaries.warning].filter(Boolean).join("; ");
+  const warning = [freshness.warning, binaries.warning]
+    .filter(Boolean)
+    .join("; ");
   return { ...binaries, ...(warning ? { warning } : {}), freshness };
 }

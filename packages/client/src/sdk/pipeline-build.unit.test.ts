@@ -11,7 +11,7 @@ const operation = (name: string) => ({
   name,
   description: name,
   method: "POST",
-  href: `/v1/pipeline/apps/default/operations/${name}`,
+  href: `/v1/pipeline/toolsets/default/operations/${name}`,
   inputSchema: {
     type: "object",
     required: ["topic", "amount"],
@@ -42,7 +42,7 @@ const evmBuild = {
       kind: "swap",
     },
   ],
-  origin: { app: "default", operations: [] },
+  origin: { toolset: "default", operations: [] },
   simulation,
   expiresAt: 2_000_000_000,
   digest: "sha256:build",
@@ -91,7 +91,7 @@ function backend(views: CommitView[] = [view]) {
     const name = url.pathname.match(/operations\/(.+)$/)?.[1];
     if (name && method === "GET") return Response.json(operation(name));
     if (name) return Response.json({ status: "DONE" });
-    if (url.pathname === "/v1/pipeline/apps/default/operations")
+    if (url.pathname === "/v1/pipeline/toolsets/default/operations")
       return Response.json({
         kind: "directory",
         path: url.pathname,
@@ -156,8 +156,8 @@ function backend(views: CommitView[] = [view]) {
   };
 }
 
-describe("aomi.pipeline without an app", () => {
-  it("builds in the default app, fills topic, and commits to one Commit", async () => {
+describe("aomi.pipeline without an toolset", () => {
+  it("builds in the default toolset, fills topic, and commits to one Commit", async () => {
     const { aomi, calls } = backend([
       { ...view, version: 2, state: "submitted" },
       { ...view, version: 3, state: "confirmed" },
@@ -172,8 +172,8 @@ describe("aomi.pipeline without an app", () => {
     expect(
       calls.find((call) => call.path === "/v1/pipeline/evm/build")?.body,
     ).toEqual({
-      app: "default",
-      operation: "/v1/pipeline/apps/default/operations/stage_lifi_swap",
+      toolset: "default",
+      operation: "/v1/pipeline/toolsets/default/operations/stage_lifi_swap",
       arguments: { amount: "0.1", topic: "stage_lifi_swap" },
     });
 
@@ -189,7 +189,7 @@ describe("aomi.pipeline without an app", () => {
     commit.close();
   });
 
-  it("lists and invokes default-app operations and the skill catalog", async () => {
+  it("lists and invokes default-toolset operations and the skill catalog", async () => {
     const { aomi, calls } = backend();
     await expect(aomi.pipeline.operations()).resolves.toMatchObject({
       kind: "directory",
@@ -200,20 +200,20 @@ describe("aomi.pipeline without an app", () => {
     await aomi.pipeline.invoke("lifi_get_status", { amount: "1" });
     expect(calls.at(-1)).toMatchObject({
       method: "POST",
-      path: "/v1/pipeline/apps/default/operations/lifi_get_status",
+      path: "/v1/pipeline/toolsets/default/operations/lifi_get_status",
       body: { amount: "1", topic: "lifi_get_status" },
     });
   });
 
-  it("names the app when forced, and opens a Solana commit under its own family", async () => {
+  it("names the toolset when forced, and opens a Solana commit under its own family", async () => {
     const { aomi, calls } = backend();
     const build = await aomi.pipeline.build(
       "svm_stage_tx",
       { amount: "1" },
-      { app: "jupiter", transactionSafetyMode: "strict" },
+      { toolset: "jupiter", transactionSafetyMode: "strict" },
     );
     expect(calls[0]?.path).toBe(
-      "/v1/pipeline/apps/jupiter/operations/svm_stage_tx",
+      "/v1/pipeline/toolsets/jupiter/operations/svm_stage_tx",
     );
     expect(build.chainFamily).toBe("svm");
     expect(

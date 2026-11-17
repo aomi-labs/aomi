@@ -88,8 +88,8 @@ type RootProps = {
   /** Backend URL for the Aomi runtime */
   backendUrl?: string;
   apiKeyPersistence?: "memory" | "session";
-  /** Concrete hosted application used to isolate runtime and persisted threads. */
-  applicationId?: number | string | null;
+  /** Concrete hosted agent used to isolate runtime and persisted threads. */
+  agent?: string | null;
   /** Optional host-fixed execution target. */
   agentTarget?: AgentTarget;
   /** Optional runtime client overrides. */
@@ -101,7 +101,7 @@ type RootProps = {
   persistThread?: boolean;
   /** Full localStorage key override for vendors that need exact isolation. */
   threadPersistenceKey?: string;
-  /** Extra key segment for tenant/user/app scoping without owning the full key. */
+  /** Extra key segment for tenant/user/agent scoping without owning the full key. */
   threadPersistenceScope?: string | null;
   /** Thread to open before history discovery completes. */
   initialThreadId?: string;
@@ -170,7 +170,7 @@ const Root: FC<RootProps> = ({
   defaultSidebarOpen = true,
   backendUrl,
   apiKeyPersistence,
-  applicationId,
+  agent,
   agentTarget,
   clientOptions,
   accountSessionAvailable,
@@ -196,7 +196,7 @@ const Root: FC<RootProps> = ({
     <WidgetStorageProvider
       scope={{
         backendUrl,
-        appId: applicationId,
+        agentScope: agent,
         principal: partition,
       }}
     >
@@ -207,7 +207,7 @@ const Root: FC<RootProps> = ({
         apiKeyPersistence={apiKeyPersistence}
         actions={actions}
         commits={commits}
-        applicationId={applicationId}
+        agent={agent}
         agentTarget={agentTarget}
         clientOptions={clientOptions}
         accountSessionAvailable={accountSessionAvailable}

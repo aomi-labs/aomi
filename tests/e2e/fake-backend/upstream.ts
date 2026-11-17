@@ -529,7 +529,7 @@ const AGENT_WALLET = {
   provider: "para",
   created_at: 1_760_000_000,
   agent_wallet_id: "6f1c2b8e-0000-4000-8000-000000000900",
-  maker_app: null,
+  maker_agent: null,
 } as const;
 
 const AGENT_GROUP = {
@@ -537,7 +537,7 @@ const AGENT_GROUP = {
   name: AGENT_WALLET.label,
   paused: false,
   archived_at: null,
-  app: null,
+  toolset: null,
   last_used_at: null,
   created_at: AGENT_WALLET.created_at,
   addresses: [
@@ -551,13 +551,13 @@ const AGENT_GROUP = {
 };
 
 type FakeRuleSet = {
-  apps: string[] | null;
+  protocols: string[] | null;
   limits: { asset: string; amount: string }[];
   not_after: number | null;
   owner_only: boolean;
 };
 const NO_RULES: FakeRuleSet = {
-  apps: null,
+  protocols: null,
   limits: [],
   not_after: null,
   owner_only: false,
@@ -587,7 +587,7 @@ type FakeChange = {
 };
 
 const RULES_CATALOG = {
-  apps: [
+  protocols: [
     { id: "uniswap", label: "Uniswap", chains: ["eip155:1", "eip155:8453"] },
     { id: "jupiter", label: "Jupiter", chains: ["solana:mainnet-beta"] },
   ],
@@ -622,8 +622,9 @@ function loosens(current: FakeRuleSet, next: FakeRuleSet): boolean {
   )
     return true;
   if (
-    current.apps &&
-    (!next.apps || next.apps.some((app) => !current.apps!.includes(app)))
+    current.protocols &&
+    (!next.protocols ||
+      next.protocols.some((protocol) => !current.protocols!.includes(protocol)))
   )
     return true;
   if (
@@ -654,7 +655,9 @@ function rulesBody(state: FakeRules, pending: FakeChange | null) {
       }),
     },
     sentences: [
-      ...(state.rules.apps ? [`Can use ${state.rules.apps.join(", ")}`] : []),
+      ...(state.rules.protocols
+        ? [`Can use ${state.rules.protocols.join(", ")}`]
+        : []),
       ...state.rules.limits.map((limit) => {
         const token = RULES_CATALOG.tokens.find(
           (entry) => entry.asset === limit.asset,
@@ -668,7 +671,7 @@ function rulesBody(state: FakeRules, pending: FakeChange | null) {
         : [
             `Until ${new Date(state.rules.not_after * 1000).toISOString().slice(0, 10)}`,
           ]),
-      ...(state.rules.owner_only || state.rules.apps
+      ...(state.rules.owner_only || state.rules.protocols
         ? ["Sends only to your wallets"]
         : []),
     ],
@@ -724,7 +727,7 @@ function accountBody(route: AccountRoute, principal: Principal) {
     user: {
       user_id: principal.sub,
       username: null,
-      apps: [],
+      agents: [],
       tier: "free",
       verified_email: null,
       status: "active",
@@ -743,8 +746,13 @@ function accountBody(route: AccountRoute, principal: Principal) {
 
 function catalogResponse(path: string): unknown {
   if (path.endsWith("/models")) return ["fixture-model"];
-  if (path.endsWith("/apps"))
-    return [{ name: "default", is_public: true, is_active: true }];
+  if (path === "/api/thread/catalog")
+    return {
+      toolsets: [{ name: "default", display_name: "Default" }],
+      packages: [],
+    };
+  if (path.endsWith("/toolsets"))
+    return { toolsets: [{ name: "default", display_name: "Default" }] };
   if (path === "/api/resource/skills") return { skills: [] };
   return undefined;
 }
@@ -754,12 +762,12 @@ const statement = {
     {
       usage_event_id: "fixture-usage-1",
       execution_id: "fixture-operation-1",
-      application_id: null,
+      agent_id: null,
       provider: "openai",
       model: "fixture-model",
       input_tokens: 1200,
       output_tokens: 300,
-      funding: { kind: "platform", application_id: null },
+      funding: { kind: "platform", agent_id: null },
       gross: 125_000,
       included: 100_000,
       credits: 25_000,

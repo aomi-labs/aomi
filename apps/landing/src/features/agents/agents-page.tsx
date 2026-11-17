@@ -147,7 +147,7 @@ export default function AgentsPage() {
           </div>
           <p>
             From{" "}
-            <Link to="/research/$slug" params={{slug: "aomibench-v0-1"}}>
+            <Link to="/research/$slug" params={{ slug: "aomibench-v0-1" }}>
               AomiBench: benchmarking frontier models on onchain execution
             </Link>
             .
@@ -168,7 +168,9 @@ export default function AgentsPage() {
             <div className={styles.cardLinks}>
               <Link to="/agents/transact">Open HTML guide</Link>
               <i aria-hidden />
-              <Link to="/agents/transact.md" reloadDocument>Raw markdown</Link>
+              <Link to="/agents/transact.md" reloadDocument>
+                Raw markdown
+              </Link>
             </div>
           </article>
           <article>
@@ -186,13 +188,15 @@ export default function AgentsPage() {
             <Blocks aria-hidden />
             <h3>Build</h3>
             <p>
-              Turn an API, SDK, or repo into an Aomi app with a clean tool
+              Turn an API, SDK, or repo into an Aomi package with a clean tool
               surface.
             </p>
             <div className={styles.cardLinks}>
               <Link to="/agents/build">Open HTML guide</Link>
               <i aria-hidden />
-              <Link to="/agents/build.md" reloadDocument>Raw markdown</Link>
+              <Link to="/agents/build.md" reloadDocument>
+                Raw markdown
+              </Link>
             </div>
           </article>
         </div>

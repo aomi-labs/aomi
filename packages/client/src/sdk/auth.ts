@@ -131,7 +131,7 @@ export type AomiWalletSigner = {
   signMessage(args: { message: string }): Promise<string>;
 };
 
-/** Sign in with a key, for bots and scripts: SIWE for an EVM signer, SIWS
+/** Sign in with a key, for agents and scripts: SIWE for an EVM signer, SIWS
  * for a Solana one. */
 export type AomiWalletStrategy = { readonly kind: "wallet" } & (
   | {

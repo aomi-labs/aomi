@@ -1,4 +1,4 @@
-import type { WalletProviderPlugin } from "./plugin-registry";
+import type { WalletProviderAdapter } from "./provider-registry";
 import { setParaSdk } from "./para/para-sdk";
 import { setPrivySdk } from "./privy/privy-sdk";
 
@@ -16,7 +16,7 @@ export class MissingWalletSdkError extends Error {
 // Each SDK import sits directly inside a try block: bundlers then treat the
 // optional peer as optional, so hosts that never install it still build.
 
-export async function loadPrivyPlugin(): Promise<WalletProviderPlugin> {
+export async function loadPrivyAdapter(): Promise<WalletProviderAdapter> {
   try {
     const [auth, smartWallets, solana] = await Promise.all([
       import("@privy-io/react-auth"),
@@ -27,10 +27,10 @@ export async function loadPrivyPlugin(): Promise<WalletProviderPlugin> {
   } catch (cause) {
     throw new MissingWalletSdkError("Privy", ["@privy-io/react-auth"], cause);
   }
-  return (await import("./privy/privy-plugin")).privyPlugin;
+  return (await import("./privy/privy-adapter")).privyAdapter;
 }
 
-export async function loadParaPlugin(): Promise<WalletProviderPlugin> {
+export async function loadParaAdapter(): Promise<WalletProviderAdapter> {
   try {
     const [react, wagmi] = await Promise.all([
       import("@getpara/react-sdk"),
@@ -45,5 +45,5 @@ export async function loadParaPlugin(): Promise<WalletProviderPlugin> {
       cause,
     );
   }
-  return (await import("./para/para-plugin")).paraPlugin;
+  return (await import("./para/para-adapter")).paraAdapter;
 }

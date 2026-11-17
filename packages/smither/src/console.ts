@@ -1,5 +1,9 @@
 import { existsSync } from "node:fs";
-import { createServer as createHttpServer, type IncomingMessage, type Server } from "node:http";
+import {
+  createServer as createHttpServer,
+  type IncomingMessage,
+  type Server,
+} from "node:http";
 import { createServer as createNetServer } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,7 +12,7 @@ import { stagesFor, type BuildPlan } from "./plan";
 import { assertBunRuntime, decideApproval, sendSignal } from "./run";
 import { defaultRunsRoot, loadPlan, smitherDbPath } from "./state";
 import {
-  buildAppWorkflow,
+  buildPackageWorkflow,
   createAomiSmither,
   type AomiSmitherApi,
   type AomiWorkflow,
@@ -44,7 +48,9 @@ type GatewayLike = {
  */
 function resolveBrandedEntry(): string | null {
   try {
-    const packageRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+    const packageRoot = path.dirname(
+      path.dirname(fileURLToPath(import.meta.url)),
+    );
     const entry = path.join(packageRoot, "src", "ui", "aomi-smither.tsx");
     return existsSync(entry) ? entry : null;
   } catch {
@@ -58,7 +64,7 @@ export type ConsoleHandle = {
   /** Built-in Smithers operator console (gateway-level, at /console) — every
    *  registered workflow, generic run tree, approvals. */
   consoleUrl: string;
-  /** Per-workflow view at /workflows/<app>: the aomi-branded UI when its entry
+  /** Per-workflow view at /workflows/<package>: the aomi-branded UI when its entry
    *  is available, else the built-in workflow console. */
   workflowUrl: string;
   /** Loopback decision endpoint (POST /decide) when the console was started
@@ -69,7 +75,7 @@ export type ConsoleHandle = {
 
 export type ConsoleOptions = {
   workflow: AomiWorkflow;
-  app: string;
+  packageName: string;
   /** The Smithers api backing this run's SQLite. When present, a small
    *  decision endpoint boots beside the gateway so the branded UI can submit
    *  select-mode (clarify) decisions — the stock gateway approve route drops
@@ -93,18 +99,19 @@ export type ConsoleOptions = {
 
 /** Choose the UI registration for `register()`: branded custom entry when
  *  available, else the built-in operator console. */
-function uiRegistration(options: ConsoleOptions, decideUrl?: string): UiRegistration {
+function uiRegistration(
+  options: ConsoleOptions,
+  decideUrl?: string,
+): UiRegistration {
   if (options.builtinConsole) return true;
   const entry = resolveBrandedEntry();
   if (!entry) return true;
   return {
     entry,
-    title: `aomi smither · ${options.app}`,
+    title: `aomi smither · ${options.packageName}`,
     props: {
-      app: options.app,
+      packageName: options.packageName,
       stages: options.plan ? stagesFor(options.plan) : [],
-      deploy: options.plan?.deploy ?? false,
-      smoke: options.plan?.smoke ?? false,
       ...(decideUrl ? { decideUrl } : {}),
     },
   };
@@ -117,7 +124,10 @@ function uiRegistration(options: ConsoleOptions, decideUrl?: string): UiRegistra
  * an external signal that resolves a wait-external pause. Both are durable
  * writes any external system can make (a CI, a teammate) — not just the TUI.
  */
-function startDecisionServer(api: AomiSmitherApi, host: string): Promise<{
+function startDecisionServer(
+  api: AomiSmitherApi,
+  host: string,
+): Promise<{
   server: Server;
   port: number;
 }> {
@@ -145,9 +155,12 @@ function startDecisionServer(api: AomiSmitherApi, host: string): Promise<{
       res.writeHead(204).end();
       return;
     }
-    const route = req.url === "/decide" || req.url === "/signal" ? req.url : null;
+    const route =
+      req.url === "/decide" || req.url === "/signal" ? req.url : null;
     if (req.method !== "POST" || !route) {
-      res.writeHead(404).end(JSON.stringify({ error: "POST /decide or /signal only" }));
+      res
+        .writeHead(404)
+        .end(JSON.stringify({ error: "POST /decide or /signal only" }));
       return;
     }
     void (async () => {
@@ -163,7 +176,9 @@ function startDecisionServer(api: AomiSmitherApi, host: string): Promise<{
           receivedBy?: string;
         };
         if (!parsed.runId || !parsed.nodeId) {
-          res.writeHead(400).end(JSON.stringify({ error: "runId and nodeId required" }));
+          res
+            .writeHead(400)
+            .end(JSON.stringify({ error: "runId and nodeId required" }));
           return;
         }
         if (route === "/signal") {
@@ -184,14 +199,20 @@ function startDecisionServer(api: AomiSmitherApi, host: string): Promise<{
             approve: parsed.approve ?? true,
             decidedBy: "aomi-smither-console",
             ...(parsed.selected
-              ? { selection: { selected: parsed.selected, notes: parsed.notes } }
+              ? {
+                  selection: { selected: parsed.selected, notes: parsed.notes },
+                }
               : {}),
           });
         }
-        res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true }));
+        res
+          .writeHead(200, { "content-type": "application/json" })
+          .end(JSON.stringify({ ok: true }));
       } catch (error) {
         res.writeHead(500, { "content-type": "application/json" }).end(
-          JSON.stringify({ error: String(error instanceof Error ? error.message : error) }),
+          JSON.stringify({
+            error: String(error instanceof Error ? error.message : error),
+          }),
         );
       }
     })();
@@ -232,7 +253,10 @@ function probePort(host: string, port: number): Promise<boolean> {
   });
 }
 
-function boundPort(server: { address: () => unknown }, fallback: number): number {
+function boundPort(
+  server: { address: () => unknown },
+  fallback: number,
+): number {
   const addr = server.address();
   if (addr && typeof addr === "object" && "port" in addr) {
     return Number((addr as { port: number }).port);
@@ -241,7 +265,7 @@ function boundPort(server: { address: () => unknown }, fallback: number): number
 }
 
 /**
- * Boot a Smithers Gateway sidecar for one app workflow and serve the built-in
+ * Boot a Smithers Gateway sidecar for one package workflow and serve the built-in
  * operator console. The gateway shares the workflow's SQLite store, so runs
  * executed by this process (or any other process on the same DB — the
  * out-of-process event bridge polls persisted events) stream live into the
@@ -250,15 +274,20 @@ function boundPort(server: { address: () => unknown }, fallback: number): number
  * No auth is configured — the unauthenticated gateway grants the operator
  * role to every caller, which is only acceptable because we bind loopback.
  */
-export async function startConsole(options: ConsoleOptions): Promise<ConsoleHandle> {
-  const { Gateway } = (await import("smithers-orchestrator/gateway")) as unknown as {
-    Gateway: new (opts?: GatewayOptions) => GatewayLike;
-  };
+export async function startConsole(
+  options: ConsoleOptions,
+): Promise<ConsoleHandle> {
+  const { Gateway } =
+    (await import("smithers-orchestrator/gateway")) as unknown as {
+      Gateway: new (opts?: GatewayOptions) => GatewayLike;
+    };
   const host = options.host ?? "127.0.0.1";
   const firstPort = options.port ?? DEFAULT_CONSOLE_PORT;
   const tries = Math.max(1, options.maxPortTries ?? 10);
 
-  const decisions = options.api ? await startDecisionServer(options.api, host) : null;
+  const decisions = options.api
+    ? await startDecisionServer(options.api, host)
+    : null;
   const ui = uiRegistration(
     options,
     decisions ? `http://${host}:${decisions.port}/decide` : undefined,
@@ -273,7 +302,7 @@ export async function startConsole(options: ConsoleOptions): Promise<ConsoleHand
     // A fresh Gateway per attempt: a failed listen() can leave a dead server
     // handle on the instance, and register() is cheap (config + idempotent DDL).
     const gateway = new Gateway({});
-    gateway.register(options.app, options.workflow, { ui });
+    gateway.register(options.packageName, options.workflow, { ui });
     try {
       const server = await gateway.listen({ port, host });
       const actualPort = boundPort(server, port);
@@ -284,7 +313,7 @@ export async function startConsole(options: ConsoleOptions): Promise<ConsoleHand
         consoleUrl: `${origin}/console`,
         // ui:true mounts the built-in console at the workflow-level default
         // path, /workflows/<key> (see resolveGatewayUiConfig).
-        workflowUrl: `${origin}/workflows/${encodeURIComponent(options.app)}`,
+        workflowUrl: `${origin}/workflows/${encodeURIComponent(options.packageName)}`,
         ...(decisions
           ? { decideUrl: `http://${host}:${decisions.port}/decide` }
           : {}),
@@ -310,14 +339,14 @@ export async function startConsole(options: ConsoleOptions): Promise<ConsoleHand
 }
 
 /**
- * Observer mode: boot a console for an app whose run lives (or lived) in this
- * package's run state — typically while `aomi-smither --app <name>` executes
+ * Observer mode: boot a console for an package whose run lives (or lived) in this
+ * package's run state — typically while `aomi-smither --packageName <name>` executes
  * in another terminal. Rebuilds the identical workflow from the persisted
  * plan.json and registers it without running anything; the gateway's
  * out-of-process event bridge streams the executing run's persisted events.
  */
 export async function startConsoleForApp(options: {
-  app: string;
+  packageName: string;
   runsRoot?: string;
   port?: number;
   host?: string;
@@ -325,18 +354,20 @@ export async function startConsoleForApp(options: {
 }): Promise<ConsoleHandle> {
   assertBunRuntime();
   const runsRoot = options.runsRoot ?? defaultRunsRoot;
-  const plan = await loadPlan(options.app, runsRoot);
+  const plan = await loadPlan(options.packageName, runsRoot);
   if (!plan) {
     throw new Error(
-      `No stored plan for app "${options.app}" under ${runsRoot}. Start a run first — plan.json is written when a run starts.`,
+      `No stored plan for package "${options.packageName}" under ${runsRoot}. Start a run first — plan.json is written when a run starts.`,
     );
   }
-  const api = await createAomiSmither(smitherDbPath(options.app, runsRoot));
+  const api = await createAomiSmither(
+    smitherDbPath(options.packageName, runsRoot),
+  );
   // Register-only workflow: agents/runners are constructed but never invoked.
-  const workflow = await buildAppWorkflow(api, plan);
+  const workflow = await buildPackageWorkflow(api, plan);
   return startConsole({
     workflow,
-    app: options.app,
+    packageName: options.packageName,
     api,
     plan,
     builtinConsole: options.builtinConsole,

@@ -1,4 +1,4 @@
-import type {LandingMetadata as Metadata} from "@/lib/metadata";
+import type { LandingMetadata as Metadata } from "@/lib/metadata";
 import RestApiProductPageContent from "./rest-apis-content";
 import apiStyles from "./rest-api.module.css";
 
@@ -14,7 +14,7 @@ export default function RestApiProductPage() {
     <div className={apiStyles.marketingTokens}>
       <RestApiProductPageContent
         humanInterfaceHref="/products/widget"
-        pluginSdkHref="/products/plugin-sdk"
+        packageSdkHref="/products/package-sdk"
         useMarketingLayout
       />
     </div>

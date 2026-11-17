@@ -2,10 +2,10 @@
 
 import type { ReactNode } from "react";
 import type {
-  AppModelRow,
-  AppOutcomeItem,
-  AppToolItem,
-  AppUsageEntry,
+  AgentModelRow,
+  AgentOutcomeItem,
+  AgentToolItem,
+  AgentUsageEntry,
   MonthlyStatement,
   UsagePeriod,
 } from "./types";
@@ -83,14 +83,14 @@ export function monthShortLabel(period: UsagePeriod): string {
   return `${MONTHS[m - 1]} ${y}`;
 }
 
-/** `byApp[].app` uses id-style keys for some apps ("default") and
- * name-style for others ("foo app") — match against either. */
-export function findAppEntry(
+/** `byAgent[].agent` uses id-style keys for some agents ("default") and
+ * name-style for others ("foo agent") — match against either. */
+export function findAgentEntry(
   month: MonthlyStatement,
   key: string,
-): AppUsageEntry | undefined {
+): AgentUsageEntry | undefined {
   const norm = key.trim().toLowerCase();
-  return month.apps.find(
+  return month.agents.find(
     (a) =>
       a.id === key ||
       a.id.toLowerCase() === norm ||
@@ -99,25 +99,25 @@ export function findAppEntry(
 }
 
 /* ---------------------------------------------------------------------- */
-/* By-app matrix (frameless)                                               */
+/* By-agent matrix (frameless)                                               */
 /* ---------------------------------------------------------------------- */
 
 const MATRIX_COLS = "grid-cols-[1fr_96px_96px_96px_96px]";
 
 export function MatrixTable({
   month,
-  appId,
+  agentScope,
   framed = false,
 }: {
   month: MonthlyStatement;
-  /** When set (and not "all"), show only that app's row and hide the total. */
-  appId?: string;
+  /** When set (and not "all"), show only that agent's row and hide the total. */
+  agentScope?: string;
   /** Render as a self-contained bordered table (the statement page). */
   framed?: boolean;
 }) {
-  const showTotal = !appId || appId === "all";
-  const rows = month.byApp.filter(
-    (r) => showTotal || findAppEntry(month, r.app)?.id === appId,
+  const showTotal = !agentScope || agentScope === "all";
+  const rows = month.byAgent.filter(
+    (r) => showTotal || findAgentEntry(month, r.agent)?.id === agentScope,
   );
 
   // Framed: the table *is* the card — the header and total fills are clipped by
@@ -137,7 +137,7 @@ export function MatrixTable({
               framed ? "bg-aomi-surface py-2.5" : "pb-2"
             }`}
           >
-            <span>App</span>
+            <span>Agent</span>
             <span className="text-right">Model</span>
             <span className="text-right">Tool use</span>
             <span className="text-right">Outcome</span>
@@ -146,20 +146,20 @@ export function MatrixTable({
 
           <div className="divide-aomi-border flex flex-col divide-y">
             {rows.map((row) => {
-              const entry = findAppEntry(month, row.app);
+              const entry = findAgentEntry(month, row.agent);
               const txns = entry?.outcome?.txns ?? 0;
               return (
                 <div
-                  key={row.app}
+                  key={row.agent}
                   className={`grid ${MATRIX_COLS} items-center gap-2 py-3 ${pad} ${
                     framed ? "hover:bg-aomi-surface/70 transition-colors" : ""
                   }`}
                 >
-                  <span className="truncate text-[13px]">{row.app}</span>
+                  <span className="truncate text-[13px]">{row.agent}</span>
                   <MatrixCell
                     value={row.modelUsd}
                     tooltip={entry ? `${entry.model.turns} turns` : undefined}
-                    chip={entry?.settings.appByok ? "app key" : undefined}
+                    chip={entry?.settings.agentByok ? "agent key" : undefined}
                   />
                   <MatrixCell
                     value={row.toolUsd}
@@ -274,36 +274,36 @@ export function StatementSection({
   );
 }
 
-export function AppGroup({
-  app,
+export function AgentGroup({
+  agent,
   showModels = true,
   showTools = true,
 }: {
-  app: AppUsageEntry;
+  agent: AgentUsageEntry;
   showModels?: boolean;
   showTools?: boolean;
 }) {
   return (
     <div className="flex flex-col">
       <div className="bg-aomi-surface-2/40 flex items-center gap-2 px-4 py-2">
-        <span className="text-[13px] font-semibold">{app.name}</span>
-        <SettingsChip app={app} />
+        <span className="text-[13px] font-semibold">{agent.name}</span>
+        <SettingsChip agent={agent} />
       </div>
       <div className="divide-aomi-border flex flex-col divide-y">
         {showModels &&
-          app.model.byModel.map((row) => (
+          agent.model.byModel.map((row) => (
             <ModelRow
               key={`${row.provider ?? "unknown"}:${row.model}:${row.paymentMethod ?? "fixture"}`}
-              app={app}
+              agent={agent}
               row={row}
             />
           ))}
-        {showTools && app.tool && (
+        {showTools && agent.tool && (
           <>
             <div className="bg-aomi-surface-2/20 text-aomi-muted px-4 py-1.5 text-[12px] font-medium">
               Tool calls
             </div>
-            {app.tool.items.map((item) => (
+            {agent.tool.items.map((item) => (
               <ToolRow key={item.tool} item={item} />
             ))}
           </>
@@ -313,18 +313,18 @@ export function AppGroup({
   );
 }
 
-export function SettingsChip({ app }: { app: AppUsageEntry }) {
-  if (app.native) return <Chip>native · base</Chip>;
+export function SettingsChip({ agent }: { agent: AgentUsageEntry }) {
+  if (agent.native) return <Chip>native · base</Chip>;
   const paymentMethods = new Set(
-    app.model.byModel
+    agent.model.byModel
       .map((row) => row.paymentMethod)
       .filter((method): method is string => Boolean(method)),
   );
   if ([...paymentMethods].some(isOwnKeyFunding) && paymentMethods.size > 1) {
     return <Chip>mixed billing</Chip>;
   }
-  if (app.settings.appByok) return <Chip>app key · model free</Chip>;
-  return <Chip accent>{`managed · +${app.settings.managedMarkupPct}%`}</Chip>;
+  if (agent.settings.agentByok) return <Chip>agent key · model free</Chip>;
+  return <Chip accent>{`managed · +${agent.settings.managedMarkupPct}%`}</Chip>;
 }
 
 export function Chip({
@@ -348,15 +348,15 @@ export function Chip({
 }
 
 export function ModelRow({
-  app,
+  agent,
   row,
 }: {
-  app: AppUsageEntry;
-  row: AppModelRow;
+  agent: AgentUsageEntry;
+  row: AgentModelRow;
 }) {
   const isByok = row.paymentMethod
     ? isOwnKeyFunding(row.paymentMethod)
-    : app.settings.appByok;
+    : agent.settings.agentByok;
   const hasMarkup = !isByok && row.baseUsd !== row.chargedUsd;
 
   return (
@@ -384,7 +384,7 @@ export function ModelRow({
                 {usd(row.chargedUsd)}
               </span>
               {hasMarkup && (
-                <Chip accent>{`+${app.settings.managedMarkupPct}%`}</Chip>
+                <Chip accent>{`+${agent.settings.managedMarkupPct}%`}</Chip>
               )}
             </>
           )}
@@ -403,7 +403,7 @@ function isOwnKeyFunding(funding: string): boolean {
   return funding === "user_key" || funding === "builder_key";
 }
 
-export function ToolRow({ item }: { item: AppToolItem }) {
+export function ToolRow({ item }: { item: AgentToolItem }) {
   return (
     <div className="grid grid-cols-[1fr_80px_80px_90px] items-center gap-2 px-4 py-2.5">
       <span className="font-mono text-[13px]">{item.tool}</span>
@@ -423,7 +423,7 @@ export function ToolRow({ item }: { item: AppToolItem }) {
 export function OutcomeTable({
   pairs,
 }: {
-  pairs: { app: AppUsageEntry; item: AppOutcomeItem }[];
+  pairs: { agent: AgentUsageEntry; item: AgentOutcomeItem }[];
 }) {
   return (
     <div className="overflow-x-auto">
@@ -432,23 +432,23 @@ export function OutcomeTable({
           className={`grid ${OUTCOME_COLS} border-aomi-border bg-aomi-surface-2/30 text-aomi-muted gap-2 border-b px-4 py-2 text-[12px] font-medium`}
         >
           <span>Date</span>
-          <span>App · action</span>
+          <span>Agent · action</span>
           <span className="text-right">Flow</span>
           <span className="text-right">Rate</span>
           <span className="text-right">Fee</span>
           <span className="text-right">Chain</span>
           <span className="text-right">Tx</span>
         </div>
-        {pairs.map(({ app, item }, i) => (
+        {pairs.map(({ agent, item }, i) => (
           <div
-            key={`${app.id}-${i}`}
+            key={`${agent.id}-${i}`}
             className={`grid ${OUTCOME_COLS} items-center gap-2 px-4 py-2.5`}
           >
             <span className="text-aomi-muted text-[13px]">
               {formatShortDate(item.date)}
             </span>
             <span className="truncate text-[13px]">
-              {app.name} · {item.action}
+              {agent.name} · {item.action}
             </span>
             <span className="text-right text-[13px] tabular-nums">
               {item.flow}
@@ -512,7 +512,7 @@ export function StatTile({
 }
 
 export const USAGE_MATRIX_HINT =
-  "Hover a cell for counts. — means not billed. $0 with an app key means the app uses its own key.";
+  "Hover a cell for counts. — means not billed. $0 with an agent key means the agent uses its own key.";
 
 const SPEND_BREAKDOWN_HINT =
   "Compute is models plus tool calls, billed against your allowance. On-chain fees settle separately, in-token, on your transactions.";
@@ -560,11 +560,11 @@ export function PeriodTotalHero({
 }
 
 function monthActivityStats(month: MonthlyStatement) {
-  const turns = month.apps.reduce((s, a) => s + a.model.turns, 0);
-  const toolCalls = month.apps.reduce((s, a) => s + (a.tool?.calls ?? 0), 0);
-  const txns = month.apps.reduce((s, a) => s + (a.outcome?.txns ?? 0), 0);
-  const hasToolData = month.apps.some((a) => a.tool !== null);
-  const hasOutcomeData = month.apps.some((a) => a.outcome !== null);
+  const turns = month.agents.reduce((s, a) => s + a.model.turns, 0);
+  const toolCalls = month.agents.reduce((s, a) => s + (a.tool?.calls ?? 0), 0);
+  const txns = month.agents.reduce((s, a) => s + (a.outcome?.txns ?? 0), 0);
+  const hasToolData = month.agents.some((a) => a.tool !== null);
+  const hasOutcomeData = month.agents.some((a) => a.outcome !== null);
   const { payment, summary } = month;
   const over = payment.creditBankAppliedUsd > 0;
   const hasAllowance = payment.allowanceCredits.included > 0;
@@ -618,7 +618,7 @@ export function SpendBreakdownSection({ month }: { month: MonthlyStatement }) {
         }
         hint={
           summary.managedMarkupUsd > 0
-            ? `${SPEND_BREAKDOWN_HINT} Compute includes ${usd(summary.managedMarkupUsd)} managed markup on third-party apps.`
+            ? `${SPEND_BREAKDOWN_HINT} Compute includes ${usd(summary.managedMarkupUsd)} managed markup on third-party agents.`
             : SPEND_BREAKDOWN_HINT
         }
       />

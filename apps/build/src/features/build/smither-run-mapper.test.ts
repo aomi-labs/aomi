@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  BuildRunSnapshot,
-  BuildRunStage,
-} from "./run-contracts";
+import type { BuildRunSnapshot, BuildRunStage } from "./run-contracts";
 import {
   completionMessage,
   flagsFromSnapshot,
@@ -16,7 +13,7 @@ function stage(
   status: BuildRunStage["status"],
   kind: BuildRunStage["kind"] = "compute",
 ): BuildRunStage {
-  return { id: `my-app:${phase}`, label: phase, kind, status };
+  return { id: `my-package:${phase}`, label: phase, kind, status };
 }
 
 function snapshot(
@@ -25,8 +22,8 @@ function snapshot(
   extra: Partial<BuildRunSnapshot> = {},
 ): BuildRunSnapshot {
   return {
-    runId: "smither-my-app-123",
-    app: "my-app",
+    runId: "smither-my-package-123",
+    packageName: "my-package",
     status,
     stages,
     approvals: [],
@@ -51,11 +48,11 @@ describe("nodesFromSnapshot", () => {
   it("maps stages to product-labeled plan nodes", () => {
     const nodes = nodesFromSnapshot(midRun);
     expect(nodes.map((n) => [n.id, n.role, n.status])).toEqual([
-      ["my-app:binaries", "Setup", "done"],
-      ["my-app:codegen", "Generator", "active"],
-      ["my-app:curate", "Reviewer", "pending"],
-      ["my-app:validate-loop", "Tester", "pending"],
-      ["my-app:result", "Shipper", "pending"],
+      ["my-package:binaries", "Setup", "done"],
+      ["my-package:codegen", "Generator", "active"],
+      ["my-package:curate", "Reviewer", "pending"],
+      ["my-package:validate-loop", "Tester", "pending"],
+      ["my-package:result", "Shipper", "pending"],
     ]);
   });
 
@@ -164,21 +161,27 @@ describe("completionMessage", () => {
           changedFiles: "src/tool.rs",
           followUps: "Run the e2e harness.",
         },
-        result: { status: "complete", summary: "my-app built and validated." },
+        result: {
+          status: "complete",
+          summary: "my-package built and validated.",
+        },
       }),
     );
     expect(message).toContain("Curated 11 user-centric tools");
     expect(message).toContain("Run the e2e harness.");
-    expect(message).not.toContain("my-app built and validated.");
+    expect(message).not.toContain("my-package built and validated.");
   });
 
   it("uses the run summary when no curation report exists", () => {
     const message = completionMessage(
       snapshot([], "completed", {
-        result: { status: "complete", summary: "my-app built and validated." },
+        result: {
+          status: "complete",
+          summary: "my-package built and validated.",
+        },
       }),
     );
-    expect(message).toContain("my-app built and validated.");
+    expect(message).toContain("my-package built and validated.");
   });
 
   it("names the failed stage", () => {

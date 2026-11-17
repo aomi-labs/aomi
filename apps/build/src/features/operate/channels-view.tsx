@@ -1,0 +1,1157 @@
+import type { Channel, ChannelAgent } from "@aomi-labs/deploy";
+// Telegram channel management for the Integrations page: provider rail, the
+// how-it-works explainer, an inline add flow, and one card per registered
+// channel with in-place agent editing. UI ported from the /mock-integration design
+// session; data layer (react-query + BFF operate/channels routes) unchanged.
+
+import { cn } from "@aomi-labs/widget";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, Plus, Trash2 } from "lucide-react";
+import { useCallback, useId, useMemo, useState } from "react";
+import type React from "react";
+import { useGitHubSession } from "@/components/control-plane/github-session-context";
+import {
+  GitHubSignInPanel,
+  LoadingPanel,
+} from "@/features/deploy/components/deployments/ui/state-panels";
+import {
+  buildQueryKeys,
+  buildQueryStaleTime,
+  githubAccountKey,
+} from "@/features/deploy/query-keys";
+import { TelegramHowItWorks } from "@/features/integrations/how-it-works";
+import { ThreadModeControl } from "@/features/integrations/thread-mode-control";
+import { API_PATHS } from "@/lib/api-paths";
+import { operateFetch } from "./client";
+import { readJsonResponse } from "@/lib/request-retry";
+
+type ChannelProjectAgent = {
+  id: number;
+  name: string;
+  isActive: boolean;
+};
+
+type ChannelProject = {
+  id: number;
+  repositoryLink?: string | null;
+  githubAccount?: string | null;
+  agents?: ChannelProjectAgent[];
+};
+
+type ChannelsPayload = {
+  projects?: ChannelProject[];
+  channels?: Channel[];
+};
+
+/** The BFF's `/operate/channels/:id/webhook` result: Telegram's registered
+ *  webhook compared with Aomi's, plus Telegram's own delivery stats. */
+type WebhookCheck = {
+  urlMatches: boolean;
+  pendingUpdateCount: number;
+  lastErrorMessage: string | null;
+  reasserted: boolean;
+  warning?: string | null;
+};
+
+type AgentOption = {
+  agentId: number;
+  name: string;
+  projectLabel: string;
+};
+
+type Draft = { agentId: number | null };
+
+/** Channel-level command config as typed. Only fields that differ from the
+ *  seed are sent, so an untouched card never rewrites what the manager has. */
+type CommandDraft = {
+  miniAppUrl: string;
+  miniAppLabel: string;
+  commandEndpoint: string;
+  commands: string;
+};
+
+/** The PATCH/POST fragment for a command draft: URL fields send `null` when
+ *  cleared, `commands` is the normalised list. Fields whose seed matches are
+ *  omitted (= unchanged). */
+function commandPatch(
+  draft: CommandDraft,
+  seed: CommandDraft,
+): {
+  miniAppUrl?: string | null;
+  miniAppLabel?: string | null;
+  commandEndpoint?: string | null;
+  commands?: string[];
+} {
+  const url = (value: string) => value.trim() || null;
+  return {
+    ...(url(draft.miniAppUrl) !== url(seed.miniAppUrl)
+      ? { miniAppUrl: url(draft.miniAppUrl) }
+      : {}),
+    ...(url(draft.miniAppLabel) !== url(seed.miniAppLabel)
+      ? { miniAppLabel: url(draft.miniAppLabel) }
+      : {}),
+    ...(url(draft.commandEndpoint) !== url(seed.commandEndpoint)
+      ? { commandEndpoint: url(draft.commandEndpoint) }
+      : {}),
+    ...(commandList(draft.commands).join(" ") !==
+    commandList(seed.commands).join(" ")
+      ? { commands: commandList(draft.commands) }
+      : {}),
+  };
+}
+
+function commandSeed(channel?: Channel): CommandDraft {
+  return {
+    miniAppUrl: channel?.miniAppUrl ?? "",
+    miniAppLabel: channel?.miniAppLabel ?? "",
+    commandEndpoint: channel?.commandEndpoint ?? "",
+    commands: (channel?.commands ?? []).join(", "),
+  };
+}
+
+function commandList(value: string): string[] {
+  return value
+    .split(/[\s,]+/)
+    .map((command) => command.trim().replace(/^\/+/, "").toLowerCase())
+    .filter(Boolean);
+}
+
+function projectLabel(project: ChannelProject) {
+  return (
+    project.repositoryLink || project.githubAccount || `Project ${project.id}`
+  );
+}
+
+function displayChannelName(channel: Channel): string {
+  if (channel.label?.trim()) return channel.label;
+  if (channel.platformUsername?.trim()) return `@${channel.platformUsername}`;
+  return channel.externalBotId ?? channel.id;
+}
+
+function maskedToken(channel: Channel): string {
+  return `${channel.externalBotId ?? channel.id}:••••••••••••`;
+}
+
+function monogram(channel: Channel): string {
+  const name =
+    channel.label ??
+    channel.platformUsername ??
+    channel.externalBotId ??
+    "channel";
+  const parts = name
+    .replace(/^@/, "")
+    .split(/[_\s-]+/)
+    .filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "B";
+}
+
+function threadModeLabel(threadMode: string): string {
+  return threadMode === "multi" ? "Multiple threads" : "Single thread";
+}
+
+function channelsUrl(extra: Record<string, string> = {}): string {
+  const params = new URLSearchParams(extra);
+  const query = params.toString();
+  return query
+    ? `${API_PATHS.build.operate.channels}?${query}`
+    : API_PATHS.build.operate.channels;
+}
+
+// ── shared glyphs (recipes shared with providers-view.tsx) ──────────────────
+
+const TH =
+  "px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.07em] text-dim";
+
+function RadioGlyph({
+  checked,
+  disabled,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors",
+        checked ? "border-accent-selected" : "border-border-hover",
+        disabled && "opacity-40",
+      )}
+    >
+      {checked ? (
+        <span className="bg-accent-selected size-2 rounded-full" />
+      ) : null}
+    </span>
+  );
+}
+
+// ── agent mapping table ───────────────────────────────────────────────────────
+
+function AgentTable({
+  options,
+  draft,
+  onChange,
+  ghostAgents = [],
+  disabled,
+}: {
+  options: AgentOption[];
+  draft: Draft;
+  onChange: (next: Draft) => void;
+  ghostAgents?: ChannelAgent[];
+  disabled?: boolean;
+}) {
+  return (
+    <div className="border-border bg-surface-1 overflow-hidden rounded-sm border">
+      <table className="w-full table-fixed text-[13px]">
+        <thead className="border-border border-b">
+          <tr>
+            <th className={cn(TH, "w-11")} aria-label="Selected" />
+            <th className={TH}>Agent</th>
+            <th className={TH}>Project</th>
+          </tr>
+        </thead>
+        <tbody className="divide-border divide-y">
+          {options.map((agent) => (
+            <tr
+              key={agent.agentId}
+              className={cn(
+                "transition-colors",
+                draft.agentId === agent.agentId
+                  ? "bg-accent"
+                  : "hover:bg-surface-2/60",
+              )}
+            >
+              <td className="px-3 py-2.5">
+                <label className="flex cursor-pointer items-center">
+                  <input
+                    type="radio"
+                    className="sr-only"
+                    name="channel-agent"
+                    checked={draft.agentId === agent.agentId}
+                    disabled={disabled}
+                    onChange={() => onChange({ agentId: agent.agentId })}
+                    aria-label={`Select ${agent.name} (${agent.projectLabel})`}
+                  />
+                  <RadioGlyph checked={draft.agentId === agent.agentId} />
+                </label>
+              </td>
+              <td className="text-foreground truncate px-3 py-2.5">
+                {agent.name}
+              </td>
+              <td className="text-dim truncate px-3 py-2.5 font-mono text-xs">
+                {agent.projectLabel}
+              </td>
+            </tr>
+          ))}
+          {ghostAgents.map((agent) => (
+            <tr key={agent.id} className="text-dim">
+              <td />
+              <td className="px-3 py-2.5">{agent.displayName}</td>
+              <td>no longer available</td>
+            </tr>
+          ))}
+          {!options.length && !ghostAgents.length ? (
+            <tr>
+              <td colSpan={3} className="text-dim px-3 py-6 text-center">
+                No deployed agents available for this account.
+              </td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── provider rail ───────────────────────────────────────────────────────────
+
+function ProviderRail({
+  channelCount,
+  onAdd,
+  addOpen,
+}: {
+  channelCount: number;
+  onAdd: () => void;
+  addOpen: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="border-accent-selected/40 bg-surface-1 flex items-center gap-2 rounded-full border px-4 py-2">
+        <svg
+          viewBox="0 0 24 24"
+          className="size-4 text-[#2AABEE]"
+          fill="currentColor"
+          aria-hidden
+        >
+          <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+        </svg>
+        <span className="text-foreground text-[13px] font-medium">
+          Telegram
+        </span>
+        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+          {channelCount} {channelCount === 1 ? "channel" : "channels"}
+        </span>
+      </div>
+      <div className="border-border bg-surface-1 flex items-center gap-2 rounded-full border px-4 py-2 opacity-55">
+        <svg
+          viewBox="0 0 24 24"
+          className="size-4 text-[#5865F2]"
+          fill="currentColor"
+          aria-hidden
+        >
+          <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.058a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03Z" />
+        </svg>
+        <span className="text-[13px]">Discord</span>
+        <span className="border-border text-dim rounded-full border px-2 py-0.5 text-[10px] font-medium">
+          Soon
+        </span>
+      </div>
+      <div className="border-border bg-surface-1 flex items-center gap-2 rounded-full border px-4 py-2 opacity-55">
+        <svg viewBox="0 0 24 24" className="size-4" aria-hidden>
+          <path
+            fill="#E01E5A"
+            d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313z"
+          />
+          <path
+            fill="#36C5F0"
+            d="M8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312z"
+          />
+          <path
+            fill="#2EB67D"
+            d="M18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312z"
+          />
+          <path
+            fill="#ECB22E"
+            d="M15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"
+          />
+        </svg>
+        <span className="text-[13px]">Slack</span>
+        <span className="border-border text-dim rounded-full border px-2 py-0.5 text-[10px] font-medium">
+          Soon
+        </span>
+      </div>
+      {!addOpen ? (
+        <button
+          type="button"
+          onClick={onAdd}
+          className="bg-foreground text-background ml-auto flex h-9 items-center gap-1.5 rounded-full px-4 text-[13px] font-medium"
+        >
+          <Plus className="size-4" aria-hidden />
+          Add channel
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+// ── channel card ────────────────────────────────────────────────────────────────
+
+function ChannelCommandFields({
+  draft,
+  onChange,
+  disabled,
+  children,
+}: {
+  draft: CommandDraft;
+  onChange: (next: CommandDraft) => void;
+  disabled?: boolean;
+  /** Extra control rendered under the fields (the reveal-secret row). */
+  children?: React.ReactNode;
+}) {
+  const id = useId();
+  const field = (
+    key: keyof CommandDraft,
+    label: string,
+    input: { type: "url" | "text"; placeholder: string },
+    help: string,
+  ) => (
+    <div className="space-y-2 text-xs">
+      <label htmlFor={`${id}-${key}`} className="text-dim block text-[13px]">
+        {label}
+      </label>
+      <input
+        id={`${id}-${key}`}
+        type={input.type}
+        placeholder={input.placeholder}
+        value={draft[key]}
+        disabled={disabled}
+        onChange={(event) => onChange({ ...draft, [key]: event.target.value })}
+        className="border-border bg-surface text-foreground h-9 w-full rounded-md border px-3 text-xs"
+      />
+      <p className="text-dim text-[11px]">{help}</p>
+    </div>
+  );
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        {field(
+          "miniAppUrl",
+          "Mini App URL",
+          { type: "url", placeholder: "https://agent.example.com/telegram" },
+          "Opened from the channel's menu button. Leave blank for none.",
+        )}
+        {field(
+          "miniAppLabel",
+          "Menu button label",
+          { type: "text", placeholder: "Open" },
+          "Shown on the menu button, up to 32 characters.",
+        )}
+        {field(
+          "commandEndpoint",
+          "Command endpoint",
+          { type: "url", placeholder: "https://api.example.com/commands" },
+          "Custom commands post to this URL as /{command}.",
+        )}
+        {field(
+          "commands",
+          "Custom commands",
+          { type: "text", placeholder: "b, p, r, chart" },
+          "Custom commands are handled by the channel's command service, without an agent turn.",
+        )}
+      </div>
+      {commandList(draft.commands).length > 0 &&
+      !draft.commandEndpoint.trim() ? (
+        <p className="text-warning text-xs">
+          Custom commands need a command endpoint.
+        </p>
+      ) : null}
+      {children}
+    </div>
+  );
+}
+
+function StatusPill({ status }: { status: string }) {
+  const active = status === "active";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium",
+        active
+          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+          : "border-border text-dim border",
+      )}
+    >
+      {active ? <Check className="size-3" aria-hidden /> : null}
+      {active ? "Active" : status}
+    </span>
+  );
+}
+
+function ChannelCard({
+  channel,
+  options,
+  editing,
+  onBeginEdit,
+  onCancel,
+  onSave,
+  onRemove,
+  removing,
+  warning,
+  onWebhookChecked,
+}: {
+  channel: Channel;
+  options: AgentOption[];
+  editing: boolean;
+  onBeginEdit: () => void;
+  onCancel: () => void;
+  onSave: (
+    draft: Draft,
+    threadMode: string,
+    commandConfig: ReturnType<typeof commandPatch>,
+  ) => Promise<void>;
+  onRemove: () => void;
+  removing: boolean;
+  /** The manager saved the last edit but could not re-point the Telegram
+   *  webhook; shown until a check reports fresh state. */
+  warning: string | null;
+  /** A check returned fresh state: the parent drops the saved warning so a
+   *  later remount cannot bring it back. */
+  onWebhookChecked: () => void;
+}) {
+  const mapped = useMemo(
+    () => (channel.agent ? [channel.agent] : []),
+    [channel.agent],
+  );
+  const initialDraft = useMemo<Draft>(
+    () => ({ agentId: channel.agentId }),
+    [channel.agentId],
+  );
+  const [draft, setDraft] = useState<Draft>(initialDraft);
+  const [draftThreadMode, setDraftThreadMode] = useState(channel.threadMode);
+  // Seeded from the channel, never from an agent: the config is channel-level.
+  const seed = commandSeed(channel);
+  const [commandDraft, setCommandDraft] = useState<CommandDraft>(seed);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Shown once per edit session; never logged, never cached in react-query.
+  const [secret, setSecret] = useState<string | null>(null);
+  const [revealing, setRevealing] = useState(false);
+  // Last "Check webhook" result for this mount; the row is keyed on the
+  // configuration version, so a save clears it along with the drafts.
+  const [webhook, setWebhook] = useState<WebhookCheck | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState<string | null>(null);
+
+  // Agents still mapped to this channel but gone from the builder's projects. They
+  // render as uncheckable-only rows: keeping one selected would 403 at the
+  // BFF ownership check, so save stays blocked until they are unchecked.
+  const ghostAgents = useMemo(() => {
+    const available = new Set(options.map((option) => option.agentId));
+    return mapped.filter((agent) => !available.has(agent.id));
+  }, [mapped, options]);
+
+  const ghostStillSelected = ghostAgents.some(
+    (agent) => draft.agentId === agent.id,
+  );
+  const canSave =
+    draft.agentId !== null &&
+    !ghostStillSelected &&
+    (commandList(commandDraft.commands).length === 0 ||
+      commandDraft.commandEndpoint.trim().length > 0) &&
+    !saving;
+
+  const displayName = displayChannelName(channel);
+
+  return (
+    <div
+      className={cn(
+        "border-border bg-surface-1 rounded-md border",
+        editing && "border-border-hover",
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-4 px-5 py-5">
+        <div className="bg-accent text-accent-selected flex size-9 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold">
+          {monogram(channel)}
+        </div>
+        <div className="min-w-0 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-foreground text-sm font-medium">
+              {displayName}
+            </span>
+            {channel.label && channel.platformUsername ? (
+              <span className="text-dim text-xs">
+                @{channel.platformUsername}
+              </span>
+            ) : null}
+            <StatusPill status={channel.status} />
+          </div>
+          <div className="text-dim font-mono text-[11px]">
+            {maskedToken(channel)}
+          </div>
+        </div>
+        <div className="ml-auto flex items-center gap-2.5">
+          <span className="text-dim text-xs">
+            {threadModeLabel(channel.threadMode)}
+          </span>
+          {editing ? (
+            <span className="text-accent-selected text-xs font-medium">
+              Editing
+            </span>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onBeginEdit}
+                disabled={removing}
+                className="border-border hover:bg-accent-hover text-foreground h-8 rounded-full border px-3.5 text-xs font-medium disabled:opacity-50"
+              >
+                Change agents
+              </button>
+              <button
+                type="button"
+                onClick={onRemove}
+                disabled={removing}
+                aria-label={`Remove ${displayName}`}
+                className="border-border hover:bg-accent-hover text-dim flex size-8 items-center justify-center rounded-full border disabled:opacity-50"
+              >
+                <Trash2 className="size-3.5" aria-hidden />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {editing ? (
+        <div className="border-border border-t p-5">
+          <div className="mb-3 flex justify-end">
+            <ThreadModeControl
+              value={draftThreadMode}
+              onChange={setDraftThreadMode}
+              disabled={saving}
+            />
+          </div>
+          <AgentTable
+            options={options}
+            draft={draft}
+            onChange={setDraft}
+            ghostAgents={ghostAgents}
+            disabled={saving}
+          />
+          <div className="mt-5">
+            <ChannelCommandFields
+              draft={commandDraft}
+              onChange={setCommandDraft}
+              disabled={saving}
+            >
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={saving || revealing}
+                  onClick={() => {
+                    setRevealing(true);
+                    setError(null);
+                    fetch(API_PATHS.build.operate.channelCommandSecret(channel.id))
+                      .then(async (res) => {
+                        const json = await readJsonResponse<{
+                          commandSecret?: string;
+                        }>(res, "Failed to reveal secret");
+                        if (!json.commandSecret) {
+                          throw new Error("Failed to reveal secret");
+                        }
+                        setSecret(json.commandSecret);
+                      })
+                      .catch((err: unknown) => {
+                        setError(
+                          err instanceof Error
+                            ? err.message
+                            : "Failed to reveal secret",
+                        );
+                      })
+                      .finally(() => setRevealing(false));
+                  }}
+                  className="border-border hover:bg-accent-hover text-foreground h-8 rounded-full border px-3.5 text-xs font-medium disabled:opacity-50"
+                >
+                  {revealing ? "Revealing..." : "Reveal command secret"}
+                </button>
+                {secret ? (
+                  <input
+                    type="text"
+                    readOnly
+                    value={secret}
+                    aria-label="Command secret"
+                    onFocus={(event) => event.currentTarget.select()}
+                    className="border-border bg-surface text-foreground h-8 min-w-0 flex-1 rounded-md border px-3 font-mono text-xs"
+                  />
+                ) : (
+                  <span className="text-dim text-[11px]">
+                    Signs every command request as x-aomi-signature.
+                  </span>
+                )}
+              </div>
+            </ChannelCommandFields>
+          </div>
+          <div className="mt-6 flex items-center justify-between gap-4">
+            <span className="text-dim text-xs">One agent per channel</span>
+            <div className="flex items-center gap-3">
+              {error ? (
+                <span className="text-danger text-xs">{error}</span>
+              ) : null}
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  setDraft(initialDraft);
+                  setDraftThreadMode(channel.threadMode);
+                  setCommandDraft(seed);
+                  setSecret(null);
+                  setError(null);
+                  onCancel();
+                }}
+                className="border-border hover:bg-accent-hover text-foreground h-8 rounded-full border px-3.5 text-xs font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!canSave}
+                onClick={() => {
+                  setSaving(true);
+                  setError(null);
+                  onSave(
+                    draft,
+                    draftThreadMode,
+                    commandPatch(commandDraft, seed),
+                  )
+                    .then(() => setSecret(null))
+                    .catch((err: unknown) => {
+                      setError(
+                        err instanceof Error
+                          ? err.message
+                          : "Failed to save agents",
+                      );
+                    })
+                    .finally(() => setSaving(false));
+                }}
+                className="bg-foreground text-background disabled:bg-surface-3 disabled:text-dim h-8 rounded-full px-4 text-xs font-medium disabled:cursor-not-allowed"
+              >
+                {saving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="border-border flex flex-wrap gap-2 border-t px-5 py-3.5">
+          {mapped.map((agent) => (
+            <span
+              key={agent.id}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs",
+                "border-accent-selected/40 bg-accent text-accent-selected",
+              )}
+            >
+              {agent.displayName}
+              {agent.projectLabel ? (
+                <span className="opacity-60">· {agent.projectLabel}</span>
+              ) : null}
+            </span>
+          ))}
+          <span
+            className="text-dim w-full truncate pt-1 font-mono text-[11px]"
+            data-testid="channel-command-summary"
+          >
+            Mini App:{" "}
+            {channel.miniAppUrl
+              ? `${channel.miniAppLabel ?? "Open"} → ${channel.miniAppUrl}`
+              : "none"}
+            {channel.commandEndpoint
+              ? ` · endpoint: ${channel.commandEndpoint}`
+              : ""}
+            {(channel.commands ?? []).length
+              ? ` · ${(channel.commands ?? []).map((command) => `/${command}`).join(" ")}`
+              : ""}
+          </span>
+          {channel.kind === "telegram" ? (
+            <div className="flex w-full flex-wrap items-center gap-3 pt-1">
+              <button
+                type="button"
+                disabled={checking || removing}
+                onClick={() => {
+                  setChecking(true);
+                  setCheckError(null);
+                  fetch(API_PATHS.build.operate.channelWebhook(channel.id), {
+                    method: "POST",
+                  })
+                    .then(async (res) => {
+                      const json = await readJsonResponse<{
+                        webhook?: WebhookCheck;
+                      }>(res, "Failed to check webhook");
+                      if (!json.webhook) {
+                        throw new Error("Failed to check webhook");
+                      }
+                      setWebhook(json.webhook);
+                      onWebhookChecked();
+                    })
+                    .catch((err: unknown) => {
+                      setCheckError(
+                        err instanceof Error
+                          ? err.message
+                          : "Failed to check webhook",
+                      );
+                    })
+                    .finally(() => setChecking(false));
+                }}
+                className="border-border hover:bg-accent-hover text-foreground h-7 rounded-full border px-3 text-[11px] font-medium disabled:opacity-50"
+              >
+                {checking ? "Checking..." : "Check webhook"}
+              </button>
+              {webhook ? (
+                <span
+                  className={cn(
+                    "text-[11px]",
+                    webhook.urlMatches || webhook.reasserted
+                      ? "text-dim"
+                      : "text-danger",
+                  )}
+                  data-testid="channel-webhook-status"
+                >
+                  {webhook.urlMatches
+                    ? "Webhook OK"
+                    : webhook.reasserted
+                      ? "Webhook was not pointed at Aomi; re-pointed now"
+                      : `Webhook is not pointed at Aomi and could not be re-pointed: ${webhook.warning ?? "unknown error"}`}
+                  {` · ${webhook.pendingUpdateCount} pending update${webhook.pendingUpdateCount === 1 ? "" : "s"}`}
+                  {webhook.lastErrorMessage
+                    ? ` · last Telegram error: ${webhook.lastErrorMessage}`
+                    : ""}
+                </span>
+              ) : warning ? (
+                <span className="text-warning text-[11px]">
+                  Saved, but the webhook was not re-asserted: {warning}
+                </span>
+              ) : null}
+              {checkError ? (
+                <span className="text-danger text-[11px]">{checkError}</span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── add flow ────────────────────────────────────────────────────────────────
+
+function AddChannelCard({
+  options,
+  onCancel,
+  onRegister,
+}: {
+  options: AgentOption[];
+  onCancel: () => void;
+  onRegister: (input: {
+    label: string;
+    token: string;
+    threadMode: string;
+    draft: Draft;
+    commandConfig: ReturnType<typeof commandPatch>;
+  }) => Promise<void>;
+}) {
+  const [label, setLabel] = useState("");
+  const [token, setToken] = useState("");
+  const [threadMode, setThreadMode] = useState("single");
+  const [draft, setDraft] = useState<Draft>({ agentId: null });
+  const [commandDraft, setCommandDraft] = useState<CommandDraft>(commandSeed());
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canRegister =
+    !busy &&
+    token.trim().length > 0 &&
+    draft.agentId !== null &&
+    (commandList(commandDraft.commands).length === 0 ||
+      commandDraft.commandEndpoint.trim().length > 0);
+
+  return (
+    <div className="border-border-hover bg-surface-1 rounded-md border">
+      <div className="border-border border-b p-5">
+        <h2 className="text-foreground text-sm font-medium">
+          Add a Telegram channel
+        </h2>
+        <p className="text-dim mt-1 text-xs">
+          Paste the token from BotFather and pick the agents this channel
+          serves.
+        </p>
+      </div>
+      <div className="space-y-5 p-5">
+        <div className="grid gap-5 md:grid-cols-2">
+          <label className="block space-y-2 text-xs">
+            <span className="text-dim block text-[13px]">Bot token</span>
+            <input
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="Paste BotFather token"
+              disabled={busy}
+              className="border-border bg-surface text-foreground h-9 w-full rounded-md border px-3 text-xs"
+            />
+          </label>
+          <label className="block space-y-2 text-xs">
+            <span className="text-dim block text-[13px]">Label (optional)</span>
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Trading assistant"
+              disabled={busy}
+              className="border-border bg-surface text-foreground h-9 w-full rounded-md border px-3 text-xs"
+            />
+          </label>
+        </div>
+        <ChannelCommandFields
+          draft={commandDraft}
+          onChange={setCommandDraft}
+          disabled={busy}
+        />
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <ThreadModeControl
+              value={threadMode}
+              onChange={setThreadMode}
+              disabled={busy}
+            />
+          </div>
+          <AgentTable
+            options={options}
+            draft={draft}
+            onChange={setDraft}
+            disabled={busy}
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-3">
+          {error ? <span className="text-danger text-xs">{error}</span> : null}
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="border-border hover:bg-accent-hover text-foreground h-8 rounded-full border px-3.5 text-xs font-medium disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!canRegister}
+            onClick={() => {
+              setBusy(true);
+              setError(null);
+              onRegister({
+                label: label.trim(),
+                token,
+                threadMode,
+                draft,
+                // Against an empty seed: only filled fields are sent.
+                commandConfig: commandPatch(commandDraft, commandSeed()),
+              })
+                .catch((err: unknown) => {
+                  setError(
+                    err instanceof Error
+                      ? err.message
+                      : "Failed to register channel",
+                  );
+                })
+                .finally(() => setBusy(false));
+            }}
+            className="bg-foreground text-background disabled:bg-surface-3 disabled:text-dim h-8 rounded-full px-4 text-xs font-medium disabled:cursor-not-allowed"
+          >
+            {busy ? "Registering..." : "Register channel"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── view ────────────────────────────────────────────────────────────────────
+
+export function ChannelsView() {
+  const { account } = useGitHubSession();
+  const queryClient = useQueryClient();
+  const accountKey = githubAccountKey(account.githubLogin);
+  const queryKey = buildQueryKeys.channels(accountKey ?? "unavailable");
+  const channelsQuery = useQuery({
+    queryKey,
+    queryFn: () => operateFetch<ChannelsPayload>("channels"),
+    enabled: account.signedIn && accountKey !== null,
+    staleTime: buildQueryStaleTime.operate,
+  });
+  const payload = channelsQuery.data ?? null;
+  const loading = channelsQuery.isPending;
+  const queryError =
+    channelsQuery.error && !channelsQuery.data
+      ? channelsQuery.error instanceof Error
+        ? channelsQuery.error.message
+        : String(channelsQuery.error)
+      : null;
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  // Webhook warnings from the last save, per channel: the card that saved is
+  // remounted on its new configuration version, so the note lives here.
+  const [webhookWarnings, setWebhookWarnings] = useState<
+    Record<string, string>
+  >({});
+
+  const projects = useMemo(() => payload?.projects ?? [], [payload?.projects]);
+  const channels = useMemo(() => payload?.channels ?? [], [payload?.channels]);
+
+  const options = useMemo<AgentOption[]>(
+    () =>
+      projects.flatMap((project) =>
+        (project.agents ?? [])
+          .filter((agent) => agent.isActive)
+          .map((agent) => ({
+            agentId: agent.id,
+            name: agent.name,
+            projectLabel: projectLabel(project),
+          })),
+      ),
+    [projects],
+  );
+
+  const handleRegister = useCallback(
+    async (input: {
+      label: string;
+      token: string;
+      threadMode: string;
+      draft: Draft;
+      commandConfig: ReturnType<typeof commandPatch>;
+    }) => {
+      const res = await fetch(channelsUrl(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          credential: input.token.trim(),
+          label: input.label || undefined,
+          threadMode: input.threadMode,
+          agentId: input.draft.agentId,
+          ...input.commandConfig,
+        }),
+      });
+      const json = await readJsonResponse<{ channel?: Channel }>(
+        res,
+        "Failed to register channel",
+      );
+      if (!json.channel) throw new Error("Failed to register channel");
+      const created = json.channel;
+      queryClient.setQueryData<ChannelsPayload>(queryKey, (current) => ({
+        projects: current?.projects ?? projects,
+        channels: [created, ...(current?.channels ?? [])],
+      }));
+      setAdding(false);
+    },
+    [queryClient, queryKey, projects],
+  );
+
+  const handleSaveAgents = useCallback(
+    async (
+      channel: Channel,
+      draft: Draft,
+      threadMode: string,
+      commandConfig: ReturnType<typeof commandPatch>,
+    ) => {
+      const res = await fetch(channelsUrl(), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelId: channel.id,
+          agentId: draft.agentId,
+          threadMode,
+          ...commandConfig,
+        }),
+      });
+      const json = await readJsonResponse<{
+        channel?: Channel;
+        webhookWarning?: string;
+      }>(res, "Failed to save agents");
+      if (!json.channel) throw new Error("Failed to save agents");
+      const updated = json.channel;
+      const webhookWarning = json.webhookWarning;
+      setWebhookWarnings((current) => {
+        const { [updated.id]: _cleared, ...rest } = current;
+        return webhookWarning
+          ? { ...rest, [updated.id]: webhookWarning }
+          : rest;
+      });
+      queryClient.setQueryData<ChannelsPayload>(queryKey, (current) => ({
+        projects: current?.projects ?? projects,
+        channels: (current?.channels ?? []).map((b) =>
+          b.id === updated.id ? updated : b,
+        ),
+      }));
+      setEditingId(null);
+    },
+    [queryClient, queryKey, projects],
+  );
+
+  const handleRemove = useCallback(
+    async (channel: Channel) => {
+      setRemovingId(channel.id);
+      setRemoveError(null);
+      try {
+        const res = await fetch(channelsUrl({ channelId: channel.id }), {
+          method: "DELETE",
+        });
+        await readJsonResponse(res, "Failed to remove channel");
+        queryClient.setQueryData<ChannelsPayload>(queryKey, (current) =>
+          current
+            ? {
+                ...current,
+                channels: (current.channels ?? []).filter(
+                  (b) => b.id !== channel.id,
+                ),
+              }
+            : current,
+        );
+        if (editingId === channel.id) setEditingId(null);
+      } catch (err) {
+        setRemoveError(
+          err instanceof Error ? err.message : "Failed to remove channel",
+        );
+      } finally {
+        setRemovingId(null);
+      }
+    },
+    [editingId, queryClient, queryKey],
+  );
+
+  if (account.loading) {
+    return <LoadingPanel label="Checking GitHub session..." />;
+  }
+
+  if (!account.signedIn) {
+    return <GitHubSignInPanel error={null} />;
+  }
+
+  return (
+    <div className="flex w-full flex-col gap-6">
+      <ProviderRail
+        channelCount={channels.length}
+        addOpen={adding}
+        onAdd={() => setAdding(true)}
+      />
+
+      <TelegramHowItWorks />
+
+      {removeError ? (
+        <div className="border-danger/30 bg-danger/5 text-danger rounded-md border px-3 py-2 text-sm">
+          {removeError}
+        </div>
+      ) : null}
+
+      {adding ? (
+        <AddChannelCard
+          options={options}
+          onCancel={() => setAdding(false)}
+          onRegister={handleRegister}
+        />
+      ) : null}
+
+      {loading ? (
+        <div className="border-border bg-surface-1 text-dim rounded-md border px-4 py-14 text-center text-sm">
+          Loading channels...
+        </div>
+      ) : queryError ? (
+        <div className="border-danger/30 bg-danger/5 text-danger rounded-md border px-4 py-3 text-sm">
+          {queryError}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6">
+          {channels.map((channel) => (
+            // Keyed on the configuration version so a channel refreshed from the
+            // server (another admin's save, or our own) remounts the card
+            // with fresh seeds. Drafts are only ever compared against the
+            // seed they were taken from, so a stale draft can never restore
+            // an older config during an unrelated save.
+            <ChannelCard
+              key={`${channel.id}:${channel.configurationVersion ?? 0}`}
+              channel={channel}
+              options={options}
+              editing={editingId === channel.id}
+              onBeginEdit={() => setEditingId(channel.id)}
+              onCancel={() => setEditingId(null)}
+              onSave={(draft, threadMode, commandConfig) =>
+                handleSaveAgents(channel, draft, threadMode, commandConfig)
+              }
+              onRemove={() => void handleRemove(channel)}
+              removing={removingId === channel.id}
+              warning={webhookWarnings[channel.id] ?? null}
+              onWebhookChecked={() =>
+                setWebhookWarnings(
+                  ({ [channel.id]: _checked, ...rest }) => rest,
+                )
+              }
+            />
+          ))}
+          {channels.length === 0 && !adding ? (
+            <div className="border-border bg-surface-1 text-dim rounded-md border px-4 py-14 text-center text-sm">
+              No Telegram channels yet. Add one to start receiving messages.
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}

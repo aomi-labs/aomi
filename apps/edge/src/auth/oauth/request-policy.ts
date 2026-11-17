@@ -2,11 +2,11 @@ import {
   aomiOAuthResourcePolicy,
   bindAomiPublicClientResource,
   aomiOAuthResources,
-  appMcpName,
+  agentMcpName,
   narrowScopesForAomiResource,
   validateAomiResourceScopes,
 } from "@aomi-labs/account/better-auth";
-import { registerAppMcpResource } from "./app-mcp-resource";
+import { registerAgentMcpResource } from "./agent-mcp-resource";
 
 type OAuthError =
   | "invalid_client_metadata"
@@ -116,12 +116,12 @@ export async function enforceAomiOAuthRequestPolicy(
   if (!aomiOAuthResourcePolicy(resources[0])) {
     return reject(oauthError("invalid_target", "Unknown Aomi resource"));
   }
-  // An app-locked MCP resource exists only while its app is active.
+  // An agent-locked MCP resource exists only while its agent is active.
   if (
-    appMcpName(resources[0]) &&
-    !(await registerAppMcpResource(resources[0]))
+    agentMcpName(resources[0]) &&
+    !(await registerAgentMcpResource(resources[0]))
   ) {
-    return reject(oauthError("invalid_target", "Unknown Aomi app"));
+    return reject(oauthError("invalid_target", "Unknown Aomi agent"));
   }
   const clientId = values.get("client_id")?.trim();
   if (clientId) {
@@ -261,27 +261,27 @@ async function enforceAomiRegistration(
     // RFC 7591 does not define a resource field and real MCP clients omit it;
     // their one exact resource is enforced on authorize/token. If a client
     // declares one, it must be exactly one MCP surface: the agent or pipeline
-    // MCP, or an active app's MCP (registered here, before Better Auth binds
+    // MCP, or an active agent's MCP (registered here, before Better Auth binds
     // the client to it). Better Auth's registration allowlist is static, so
-    // an app's resource is dropped here and bound at first authorize, like a
+    // an agent's resource is dropped here and bound at first authorize, like a
     // client that declared none.
     const declared = requestedResources[0];
-    const appMcp = declared !== undefined && Boolean(appMcpName(declared));
+    const agentMcp = declared !== undefined && Boolean(agentMcpName(declared));
     if (
       requestedResources.length > 1 ||
       (declared !== undefined &&
-        !appMcp &&
-        ![resources.agentMcp, resources.pipelineMcp].includes(
-          declared as typeof resources.agentMcp,
+        !agentMcp &&
+        ![resources.agentGatewayMcp, resources.pipelineMcp].includes(
+          declared as typeof resources.agentGatewayMcp,
         )) ||
-      (appMcp && !(await registerAppMcpResource(declared!)))
+      (agentMcp && !(await registerAgentMcpResource(declared!)))
     ) {
       return oauthError(
         "invalid_target",
         "Authorization-code registration is limited to one MCP resource",
       );
     }
-    if (appMcp) delete metadata.resources;
+    if (agentMcp) delete metadata.resources;
     const responseTypes = stringArray(metadata.response_types);
     if (responseTypes.length > 0 && !exactStringSet(responseTypes, ["code"])) {
       return oauthError(

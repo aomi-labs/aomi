@@ -57,7 +57,7 @@ function identifyBuildRouteFailure(
   };
 }
 
-const APP_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
+const AGENT_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
 
 export async function createBuildRunRoute(req: Request): Promise<Response> {
   const auth = await authorize(req, { write: true, allowAnon: true });
@@ -76,9 +76,9 @@ export async function createBuildRunRoute(req: Request): Promise<Response> {
       { status: 400 },
     );
   }
-  if (body.app !== undefined && !APP_NAME.test(body.app)) {
+  if (body.packageName !== undefined && !AGENT_NAME.test(body.packageName)) {
     return Response.json(
-      { error: "app must match [a-zA-Z0-9_-]{1,64}" },
+      { error: "package must match [a-zA-Z0-9_-]{1,64}" },
       { status: 400 },
     );
   }
@@ -96,14 +96,14 @@ export async function createBuildRunRoute(req: Request): Promise<Response> {
     const handle = await startBuildRun({
       prompt,
       owner: auth.session?.githubLogin || "dev",
-      app: body.app,
+      packageName: body.packageName,
       autoApprove: body.autoApprove,
       builder: body.builder,
     });
     const snapshot = await snapshotBuildRun(handle);
     return Response.json({
       runId: snapshot.runId,
-      app: snapshot.app,
+      packageName: snapshot.packageName,
       stages: snapshot.stages,
     });
   } catch (error) {
@@ -161,7 +161,7 @@ export async function buildRunCancelRoute(req: Request): Promise<Response> {
   }
 }
 
-/** Stream the generated crate (apps/<app>) as a tarball. */
+/** Stream the generated crate (packages/<package>) as a tarball. */
 export async function buildRunDownloadRoute(
   req: Request,
 ): Promise<Response | Response> {
@@ -177,8 +177,8 @@ export async function buildRunDownloadRoute(
     if (!handle) {
       return Response.json({ error: "unknown run" }, { status: 404 });
     }
-    const appsDir = path.join(handle.plan.sdkRoot, "apps");
-    if (!existsSync(path.join(appsDir, handle.app))) {
+    const packagesDir = path.join(handle.plan.sdkRoot, "packages");
+    if (!existsSync(path.join(packagesDir, handle.packageName))) {
       // No local crate (sandbox runs — the crate lives in the sandbox's
       // filesystem): serve the artifact the result phase embedded in the store.
       const stored = await storedCrateTarball(handle).catch(
@@ -202,8 +202,8 @@ export async function buildRunDownloadRoute(
       if (stored) {
         return new Response(new Uint8Array(stored), {
           headers: {
-            "Content-Type": "application/gzip",
-            "Content-Disposition": `attachment; filename="${handle.app}.tar.gz"`,
+            "Content-Type": "agent/gzip",
+            "Content-Disposition": `attachment; filename="${handle.packageName}.tar.gz"`,
           },
         });
       }
@@ -220,8 +220,8 @@ export async function buildRunDownloadRoute(
       "--exclude",
       "Cargo.lock",
       "-C",
-      appsDir,
-      handle.app,
+      packagesDir,
+      handle.packageName,
     ]);
     let spawnFailed = false;
     tar.once("error", (error) => {
@@ -250,8 +250,8 @@ export async function buildRunDownloadRoute(
     });
     return new Response(Readable.toWeb(tar.stdout) as ReadableStream, {
       headers: {
-        "Content-Type": "application/gzip",
-        "Content-Disposition": `attachment; filename="${handle.app}.tar.gz"`,
+        "Content-Type": "agent/gzip",
+        "Content-Disposition": `attachment; filename="${handle.packageName}.tar.gz"`,
       },
     });
   } catch (error) {
@@ -261,7 +261,7 @@ export async function buildRunDownloadRoute(
   }
 }
 
-/** One generated-crate file (display path "<app>/src/tool.rs") — live disk,
+/** One generated-crate file (display path "<package>/src/tool.rs") — live disk,
  *  live sidecar, or the store's embedded tarball, whichever is freshest. */
 export async function buildRunFileRoute(
   req: Request,

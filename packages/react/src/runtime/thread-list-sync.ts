@@ -447,7 +447,7 @@ export function useThreadListSync({
           lastActiveAt: lastActive,
           // Session summaries do not expose the execution target. Mark an
           // unseen remote thread as explicitly Auto so a device-wide Direct
-          // preference cannot present the first app as its historical
+          // preference cannot present the first agent as its historical
           // target. Threads created in this client retain their exact local
           // control through existingControl and the commit-time merge.
           control: existingControl ?? initRemoteThreadControl(),

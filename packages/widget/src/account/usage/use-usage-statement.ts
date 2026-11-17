@@ -7,9 +7,7 @@ import { creditAllowanceFromPosition } from "@/account/account-overview";
 import { explainAccountError } from "@/account/account-api";
 import { useShellAomi } from "@/account/transport";
 import { useAomiWalletKit } from "@/wallet/context";
-import { packageCatalogQuery } from "@/library/use-package-catalog";
 import {
-  applicationNamesFrom,
   buildMonthlyStatement,
   currentMonthKey,
   fetchStatementCharges,
@@ -19,12 +17,10 @@ import {
 export type StatementStatus = "loading" | "ready" | "error";
 export type AllowanceStatus = "idle" | "loading" | "ready" | "error";
 
-const NO_NAMES: ReadonlyMap<number, string> = new Map();
-
 /**
  * Real statement months, held in the shared display cache per account and
- * month, so reopening Settings or the full statement reuses them. App names
- * come from the shared account-apps read and never hold back the totals. The
+ * month, so reopening Settings or the full statement reuses them. Charges retain
+ * agent identity by numeric id; package ids never supply agent labels. The
  * allowance meter comes from the current account credit balance, so past
  * months hide it rather than showing today's value.
  */
@@ -41,19 +37,6 @@ export function useUsageStatement(monthCount = 6) {
     fetcher: (signal) =>
       fetchStatementCharges(selectedKey, aomi.account, signal),
   });
-  const needsNames = Boolean(
-    accountUserId &&
-    charges.data?.some((charge) => charge.applicationId !== null),
-  );
-  const apps = useDisplayQuery({
-    ...packageCatalogQuery(aomi, accountUserId),
-    enabled: needsNames,
-  });
-  const names = useMemo(
-    () => (apps.data ? applicationNamesFrom(apps.data) : NO_NAMES),
-    [apps.data],
-  );
-
   const allowanceStatus: AllowanceStatus = credits.isPending
     ? "loading"
     : credits.error
@@ -66,12 +49,12 @@ export function useUsageStatement(monthCount = 6) {
 
   const month = useMemo(() => {
     if (!charges.data) return null;
-    const statement = buildMonthlyStatement(selectedKey, charges.data, names);
+    const statement = buildMonthlyStatement(selectedKey, charges.data);
     return {
       ...statement,
       payment: { ...statement.payment, allowanceCredits: creditAllowance },
     };
-  }, [charges.data, creditAllowance, names, selectedKey]);
+  }, [charges.data, creditAllowance, selectedKey]);
 
   const selectMonth = useCallback((monthKey: string) => {
     setSelectedKey(monthKey);

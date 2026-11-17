@@ -1,5 +1,5 @@
 // Visual harness for the REAL Integrations page (same pattern as
-// /dev/operate-preview): window.fetch is stubbed to serve the operate/bots
+// /dev/operate-preview): window.fetch is stubbed to serve the operate/channels
 // Build API wire shape from in-memory fixtures, so the actual IntegrationsView —
 // including add/edit/remove flows — is fully interactive without a GitHub
 // session or backend. Design iteration happened here before the port; this
@@ -28,7 +28,7 @@ const SOURCES = [
   {
     id: 1,
     repositoryLink: "ceciliaz030/local-8",
-    apps: [
+    agents: [
       { id: 11, name: "playground-example" },
       { id: 12, name: "goal-digger" },
     ],
@@ -36,63 +36,42 @@ const SOURCES = [
   {
     id: 2,
     repositoryLink: "ceciliaz030/local-6",
-    apps: [{ id: 21, name: "playground-example" }],
+    agents: [{ id: 21, name: "playground-example" }],
   },
   {
     id: 3,
     repositoryLink: "ceciliaz030/local-7",
-    apps: [{ id: 22, name: "somm-agent" }],
+    agents: [{ id: 22, name: "somm-agent" }],
   },
 ];
 
-type FixtureBotApp = {
-  applicationId: number;
-  projectId: number | null;
-  projectLabel: string | null;
-  name: string;
-  label: string;
-  isPrimary: boolean;
-};
-
-function appsFor(ids: number[], primary: number | null): FixtureBotApp[] {
-  const known = new Map(
-    SOURCES.flatMap((source) =>
-      source.apps.map((app) => [
-        app.id,
-        {
-          applicationId: app.id,
-          projectId: source.id,
-          projectLabel: source.repositoryLink,
-          name: app.name,
-          label: app.name,
-        },
-      ]),
-    ),
+function agentFor(id: number) {
+  const source = SOURCES.find((source) =>
+    source.agents.some((agent) => agent.id === id),
   );
-  return ids.map((id) => ({
-    ...(known.get(id) ?? {
-      applicationId: id,
-      projectId: null,
-      projectLabel: "ceciliaz030/retired",
-      name: "gone-app",
-      label: "gone-app",
-    }),
-    isPrimary: id === primary,
-  }));
+  const agent = source?.agents.find((agent) => agent.id === id);
+  return {
+    id,
+    projectId: source?.id ?? null,
+    projectLabel: source?.repositoryLink ?? null,
+    name: agent?.name ?? "gone-agent",
+    displayName: agent?.name ?? "gone-agent",
+    platform: "community",
+  };
 }
 
-let BOTS = [
+let CHANNELS = [
   {
     id: "b1",
-    platform: "telegram",
+    kind: "telegram",
     status: "active",
     label: null as string | null,
-    handoverApp: "playground-example",
+    agentId: 11,
     miniAppUrl: null as string | null,
     commandEndpoint: null as string | null,
     commands: [] as string[],
-    apps: appsFor([11, 21], 11),
-    platformBotId: "8184083135",
+    agent: agentFor(11),
+    externalBotId: "8184083135",
     platformUsername: "chico_chico_bot",
     webhookUrl: "https://api.example.test/api/bots/telegram/secret",
     threadMode: "single",
@@ -100,15 +79,15 @@ let BOTS = [
   },
   {
     id: "b2",
-    platform: "telegram",
+    kind: "telegram",
     status: "active",
     label: "Trading assistant" as string | null,
-    handoverApp: "somm-agent",
+    agentId: 22,
     miniAppUrl: null as string | null,
     commandEndpoint: "https://api.somm.example/commands" as string | null,
     commands: ["b", "p"] as string[],
-    apps: appsFor([22, 99], 22),
-    platformBotId: "7729918454",
+    agent: agentFor(22),
+    externalBotId: "7729918454",
     platformUsername: "trade_helper_bot",
     webhookUrl: "https://api.example.test/api/bots/telegram/secret2",
     threadMode: "multi",
@@ -131,7 +110,7 @@ function stubFetch() {
     if (url.includes("/api/build/auth/github/status"))
       return Response.json(SESSION);
 
-    if (url.includes("/api/build/operate/bots")) {
+    if (url.includes("/api/build/operate/channels")) {
       if (method === "GET" && url.includes("/command-secret"))
         return Response.json({ commandSecret: "preview-secret-0000" });
       if (method === "POST" && url.includes("/webhook"))
@@ -145,61 +124,61 @@ function stubFetch() {
           },
         });
       if (method === "GET")
-        return Response.json({ projects: SOURCES, bots: BOTS });
+        return Response.json({ projects: SOURCES, channels: CHANNELS });
       if (method === "POST") {
         const body = JSON.parse(String(init?.body ?? "{}")) as {
           label?: string;
           threadMode?: string;
-          applicationIds: number[];
-          handoverApplicationId: number;
+          agentId: number;
           miniAppUrl?: string | null;
           commandEndpoint?: string | null;
           commands?: string[];
         };
-        const bot = {
-          id: `new-${BOTS.length + 1}`,
-          platform: "telegram",
+        const channel = {
+          id: `new-${CHANNELS.length + 1}`,
+          kind: "telegram",
           status: "active",
           label: body.label ?? null,
-          handoverApp: "playground-example",
+          agentId: body.agentId,
           miniAppUrl: body.miniAppUrl ?? null,
           commandEndpoint: body.commandEndpoint ?? null,
           commands: body.commands ?? [],
-          apps: appsFor(body.applicationIds, body.handoverApplicationId),
-          platformBotId: "5550001234",
+          agent: agentFor(body.agentId),
+          externalBotId: "5550001234",
           platformUsername: "your_new_bot",
           webhookUrl: "https://api.example.test/api/bots/telegram/secret3",
           threadMode: body.threadMode ?? "single",
           createdAt: 1_753_200_000,
         };
-        BOTS = [bot, ...BOTS];
-        return Response.json({ bot }, { status: 201 });
+        CHANNELS = [channel, ...CHANNELS];
+        return Response.json({ channel }, { status: 201 });
       }
       if (method === "PATCH") {
         const body = JSON.parse(String(init?.body ?? "{}")) as {
-          botId: string;
-          applicationIds: number[];
-          handoverApplicationId: number;
+          channelId: string;
+          agentId: number;
           threadMode?: string;
           miniAppUrl?: string | null;
           commandEndpoint?: string | null;
           commands?: string[];
         };
-        const bot = BOTS.find((b) => b.id === body.botId);
-        if (!bot) return Response.json({ error: "not found" }, { status: 404 });
-        bot.apps = appsFor(body.applicationIds, body.handoverApplicationId);
-        if (body.threadMode) bot.threadMode = body.threadMode;
-        if (body.miniAppUrl !== undefined) bot.miniAppUrl = body.miniAppUrl;
+        const channel = CHANNELS.find((b) => b.id === body.channelId);
+        if (!channel)
+          return Response.json({ error: "not found" }, { status: 404 });
+        channel.agent = agentFor(body.agentId);
+        channel.agentId = body.agentId;
+        if (body.threadMode) channel.threadMode = body.threadMode;
+        if (body.miniAppUrl !== undefined) channel.miniAppUrl = body.miniAppUrl;
         if (body.commandEndpoint !== undefined)
-          bot.commandEndpoint = body.commandEndpoint;
-        if (body.commands !== undefined) bot.commands = body.commands;
-        return Response.json({ bot });
+          channel.commandEndpoint = body.commandEndpoint;
+        if (body.commands !== undefined) channel.commands = body.commands;
+        return Response.json({ channel });
       }
       if (method === "DELETE") {
-        const botId = new URL(url, window.location.origin).searchParams.get(
-          "botId",
+        const channelId = new URL(url, window.location.origin).searchParams.get(
+          "channelId",
         );
-        BOTS = BOTS.filter((b) => b.id !== botId);
+        CHANNELS = CHANNELS.filter((b) => b.id !== channelId);
         return Response.json({ ok: true });
       }
     }

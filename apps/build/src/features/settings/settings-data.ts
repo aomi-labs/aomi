@@ -64,7 +64,7 @@ export const settingsSections: SettingsSection[] = [
   {
     slug: "integrations",
     title: "Integrations",
-    description: "External bots and services.",
+    description: "External channels and services.",
     icon: Settings,
     enabled: true,
     status: "soon",
@@ -83,9 +83,9 @@ export const settingsSections: SettingsSection[] = [
     detail: "Invoices are not in Build yet. See Operate → Usage for spend.",
   },
   {
-    slug: "bots",
+    slug: "channels",
     title: "Bot setup",
-    description: "Telegram and deploy bots.",
+    description: "Telegram and deploy channels.",
     icon: Bot,
     enabled: true,
     status: "soon",

@@ -1,15 +1,10 @@
-// @aomi-labs/deploy/launch — browser-safe client for the one-shot launch flow.
-//
-// Talks only to the host's same-origin BFF (the launch and GitHub auth routes);
-// no secrets, no backend URL, no framework dependency. Pairs with the launch
-// UI components distributed via the Aomi shadcn registry.
+// Browser-safe project reads and GitHub authentication.
 
 export {
   createLaunchClient,
   isFatalLaunchRequestError,
   isRetryableLaunchError,
   LaunchRequestError,
-  DEFAULT_LAUNCH_BASE_PATH,
   DEFAULT_DEPLOYMENTS_BASE_PATH,
   DEFAULT_GITHUB_AUTH_BASE_PATH,
   type LaunchClient,
@@ -20,79 +15,9 @@ export {
   type UserProject,
 } from "./browser-client";
 
-export {
-  DEFAULT_TEMPLATE_REPO,
-  resolveTemplateRepo,
-  templateRepoUrl,
-  templateGenerateUrl,
-  deploymentTargets,
-  MissingRequiredSecretsError,
-  missingRequiredSecrets,
-  type LaunchPath,
-  type LaunchDeployPayload,
-  type LaunchProgress,
-  type LaunchPreflightInput,
-  type LaunchDeployInput,
-  type LaunchDeployResult,
-  type LaunchCreateRepoResult,
-  type LaunchStatus,
-  type LaunchActivateResult,
-  type LaunchAppStatusApp,
-  type LaunchAppStatusesResult,
-  type DeploymentTarget,
-  type LaunchRedeployResult,
-  type LaunchSdkStatus,
-  type DeploymentProjectsResult,
-  type DeploymentHistoryResult,
-  type DeploymentFeedResult,
-  type DeploymentSecretsResult,
-  type DeploymentPromoteResult,
-  type RequiredSecretsByApp,
-  type RequiredSecretsResult,
+export type {
+  LaunchAgentStatusAgent,
+  LaunchAgentStatusesResult,
+  DeploymentProjectsResult,
 } from "./contracts";
-
-export {
-  loadLaunch,
-  saveLaunch,
-  resetLaunch,
-  progressOf,
-  withPath,
-  withProgress,
-  withPendingInstall,
-  withRejectedInstall,
-  normalizeRepo,
-  readGithubRedirect,
-  isResumingInstall,
-  oneshotStep,
-  installationStatusLabel,
-  GITHUB_REDIRECT_KEYS,
-  ONESHOT_STEPS,
-  readLaunchUrlContext,
-  projectMatchesLaunchUrlContext,
-  hasProjectForLaunchUrlContext,
-  platformParam,
-  connectionResult,
-  type LaunchState,
-  type PendingInstall,
-  type GithubRedirect,
-  type OneshotStep,
-  type LaunchUrlContext,
-  type RepositoryConnectionResult,
-} from "./state";
-
-export {
-  backoffDelay,
-  deploymentProgress,
-  isTerminalState,
-  runtimeAppsReady,
-  waitForDeploymentReady,
-  waitForAppsToLoad,
-  watchDeploymentLoop,
-  type AppRuntimeExpectation,
-  type AppRuntimeSnapshot,
-  type AppRuntimeSnapshotApp,
-  type AppRuntimeWatchOptions,
-  type AppRuntimeWatchProgress,
-  type DeploymentReadyWatchOptions,
-  type WatchLoopOptions,
-} from "./watch";
+export { platformParam } from "./state";

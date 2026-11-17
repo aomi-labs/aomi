@@ -15,10 +15,10 @@ function sourceRow(id: number) {
   return {
     id,
     installation_id: 555,
-    repository_link: `https://github.com/alice/bot-${id}`,
+    repository_link: `https://github.com/alice/channel-${id}`,
     github_user_id: "42",
     platform_name: "community",
-    apps: [],
+    agents: [],
   };
 }
 
@@ -49,16 +49,15 @@ describe("userProjectsRoute", () => {
           {
             id: 99,
             installation_id: 555,
-            repository_link: "https://github.com/alice/bot",
+            repository_link: "https://github.com/alice/channel",
             github_user_id: "42",
             platform_name: "community",
-            apps: [
+            agents: [
               {
                 id: 5,
-                name: "bot",
+                name: "channel",
                 is_active: true,
                 loaded: true,
-                app_release_tag: "apps-555-r1-bot-abc",
               },
             ],
           },
@@ -74,7 +73,7 @@ describe("userProjectsRoute", () => {
     expect(body.projects[0]).toMatchObject({
       id: 99,
       installationId: 555,
-      apps: [{ id: 5, name: "bot", isActive: true, loaded: true }],
+      agents: [{ id: 5, name: "channel", isActive: true, loaded: true }],
     });
 
     // The backend call is scoped to the session's github_user_id.
@@ -147,23 +146,22 @@ describe("userProjectsRoute", () => {
 
   // The manager's detail read omits the live SDK summary its list read
   // carries; the Build server fills it from the list so the page and the index agree.
-  it("stamps the list's live SDK onto a detail read that lacks it", async () => {
+  it("preserves the project detail without merging a second snapshot", async () => {
     getGitHubSession.mockResolvedValue({
       githubUserId: "42",
       githubLogin: "alice",
     });
-    const liveApp = {
+    const liveAgent = {
       id: 2937808,
-      name: "bot",
+      name: "channel",
       is_active: true,
       loaded: true,
-      app_release_tag: "apps-555-r1-bot-abc",
     };
     const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
       String(input).includes("/projects/1663?")
         ? Response.json({
             ...sourceRow(1663),
-            apps: [liveApp],
+            agents: [liveAgent],
             sdk_version: null,
             sdk_versions: [],
             configuration: { status: "invalid", checked_revision: "abc" },
@@ -172,7 +170,7 @@ describe("userProjectsRoute", () => {
             projects: [
               {
                 ...sourceRow(1663),
-                apps: [liveApp],
+                agents: [liveAgent],
                 sdk_version: "5.0.0",
                 sdk_versions: ["5.0.0"],
               },
@@ -186,14 +184,11 @@ describe("userProjectsRoute", () => {
     const [project] = (await res.json()).projects;
     expect(project).toMatchObject({
       id: 1663,
-      sdkVersion: "5.0.0",
-      sdkVersions: ["5.0.0"],
+      sdkVersion: null,
+      sdkVersions: [],
       configuration: { status: "invalid" },
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[1][0])).toContain(
-      "/api/integrations/github-app/user/projects?github_user_id=42",
-    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("keeps a detail read's own SDK stamp without a list read", async () => {
@@ -204,13 +199,12 @@ describe("userProjectsRoute", () => {
     const fetchMock = vi.fn(async () =>
       Response.json({
         ...sourceRow(1663),
-        apps: [
+        agents: [
           {
             id: 2937808,
-            name: "bot",
+            name: "channel",
             is_active: true,
             loaded: true,
-            app_release_tag: "apps-555-r1-bot-abc",
           },
         ],
         sdk_version: "5.1.0",

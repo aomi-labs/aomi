@@ -11,7 +11,7 @@ import {
 import type { Action, ActionRequest } from "./agent/types";
 import type { SignableCommit } from "./commits";
 
-/** One contract call the application approved before Aomi built anything. */
+/** One contract call the agent approved before Aomi built anything. */
 export interface ExpectedCall {
   /** When set, the request must target this EVM chain. */
   chainId?: number;
@@ -99,7 +99,7 @@ export class CallVerificationError extends Error {
 }
 
 /**
- * The calls an application approved, checked against what Aomi built before
+ * The calls an agent approved, checked against what Aomi built before
  * the local wallet signs. Calls match positionally; every mismatch is listed.
  *
  * Accepts an Action, an ActionRequest (`action.request` or

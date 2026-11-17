@@ -94,7 +94,7 @@ const SUBJECT_LABELS: Record<string, string> = {
   tool_invocation: "Tool invocations",
   outcome: "Outcome fees",
   model: "Model usage",
-  hosting: "App hosting",
+  hosting: "Agent hosting",
 };
 
 export function subjectLabel(subject: unknown): string {
@@ -131,7 +131,6 @@ export function bytesLabel(value: unknown): string | null {
   const mb = n / (1024 * 1024);
   return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(n / 1024)} KB`;
 }
-
 
 /** Backend-provided chain_name wins; otherwise map known ids, SVM → Solana. */
 export function chainLabel(row: {

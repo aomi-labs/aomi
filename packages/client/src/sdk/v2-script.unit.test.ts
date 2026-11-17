@@ -162,43 +162,43 @@ const routes: Record<string, unknown> = {
     archived: false,
   },
   "GET /v1/agent/sessions": { sessions: [], nextCursor: null },
-  "GET /v1/pipeline/apps/default/operations": {
+  "GET /v1/pipeline/toolsets/default/operations": {
     kind: "directory",
-    path: "/v1/pipeline/apps/default/operations",
+    path: "/v1/pipeline/toolsets/default/operations",
     entries: [],
   },
-  "GET /v1/pipeline/apps/default/operations/stage_lifi_swap": {
+  "GET /v1/pipeline/toolsets/default/operations/stage_lifi_swap": {
     kind: "operation",
     name: "stage_lifi_swap",
     description: "",
     method: "POST",
-    href: "/v1/pipeline/apps/default/operations/stage_lifi_swap",
+    href: "/v1/pipeline/toolsets/default/operations/stage_lifi_swap",
     inputSchema: {
       type: "object",
       required: ["topic"],
       properties: { topic: {} },
     },
   },
-  "GET /v1/pipeline/apps/default/operations/lifi_get_status": {
+  "GET /v1/pipeline/toolsets/default/operations/lifi_get_status": {
     kind: "operation",
     name: "lifi_get_status",
     description: "",
     method: "POST",
-    href: "/v1/pipeline/apps/default/operations/lifi_get_status",
+    href: "/v1/pipeline/toolsets/default/operations/lifi_get_status",
     inputSchema: {
       type: "object",
       required: ["topic"],
       properties: { topic: {} },
     },
   },
-  "POST /v1/pipeline/apps/default/operations/lifi_get_status": {
+  "POST /v1/pipeline/toolsets/default/operations/lifi_get_status": {
     status: "DONE",
   },
   "POST /v1/pipeline/evm/build": {
     version: 2,
     status: "simulated",
     actions: [],
-    origin: { app: "default", operations: [] },
+    origin: { toolset: "default", operations: [] },
     simulation,
     expiresAt: at,
     digest: "d",

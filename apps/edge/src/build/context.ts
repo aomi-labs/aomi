@@ -12,13 +12,13 @@ export type BuildContext = {
   config: Config["build"];
   /** The public Build origin this request arrived on (its own host). */
   buildOrigin: string;
-  /** Where the Vercel Build app is reached from the edge (never the public host). */
+  /** Where the Vercel Build package is reached from the edge (never the public host). */
   upstreamOrigin: string;
   /** Origins whose cookie writes Build trusts: its own origin only. */
   trustedOrigins: readonly string[];
   /** Cookies are Secure everywhere except local development. */
   secureCookies: boolean;
-  /** Whether this is the production Build (which GitHub OAuth app to use). */
+  /** Whether this is the production Build (which GitHub OAuth package to use). */
   production: boolean;
   fetchImpl: FetchLike;
   now: () => number;

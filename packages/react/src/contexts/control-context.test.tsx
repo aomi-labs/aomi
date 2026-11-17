@@ -29,9 +29,9 @@ const renderControlContext = (
 ) => {
   const ref = React.createRef<HarnessHandle>();
   const raw = {
-    getApps: vi.fn(async () => [{ name: "default" }]),
+    getAgents: vi.fn(async () => [{ name: "default" }]),
     getModels: vi.fn(async () => []),
-    getPublicCatalog: vi.fn(async () => ({ models: [], apps: [] })),
+    getPublicCatalog: vi.fn(async () => ({ models: [], agents: [] })),
     setModel: vi.fn(async () => ({})),
     ...clientOverrides,
   };
@@ -45,7 +45,7 @@ const renderControlContext = (
         remove: vi.fn(async () => true),
         clear: vi.fn(async () => undefined),
       },
-      apps: { credentials: vi.fn(() => ({})) },
+      agents: { credentials: vi.fn(() => ({})) },
       ...accountOverrides,
     },
   };
@@ -223,7 +223,7 @@ describe("ControlContextProvider", () => {
     expect(selectedControl).toMatchObject({
       model: "gpt-5",
       modelMode: "manual",
-      app: null,
+      agent: null,
       controlDirty: true,
     });
     expect(selectedControl?.agentMode).not.toBe("direct");
@@ -459,12 +459,12 @@ describe("ControlContextProvider", () => {
     });
   });
 
-  it("keeps model selection dirty when the app changes before send", async () => {
+  it("keeps model selection dirty when the agent changes before send", async () => {
     const threadMetadata = createThreadMetadata();
     const setModel = vi.fn(async () => ({}));
     const { getControl } = renderControlContext(
       {
-        getApps: vi.fn(async () => [{ name: "default" }, { name: "docs" }]),
+        getAgents: vi.fn(async () => [{ name: "default" }, { name: "docs" }]),
         getModels: vi.fn(async () => ["gpt-4o-mini", "gpt-5"]),
         setModel,
       },
@@ -472,7 +472,6 @@ describe("ControlContextProvider", () => {
     );
 
     await waitFor(() => {
-      expect(getControl().state.authorizedApps).toContain("docs");
       expect(getControl().state.availableModels).toContain("gpt-5");
     });
 
@@ -485,13 +484,13 @@ describe("ControlContextProvider", () => {
     expect(setModel).not.toHaveBeenCalled();
 
     await act(async () => {
-      getControl().onAppSelect("docs");
+      getControl().onAgentSelect("docs");
     });
 
     expect(threadMetadata.get("session-1")?.control).toMatchObject({
       model: "gpt-5",
       agentMode: "direct",
-      app: "docs",
+      agent: "docs",
       controlDirty: true,
     });
   });
@@ -505,7 +504,7 @@ describe("ControlContextProvider", () => {
     act(() => {
       getControl().onAgentTargetSelect({
         mode: "direct",
-        applicationId: 2936682,
+        agent: "publisher/agent",
       });
     });
     expect(createScopedStorage({ backendUrl: "" }).get("agentMode")).toBe(
@@ -513,7 +512,7 @@ describe("ControlContextProvider", () => {
     );
     expect(getControl().getCurrentThreadTarget()).toEqual({
       mode: "direct",
-      applicationId: 2936682,
+      agent: "publisher/agent",
     });
 
     act(() => {
@@ -525,6 +524,9 @@ describe("ControlContextProvider", () => {
     expect(getControl().getPreferredThreadControl()).toMatchObject({
       agentMode: "auto",
     });
-    expect(getControl().getCurrentThreadTarget()).toEqual({ mode: "auto" });
+    expect(getControl().getCurrentThreadTarget()).toEqual({
+      mode: "auto",
+      agent: "publisher/agent",
+    });
   });
 });

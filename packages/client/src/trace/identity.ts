@@ -1,4 +1,4 @@
-/** The declared tool name, without an app or namespace prefix. */
+/** The declared tool name, without an agent or namespace prefix. */
 export const toolIdentity = (label: string): string =>
   (
     label

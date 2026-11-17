@@ -1,6 +1,6 @@
 import type {
   ActivateResult,
-  ActivatedApp,
+  ActivatedAgent,
   DeploymentStatus,
   UserProject,
 } from "./types";
@@ -18,10 +18,10 @@ export type DeploymentLifecycle = {
   statusLabel: string;
   statusTone: "good" | "warning" | "bad" | "muted";
   message: string;
-  appNames: string[];
+  agentNames: string[];
   releaseTags: string[];
-  chatApp?: string;
-  chatApplicationId?: number;
+  chatAgent?: string;
+  chatAgentId?: number;
   deploymentId?: string;
   ciStatus?: string | null;
   ciUrl?: string | null;
@@ -48,9 +48,9 @@ export function deploymentLifecycleFromProject(
 ): DeploymentLifecycle {
   const repo = sourceRepositoryLabel(project);
   const latest = project.latestDeployment ?? null;
-  const appNames = namesFromProject(project);
+  const agentNames = namesFromProject(project);
   const releaseTags = tagsFromProject(project);
-  const liveApp = liveAppFromProject(project);
+  const liveAgent = liveAgentFromProject(project);
   const ciStatus = clean(latest?.ciStatus);
   const state = clean(latest?.state)?.toLowerCase() ?? null;
   const deploymentId = clean(latest?.deploymentId) ?? undefined;
@@ -59,7 +59,7 @@ export function deploymentLifecycleFromProject(
 
   const base = {
     repo,
-    appNames,
+    agentNames,
     releaseTags,
     deploymentId,
     ciStatus,
@@ -71,15 +71,15 @@ export function deploymentLifecycleFromProject(
     buildTarget: clean(latest?.buildTarget ?? latest?.artifactTarget),
   };
 
-  if (liveApp) {
+  if (liveAgent) {
     return {
       ...base,
       kind: "live",
       statusLabel: "Live",
       statusTone: "good",
       message: "The latest deployment is active.",
-      chatApp: liveApp.name,
-      chatApplicationId: liveApp.applicationId,
+      chatAgent: liveAgent.name,
+      chatAgentId: liveAgent.agentId,
     };
   }
 
@@ -153,7 +153,7 @@ export function deploymentIdFromReleaseTag(
 ): string | null {
   const match = tag
     ?.trim()
-    .match(/^apps-(\d+)-(r[a-zA-Z0-9]+)-.+-([a-fA-F0-9]{7,40})$/);
+    .match(/^agents-(\d+)-(r[a-zA-Z0-9]+)-.+-([a-fA-F0-9]{7,40})$/);
   if (!match) return null;
   return `dep_${match[1]}_${match[2]}_${match[3]}`;
 }
@@ -164,7 +164,7 @@ export function deploymentLifecycleFromStatus(
 ): DeploymentLifecycle {
   const deployment = status.deployment;
   const platform = deployment?.platform;
-  const apps = platform?.apps ?? [];
+  const agents = platform?.agents ?? [];
   const ciStatus =
     clean(status.ci?.status) ?? clean(platform?.ciStatus) ?? null;
   const state = status.state;
@@ -175,14 +175,14 @@ export function deploymentLifecycleFromStatus(
   const releaseTags =
     status.releaseTags.length > 0
       ? status.releaseTags
-      : apps
-          .map((app) => app.releaseTag)
+      : agents
+          .map((agent) => agent.releaseTag)
           .map((tag) => tag?.trim())
           .filter((tag): tag is string => Boolean(tag));
-  const appNames =
-    apps.length > 0
-      ? apps.map((app) => app.name?.trim()).filter(Boolean)
-      : current.appNames;
+  const agentNames =
+    agents.length > 0
+      ? agents.map((agent) => agent.name?.trim()).filter(Boolean)
+      : current.agentNames;
   const progress = progressFor(state, ciStatus);
   const failed =
     state === "failed" ||
@@ -220,7 +220,7 @@ export function deploymentLifecycleFromStatus(
         : ciStatus === "passed"
           ? "CI passed; waiting for release assets."
           : "Waiting for platform CI and release assets.",
-    appNames,
+    agentNames,
     releaseTags,
     deploymentId: deployment?.id ?? current.deploymentId,
     ciStatus,
@@ -233,7 +233,7 @@ export function deploymentLifecycleFromStatus(
       clean(platform?.commitHash) ??
       current.commitHash,
     buildTarget:
-      apps.map((app) => app.target?.trim()).find(Boolean) ??
+      agents.map((agent) => agent.target?.trim()).find(Boolean) ??
       current.buildTarget,
     progressLabel: progress.label,
     progressPercent: progress.percent,
@@ -241,16 +241,16 @@ export function deploymentLifecycleFromStatus(
   };
 }
 
-export function failedActivationApp(
+export function failedActivationAgent(
   result: ActivateResult,
-): ActivatedApp | undefined {
-  return result.activation.apps.find((app) => app.error);
+): ActivatedAgent | undefined {
+  return result.activation.agents.find((agent) => agent.error);
 }
 
-export function firstActivatedApp(
+export function firstActivatedAgent(
   result: ActivateResult,
-): ActivatedApp | undefined {
-  return result.activation.apps.find((app) => app.applicationId);
+): ActivatedAgent | undefined {
+  return result.activation.agents.find((agent) => agent.agentId);
 }
 
 function clean(value: string | number | null | undefined): string | null {
@@ -259,32 +259,34 @@ function clean(value: string | number | null | undefined): string | null {
   return text ? text : null;
 }
 
-function liveAppFromProject(
+function liveAgentFromProject(
   project: UserProject,
-): { name: string; applicationId?: number } | null {
+): { name: string; agentId?: number } | null {
   const latest = project.latestDeployment;
-  const latestLive = latest?.apps.find(
-    (app) => app.applicationId && app.isActive,
+  const latestLive = latest?.agents.find(
+    (agent) => agent.agentId && agent.isActive,
   );
   if (latestLive) {
     return {
       name: latestLive.name,
-      applicationId: latestLive.applicationId ?? undefined,
+      agentId: latestLive.agentId ?? undefined,
     };
   }
   if (latest) return null;
 
-  const live = project.apps.find((app) => app.isActive);
-  return live ? { name: live.name, applicationId: live.id } : null;
+  const live = project.agents.find((agent) => agent.isActive);
+  return live ? { name: live.name, agentId: live.id } : null;
 }
 
 function namesFromProject(project: UserProject): string[] {
   const names =
-    project.latestDeployment?.apps
-      .map((app) => app.name.trim())
+    project.latestDeployment?.agents
+      .map((agent) => agent.name.trim())
       .filter(Boolean) ?? [];
   if (names.length > 0) return unique(names);
-  return unique(project.apps.map((app) => app.name.trim()).filter(Boolean));
+  return unique(
+    project.agents.map((agent) => agent.name.trim()).filter(Boolean),
+  );
 }
 
 function tagsFromProject(project: UserProject): string[] {
@@ -292,11 +294,7 @@ function tagsFromProject(project: UserProject): string[] {
   const cleanLatestTags = latestTags.map((tag) => tag.trim()).filter(Boolean);
   if (cleanLatestTags.length > 0) return unique(cleanLatestTags);
 
-  return unique(
-    project.apps
-      .map((app) => app.appReleaseTag?.trim())
-      .filter((tag): tag is string => Boolean(tag && tag !== "latest")),
-  );
+  return [];
 }
 
 function unique(values: string[]): string[] {

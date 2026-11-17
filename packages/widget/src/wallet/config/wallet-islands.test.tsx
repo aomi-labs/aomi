@@ -17,7 +17,7 @@ import { AomiWalletKitProvider } from "./aomi-wallet-kit-provider";
 import {
   getWalletProvider,
   registerWalletProvider,
-} from "@/wallet/providers/plugin-registry";
+} from "@/wallet/providers/provider-registry";
 import { MissingWalletSdkError } from "@/wallet/providers/sdk-loaders";
 import { AOMI_BOOTING_WALLET_KIT, useAomiWalletKit } from "@/wallet/context";
 import { useWalletAuthPublisher } from "@/wallet/providers/auth-store";
@@ -120,7 +120,7 @@ it("renders configured networks while the wallet island is still booting", () =>
 it("keeps the chat mounted while a delayed SDK loads and while switching providers", async () => {
   let mounts = 0;
   let resolveFirst!: (
-    plugin: Parameters<typeof registerWalletProvider>[0],
+    adapter: Parameters<typeof registerWalletProvider>[0],
   ) => void;
   const load = vi.fn(
     () =>

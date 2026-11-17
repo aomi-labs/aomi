@@ -9,7 +9,7 @@ import { ArrowLeft, Check, ChevronDown } from "lucide-react";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import {
   AllowanceSettlementSection,
-  AppGroup,
+  AgentGroup,
   MatrixTable,
   MODEL_COLS,
   OutcomeTable,
@@ -22,7 +22,7 @@ import {
 import { shortAddress } from "@aomi-labs/client";
 import { FilterChip } from "@/account/connections/wallet-view";
 
-type View = "byApp" | "itemized";
+type View = "byAgent" | "itemized";
 type Subject = "all" | "model" | "tool" | "onchain";
 
 /** `"2026-07"` → `"Jul 2026"` for the month picker. */
@@ -59,15 +59,15 @@ const SUBJECTS: { id: Subject; label: string }[] = [
 export function StatementView() {
   const overview = useAccountOverview();
   const statement = useUsageStatement();
-  const [view, setView] = useState<View>("byApp");
-  const [appFilter, setAppFilter] = useState<string>("all");
+  const [view, setView] = useState<View>("byAgent");
+  const [agentFilter, setAgentFilter] = useState<string>("all");
   const [subject, setSubject] = useState<Subject>("all");
 
   const month = statement.month;
 
   const selectMonth = (key: string) => {
     statement.selectMonth(key);
-    setAppFilter("all");
+    setAgentFilter("all");
     setSubject("all");
   };
 
@@ -165,12 +165,14 @@ export function StatementView() {
           <section className="flex flex-col gap-3">
             <SectionHeading
               title="Statement detail"
-              detail={view === "byApp" ? "Pivot by app" : "Line-by-line audit"}
+              detail={
+                view === "byAgent" ? "Pivot by agent" : "Line-by-line audit"
+              }
             />
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="border-aomi-border flex rounded-full border p-[3px]">
-                {(["byApp", "itemized"] as View[]).map((v) => (
+                {(["byAgent", "itemized"] as View[]).map((v) => (
                   <button
                     key={v}
                     type="button"
@@ -181,18 +183,21 @@ export function StatementView() {
                         : "text-aomi-muted hover:text-aomi-fg"
                     }`}
                   >
-                    {v === "byApp" ? "By app" : "Itemized"}
+                    {v === "byAgent" ? "By agent" : "Itemized"}
                   </button>
                 ))}
               </div>
 
               <Dropdown
-                value={appFilter}
+                value={agentFilter}
                 options={[
-                  { id: "all", label: "All apps" },
-                  ...month.apps.map((app) => ({ id: app.id, label: app.name })),
+                  { id: "all", label: "All agents" },
+                  ...month.agents.map((agent) => ({
+                    id: agent.id,
+                    label: agent.name,
+                  })),
                 ]}
-                onChange={setAppFilter}
+                onChange={setAgentFilter}
               />
             </div>
 
@@ -213,19 +218,19 @@ export function StatementView() {
               </div>
             )}
 
-            {view === "byApp" ? (
+            {view === "byAgent" ? (
               <div className="flex flex-col gap-2.5">
-                <SectionHeading title="By app" hint={USAGE_MATRIX_HINT} />
+                <SectionHeading title="By agent" hint={USAGE_MATRIX_HINT} />
                 <div className="border-aomi-border bg-aomi-bg/40 overflow-hidden rounded-xl border px-4 py-2 sm:px-5">
                   <div className="py-2">
-                    <MatrixTable month={month} appId={appFilter} />
+                    <MatrixTable month={month} agentScope={agentFilter} />
                   </div>
                 </div>
               </div>
             ) : (
               <ItemizedContent
                 month={month}
-                appFilter={appFilter}
+                agentFilter={agentFilter}
                 subject={subject}
               />
             )}
@@ -263,11 +268,11 @@ function StatementPeriodHero({
 
 function ItemizedContent({
   month,
-  appFilter,
+  agentFilter,
   subject,
 }: {
   month: MonthlyStatement;
-  appFilter: string;
+  agentFilter: string;
   subject: Subject;
 }) {
   const { summary, period } = month;
@@ -275,18 +280,18 @@ function ItemizedContent({
   const showModels = subject === "all" || subject === "model";
   const showTools = subject === "all" || subject === "tool";
   const showOnchain = subject === "all" || subject === "onchain";
-  const filtersActive = appFilter !== "all" || subject !== "all";
+  const filtersActive = agentFilter !== "all" || subject !== "all";
 
-  const visibleApps = month.apps.filter(
-    (a) => appFilter === "all" || a.id === appFilter,
+  const visibleAgents = month.agents.filter(
+    (a) => agentFilter === "all" || a.id === agentFilter,
   );
 
-  const computeApps = visibleApps.filter(
+  const computeAgents = visibleAgents.filter(
     (a) =>
       (showModels && a.model.byModel.length > 0) ||
       (showTools && a.tool !== null),
   );
-  const sectionATotal = visibleApps.reduce(
+  const sectionATotal = visibleAgents.reduce(
     (s, a) =>
       s +
       (showModels ? a.model.chargedUsd : 0) +
@@ -295,15 +300,15 @@ function ItemizedContent({
   );
 
   const outcomePairs = showOnchain
-    ? visibleApps.flatMap((a) =>
-        (a.outcome?.items ?? []).map((item) => ({ app: a, item })),
+    ? visibleAgents.flatMap((a) =>
+        (a.outcome?.items ?? []).map((item) => ({ agent: a, item })),
       )
     : [];
   const sectionBTotal = showOnchain
-    ? visibleApps.reduce((s, a) => s + (a.outcome?.chargedUsd ?? 0), 0)
+    ? visibleAgents.reduce((s, a) => s + (a.outcome?.chargedUsd ?? 0), 0)
     : 0;
 
-  const showSectionA = (showModels || showTools) && computeApps.length > 0;
+  const showSectionA = (showModels || showTools) && computeAgents.length > 0;
   const showSectionB = showOnchain && outcomePairs.length > 0;
 
   if (!showSectionA && !showSectionB) {
@@ -314,17 +319,17 @@ function ItemizedContent({
     );
   }
 
-  const aomiTotal = month.apps.reduce(
+  const aomiTotal = month.agents.reduce(
     (s, a) =>
       s +
       (a.native
         ? a.model.chargedUsd
-        : a.settings.appByok
+        : a.settings.agentByok
           ? 0
           : a.model.baseUsd),
     0,
   );
-  const appRecipients = month.apps
+  const appRecipients = month.agents
     .filter((a) => !a.native)
     .map((a) => ({
       name: a.name,
@@ -337,7 +342,7 @@ function ItemizedContent({
       {showSectionA && (
         <StatementSection
           title="Compute · off-chain"
-          subtitle="AI models + app tool calls, in credits"
+          subtitle="AI models + agent tool calls, in credits"
           total={usd(sectionATotal)}
         >
           {showModels && (
@@ -352,10 +357,10 @@ function ItemizedContent({
             </div>
           )}
           <div className="divide-aomi-border flex flex-col divide-y">
-            {computeApps.map((app) => (
-              <AppGroup
-                key={app.id}
-                app={app}
+            {computeAgents.map((agent) => (
+              <AgentGroup
+                key={agent.id}
+                agent={agent}
                 showModels={showModels}
                 showTools={showTools}
               />
@@ -396,7 +401,7 @@ function ItemizedContent({
               <span className="font-mono tabular-nums">{usd(aomiTotal)}</span>
             </div>
             <div className="flex flex-col gap-1">
-              <span>The apps · tool + outcome fees</span>
+              <span>The agents · tool + outcome fees</span>
               <div className="border-aomi-border flex flex-col gap-1 border-l pl-3">
                 {appRecipients.map((a) => (
                   <div
@@ -417,7 +422,7 @@ function ItemizedContent({
             </div>
           </div>
           <span className="text-aomi-muted text-[11px]">
-            These tool and outcome fees also appear on the apps&apos; own
+            These tool and outcome fees also appear on the agents&apos; own
             builder statements as Aomi&apos;s take.
           </span>
         </div>

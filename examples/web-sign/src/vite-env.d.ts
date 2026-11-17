@@ -5,7 +5,7 @@ import type { EIP1193Provider } from "viem";
 declare global {
   interface ImportMetaEnv {
     readonly VITE_AOMI_BASE_URL?: string;
-    readonly VITE_AOMI_APPLICATION_ID?: string;
+    readonly VITE_AOMI_AGENT?: string;
     readonly VITE_ALLOWED_TARGETS?: string;
   }
 

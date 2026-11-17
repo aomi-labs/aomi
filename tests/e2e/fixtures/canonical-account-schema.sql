@@ -128,7 +128,7 @@ create table if not exists agent_wallet_keys (
 );
 create index if not exists agent_wallet_keys_user on agent_wallet_keys (user_id);
 
--- Each connection's label, app lock, Ask-only and last use, and which agent
+-- Each connection's label, agent lock, Ask-only and last use, and which agent
 -- wallets each connection may use.
 create table if not exists account_connections (
   user_id text not null references users(id),

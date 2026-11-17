@@ -1,16 +1,14 @@
 // Pure helpers for a manager-backed BFF or edge surface: error
-// identification, release-manifest secret checks, project ownership and the
-// browser-safe app status mapping.
+// identification, package-secret errors, project ownership and the
+// browser-safe agent status mapping.
 
 export { identifyLaunchError, type LaunchFailureSource } from "./errors";
 
 export {
-  fetchReleaseSecretSlots,
-  missingSecretsForActivation,
   RequiredSecretsCheckError,
   REQUIRED_SECRETS_CHECK_UNAVAILABLE,
-} from "./release-manifest";
+} from "./required-secrets";
 
 export { ownedProject } from "./ownership";
 
-export { launchAppStatusesResult } from "./app-statuses";
+export { launchAgentStatusesResult } from "./agent-statuses";

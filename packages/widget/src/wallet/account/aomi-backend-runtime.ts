@@ -357,7 +357,7 @@ export function useAomiBackendAccountRuntime(input: {
               const network = input.svm?.supportedNetworks.find(
                 (candidate) => candidate.cluster === cluster,
               );
-              if (network) input.svm?.selectAppNetwork?.(network.id);
+              if (network) input.svm?.selectAgentNetwork?.(network.id);
             },
           },
           messageConfig: authMessageConfig,

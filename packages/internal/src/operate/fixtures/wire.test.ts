@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EXAMPLE_PROJECT,
-  exampleAppCards,
+  exampleAgentCards,
   exampleStatement,
   withExampleTrends,
 } from "./wire";
@@ -31,58 +31,61 @@ describe("exampleStatement", () => {
       ...statement.entries,
     ]) {
       expect(row.project).toBe(EXAMPLE_PROJECT);
-      expect(row.application).toBeTruthy();
+      expect(row.agent).toBeTruthy();
     }
   });
 });
 
 describe("withExampleTrends", () => {
   it("fills trend metrics on cards without them; backend fields win", () => {
-    const { apps, filled } = withExampleTrends([
+    const { agents, filled } = withExampleTrends([
       {
-        application: "real-app",
+        agent: "real-agent",
         metrics: { errorRate: 0.5, p95LatencyMs: 1200, chats24h: null },
       },
     ]);
     expect(filled).toBe(true);
-    expect(apps[0].metrics?.errorRate).toBe(0.5); // real value kept
-    expect(apps[0].metrics?.p95LatencyMs).toBe(1200); // real value kept
-    expect(apps[0].metrics?.chats24h).toBeGreaterThan(0); // example filled
-    expect(apps[0].metrics?.chatsHourly).toHaveLength(24); // example filled
-    expect(apps[0].exampleFixture).toBe("goal-digger");
+    expect(agents[0].metrics?.errorRate).toBe(0.5); // real value kept
+    expect(agents[0].metrics?.p95LatencyMs).toBe(1200); // real value kept
+    expect(agents[0].metrics?.chats24h).toBeGreaterThan(0); // example filled
+    expect(agents[0].metrics?.chatsHourly).toHaveLength(24); // example filled
+    expect(agents[0].exampleFixture).toBe("goal-digger");
   });
 
-  it("matches a known live app to its own fixture instead of array order", () => {
-    const { apps } = withExampleTrends([
-      { application: "playground-example", metrics: null },
-      { application: "goal-digger", metrics: null },
+  it("matches a known live agent to its own fixture instead of array order", () => {
+    const { agents } = withExampleTrends([
+      { agent: "playground-example", metrics: null },
+      { agent: "goal-digger", metrics: null },
     ]);
-    expect(apps[0].exampleFixture).toBe("playground-example");
-    expect(apps[0].metrics?.chats24h).toBe(9);
-    expect(apps[1].exampleFixture).toBe("goal-digger");
-    expect(apps[1].metrics?.chats24h).toBe(47);
+    expect(agents[0].exampleFixture).toBe("playground-example");
+    expect(agents[0].metrics?.chats24h).toBe(9);
+    expect(agents[1].exampleFixture).toBe("goal-digger");
+    expect(agents[1].metrics?.chats24h).toBe(47);
   });
 
   it("leaves cards that already report live trend data untouched", () => {
-    const app = { application: "live", metrics: { chats24h: 7 } };
-    const { apps, filled } = withExampleTrends([app]);
+    const agent = { agent: "live", metrics: { chats24h: 7 } };
+    const { agents, filled } = withExampleTrends([agent]);
     expect(filled).toBe(false);
-    expect(apps[0]).toBe(app);
+    expect(agents[0]).toBe(agent);
   });
 
   it("cycles fixture metric sets per card index", () => {
-    const { apps } = withExampleTrends([{ metrics: null }, { metrics: null }]);
-    expect(apps[0].metrics?.chats24h).not.toBe(apps[1].metrics?.chats24h);
+    const { agents } = withExampleTrends([
+      { metrics: null },
+      { metrics: null },
+    ]);
+    expect(agents[0].metrics?.chats24h).not.toBe(agents[1].metrics?.chats24h);
   });
 });
 
-describe("exampleAppCards", () => {
-  it("builds one complete card per fixture app", () => {
-    const cards = exampleAppCards(EXAMPLE_PROJECT);
+describe("exampleAgentCards", () => {
+  it("builds one complete card per fixture agent", () => {
+    const cards = exampleAgentCards(EXAMPLE_PROJECT);
     expect(cards.length).toBeGreaterThanOrEqual(3);
     for (const card of cards) {
-      expect(card.application).toBeTruthy();
-      expect(card.exampleFixture).toBe(card.application);
+      expect(card.agent).toBeTruthy();
+      expect(card.exampleFixture).toBe(card.agent);
       expect(card.project).toBe(EXAMPLE_PROJECT);
       expect(card.metrics.chats24h).not.toBeNull();
       expect(card.metrics.trendWindowSeconds).toBe(86_400);

@@ -21,7 +21,6 @@ export type CommandRunner = (
 
 export type ResolvedBinaries = {
   aomiBuild: string;
-  aomiRun: string;
   sdkRoot: string;
   source: "fresh-cargo-build" | "stale-target-fallback" | "path-fallback";
   warning?: string;

@@ -1,5 +1,5 @@
 import { Plug } from "lucide-react";
-import { BotsView } from "@/features/operate/bots-view";
+import { ChannelsView } from "@/features/operate/channels-view";
 
 export function IntegrationsView() {
   return (
@@ -13,12 +13,12 @@ export function IntegrationsView() {
           </h1>
         </div>
         <p className="text-subtle max-w-2xl text-sm">
-          Connect the channels where your users already work. Each bot is
-          configured once and can serve one or more Aomi apps.
+          Connect the channels where your users already work. Each channel is
+          configured once and serves one Aomi agent.
         </p>
       </div>
 
-      <BotsView />
+      <ChannelsView />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 /**
  * Link a platform account (Telegram first) to the signed-in portal account.
- * The platform mints a one-time code (Telegram: `/link` in an Aomi app bot);
+ * The platform mints a one-time code (Telegram: `/link` in an Aomi Telegram bot);
  * the portal page `/link/<provider>?code=…` previews what moves and confirms.
  *
  * Hand-written wire types for `/v1/account/link/<provider>/*`. The routes

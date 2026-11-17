@@ -21,8 +21,12 @@ import {
 import type { AomiWalletFamily } from "../types";
 import { laneOf, type AomiLane } from "./lanes";
 
-/** The app that created a wallet and stays linked to it. */
-export type AomiAgentWalletApp = { id: number; name: string; label: string };
+/** The toolset that created a wallet and stays linked to it. */
+export type AomiAgentWalletToolset = {
+  id: number;
+  name: string;
+  label: string;
+};
 
 /** One address of an agent wallet; `wallet_id` is the `w_` id of its key. */
 export type AomiAgentWalletAddress = {
@@ -50,8 +54,8 @@ export type AomiAgentWallet = {
   paused: boolean;
   /** Unix seconds; archived wallets are hidden from chats and connections. */
   archived_at: number | null;
-  /** The app that made it ("made in"); information only. */
-  app: AomiAgentWalletApp | null;
+  /** The toolset that made it ("made in"); information only. */
+  toolset: AomiAgentWalletToolset | null;
   /** Unix seconds. */
   last_used_at: number | null;
   /** Unix seconds. */
@@ -135,18 +139,19 @@ export function parseAgentWallets(value: unknown): AomiAgentWallets {
 export function parseAgentWallet(value: unknown): AomiAgentWallet {
   const record = asRecord(value);
   if (!record) throw invalid("wallet must be an object");
-  const app = asRecord(record.app);
+  const toolset = asRecord(record.toolset);
   return {
     id: text(record.id, "wallet.id"),
     name: text(record.name, "wallet.name"),
     paused: record.paused === true,
     archived_at: numberOrNull(record.archived_at),
-    app:
-      app && typeof app.id === "number"
+    toolset:
+      toolset && typeof toolset.id === "number"
         ? {
-            id: app.id,
-            name: text(app.name, "app.name"),
-            label: stringValue(app.label) ?? text(app.name, "app.name"),
+            id: toolset.id,
+            name: text(toolset.name, "toolset.name"),
+            label:
+              stringValue(toolset.label) ?? text(toolset.name, "toolset.name"),
           }
         : null,
     last_used_at: numberOrNull(record.last_used_at),

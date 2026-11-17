@@ -9,15 +9,13 @@ import { Action } from '@aomi-labs/client';
 import { ActionAttempt } from '@aomi-labs/client';
 import { ActionCapabilities } from '@aomi-labs/client';
 import { ActionResult } from '@aomi-labs/client';
+import { AgentCard } from '@aomi-labs/client';
 import { AgentMode } from '@aomi-labs/client';
 import { AgentTarget } from '@aomi-labs/client';
 import { Aomi } from '@aomi-labs/client';
-import { AomiAppDescriptor } from '@aomi-labs/client';
 import { AomiClientOptions } from '@aomi-labs/client';
 import { AomiPlatformFilter } from '@aomi-labs/client';
 import { AomiSimulateResponse } from '@aomi-labs/client';
-import { AomiUserAppSecrets } from '@aomi-labs/client';
-import { ApplicationId } from '@aomi-labs/client';
 import { ChainInfo } from '@aomi-labs/client';
 import { CommitCapabilities } from '@aomi-labs/client';
 import { CommitController } from '@aomi-labs/client';
@@ -120,9 +118,9 @@ export type AomiRuntimeProviderProps = {
     backendUrl?: string;
     aomi?: Aomi;
     apiKeyPersistence?: "memory" | "session";
-    applicationId?: number | string | null;
+    agent?: string | null;
     agentTarget?: AgentTarget;
-    appPlatforms?: AomiPlatformFilter;
+    catalogPlatforms?: AomiPlatformFilter;
     clientOptions?: Omit<AomiClientOptions, "baseUrl">;
     actions?: ActionCapabilities;
     commits?: CommitCapabilities;
@@ -142,7 +140,7 @@ export { CONTEXT_STEP_TOOL }
 export { ContextStep }
 
 // @public (undocumented)
-export type ControlContextApi = ApiKeyActions & SecretsActions & AppSecretsActions & AuthEndpointsActions & PerThreadControlActions & {
+export type ControlContextApi = ApiKeyActions & SecretsActions & AuthEndpointsActions & PerThreadControlActions & {
     state: ControlState;
     getControlState: () => ControlState;
 };
@@ -157,8 +155,8 @@ export type ControlContextProviderProps = {
     sessionId: string;
     getThreadMetadata: (threadId: string) => ThreadMetadata | undefined;
     updateThreadMetadata: (threadId: string, partial: Partial<ThreadMetadata>) => void;
-    appPlatforms?: AomiPlatformFilter;
-    applicationId?: ApplicationId;
+    catalogPlatforms?: AomiPlatformFilter;
+    agent?: string | null;
     apiKeyPersistence?: "memory" | "session";
     backendUrl?: string;
     accountSessionAvailable?: boolean;
@@ -185,19 +183,15 @@ export type DisplayPersistence = "none" | "public" | "account";
 // @public
 export const displayQueries: {
     models: (aomi: Aomi) => DisplayQuery<string[]>;
-    appCatalog: (aomi: Aomi, platforms?: AomiPlatformFilter) => DisplayQuery<AomiAppDescriptor[]>;
     authorizedModels: (aomi: Aomi, input: {
         sessionId: () => string;
-        appId: string;
+        agentScope: string;
         credential: number;
     }) => DisplayQuery<string[]>;
-    authorizedApps: (aomi: Aomi, input: {
-        sessionId: () => string;
-        appId: string;
+    authorizedAgents: (aomi: Aomi, input: {
         credential: number;
         apiKey: () => string | null;
-        platforms?: AomiPlatformFilter;
-    }) => DisplayQuery<AomiAppDescriptor[]>;
+    }) => DisplayQuery<AgentCard[]>;
     credits: (aomi: Aomi, enabled?: boolean) => DisplayQuery<CreditBalance>;
     creditLedger: (aomi: Aomi, enabled?: boolean) => DisplayQuery<CreditLedger>;
 };
@@ -212,7 +206,7 @@ export type DisplayQuery<T> = {
 };
 
 // @public (undocumented)
-export type DisplayResource = "models" | "app-catalog" | "skills" | "authorized-models" | "authorized-apps" | "threads" | "profile" | "credits" | "credit-ledger" | "account-apps" | "transaction-safety" | "usage" | "account-wallets" | "connections";
+export type DisplayResource = "models" | "agent-catalog" | "skills" | "authorized-models" | "authorized-agents" | "threads" | "profile" | "credits" | "credit-ledger" | "account-packages" | "transaction-safety" | "usage" | "account-wallets" | "connections";
 
 // @public (undocumented)
 export const EMPTY_TASK_RUNS: ThreadTaskRuns;
@@ -242,9 +236,8 @@ type Notification_2 = {
     id: string;
     type: NotificationType;
     kind?: "payment_required";
-    appKeyTarget?: {
-        app?: string;
-        applicationId?: number;
+    agentKeyTarget?: {
+        agent?: string;
     };
     title: string;
     message?: string;
@@ -298,7 +291,7 @@ export type TaskRunState = {
     agentId: string;
     callId: string;
     label: string;
-    app: string;
+    toolset: string;
     status: TaskRunStatus;
     startedAt: number;
     phase?: string;
@@ -349,8 +342,7 @@ export type ThreadControlState = {
     agentMode?: AgentMode;
     model: string | null;
     modelMode?: ModelSelectionMode;
-    app: string | null;
-    applicationId: number | string | null;
+    agent: string | null;
     controlDirty: boolean;
 };
 
@@ -801,11 +793,6 @@ export function useApiKey(): {
 };
 
 // @public (undocumented)
-export function useAppSecrets(): {
-    actions: AppSecretsActions;
-};
-
-// @public (undocumented)
 export function useAuthEndpoints(): {
     state: AuthEndpointsState;
     actions: AuthEndpointsActions;
@@ -841,11 +828,11 @@ export function usePerThreadControl(): {
 };
 
 // @public (undocumented)
-export function usePrivateApps(persistence?: "memory" | "session"): {
-    apps: AomiAppDescriptor[];
-    add: (app: AomiAppDescriptor, key: string) => void;
-    remove: (id: number | string) => void;
-    getKey: (id: number | string) => string | undefined;
+export function usePrivateAgents(persistence?: "memory" | "session"): {
+    agents: AgentCard[];
+    add: (agent: AgentCard, key: string) => void;
+    remove: (id: string) => void;
+    getKey: (id: string) => string | undefined;
 };
 
 // @public

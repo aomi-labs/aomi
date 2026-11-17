@@ -1,6 +1,6 @@
 "use client";
 
-import { usePrivateApps } from "../control/private-apps";
+import { usePrivateAgents } from "../control/private-agents";
 
 import {
   useCallback,
@@ -57,7 +57,7 @@ import {
   type ChatBoundaryValue,
 } from "./assistant-runtime-boundary";
 import { describeSendFailure } from "./send-error-notices";
-import { privateAppKey } from "./private-app-key";
+import { privateAgentKey } from "./private-agent-key";
 import { accountChange, type RuntimeOwner } from "./account-change";
 import {
   hasConversation,
@@ -142,7 +142,7 @@ export function AomiRuntimeCore({
     getPreferredThreadControl,
     markControlSynced,
   } = useControl();
-  const privateApps = usePrivateApps();
+  const privateAgents = usePrivateAgents();
   const displayCache = useAomiDisplayCache();
   const displayCacheRef = useRef(displayCache);
   displayCacheRef.current = displayCache;
@@ -178,11 +178,9 @@ export function AomiRuntimeCore({
   } = useRuntimeOrchestrator(aomiClient, {
     getUserState: userContext.getUserState,
     getTarget: () => agentTarget ?? getCurrentThreadTarget(),
-    getAppKey: (target, text) =>
-      privateAppKey(target, text, privateApps.getKey, (id) =>
-        getControlState().appDescriptors.some(
-          (app) => app.isPublic === false && String(app.applicationId) === id,
-        ),
+    getAgentKey: (target, text) =>
+      privateAgentKey(target, text, privateAgents.getKey, (id) =>
+        getControlState().agentCards.some((agent) => agent.agent === id),
       ),
     getModel: () => {
       const control = getCurrentThreadControl();
@@ -214,8 +212,8 @@ export function AomiRuntimeCore({
     },
     isSavedThread: (threadId) => remoteThreadIdsRef.current.has(threadId),
     onSendError: (threadId, error) => {
-      // Only a Direct target names the app. Auto threads keep the last
-      // Direct app in control, so scoping to it could reject the right key.
+      // Only a Direct target names the agent. Auto threads keep the last
+      // Direct agent in control, so scoping to it could reject the right key.
       const control =
         threadContextRef.current.getThreadMetadata(threadId)?.control;
       const target =
@@ -227,24 +225,17 @@ export function AomiRuntimeCore({
       const failure = describeSendFailure(
         error,
         Boolean(sessionManager.get(threadId)?.getSnapshot().isStartUncertain),
-        Boolean(target?.app || target?.applicationId != null),
+        Boolean(target?.agent),
       );
       if (failure.forgetThread) forgetPersistedThread();
       if (
         error instanceof AgentApiError &&
-        (error.appAccessCode === "app_key_required" ||
-          error.appAccessCode === "app_key_not_scoped")
+        (error.agentAccessCode === "agent_key_required" ||
+          error.agentAccessCode === "agent_key_not_scoped")
       ) {
-        failure.notice.appKeyTarget =
-          target?.app || target?.applicationId != null
-            ? {
-                app: target.app ?? undefined,
-                applicationId:
-                  target.applicationId != null
-                    ? Number(target.applicationId)
-                    : undefined,
-              }
-            : {};
+        failure.notice.agentKeyTarget = target?.agent
+          ? { agent: target.agent }
+          : {};
         failure.notice.duration = Infinity;
       }
       if (failure.rateLimited && rateLimitNotice.current)
@@ -295,7 +286,7 @@ export function AomiRuntimeCore({
   const scope = displayCache?.scope;
   const owner: RuntimeOwner = {
     backendUrl: scope?.backendUrl ?? "",
-    appId: scope?.appId ?? "",
+    agentScope: scope?.agentScope ?? "",
     account,
     authSource: accountAuthSource,
   };
@@ -307,7 +298,7 @@ export function AomiRuntimeCore({
     if (
       restoringAccount &&
       previousOwner.current.backendUrl === owner.backendUrl &&
-      previousOwner.current.appId === owner.appId
+      previousOwner.current.agentScope === owner.agentScope
     )
       return;
     const change = accountChange(previousOwner.current, owner);
@@ -347,11 +338,11 @@ export function AomiRuntimeCore({
   const listOwner = useMemo(
     () => ({
       backendUrl: owner.backendUrl,
-      appId: owner.appId,
+      agentScope: owner.agentScope,
       listEpoch,
       accountRevision,
     }),
-    [owner.backendUrl, owner.appId, listEpoch, accountRevision],
+    [owner.backendUrl, owner.agentScope, listEpoch, accountRevision],
   );
   const refreshAccountData = useCallback(() => {
     const cache = displayCacheRef.current;

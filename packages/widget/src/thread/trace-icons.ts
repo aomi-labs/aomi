@@ -49,7 +49,7 @@ import {
 } from "lucide-react";
 import type { TraceGlyph, TraceIcon } from "@aomi-labs/client/trace";
 
-import { getAppIcon } from "@/icons/app-map";
+import { getAgentIcon } from "@/icons/agent-map";
 import { getChainIcon } from "@/icons/chain-map";
 import { SolanaIcon } from "@/icons/chain-icons";
 import { getSkillIcon } from "@/icons/skills/skill-icons";
@@ -59,7 +59,7 @@ type Icon = FC<SVGProps<SVGSVGElement>>;
 const GLYPHS: Record<TraceGlyph, Icon> = {
   agent: BotIcon,
   allowance: PenLineIcon,
-  app: AppWindowIcon,
+  toolset: AppWindowIcon,
   approve: PencilLineIcon,
   archive: ArchiveIcon,
   block: BlocksIcon,
@@ -114,8 +114,8 @@ export const traceIcon = (key: TraceIcon): Icon => {
   switch (key.slice(0, split)) {
     case "chain":
       return getChainIcon(Number(id)) ?? NetworkIcon;
-    case "app":
-      return getAppIcon(id) ?? AppWindowIcon;
+    case "toolset":
+      return getAgentIcon(id) ?? AppWindowIcon;
     default:
       return getSkillIcon(id) ?? PuzzleIcon;
   }

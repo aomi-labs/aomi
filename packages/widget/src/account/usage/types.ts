@@ -1,5 +1,5 @@
 /**
- * Shared per-app usage statement view model.
+ * Shared per-agent usage statement view model.
  */
 
 /** Static account details used by the first-party theme-audit fixture. */
@@ -48,18 +48,18 @@ export interface UsagePayment {
   onchainNote: string;
 }
 
-/** `apps[].settings.modelKey` — how the app's model calls are billed. */
-export type AppModelKey = "managed" | "byok";
+/** `agents[].settings.modelKey` — how the agent's model calls are billed. */
+export type AgentModelKey = "managed" | "byok";
 
-export interface AppSettings {
-  modelKey: AppModelKey;
-  appByok: boolean;
+export interface AgentSettings {
+  modelKey: AgentModelKey;
+  agentByok: boolean;
   managedMarkupPct: number;
   note: string;
 }
 
-/** One model line within an app's Section A group (`apps[].model.byModel[]`). */
-export interface AppModelRow {
+/** One model line within an agent's Section A group (`agents[].model.byModel[]`). */
+export interface AgentModelRow {
   model: string;
   /** Live statement dimensions; optional in static design fixtures. */
   provider?: string;
@@ -69,35 +69,35 @@ export interface AppModelRow {
   outputTokens: number;
   baseUsd: number;
   chargedUsd: number;
-  /** Present on BYOK model rows: "paid by {app}'s own key". */
+  /** Present on BYOK model rows: "paid by {agent}'s own key". */
   note?: string;
 }
 
-export interface AppModelUsage {
+export interface AgentModelUsage {
   baseUsd: number;
   markupPct: number;
   markupUsd: number;
   chargedUsd: number;
-  /** false only for a BYOK app's model spend (Aomi doesn't bill it). */
+  /** false only for a BYOK agent's model spend (Aomi doesn't bill it). */
   billed?: boolean;
   turns: number;
-  byModel: AppModelRow[];
+  byModel: AgentModelRow[];
 }
 
-export interface AppToolItem {
+export interface AgentToolItem {
   tool: string;
   calls: number;
   unitCredits: number;
   usd: number;
 }
 
-export interface AppToolUsage {
+export interface AgentToolUsage {
   chargedUsd: number;
   calls: number;
-  items: AppToolItem[];
+  items: AgentToolItem[];
 }
 
-export interface AppOutcomeItem {
+export interface AgentOutcomeItem {
   date: string;
   action: string;
   chain: string;
@@ -108,29 +108,29 @@ export interface AppOutcomeItem {
   tx: string;
 }
 
-export interface AppOutcomeUsage {
+export interface AgentOutcomeUsage {
   chargedUsd: number;
   txns: number;
-  items: AppOutcomeItem[];
+  items: AgentOutcomeItem[];
 }
 
-/** One row of `apps[]` — everything one app charged the user this period. */
-export interface AppUsageEntry {
+/** One row of `agents[]` — everything one agent charged the user this period. */
+export interface AgentUsageEntry {
   id: string;
   name: string;
   native: boolean;
-  settings: AppSettings;
-  model: AppModelUsage;
-  /** null when the app has no tool calls this period. */
-  tool: AppToolUsage | null;
-  /** null when the app has no on-chain outcomes this period. */
-  outcome: AppOutcomeUsage | null;
-  appTotalUsd: number;
+  settings: AgentSettings;
+  model: AgentModelUsage;
+  /** null when the agent has no tool calls this period. */
+  tool: AgentToolUsage | null;
+  /** null when the agent has no on-chain outcomes this period. */
+  outcome: AgentOutcomeUsage | null;
+  agentTotalUsd: number;
 }
 
-/** One row of the by-app matrix. `null` = subject not charged by this app. */
-export interface ByAppRow {
-  app: string;
+/** One row of the by-agent matrix. `null` = subject not charged by this agent. */
+export interface ByAgentRow {
+  agent: string;
   modelUsd: number;
   toolUsd: number | null;
   outcomeUsd: number | null;
@@ -149,8 +149,8 @@ export interface MonthlyStatement {
   period: UsagePeriod;
   summary: UsageSummaryTotals;
   payment: UsagePayment;
-  apps: AppUsageEntry[];
-  byApp: ByAppRow[];
+  agents: AgentUsageEntry[];
+  byAgent: ByAgentRow[];
   columnTotals: UsageColumnTotals;
 }
 

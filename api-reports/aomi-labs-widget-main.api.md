@@ -26,7 +26,7 @@ export type AomiRoutingTarget = {
     mode: "auto";
 } | {
     mode: "direct";
-    apps: readonly DirectRoutingApp[];
+    agents: readonly DirectRoutingAgent[];
 };
 
 // @public (undocumented)
@@ -52,7 +52,7 @@ export type AomiWidgetFeatures = {
 // @public (undocumented)
 export type AomiWidgetProps = {
     children?: ReactNode;
-    applicationId: string | number;
+    agent?: string;
     baseUrl?: string;
     theme?: AomiWidgetTheme;
     width?: CSSProperties["width"];
@@ -64,8 +64,7 @@ export type AomiWidgetProps = {
     showSidebar?: boolean;
     showHeader?: boolean;
     features?: AomiWidgetFeatures;
-    controlBarProps?: Omit<FrameControlBarProps, "children">;
-    routing?: AomiRoutingConfig;
+    controlBarProps?: Omit<FrameControlBarProps, "children" | "routing">;
     clientOptions?: Omit<AomiClientOptions, "baseUrl" | "getAccountBearer">;
     persistThread?: boolean;
     threadPersistenceKey?: string;
@@ -84,12 +83,8 @@ export type AomiWidgetTheme = "light" | "dark" | "system";
 export function cn(...inputs: ClassValue[]): string;
 
 // @public (undocumented)
-export type DirectRoutingApp = {
-    app: string;
-    applicationId?: never;
-} | {
-    applicationId: number;
-    app?: string;
+export type DirectRoutingAgent = {
+    agent: string;
 };
 
 // @public

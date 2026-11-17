@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { githubAppInstallUrl, launchSignOutGitHub } from "./client";
-import { loadLaunch, saveLaunch } from "@aomi-labs/deploy/launch";
 
 describe("githubAppInstallUrl", () => {
   const fetch = vi.fn();
@@ -44,16 +43,13 @@ describe("GitHub sign-out state isolation", () => {
   it.each([false, true])(
     "clears wizard state when request fails: %s",
     async (fails) => {
-      saveLaunch({
-        ...loadLaunch(),
-        platform: "community",
-        path: "oneshot",
-        oneshot: {
-          installationId: "old-account-installation",
-          repo: "old/account",
-        },
-      });
-      expect(loadLaunch().oneshot.repo).toBe("old/account");
+      localStorage.setItem(
+        "aomi_launch",
+        JSON.stringify({
+          platform: "community",
+          oneshot: { repo: "old/account" },
+        }),
+      );
       const fetch = vi.fn();
       vi.stubGlobal("fetch", fetch);
       if (fails) fetch.mockRejectedValue(new Error("offline"));
@@ -66,8 +62,7 @@ describe("GitHub sign-out state isolation", () => {
       expect(fetch).toHaveBeenCalledWith("/api/build/auth/github/signout", {
         method: "POST",
       });
-      expect(loadLaunch().oneshot).toEqual({});
-      expect(loadLaunch().platform).toBeNull();
+      expect(localStorage.getItem("aomi_launch")).toBeNull();
     },
   );
 });

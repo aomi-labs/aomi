@@ -9,7 +9,9 @@ const richBlockPattern =
 function Define() {
   return (
     <section className={styles.define}>
-      <p className={styles.eyebrow}>What agentic fuzzing is, in three sentences</p>
+      <p className={styles.eyebrow}>
+        What agentic fuzzing is, in three sentences
+      </p>
       <ol>
         <li>
           <span>
@@ -22,7 +24,7 @@ function Define() {
         <li>
           <span>
             <strong>The engine judges.</strong> Deterministic code in an Aomi
-            app owns the search. It rejects plans it cannot check, minimizes
+            package owns the search. It rejects plans it cannot check, minimizes
             each violation to its shortest form and requires two clean replays
             before anything is reported.
           </span>
@@ -75,7 +77,9 @@ function Roles() {
           Reads source and attack surface; chooses actors, rules and actions;
           revises when calls revert; drafts the fix.
         </p>
-        <p className={styles.never}>Never decides whether something is a bug.</p>
+        <p className={styles.never}>
+          Never decides whether something is a bug.
+        </p>
       </div>
       <div className={styles.role}>
         <span className={styles.tag}>The engine judges</span>
@@ -85,7 +89,7 @@ function Roles() {
           priorities; minimizes and demands two replays.
         </p>
         <p className={styles.never}>
-          Deterministic code in an Aomi app, not model memory.
+          Deterministic code in an Aomi package, not model memory.
         </p>
       </div>
       <div className={`${styles.role} ${styles.roleFork}`}>
@@ -283,8 +287,8 @@ function Evidence() {
           <div>
             <dt>Result</dt>
             <dd>
-              Rule broken. Minimized, then replayed from baseline 2 of 2
-              before it was reported.
+              Rule broken. Minimized, then replayed from baseline 2 of 2 before
+              it was reported.
             </dd>
           </div>
           <div>
@@ -332,14 +336,14 @@ function Harness() {
           </li>
           <li>
             <span>
-              <strong>Typed tools and deterministic engines.</strong> Apps are
-              compiled Rust plugins that run their own code next to the model.
+              <strong>Typed tools and deterministic engines.</strong> Packages are
+              WASI components that run their tools next to the model.
             </span>
           </li>
           <li>
             <span>
               <strong>Model routing.</strong> OpenAI, Anthropic Claude, Google
-              Gemini and open models, chosen per app or per campaign.
+              Gemini and open models, chosen per agent or per campaign.
             </span>
           </li>
           <li>
@@ -382,8 +386,8 @@ function Harness() {
           <li>
             <span>
               <strong>Arc Studio integration.</strong> Targets come from the
-              builder&rsquo;s workspace through their token; the report and drafted
-              fix come back.
+              builder&rsquo;s workspace through their token; the report and
+              drafted fix come back.
             </span>
           </li>
           <li>
@@ -417,9 +421,9 @@ function Facts() {
           <span>Fact 1 · Scope</span>
           <h4>Targets come from the builder</h4>
           <p>
-            Targets are read from the user&rsquo;s own Arc Studio workspace through
-            their token. In live mode the fuzzer uses only deployments Arc
-            Studio lists for that account. Pasted-code and CLI modes have no
+            Targets are read from the user&rsquo;s own Arc Studio workspace
+            through their token. In live mode the fuzzer uses only deployments
+            Arc Studio lists for that account. Pasted-code and CLI modes have no
             proof-of-ownership check today; an ownership policy for them is on
             the roadmap.
           </p>

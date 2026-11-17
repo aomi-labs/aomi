@@ -139,7 +139,7 @@ function hasSelectedSvmWallet(wallet: SafeSvmWalletState): boolean {
 
 /**
  * Keep the standard Solana wallet-adapter source available when an auth
- * provider also contributes embedded Solana wallets. Provider plugins augment
+ * provider also contributes embedded Solana wallets. Provider adapters augment
  * the generic source; they never replace it.
  */
 export function useMergedSvmWallet(
@@ -549,7 +549,7 @@ export function useSvmWalletRuntime({
     disconnect,
     selectAccount,
     selectNetwork,
-    selectAppNetwork: (networkId: string | number) => {
+    selectAgentNetwork: (networkId: string | number) => {
       setSelectedNetworkId(String(networkId));
     },
     execution,

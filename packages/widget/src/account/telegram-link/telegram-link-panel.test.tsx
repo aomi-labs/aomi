@@ -53,7 +53,7 @@ const agentWallet = {
   name: "Trading",
   paused: false,
   archived_at: null,
-  app: null,
+  agent: null,
   last_used_at: null,
   created_at: 1,
   addresses: [
@@ -190,7 +190,7 @@ describe("TelegramLinkPanel", () => {
       "agent-wallets": () =>
         Response.json({ pause_all: false, wallets: [agentWallet] }),
     });
-    // A wallet the bot's app didn't make starts on Aomi; it can be moved
+    // A wallet the bot's agent didn't make starts on Aomi; it can be moved
     // before linking.
     fireEvent.click(
       await screen.findByRole("combobox", {

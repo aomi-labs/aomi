@@ -36,7 +36,7 @@ import { splitCapabilityText } from "@/thread/capability-message-text";
 
 const MENTION_GLYPH: Record<PickerItem["kind"], string> = {
   skill: "✦",
-  app: "▦",
+  agent: "▦",
   chain: "◇",
   wallet: "◈",
 };
@@ -110,8 +110,8 @@ export const CapabilityMentionInput: FC<{
     hintsEnabled,
     capabilityPickerRequest,
     consumeCapabilityPickerRequest,
-    appTagRequest,
-    consumeAppTagRequest,
+    agentTagRequest,
+    consumeAgentTagRequest,
   } = useCapabilityComposer();
   const items = useCapabilityCatalog();
 
@@ -405,21 +405,17 @@ export const CapabilityMentionInput: FC<{
     [insertItemAtRange],
   );
 
-  // A host app tag (e.g. an "Open in chat" link) lands as a regular mention
-  // once the catalog knows the app, exactly as if picked from the + menu.
+  // A host agent tag (e.g. an "Open in chat" link) lands as a regular mention
+  // once the catalog knows the agent, exactly as if picked from the + menu.
   useEffect(() => {
     const editor = editorRef.current;
-    if (!appTagRequest || !hintsEnabled || isDisabled || !editor) return;
-    const apps = items.filter((item) => item.kind === "app");
-    const item =
-      apps.find(
-        (candidate) =>
-          appTagRequest.applicationId != null &&
-          String(candidate.applicationId) ===
-            String(appTagRequest.applicationId),
-      ) ?? apps.find((candidate) => candidate.appName === appTagRequest.app);
+    if (!agentTagRequest || !hintsEnabled || isDisabled || !editor) return;
+    const agents = items.filter((item) => item.kind === "agent");
+    const item = agents.find(
+      (candidate) => candidate.agentName === agentTagRequest.agent,
+    );
     if (!item) return;
-    consumeAppTagRequest();
+    consumeAgentTagRequest();
     if (mentions.some((mention) => mention.key === item.key)) return;
     clearEmptyEditorStructure(editor);
     const range = document.createRange();
@@ -433,8 +429,8 @@ export const CapabilityMentionInput: FC<{
       insertingHostTag.current = false;
     }
   }, [
-    appTagRequest,
-    consumeAppTagRequest,
+    agentTagRequest,
+    consumeAgentTagRequest,
     hintsEnabled,
     insertItemAtRange,
     isDisabled,

@@ -87,17 +87,17 @@ describe("browser session recovery", () => {
     );
     await screen.findByText("Ready");
     fireEvent.change(screen.getByLabelText("Draft"), {
-      target: { value: "Unsent app description" },
+      target: { value: "Unsent package description" },
     });
     fireEvent(window, new Event(BUILD_SESSION_EXPIRED));
     expect(screen.getByText("Expired")).toBeTruthy();
     expect(screen.getByLabelText("Draft")).toHaveValue(
-      "Unsent app description",
+      "Unsent package description",
     );
     fireEvent.focus(window);
     await waitFor(() => expect(screen.getByText("Ready")).toBeTruthy());
     expect(screen.getByLabelText("Draft")).toHaveValue(
-      "Unsent app description",
+      "Unsent package description",
     );
     expect(session).toHaveBeenCalledTimes(2);
   });

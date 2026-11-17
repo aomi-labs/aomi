@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { privateKeyToAccount } from "viem/accounts";
 import type { AomiWalletKitComposerProps } from "@/wallet/composer/types";
-import { AomiParaPluginProvider } from "./para-plugin-provider";
+import { AomiParaAdapterProvider } from "./para-adapter-provider";
 
 const state = vi.hoisted(() => ({
   props: null as AomiWalletKitComposerProps | null,
@@ -95,13 +95,13 @@ describe("Para authorization wiring", () => {
   });
 
   it("does not advertise a login callback when the Para modal is unavailable", () => {
-    render(<AomiParaPluginProvider>settings</AomiParaPluginProvider>);
+    render(<AomiParaAdapterProvider>settings</AomiParaAdapterProvider>);
     expect(state.props!.auth.canOpenModal).toBe(false);
     expect(state.props!.auth.login).toBeUndefined();
   });
 
   it("exposes and targets both EVM wallets and Solana without an extension", async () => {
-    render(<AomiParaPluginProvider>settings</AomiParaPluginProvider>);
+    render(<AomiParaAdapterProvider>settings</AomiParaAdapterProvider>);
     const { execution, svm } = state.props!;
     for (const wallet of Object.values(state.wallets)) {
       const family = wallet.type === "EVM" ? "evm" : "svm";
@@ -139,7 +139,7 @@ describe("Para authorization wiring", () => {
     async (condition) => {
       state.connected = condition !== "signed out";
       state.detached = condition === "disconnected";
-      render(<AomiParaPluginProvider>settings</AomiParaPluginProvider>);
+      render(<AomiParaAdapterProvider>settings</AomiParaAdapterProvider>);
       expect(state.props!.execution.canSignFor?.("evm", first.address)).toBe(
         false,
       );

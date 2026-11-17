@@ -22,7 +22,7 @@ function profile(
     user: {
       user_id: "alice",
       username: null,
-      apps: [],
+      agents: [],
       tier: "free",
       verified_email: null,
       status: "active",

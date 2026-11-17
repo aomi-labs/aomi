@@ -33,7 +33,7 @@ import type { WalletRow } from "@/wallet/composer/wallet-state";
 import { useShellAomi } from "@/account/transport";
 import { BrandMark } from "@/account/account-management/controls";
 import {
-  appName,
+  agentName,
   plural,
   rowTitle,
 } from "@/account/account-management/wallet-model";
@@ -528,7 +528,7 @@ function Destination({
               key={row.key}
               checked={to === row.address}
               onSelect={() => setTo(row.address)}
-              leading={<BrandMark brand={appName(row)} size={15} box={28} />}
+              leading={<BrandMark brand={agentName(row)} size={15} box={28} />}
               title={rowTitle(row).title}
               description={`${shortAddress(row.address)} · your sign-in wallet`}
             />

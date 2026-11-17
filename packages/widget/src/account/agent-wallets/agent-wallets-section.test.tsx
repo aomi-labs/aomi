@@ -75,7 +75,7 @@ const wallet = (id: string, name: string, extra: object = {}) => ({
   name,
   paused: false,
   archived_at: null,
-  app: null,
+  agent: null,
   last_used_at: null,
   created_at: 1_760_000_000,
   addresses: [],
@@ -94,11 +94,11 @@ const trading = wallet("g-trading", "Trading", {
   ],
 });
 const world = wallet("g-world", "World", {
-  app: { id: 90, name: "world", label: "World" },
+  agent: { id: 90, name: "world", label: "World" },
 });
 const hoodit = wallet("g-hoodit", "Hoodit", {
   paused: true,
-  app: { id: 86, name: "hoodit", label: "Hoodit" },
+  agent: { id: 86, name: "hoodit", label: "Hoodit" },
 });
 const extra = wallet("g-extra", "Extra");
 const old = wallet("g-old", "Old", { archived_at: 1_760_000_100 });
@@ -108,7 +108,7 @@ const connection = (key: string, kind: string, name: string, extra = {}) => ({
   name,
   detail: null,
   telegram: null,
-  application: null,
+  agent: null,
   ask_only: false,
   wallets: [],
   last_used_at: null,
@@ -158,7 +158,7 @@ const walletRules = (extra: object = {}) => ({
   agent_wallet_id: "g-trading",
   wallet_name: "Trading",
   revision: 1,
-  rules: { apps: null, limits: [], not_after: null, owner_only: true },
+  rules: { protocols: null, limits: [], not_after: null, owner_only: true },
   sentences: ["Sends only to your wallets"],
   admin: { kind: "aomi_managed" },
   stopped_until: null,
@@ -245,7 +245,7 @@ const manage = async (name: string) => {
 const writes = () => calls.filter((call) => call.method !== "GET");
 
 describe("Agent wallets band", () => {
-  it("shows the three most recent without app labels, the EVM/SVM rows under the active one, then Show all and Archived", async () => {
+  it("shows the three most recent without agent labels, the EVM/SVM rows under the active one, then Show all and Archived", async () => {
     await renderSection();
     expect(
       screen.getByText("Hosted by Aomi · each connection has a lane on it"),
@@ -257,7 +257,7 @@ describe("Agent wallets band", () => {
     // Every parent reads "N addresses · EVM/SVM"; no connection count.
     expect(parent("g-trading")).toHaveTextContent("2 addresses · EVM/SVM");
     expect(parent("g-trading")).not.toHaveTextContent(/connection/);
-    // Rows name no app; Paused sits at the row's end.
+    // Rows name no agent; Paused sits at the row's end.
     expect(parent("g-world")).toHaveTextContent("0 addresses");
     expect(within(parent("g-world")).queryByText("used by World")).toBeNull();
     expect(within(parent("g-hoodit")).getByText("Paused")).toBeTruthy();
@@ -294,7 +294,7 @@ describe("Agent wallets band", () => {
     expect(screen.queryByText("Old")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Archived/ }));
     expect(parent("g-old")).toHaveTextContent("0 addresses");
-    for (const gone of ["$", "Export", "Use for an app", "Lock"])
+    for (const gone of ["$", "Export", "Use for an agent", "Lock"])
       expect(screen.queryByText(gone)).toBeNull();
   });
 
@@ -615,7 +615,7 @@ describe("Agent wallets band", () => {
                   name: "Swig",
                   network: "solana:mainnet-beta",
                   state: "off",
-                  covers: { apps: [], limits: [] },
+                  covers: { protocols: [], limits: [] },
                   left: {},
                   note: "Add a daily SOL limit first. Swig needs one.",
                   ready: false,

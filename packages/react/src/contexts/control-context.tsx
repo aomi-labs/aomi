@@ -1,10 +1,10 @@
 "use client";
 
-import { usePrivateApps } from "../control/private-apps";
+import { usePrivateAgents } from "../control/private-agents";
 import { createScopedStorage } from "@aomi-labs/client";
 
 // Assembles the focused control hooks in ../control/ into useControl().
-// Change behaviour in the hook that owns it (api-key, secrets, app-secrets,
+// Change behaviour in the hook that owns it (api-key, secrets, agent-secrets,
 // auth-endpoints, per-thread-control).
 
 import {
@@ -16,11 +16,7 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import type {
-  Aomi,
-  AomiPlatformFilter,
-  ApplicationId,
-} from "@aomi-labs/client";
+import type { Aomi, AomiPlatformFilter } from "@aomi-labs/client";
 import type { ThreadControlState, ThreadMetadata } from "../state/thread-store";
 import type { RuntimeAccount } from "../query/display-cache";
 import {
@@ -100,14 +96,14 @@ export function useAuthEndpoints(): {
     state: {
       availableModels: ctx.state.availableModels,
       defaultModel: ctx.state.defaultModel,
-      authorizedApps: ctx.state.authorizedApps,
-      appDescriptors: ctx.state.appDescriptors,
-      defaultApp: ctx.state.defaultApp,
+      authorizedAgents: ctx.state.authorizedAgents,
+      agentCards: ctx.state.agentCards,
+      defaultAgent: ctx.state.defaultAgent,
       modelsLoading: ctx.state.modelsLoading,
     },
     actions: {
       getAvailableModels: ctx.getAvailableModels,
-      getAuthorizedApps: ctx.getAuthorizedApps,
+      getAuthorizedAgents: ctx.getAuthorizedAgents,
     },
   };
 }
@@ -121,11 +117,10 @@ export function usePerThreadControl(): {
       getCurrentThreadControl: ctx.getCurrentThreadControl,
       getCurrentThreadAgentMode: ctx.getCurrentThreadAgentMode,
       getCurrentThreadTarget: ctx.getCurrentThreadTarget,
-      getCurrentThreadApp: ctx.getCurrentThreadApp,
-      getCurrentThreadApplicationId: ctx.getCurrentThreadApplicationId,
+      getCurrentThreadAgent: ctx.getCurrentThreadAgent,
       getPreferredThreadControl: ctx.getPreferredThreadControl,
       onModelSelect: ctx.onModelSelect,
-      onAppSelect: ctx.onAppSelect,
+      onAgentSelect: ctx.onAgentSelect,
       onAgentTargetSelect: ctx.onAgentTargetSelect,
       onAgentModeSelect: ctx.onAgentModeSelect,
       markControlSynced: ctx.markControlSynced,
@@ -146,8 +141,8 @@ export type ControlContextProviderProps = {
     threadId: string,
     partial: Partial<ThreadMetadata>,
   ) => void;
-  appPlatforms?: AomiPlatformFilter;
-  applicationId?: ApplicationId;
+  catalogPlatforms?: AomiPlatformFilter;
+  agent?: string | null;
   apiKeyPersistence?: "memory" | "session";
   backendUrl?: string;
   accountSessionAvailable?: boolean;
@@ -161,8 +156,8 @@ export function ControlContextProvider({
   sessionId,
   getThreadMetadata,
   updateThreadMetadata,
-  appPlatforms,
-  applicationId,
+  catalogPlatforms,
+  agent,
   apiKeyPersistence,
   backendUrl = "",
   accountSessionAvailable = false,
@@ -185,8 +180,8 @@ export function ControlContextProvider({
   updateThreadMetadataRef.current = updateThreadMetadata;
 
   const storageScope = useMemo(
-    () => ({ backendUrl: backendUrl, appId: applicationId }),
-    [backendUrl, applicationId],
+    () => ({ backendUrl: backendUrl, agentScope: agent }),
+    [backendUrl, agent],
   );
   const storage = useMemo(
     () => createScopedStorage(storageScope),
@@ -201,7 +196,7 @@ export function ControlContextProvider({
     clientIdRef.current = getOrCreateClientId(storage);
     clientIdScopeRef.current = storage.key("clientId");
   }
-  const privateApps = usePrivateApps(apiKeyPersistence);
+  const privateAgents = usePrivateAgents(apiKeyPersistence);
   const apiKey = useApiKeyImpl(storageScope, apiKeyPersistence);
   const apiKeyRef = useRef(apiKey.state.apiKey);
   apiKeyRef.current = apiKey.state.apiKey;
@@ -226,27 +221,26 @@ export function ControlContextProvider({
     apiKey: apiKey.state.apiKey,
     credentialRevision: apiKey.revision,
     accountSessionAvailable,
-    appPlatforms,
-    applicationId,
+    catalogPlatforms,
+    agent,
   });
 
-  const appDescriptors = useMemo(
+  const agentCards = useMemo(
     () => [
-      ...authEndpoints.state.appDescriptors.filter(
-        (app) =>
-          !privateApps.apps.some(
+      ...authEndpoints.state.agentCards.filter(
+        (agent) =>
+          !privateAgents.agents.some(
             (saved) =>
-              app.applicationId != null &&
-              String(saved.applicationId) === String(app.applicationId),
+              agent.agent_id != null && saved.agent_id === agent.agent_id,
           ),
       ),
-      ...privateApps.apps,
+      ...privateAgents.agents,
     ],
-    [authEndpoints.state.appDescriptors, privateApps.apps],
+    [authEndpoints.state.agentCards, privateAgents.agents],
   );
-  const authorizedApps = useMemo(
-    () => [...new Set(appDescriptors.map((app) => app.name))],
-    [appDescriptors],
+  const authorizedAgents = useMemo(
+    () => [...new Set(agentCards.map((agent) => agent.agent))],
+    [agentCards],
   );
 
   // Refs for the auth-endpoint state so per-thread-control callbacks can read
@@ -255,12 +249,12 @@ export function ControlContextProvider({
   availableModelsRef.current = authEndpoints.state.availableModels;
   const defaultModelRef = useRef(authEndpoints.state.defaultModel);
   defaultModelRef.current = authEndpoints.state.defaultModel;
-  const authorizedAppsRef = useRef(authorizedApps);
-  authorizedAppsRef.current = authorizedApps;
-  const appDescriptorsRef = useRef(appDescriptors);
-  appDescriptorsRef.current = appDescriptors;
-  const defaultAppRef = useRef(authEndpoints.state.defaultApp);
-  defaultAppRef.current = authEndpoints.state.defaultApp;
+  const authorizedAgentsRef = useRef(authorizedAgents);
+  authorizedAgentsRef.current = authorizedAgents;
+  const agentCardsRef = useRef(agentCards);
+  agentCardsRef.current = agentCards;
+  const defaultAgentRef = useRef(authEndpoints.state.defaultAgent);
+  defaultAgentRef.current = authEndpoints.state.defaultAgent;
 
   const perThread = usePerThreadControlImpl({
     storage,
@@ -271,9 +265,6 @@ export function ControlContextProvider({
     defaultModel: authEndpoints.state.defaultModel,
     availableModelsRef,
     defaultModelRef,
-    authorizedAppsRef,
-    appDescriptorsRef,
-    defaultAppRef,
     sessionId,
   });
 
@@ -285,9 +276,9 @@ export function ControlContextProvider({
     clientId: clientIdRef.current,
     availableModels: authEndpoints.state.availableModels,
     defaultModel: authEndpoints.state.defaultModel,
-    authorizedApps,
-    appDescriptors,
-    defaultApp: authEndpoints.state.defaultApp,
+    authorizedAgents,
+    agentCards,
+    defaultAgent: authEndpoints.state.defaultAgent,
     modelsLoading: authEndpoints.state.modelsLoading,
   };
 

@@ -61,7 +61,7 @@ export type AomiFrameRootProps = {
     defaultSidebarOpen?: boolean;
     backendUrl?: string;
     apiKeyPersistence?: "memory" | "session";
-    applicationId?: number | string | null;
+    agent?: string | null;
     agentTarget?: AgentTarget;
     clientOptions?: Omit<AomiClientOptions, "baseUrl">;
     accountSessionAvailable?: boolean;

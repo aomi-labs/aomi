@@ -17,8 +17,8 @@ const item = (
 });
 
 const items = [
-  item("app", "Aerodrome", { searchText: "Aerodrome dex Base" }),
-  item("app", "Uniswap", { searchText: "Uniswap dex Base Ethereum" }),
+  item("agent", "Aerodrome", { searchText: "Aerodrome dex Base" }),
+  item("agent", "Uniswap", { searchText: "Uniswap dex Base Ethereum" }),
   item("skill", "Bridge", { searchText: "Bridge to Base" }),
   ...["One", "Two", "Three", "Four", "Five"].map((n) => item("skill", n)),
   item("chain", "Ethereum"),
@@ -38,7 +38,7 @@ const labels = (query: string) =>
 describe("pickerGroups", () => {
   it("previews every section on a bare @ without testnets", () => {
     expect(labels("")).toEqual([
-      ["Apps", ["Aerodrome", "Uniswap"]],
+      ["Agents", ["Aerodrome", "Uniswap"]],
       ["Skills", ["Bridge", "One", "Two", "Three"]],
       ["Chains", ["Ethereum", "Base", "Solana"]],
       ["Wallets", ["Trading", "Base savings"]],
@@ -49,18 +49,18 @@ describe("pickerGroups", () => {
     expect(labels("sol")).toEqual([["Chains", ["Solana"]]]);
   });
 
-  it("puts a chain named by the query before apps and skills", () => {
+  it("puts a chain named by the query before agents and skills", () => {
     expect(labels("ethereum")).toEqual([
       ["Chains", ["Ethereum"]],
-      ["Apps", ["Uniswap"]],
+      ["Agents", ["Uniswap"]],
     ]);
   });
 
-  it("ranks a matching wallet above chains, apps and skills", () => {
+  it("ranks a matching wallet above chains, agents and skills", () => {
     expect(labels("base")).toEqual([
       ["Wallets", ["Base savings"]],
       ["Chains", ["Base"]],
-      ["Apps", ["Aerodrome", "Uniswap"]],
+      ["Agents", ["Aerodrome", "Uniswap"]],
       ["Skills", ["Bridge"]],
     ]);
     expect(labels("trad")).toEqual([["Wallets", ["Trading"]]]);
@@ -76,6 +76,6 @@ describe("pickerGroups", () => {
   });
 
   it("keeps the usual order when no chain is named", () => {
-    expect(labels("uni").map(([label]) => label)).toEqual(["Apps"]);
+    expect(labels("uni").map(([label]) => label)).toEqual(["Agents"]);
   });
 });

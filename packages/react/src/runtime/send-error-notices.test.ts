@@ -28,13 +28,18 @@ describe("send failure notices", () => {
     expect(failure.forgetThread).toBeFalsy();
   });
   it.each([
-    [404, "app_not_found", "App not found", /doesn't exist/],
-    [409, "app_inactive", "App not active", /isn't active yet/],
-    [401, "app_key_required", "App key required", /private.*App key.*builder/],
+    [404, "agent_not_found", "Agent not found", /doesn't exist/],
+    [409, "agent_inactive", "Agent not active", /isn't active yet/],
+    [
+      401,
+      "agent_key_required",
+      "Agent key required",
+      /private.*Agent key.*builder/,
+    ],
     [
       403,
-      "app_key_not_scoped",
-      "App key not valid for this App",
+      "agent_key_not_scoped",
+      "Agent key not valid for this Agent",
       /doesn't grant access/,
     ],
   ])(
@@ -98,7 +103,7 @@ describe("send failure notices", () => {
     });
   });
 
-  it("does not ask the user to pay when the App's builder is in debt", () => {
+  it("does not ask the user to pay when the Agent's builder is in debt", () => {
     const { notice } = describeSendFailure(
       apiError(402, "builder_debt"),
       false,
@@ -106,7 +111,7 @@ describe("send failure notices", () => {
     expect(notice.kind).toBeUndefined();
     expect(notice).toMatchObject({
       type: "error",
-      title: "App paused",
+      title: "Agent paused",
       message: expect.stringMatching(
         /temporarily unavailable because its builder needs to add funds/,
       ),
@@ -118,7 +123,7 @@ describe("send failure notices", () => {
     (code) => {
       const { notice } = describeSendFailure(apiError(402, code), false);
       expect(notice.kind).toBeUndefined();
-      expect(notice.title).toBe("App unavailable");
+      expect(notice.title).toBe("Agent unavailable");
     },
   );
 
@@ -146,11 +151,11 @@ describe("send failure notices", () => {
     );
   });
 
-  it("names the App ID when a Direct chat is refused", () => {
+  it("names the Agent ID when a Direct chat is refused", () => {
     const refused = apiError(403, "forbidden");
     expect(describeSendFailure(refused, false, true).notice).toMatchObject({
-      title: "App not available",
-      message: expect.stringMatching(/App ID isn't available/),
+      title: "Agent not available",
+      message: expect.stringMatching(/Agent ID isn't available/),
     });
     expect(describeSendFailure(refused, false).notice.title).toBe(
       "Message not sent",

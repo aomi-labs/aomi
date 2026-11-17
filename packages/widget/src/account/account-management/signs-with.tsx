@@ -9,7 +9,7 @@ import { PendingMark } from "@/ui/aomi/status-pill";
 import { BrandMark } from "./controls";
 import { FamilyTag } from "./family-tag";
 import {
-  appName,
+  walletName,
   familySlots,
   familyTag,
   pendingHint,
@@ -140,7 +140,7 @@ function FamilySlot({
           </span>
           <span className="flex min-w-0 items-center gap-1.5 opacity-60">
             <BrandMark
-              brand={appName(current)}
+              brand={walletName(current)}
               dot={ready(current) ? "on" : "off"}
               size={13}
               box={16}
@@ -183,7 +183,7 @@ function FamilySlot({
   ];
   const option = (row: WalletRow) => {
     const hint = pendingHint(row);
-    const { title, app } = rowTitle(row);
+    const { title, brand } = rowTitle(row);
     return (
       <button
         key={row.key}
@@ -197,7 +197,7 @@ function FamilySlot({
         className="hover:bg-aomi-hover focus:bg-aomi-hover group flex w-full items-center gap-2.5 rounded-[8px] px-2 py-1.5 text-left outline-none"
       >
         <BrandMark
-          brand={appName(row)}
+          brand={walletName(row)}
           dot={ready(row) ? "on" : "off"}
           size={15}
           box={28}
@@ -205,8 +205,8 @@ function FamilySlot({
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="type-control flex min-w-0 items-baseline gap-1.5">
             <span className="truncate">{title}</span>
-            {app ? (
-              <span className="type-meta text-aomi-muted">{app}</span>
+            {brand ? (
+              <span className="type-meta text-aomi-muted">{brand}</span>
             ) : null}
           </span>
           <span className="type-address text-aomi-muted truncate">
@@ -251,7 +251,7 @@ function FamilySlot({
                 !current.active && !current.connected && "opacity-60",
               )}
             >
-              <BrandMark brand={appName(current)} size={13} box={16} />
+              <BrandMark brand={walletName(current)} size={13} box={16} />
               <span className="type-control truncate font-medium">
                 {rowTitle(current).title}
                 <span className="text-aomi-muted font-normal">

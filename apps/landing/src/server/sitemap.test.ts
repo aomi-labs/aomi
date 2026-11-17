@@ -7,7 +7,7 @@ describe("Landing sitemap", () => {
     const response = GET();
     const body = await response.text();
     expect(response.headers.get("content-type")).toBe(
-      "application/xml; charset=utf-8",
+      "agent/xml; charset=utf-8",
     );
     expect(response.headers.get("cache-control")).toBe(
       "public, max-age=0, must-revalidate",

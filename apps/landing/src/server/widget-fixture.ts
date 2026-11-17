@@ -61,7 +61,7 @@ export async function GET(_request: Request, params: FixtureParams) {
   };
 
   if (path === "api/thread/state") return json(state);
-  if (path === "api/thread/apps") return json([]);
+  if (path === "api/thread/catalog") return json([]);
   if (path === "api/thread/models") return json(["gpt-5"]);
   if (path === "api/threads") return json([thread]);
   if (path.startsWith("api/threads/")) return json(thread);

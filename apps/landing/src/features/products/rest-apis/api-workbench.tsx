@@ -16,7 +16,7 @@ const examples = {
   -d '{
     "message": "Swap 0.5 ETH to USDC on Base",
     "mode": "direct",
-    "app": "default",
+    "agent": "aomi/main",
     "userState": {
       "connection": { "is_connected": true },
       "evm": {
@@ -82,7 +82,7 @@ const examples = {
     "label": "Supply USDC",
     "kind": "transaction"
   }],
-  "origin": { "app": "default", "operations": [] },
+  "origin": { "toolset": "default", "operations": [] },
   "expiresAt": 1788174300,
   "digest": "sha256:…",
   "attestation": "eyJ…"
@@ -143,7 +143,7 @@ export function ApiWorkbench() {
 
         <div className={styles.responseCodePanel}>
           <div className={styles.panelLabel}>
-            <span>200 / application&#47;json</span>
+            <span>200 / agent&#47;json</span>
             <span>response</span>
           </div>
           <pre key={`${surface}-response`}>

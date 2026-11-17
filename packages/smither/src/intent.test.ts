@@ -9,8 +9,12 @@ describe("extractJsonObject", () => {
   });
 
   it("digs JSON out of prose and fences", () => {
-    const raw = 'Sure! Here is the plan:\n```json\n{"summary": "a weather app", "ready": false}\n```\nLet me know.';
-    expect(extractJsonObject(raw)).toEqual({ summary: "a weather app", ready: false });
+    const raw =
+      'Sure! Here is the plan:\n```json\n{"summary": "a weather package", "ready": false}\n```\nLet me know.';
+    expect(extractJsonObject(raw)).toEqual({
+      summary: "a weather package",
+      ready: false,
+    });
   });
 
   it("returns undefined when there is no JSON", () => {
@@ -26,13 +30,13 @@ describe("distillIntent", () => {
       return {
         exitCode: 0,
         stdout:
-          'Analysis done.\n{"summary": "weather app from open-meteo", "plan": {"app": "weather", "source": "url", "openApiUrl": "https://api.open-meteo.com/openapi.json"}, "questions": ["Deploy after validation?"], "ready": false}',
+          'Analysis done.\n{"summary": "weather package from open-meteo", "plan": {"packageName": "weather", "source": "url", "openApiUrl": "https://api.open-meteo.com/openapi.json"}, "questions": ["Deploy after validation?"], "ready": false}',
         stderr: "",
       };
     };
 
     const draft = await distillIntent({
-      turns: [{ role: "user", text: "an app for open-meteo weather" }],
+      turns: [{ role: "user", text: "a package for open-meteo weather" }],
       draft: { sdkRoot: "/sdk" },
       sdkRoot: "/sdk",
       agent: "codex",
@@ -42,7 +46,7 @@ describe("distillIntent", () => {
     expect(calls[0].file).toBe("codex");
     expect(calls[0].args).toContain("--sandbox");
     expect(calls[0].args).toContain("read-only");
-    expect(draft.plan.app).toBe("weather");
+    expect(draft.plan.packageName).toBe("weather");
     expect(draft.questions).toHaveLength(1);
     expect(draft.ready).toBe(false);
   });

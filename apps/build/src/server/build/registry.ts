@@ -1,11 +1,15 @@
 import "@tanstack/react-start/server-only";
 
-import { storeQuery, type AomiSmitherApi } from "@aomi-labs/smither";
+import {
+  resolveRunBackend,
+  storeQuery,
+  type AomiSmitherApi,
+} from "@aomi-labs/smither";
 
 /**
- * Durable run registry, keyed by (owner, app): the identity layer the
- * smithers store deliberately doesn't have. Alice's "arb-bot" and Bob's
- * "arb-bot" are distinct rows pointing at distinct runs; a Build server restart looks
+ * Durable run registry, keyed by (owner, package): the identity layer the
+ * smithers store deliberately doesn't have. Alice's "arb-agent" and Bob's
+ * "arb-agent" are distinct rows pointing at distinct runs; a Build server restart looks
  * runs up here instead of minting new ids; the supervisor reads sandbox ids
  * from here to extend or reap.
  *
@@ -17,7 +21,7 @@ import { storeQuery, type AomiSmitherApi } from "@aomi-labs/smither";
 export type BuildRunRecord = {
   runId: string;
   ownerLogin: string;
-  app: string;
+  packageName: string;
   runner: "local" | "vercel-sandbox";
   status: "running" | "completed" | "failed" | "cancelled";
   sandboxId: string;
@@ -31,12 +35,27 @@ const ENSURED = new WeakSet<object>();
 
 async function ensureRegistry(api: AomiSmitherApi): Promise<void> {
   if (ENSURED.has(api as object)) return;
+  const columns =
+    resolveRunBackend("registry").kind === "sqlite"
+      ? await storeQuery(
+          api,
+          "SELECT name FROM pragma_table_info('aomi_build_runs')",
+        )
+      : await storeQuery(
+          api,
+          "SELECT column_name as name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'aomi_build_runs'",
+        );
+  if (columns.some((column) => column.name === "app"))
+    await storeQuery(
+      api,
+      "ALTER TABLE aomi_build_runs RENAME COLUMN app TO package_name",
+    );
   await storeQuery(
     api,
     `CREATE TABLE IF NOT EXISTS aomi_build_runs (
        run_id TEXT PRIMARY KEY,
        owner_login TEXT NOT NULL,
-       app TEXT NOT NULL,
+       package_name TEXT NOT NULL,
        runner TEXT NOT NULL,
        status TEXT NOT NULL,
        sandbox_id TEXT NOT NULL DEFAULT '',
@@ -48,8 +67,8 @@ async function ensureRegistry(api: AomiSmitherApi): Promise<void> {
   );
   await storeQuery(
     api,
-    `CREATE UNIQUE INDEX IF NOT EXISTS aomi_build_runs_owner_app
-       ON aomi_build_runs (owner_login, app)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS aomi_build_runs_owner_package
+       ON aomi_build_runs (owner_login, package_name)`,
   );
   ENSURED.add(api as object);
 }
@@ -58,7 +77,7 @@ function toRecord(row: Record<string, unknown>): BuildRunRecord {
   return {
     runId: String(row.run_id),
     ownerLogin: String(row.owner_login),
-    app: String(row.app),
+    packageName: String(row.package_name),
     runner: row.runner === "vercel-sandbox" ? "vercel-sandbox" : "local",
     status: ["completed", "failed", "cancelled"].includes(String(row.status))
       ? (String(row.status) as BuildRunRecord["status"])
@@ -71,16 +90,16 @@ function toRecord(row: Record<string, unknown>): BuildRunRecord {
   };
 }
 
-export async function findRunByOwnerApp(
+export async function findRunByOwnerPackage(
   api: AomiSmitherApi,
   ownerLogin: string,
-  app: string,
+  packageName: string,
 ): Promise<BuildRunRecord | undefined> {
   await ensureRegistry(api);
   const rows = await storeQuery(
     api,
-    `SELECT * FROM aomi_build_runs WHERE owner_login = ? AND app = ? LIMIT 1`,
-    [ownerLogin, app],
+    `SELECT * FROM aomi_build_runs WHERE owner_login = ? AND package_name = ? LIMIT 1`,
+    [ownerLogin, packageName],
   );
   return rows[0] ? toRecord(rows[0]) : undefined;
 }
@@ -109,26 +128,26 @@ export async function listRunningRuns(
   return rows.map(toRecord);
 }
 
-/** Insert or replace the (owner, app) slot with a run. One registry row per
- *  (owner, app); re-registering the same run refreshes runner/plan fields. */
+/** Insert or replace the (owner, package) slot with a run. One registry row per
+ *  (owner, package); re-registering the same run refreshes runner/plan fields. */
 export async function registerRun(
   api: AomiSmitherApi,
   record: Omit<BuildRunRecord, "createdAtMs" | "updatedAtMs">,
 ): Promise<void> {
   await ensureRegistry(api);
   const now = Date.now();
-  // One row per (owner, app): a re-mint (fresh run id for the same slot)
+  // One row per (owner, package): a re-mint (fresh run id for the same slot)
   // replaces the previous run rather than colliding on the unique index.
   await storeQuery(
     api,
     `DELETE FROM aomi_build_runs
-      WHERE owner_login = ? AND app = ? AND run_id <> ?`,
-    [record.ownerLogin, record.app, record.runId],
+      WHERE owner_login = ? AND package_name = ? AND run_id <> ?`,
+    [record.ownerLogin, record.packageName, record.runId],
   );
   await storeQuery(
     api,
     `INSERT INTO aomi_build_runs
-       (run_id, owner_login, app, runner, status, sandbox_id, sidecar_url,
+       (run_id, owner_login, package_name, runner, status, sandbox_id, sidecar_url,
         plan_json, created_at_ms, updated_at_ms)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (run_id) DO UPDATE SET
@@ -141,7 +160,7 @@ export async function registerRun(
     [
       record.runId,
       record.ownerLogin,
-      record.app,
+      record.packageName,
       record.runner,
       record.status,
       // NOT NULL columns: coerce runtime undefined (e.g. an SDK field

@@ -40,6 +40,9 @@ export type AomiPrivyProviderProps = {
     };
 };
 
+// @public (undocumented)
+export const privyAdapter: WalletProviderAdapter;
+
 // @public @deprecated (undocumented)
 export const privyAuth: typeof privyAuth_2;
 
@@ -50,9 +53,6 @@ export type PrivyAuthOptions = {
     appLogoUrl?: string;
     methods?: readonly AuthMethodId[];
 };
-
-// @public (undocumented)
-export const privyPlugin: WalletProviderPlugin;
 
 // @public (undocumented)
 export function registerAomiPrivyWalletProvider(): void;

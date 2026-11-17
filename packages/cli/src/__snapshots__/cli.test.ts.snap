@@ -2,7 +2,7 @@
 
 exports[`help > prints ["chat"] --help 1`] = `
 "USAGE
-  aomi chat [--prompt message] [--thread id] [--new] [--app name] [--model name] [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [<message>]
+  aomi chat [--prompt message] [--thread id] [--new] [--agent name] [--model name] [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [<message>]
   aomi chat --help
 
 Ask once or continue a thread
@@ -11,7 +11,7 @@ FLAGS
   -p [--prompt]              Ask once, print the answer
      [--thread]              Continue this thread
      [--new/--no-new]        Start a new thread
-     [--app]                 Route to this app (Direct)
+     [--agent]               Route to this agent (Direct)
      [--model]               Model for this turn
      [--json/--no-json]      Print JSON lines
      [--private-key]         Sign in with this EVM key (SIWE) and sign with it; env AOMI_PRIVATE_KEY
@@ -27,7 +27,7 @@ ARGUMENTS
 
 exports[`help > prints ["pipeline","build"] --help 1`] = `
 "USAGE
-  aomi pipeline build [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [--app name] [--commit] <name> [<args>]
+  aomi pipeline build [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [--toolset name] [--commit] <name> [<args>]
   aomi pipeline build --help
 
 Stage and simulate an operation
@@ -38,7 +38,7 @@ FLAGS
      [--solana-private-key]  Sign in with this Solana key (SIWS) and sign with it; env AOMI_SOLANA_PRIVATE_KEY
      [--cluster]             Solana cluster: mainnet, devnet or testnet
      [--chain]               Chain id
-     [--app]                 App (default: default)
+     [--toolset]             Toolset (default: default)
      [--commit/--no-commit]  Also make the commit to sign
   -h  --help                 Print help information and exit
 
@@ -160,7 +160,7 @@ COMMANDS
 `;
 
 exports[`help > prints the root help from the route table 1`] = `
-"aomi 1.1.0  the Aomi agent in your terminal
+"aomi 2.0.0  the Aomi agent in your terminal
 
 USAGE
   aomi                    Open the chat
@@ -183,9 +183,9 @@ WALLETS & TRADES
   tx         Review, approve, sign, export
   guard      Spending limits for signing
 
-APPS
+AGENTS
   packages   Turn packages on or off, connect keys
-  pipeline   Call app operations directly
+  pipeline   Call toolset operations directly
 
 PACKAGES
   publish    Build and upload packages and agents

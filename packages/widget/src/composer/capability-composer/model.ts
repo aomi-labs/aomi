@@ -15,8 +15,7 @@ export type CapabilityMention = {
   id: string;
   label: string;
   description?: string;
-  applicationId?: string | number | null;
-  appName?: string;
+  agentName?: string;
   /** A wallet: the `w_N` id of each of its addresses (EVM, SVM). */
   walletIds?: string[];
   chainTarget?:
@@ -26,8 +25,8 @@ export type CapabilityMention = {
 
 export type CapabilityMentionRequest = Pick<CapabilityMention, "kind" | "id">;
 
-/** A host's request to open the composer with one app already tagged. */
-export type AppTagRequest = { app: string; applicationId?: number | null };
+/** A host's request to open the composer with one agent already tagged. */
+export type AgentTagRequest = { agent: string };
 
 export const CAPABILITY_MENTION_REQUEST_EVENT =
   "aomi:capability-mention-request";

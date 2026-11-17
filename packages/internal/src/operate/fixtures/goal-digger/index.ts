@@ -1,20 +1,20 @@
-import type { AppFixture } from "../types";
+import type { AgentFixture } from "../types";
 import { transactions } from "./transactions";
 import { logs } from "./logs";
 import { statement } from "./statement";
 
-// goal-digger — SVM (Solana) app. High activity, one hot tool error, tx
+// goal-digger — SVM (Solana) agent. High activity, one hot tool error, tx
 // funnel converting. The "flagship" fixture.
 
-export const goalDigger: AppFixture = {
+export const goalDigger: AgentFixture = {
   meta: {
     name: "goal-digger",
-    applicationId: 77,
+    agentId: 77,
     families: ["svm"],
-    releaseTag: "apps-141779906-r1dac12ad71-goal-digger",
+    releaseTag: "agents-141779906-r1dac12ad71-goal-digger",
     sdkVersion: "3.0.2",
     status: "healthy",
-    repo: "aomi-labs/apps",
+    repo: "aomi-labs/agents",
   },
   card: {
     requestsPerMinute: 0.4,

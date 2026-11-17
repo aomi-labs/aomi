@@ -3,15 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   bindClientResource: vi.fn().mockResolvedValue("already_bound"),
-  registerAppMcpResource: vi.fn(),
+  registerAgentMcpResource: vi.fn(),
 }));
 
 vi.mock("@aomi-labs/account/better-auth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/account/better-auth")>()),
   bindAomiPublicClientResource: mocks.bindClientResource,
 }));
-vi.mock("./app-mcp-resource", () => ({
-  registerAppMcpResource: mocks.registerAppMcpResource,
+vi.mock("./agent-mcp-resource", () => ({
+  registerAgentMcpResource: mocks.registerAgentMcpResource,
 }));
 
 import {
@@ -71,11 +71,15 @@ describe("OAuth request policy", () => {
       });
     await expectContinue(
       enforceAomiOAuthRequestPolicy(
-        request("account:packages:read account:credentials:write offline_access"),
+        request(
+          "account:packages:read account:credentials:write offline_access",
+        ),
       ),
     );
     await expectReject(
-      enforceAomiOAuthRequestPolicy(request("agent:write account:packages:read")),
+      enforceAomiOAuthRequestPolicy(
+        request("agent:write account:packages:read"),
+      ),
     );
   });
 
@@ -142,7 +146,7 @@ describe("OAuth request policy", () => {
     );
   });
 
-  it("registers an app-locked MCP resource before binding, and refuses an unknown app", async () => {
+  it("registers an agent-locked MCP resource before binding, and refuses an unknown agent", async () => {
     const authorize = (resource: string) =>
       enforceAomiOAuthRequestPolicy(
         new Request(
@@ -151,27 +155,31 @@ describe("OAuth request policy", () => {
           )}`,
         ),
       );
-    const world = "https://portal.example/v1/apps/world/mcp";
-    mocks.registerAppMcpResource.mockResolvedValueOnce(true);
+    const world = "https://portal.example/v1/agents/aomi%2Fworld/mcp";
+    mocks.registerAgentMcpResource.mockResolvedValueOnce(true);
     await expectContinue(authorize(world));
-    expect(mocks.registerAppMcpResource).toHaveBeenCalledWith(world);
+    expect(mocks.registerAgentMcpResource).toHaveBeenCalledWith(world);
     expect(
-      mocks.registerAppMcpResource.mock.invocationCallOrder[0],
+      mocks.registerAgentMcpResource.mock.invocationCallOrder[0],
     ).toBeLessThan(mocks.bindClientResource.mock.invocationCallOrder.at(-1)!);
 
     expect(mocks.bindClientResource).toHaveBeenLastCalledWith({
       clientId: "codex",
       resource: world,
     });
-    mocks.registerAppMcpResource.mockResolvedValueOnce(true);
+    mocks.registerAgentMcpResource.mockResolvedValueOnce(true);
     mocks.bindClientResource.mockResolvedValueOnce("resource_conflict");
-    await expectReject(authorize("https://portal.example/v1/apps/other/mcp"));
-    mocks.registerAppMcpResource.mockResolvedValueOnce(false);
-    await expectReject(authorize("https://portal.example/v1/apps/gone/mcp"));
-    mocks.registerAppMcpResource.mockClear();
-    await expectReject(authorize("https://portal.example/v1/apps/World/mcp"));
+    await expectReject(
+      authorize("https://portal.example/v1/agents/aomi%2Fother/mcp"),
+    );
+    mocks.registerAgentMcpResource.mockResolvedValueOnce(false);
+    await expectReject(
+      authorize("https://portal.example/v1/agents/aomi%2Fgone/mcp"),
+    );
+    mocks.registerAgentMcpResource.mockClear();
+    await expectReject(authorize("https://portal.example/v1/agents/World/mcp"));
     await expectContinue(authorize("https://portal.example/v1/agent/mcp"));
-    expect(mocks.registerAppMcpResource).not.toHaveBeenCalled();
+    expect(mocks.registerAgentMcpResource).not.toHaveBeenCalled();
   });
 
   it("allows a resource-bound refresh without repeating resource", async () => {
@@ -206,15 +214,17 @@ describe("OAuth request policy", () => {
     );
     await expectReject(register("https://portal.example/v1/agent"));
 
-    // An active app's MCP is registered, then accepted; an unknown one is not.
-    const world = "https://portal.example/v1/apps/world/mcp";
-    mocks.registerAppMcpResource.mockResolvedValueOnce(true);
+    // An active agent's MCP is registered, then accepted; an unknown one is not.
+    const world = "https://portal.example/v1/agents/aomi%2Fworld/mcp";
+    mocks.registerAgentMcpResource.mockResolvedValueOnce(true);
     // The resource is bound at first authorize, so registration forwards none.
     const registered = await expectContinue(register(world));
-    expect(mocks.registerAppMcpResource).toHaveBeenLastCalledWith(world);
+    expect(mocks.registerAgentMcpResource).toHaveBeenLastCalledWith(world);
     await expect(registered.json()).resolves.not.toHaveProperty("resources");
-    mocks.registerAppMcpResource.mockResolvedValueOnce(false);
-    await expectReject(register("https://portal.example/v1/apps/gone/mcp"));
+    mocks.registerAgentMcpResource.mockResolvedValueOnce(false);
+    await expectReject(
+      register("https://portal.example/v1/agents/aomi%2Fgone/mcp"),
+    );
   });
 
   it("accepts RFC 7591 registration that declares no resource", async () => {

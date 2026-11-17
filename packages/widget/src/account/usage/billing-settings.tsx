@@ -225,13 +225,13 @@ function MonthSoFar({
   month: MonthlyStatement;
   onSeeUsage: () => void;
 }) {
-  const turns = month.apps.reduce((sum, app) => sum + app.model.turns, 0);
-  const calls = month.apps.reduce(
-    (sum, app) => sum + (app.tool?.calls ?? 0),
+  const turns = month.agents.reduce((sum, agent) => sum + agent.model.turns, 0);
+  const calls = month.agents.reduce(
+    (sum, agent) => sum + (agent.tool?.calls ?? 0),
     0,
   );
-  const txns = month.apps.reduce(
-    (sum, app) => sum + (app.outcome?.txns ?? 0),
+  const txns = month.agents.reduce(
+    (sum, agent) => sum + (agent.outcome?.txns ?? 0),
     0,
   );
   const { summary } = month;
@@ -315,7 +315,7 @@ function Payments({
   );
 }
 
-/** The month's statement: total, breakdown, by-app matrix, full statement. */
+/** The month's statement: total, breakdown, by-agent matrix, full statement. */
 function UsageView() {
   const statement = useUsageStatement();
   const month = statement.month;
@@ -342,10 +342,10 @@ function UsageView() {
         totalUsd={month.summary.totalUsd}
       />
       <SpendBreakdownSection month={month} />
-      {month.apps.length > 0 ? (
+      {month.agents.length > 0 ? (
         <section className="flex flex-col gap-2.5">
           <SectionHeader
-            title="By app"
+            title="By agent"
             detail="This period"
             help={USAGE_MATRIX_HINT}
           />

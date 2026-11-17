@@ -13,8 +13,13 @@ import {
   MorphoIcon,
   OneInchIcon,
   YearnIcon,
-} from "@/icons/apps/app-icons";
-import { ArbitrumIcon, BaseIcon, OptimismIcon, RobinhoodIcon } from "@/icons/chain-icons";
+} from "@/icons/agents/agent-icons";
+import {
+  ArbitrumIcon,
+  BaseIcon,
+  OptimismIcon,
+  RobinhoodIcon,
+} from "@/icons/chain-icons";
 
 import { skillBrandLabel } from "@/composer/capabilities/skill-label";
 import { sourcedSkillMarks } from "./sourced-marks";
@@ -173,7 +178,7 @@ export function JupiterSkillIcon(props: SkillIconProps) {
 }
 
 /**
- * DefiLlama's "D" with the llama cut out, as one solid shape. The app mark's
+ * DefiLlama's "D" with the llama cut out, as one solid shape. The agent mark's
  * translucent segments turn muddy at chip size, so skills use this merged
  * silhouette of the same geometry.
  */
@@ -194,7 +199,7 @@ export function DefillamaSkillIcon(props: SkillIconProps) {
   );
 }
 
-/** LI.FI, Morpho, and 1inch already have canonical app marks in this package. */
+/** LI.FI, Morpho, and 1inch already have canonical agent marks in this package. */
 export function LifiSkillIcon(props: SkillIconProps) {
   return <LifiIcon viewBox="-2.8668 -3.1999 38.3992 38.3992" {...props} />;
 }

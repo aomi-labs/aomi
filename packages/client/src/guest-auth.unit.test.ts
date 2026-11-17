@@ -167,7 +167,7 @@ describe("interactive guest preparation", () => {
   });
 
   it.each([401, 403])(
-    "does not rotate a guest for an App refusal (%s)",
+    "does not rotate a guest for an Agent refusal (%s)",
     async (status) => {
       vi.stubGlobal("location", { origin: "https://vendor.example" });
       let acquisitions = 0;
@@ -180,7 +180,7 @@ describe("interactive guest preparation", () => {
           });
         }
         return Response.json(
-          { error: { code: "app_key_not_scoped" } },
+          { error: { code: "agent_key_not_scoped" } },
           { status },
         );
       });

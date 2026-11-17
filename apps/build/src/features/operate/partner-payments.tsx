@@ -1,6 +1,6 @@
 // Partner payment ledger on the Usage page: what each priced tool costs, who
 // the beneficiary is, and the accrue → settle trail. Settlement is reconciled
-// at recipient-bucket scope, so one receipt can clear fees from several apps.
+// at recipient-bucket scope, so one receipt can clear fees from several agents.
 
 import { ExternalLink } from "lucide-react";
 import { Card, TD, TH } from "./table";
@@ -90,10 +90,10 @@ function ConfiguredPrices({ resources }: { resources: Row[] }) {
           </thead>
           <tbody className="divide-border divide-y">
             {resources.map((resource, index) => (
-              <tr key={`${resource.applicationId}-${resource.tool}-${index}`}>
+              <tr key={`${resource.agentId}-${resource.tool}-${index}`}>
                 <td className={TD}>
                   <div className="font-mono text-xs">{resource.tool}</div>
-                  <div className="text-dim text-xs">{resource.application}</div>
+                  <div className="text-dim text-xs">{resource.agent}</div>
                 </td>
                 <td className={`${TD} whitespace-nowrap font-mono text-xs`}>
                   {Number(resource.flatCredits ?? 0).toFixed(2)} credits
@@ -146,7 +146,7 @@ function PaymentActivity({ events }: { events: Row[] }) {
                 <td className={TD}>
                   <div className="text-xs">{eventLabel(event)}</div>
                   <div className="text-dim text-xs">
-                    {event.application ?? truncateAddress(event.recipient)}
+                    {event.agent ?? truncateAddress(event.recipient)}
                   </div>
                 </td>
                 <td className={`${TD} whitespace-nowrap font-mono text-xs`}>
@@ -220,9 +220,9 @@ export function PartnerPayments({
         <p className="text-dim mt-1 text-xs leading-5">
           Partner payments are liabilities owed to tool beneficiaries, not
           builder revenue. Settlements are reconciled at recipient-bucket scope
-          because one receipt can clear fees from more than one app. Accrued and
-          settled cover this statement; current outstanding is the live balance
-          across all periods.
+          because one receipt can clear fees from more than one agent. Accrued
+          and settled cover this statement; current outstanding is the live
+          balance across all periods.
         </p>
       </div>
       <SummaryTiles summary={summary} toolCount={resources.length} />

@@ -25,7 +25,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         { title: "Aomi Build" },
         {
           name: "description",
-          content: "Build, deploy, and operate Aomi apps",
+          content: "Build, deploy, and operate Aomi agents",
         },
       ],
       links: [

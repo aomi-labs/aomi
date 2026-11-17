@@ -152,8 +152,8 @@ export type AccountConfig =
     };
 
 export type AomiWalletKitProviderProps = {
-  /** Hosted app identifier used only for preference isolation. */
-  applicationId?: string | number | null;
+  /** Hosted agent slug used only for preference isolation. */
+  agent?: string | null;
   fullTestnet?: { rpcMap: Record<number, string> };
   /** Render the loading wallet state without starting SDKs while host config is restored. */
   initializing?: boolean;

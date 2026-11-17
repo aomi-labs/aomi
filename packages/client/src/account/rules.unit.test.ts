@@ -14,7 +14,12 @@ const CHANGE = "9a000000-0000-4000-8000-000000000009";
 const USDC = "eip155:8453/erc20:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
 const SOL = "solana:mainnet-beta/native";
 
-const NO_RULES = { apps: null, limits: [], not_after: null, owner_only: false };
+const NO_RULES = {
+  protocols: null,
+  limits: [],
+  not_after: null,
+  owner_only: false,
+};
 
 const change = {
   id: CHANGE,
@@ -32,7 +37,7 @@ const body = {
   wallet_name: "Trading wallet",
   revision: 3,
   rules: {
-    apps: ["jupiter", "kamino", "uniswap"],
+    protocols: ["jupiter", "kamino", "uniswap"],
     limits: [
       { asset: SOL, amount: "500000000", symbol: "SOL", decimals: 9 },
       { asset: USDC, amount: "200000000", symbol: "USDC", decimals: 6 },
@@ -64,7 +69,7 @@ const body = {
       network: "solana:mainnet-beta",
       state: "behind",
       covers: {
-        apps: ["jupiter", "kamino"],
+        protocols: ["jupiter", "kamino"],
         limits: [SOL],
         not_after: false,
         owner_only: false,
@@ -236,7 +241,7 @@ describe("wallet rules", () => {
     const none = parseWalletRules({ ...body, rules: NO_RULES }).rules;
     expect(none).toEqual(NO_RULES);
     expect(hasRules(none)).toBe(false);
-    expect(hasRules({ ...none, apps: [] })).toBe(true);
+    expect(hasRules({ ...none, protocols: [] })).toBe(true);
     expect(hasRules({ ...none, owner_only: true })).toBe(true);
   });
 
@@ -253,7 +258,7 @@ describe("wallet rules", () => {
     expect(calls[0]!.headers.get("x-aomi-csrf")).toBe("1");
     expect(calls[0]!.body).toEqual({
       rules: {
-        apps: ["jupiter", "kamino", "uniswap"],
+        protocols: ["jupiter", "kamino", "uniswap"],
         limits: [
           { asset: SOL, amount: "500000000" },
           { asset: USDC, amount: "200000000" },
@@ -281,9 +286,9 @@ describe("wallet rules", () => {
     ]);
   });
 
-  it("reads the catalog of apps and tokens", async () => {
+  it("reads the catalog of protocols and tokens", async () => {
     const catalog = {
-      apps: [
+      protocols: [
         {
           id: "uniswap",
           label: "Uniswap",

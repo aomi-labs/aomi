@@ -229,13 +229,13 @@ function chainOf(id: number): Chain {
   );
 }
 
-/** What a turn runs with: the thread, `--app` (else Auto), model and wallet. */
+/** What a turn runs with: the thread, `--agent` (else Auto), model and wallet. */
 export function turnOptions(
   aomi: Aomi,
   state: CliState,
   overrides: {
     thread?: string;
-    app?: string;
+    agent?: string;
     model?: string;
     chain?: number;
     cluster?: SvmCluster;
@@ -243,8 +243,10 @@ export function turnOptions(
     walletPick?: { evm?: string; svm?: string };
   } = {},
 ) {
-  const app = overrides.app;
-  const target: AgentTarget = app ? { mode: "direct", app } : { mode: "auto" };
+  const agent = overrides.agent;
+  const target: AgentTarget = agent
+    ? { mode: "direct", agent }
+    : { mode: "auto" };
   const evm = aomi.wallet?.evm?.address;
   const svm = aomi.wallet?.svm?.address;
   const chainId = overrides.chain ?? state.chain;

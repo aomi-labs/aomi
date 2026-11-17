@@ -1,6 +1,6 @@
 /**
  * An agent wallet's rules: what the backend checks on every agent signature
- * (allowed apps, a daily limit per asset, an end date, sends only to your
+ * (allowed protocols, a daily limit per asset, an end date, sends only to your
  * wallets). A change that only takes power away applies at once; one that
  * gives power, or changes the admin, waits for the wallet's admin.
  *
@@ -45,8 +45,8 @@ export type AomiRuleLimit = {
 
 /** What the agent may sign with a wallet; each field is one rule. */
 export type AomiRuleSet = {
-  /** The apps the agent may use; null allows any app. */
-  apps: string[] | null;
+  /** The protocols the agent may use; null allows any protocol. */
+  protocols: string[] | null;
   /** A token with no limit can't be spent once any limit is set. */
   limits: AomiRuleLimit[];
   /** The agent may sign until then (unix seconds); null is no end date. */
@@ -57,7 +57,7 @@ export type AomiRuleSet = {
 
 /** False for a wallet whose every rule is off. */
 export const hasRules = (rules: AomiRuleSet): boolean =>
-  rules.apps !== null ||
+  rules.protocols !== null ||
   rules.limits.length > 0 ||
   rules.not_after !== null ||
   rules.owner_only;
@@ -117,8 +117,8 @@ const ENFORCEMENT_STATES = ["off", "on", "behind", "unverified"] as const;
 
 /** The rules a provider holds. The rest stay with Aomi alone. */
 export type AomiRulesCovers = {
-  /** App ids. */
-  apps: string[];
+  /** Agent ids. */
+  protocols: string[];
   /** Asset ids of the limits. */
   limits: string[];
   not_after: boolean;
@@ -214,10 +214,10 @@ export type AomiRulesChangeResult = {
   rules: AomiWalletRules;
 };
 
-export type AomiRulesCatalogApp = {
+export type AomiRulesCatalogProtocol = {
   id: string;
   label: string;
-  /** CAIP-2 chain ids the app runs on. */
+  /** CAIP-2 chain ids the protocol runs on. */
   chains: string[];
 };
 
@@ -229,14 +229,14 @@ export type AomiRulesCatalogToken = {
   chain: string;
 };
 
-/** The apps and tokens a rule can name. */
+/** The protocols and tokens a rule can name. */
 export type AomiRulesCatalog = {
-  apps: AomiRulesCatalogApp[];
+  protocols: AomiRulesCatalogProtocol[];
   tokens: AomiRulesCatalogToken[];
 };
 
 export const RULES_ERROR_CODES = {
-  appUnknown: "rules_app_unknown",
+  protocolUnknown: "rules_protocol_unknown",
   assetInvalid: "rules_asset_invalid",
   amountInvalid: "rules_amount_invalid",
   duplicate: "rules_duplicate",
@@ -308,7 +308,7 @@ function parseAdmin(value: unknown): AomiRulesAdmin {
   throw invalid(`unsupported admin: ${String(kind)}`);
 }
 
-const RULE_FIELDS = ["apps", "limits", "not_after", "owner_only"];
+const RULE_FIELDS = ["protocols", "limits", "not_after", "owner_only"];
 
 /**
  * The rule set; a missing one reads as no rules. A field this SDK does not
@@ -321,14 +321,16 @@ export function parseRuleSet(value: unknown): AomiRuleSet {
     (field) => !RULE_FIELDS.includes(field),
   );
   if (unknown) throw invalid(`unsupported rule: ${unknown}`);
-  const { apps, not_after, owner_only } = record;
+  const { protocols, not_after, owner_only } = record;
   if (owner_only !== undefined && typeof owner_only !== "boolean")
     throw invalid("rules.owner_only must be a boolean");
   return {
-    apps:
-      apps === undefined || apps === null
+    protocols:
+      protocols === undefined || protocols === null
         ? null
-        : list(apps, "rules.apps").map((app) => text(app, "rules.apps")),
+        : list(protocols, "rules.protocols").map((protocol) =>
+            text(protocol, "rules.protocols"),
+          ),
     limits: list(record.limits, "rules.limits").map((entry) => {
       const limit = asRecord(entry);
       return {
@@ -386,7 +388,7 @@ function parseEnforcement(value: unknown): AomiRulesEnforcement {
     network: text(record?.network, "enforcement.network"),
     state,
     covers: {
-      apps: names(covers?.apps, "enforcement.covers.apps"),
+      protocols: names(covers?.protocols, "enforcement.covers.protocols"),
       limits: names(covers?.limits, "enforcement.covers.limits"),
       not_after: covers?.not_after === true,
       owner_only: covers?.owner_only === true,
@@ -444,14 +446,14 @@ export function parseWalletRules(value: unknown): AomiWalletRules {
 export function parseRulesCatalog(value: unknown): AomiRulesCatalog {
   const record = asRecord(value);
   return {
-    apps: list(record?.apps, "apps").map((entry) => {
-      const app = asRecord(entry);
-      const id = text(app?.id, "app.id");
+    protocols: list(record?.protocols, "protocols").map((entry) => {
+      const protocol = asRecord(entry);
+      const id = text(protocol?.id, "protocol.id");
       return {
         id,
-        label: stringValue(app?.label) ?? id,
-        chains: list(app?.chains, "app.chains").map((chain) =>
-          text(chain, "app.chains"),
+        label: stringValue(protocol?.label) ?? id,
+        chains: list(protocol?.chains, "protocol.chains").map((chain) =>
+          text(chain, "protocol.chains"),
         ),
       };
     }),
@@ -471,7 +473,7 @@ export function parseRulesCatalog(value: unknown): AomiRulesCatalog {
 
 /** The rule set as a write sends it: no server-filled display fields. */
 const wireRules = (rules: AomiRuleSet): AomiRuleSet => ({
-  apps: rules.apps,
+  protocols: rules.protocols,
   limits: rules.limits.map(({ asset, amount }) => ({ asset, amount })),
   not_after: rules.not_after,
   owner_only: rules.owner_only,
@@ -514,7 +516,7 @@ export class AccountRulesTransport {
     return { status, rules: parseWalletRules(record?.rules) };
   }
 
-  /** The apps and tokens a rule can name. */
+  /** The protocols and tokens a rule can name. */
   async catalog(
     options: { signal?: AbortSignal } = {},
   ): Promise<AomiRulesCatalog> {

@@ -406,7 +406,7 @@
 }
 
 .navConsole,
-.navApp {
+.navAgent {
   display: inline-flex;
   height: 38px;
   align-items: center;
@@ -423,7 +423,7 @@
   background: rgba(255, 255, 255, 0.16);
 }
 
-.navApp {
+.navAgent {
   gap: 7px;
   color: var(--landing-ink-surface) !important;
   background: #fff;
@@ -3607,7 +3607,7 @@
     font-size: 14px;
   }
   .navConsole,
-  .navApp {
+  .navAgent {
     padding-inline: 15px;
   }
   .validation {
@@ -4880,7 +4880,9 @@
   border-bottom: 1px solid var(--landing-border);
   padding: 28px 0;
   color: var(--landing-ink);
-  transition: background 180ms ease, padding 180ms ease;
+  transition:
+    background 180ms ease,
+    padding 180ms ease;
 }
 
 .blogList > a:hover,
@@ -5042,7 +5044,6 @@
     grid-template-columns: 1fr;
   }
 }
-
 
 /* ---------- blog card grid ---------- */
 

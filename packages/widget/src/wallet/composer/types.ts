@@ -82,7 +82,7 @@ export type WalletRuntime<F extends WalletFamily> = {
 };
 
 export type SvmWalletRuntime = WalletRuntime<"svm"> & {
-  selectAppNetwork?: (networkId: string | number) => void;
+  selectAgentNetwork?: (networkId: string | number) => void;
   supportedNetworks: readonly SvmNetworkOption[];
   selectedNetwork?: SvmNetworkOption;
   execution: SvmExecutionRuntime;

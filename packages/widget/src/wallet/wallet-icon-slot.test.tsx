@@ -4,13 +4,13 @@ import { afterEach, expect, it, vi } from "vitest";
 import { WalletIconSlot } from "./wallet-icon-slot";
 
 const sdkLoads = vi.hoisted(() => ({ privy: vi.fn(), para: vi.fn() }));
-vi.mock("@/wallet/providers/privy/privy-plugin", () => {
+vi.mock("@/wallet/providers/privy/privy-adapter", () => {
   sdkLoads.privy();
-  return { privyPlugin: { id: "privy" } };
+  return { privyAdapter: { id: "privy" } };
 });
-vi.mock("@/wallet/providers/para/para-plugin", () => {
+vi.mock("@/wallet/providers/para/para-adapter", () => {
   sdkLoads.para();
-  return { paraPlugin: { id: "para" } };
+  return { paraAdapter: { id: "para" } };
 });
 
 afterEach(cleanup);
@@ -33,8 +33,14 @@ it.each(["privy", "para"] as const)(
         <WalletIconSlot id="rabby-wallet" label="Rabby" provider="siwe" />
       </>,
     );
-    expect(screen.getByTitle(label)).toHaveAttribute("data-wallet-brand", provider);
-    expect(screen.getByTitle("Rabby")).toHaveAttribute("data-wallet-brand", "rabby");
+    expect(screen.getByTitle(label)).toHaveAttribute(
+      "data-wallet-brand",
+      provider,
+    );
+    expect(screen.getByTitle("Rabby")).toHaveAttribute(
+      "data-wallet-brand",
+      "rabby",
+    );
     expect(sdkLoads.privy).not.toHaveBeenCalled();
     expect(sdkLoads.para).not.toHaveBeenCalled();
   },

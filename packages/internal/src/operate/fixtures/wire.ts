@@ -1,4 +1,4 @@
-// Example Operate payloads assembled from the per-app fixtures, in the exact
+// Example Operate payloads assembled from the per-agent fixtures, in the exact
 // wire shape the BFF returns. Two consumers:
 //
 //   - dev-operate-preview: serves these for every tab (pure design harness).
@@ -13,8 +13,8 @@
 
 import { FIXTURES } from "./";
 
-/** Placeholder project for accounts that have no app projects yet. */
-export const EXAMPLE_PROJECT = { id: 0, repositoryLink: "example/apps" };
+/** Placeholder project for accounts that have no agent projects yet. */
+export const EXAMPLE_PROJECT = { id: 0, repositoryLink: "example/agents" };
 
 export const EXAMPLE_RANGE = { fromDate: "2026-07-01", toDate: "2026-07-15" };
 
@@ -23,7 +23,7 @@ export const EXAMPLE_RANGE = { fromDate: "2026-07-01", toDate: "2026-07-15" };
 const CHARGE_SUBJECTS = new Set(["model", "hosting"]);
 
 /**
- * Statement in the BFF wire shape, folded from the per-app fixtures the same
+ * Statement in the BFF wire shape, folded from the per-agent fixtures the same
  * way the manager's assemble_statement does: charge subjects feed
  * service_charges from |net|; earning subjects feed gross/fees; net sums
  * everything.
@@ -46,28 +46,26 @@ export function exampleStatement(project: object) {
       }
     }
   }
-  const withApp = <T>(rows: T[], fixture: (typeof FIXTURES)[number]) =>
+  const withAgent = <T>(rows: T[], fixture: (typeof FIXTURES)[number]) =>
     rows.map((row) => ({
       ...row,
-      application: fixture.meta.name,
-      applicationId: fixture.meta.applicationId,
+      agent: fixture.meta.name,
+      agentId: fixture.meta.agentId,
       project,
     }));
   return {
     range: EXAMPLE_RANGE,
     summary,
-    revenue: FIXTURES.flatMap((f) => withApp(f.statement.revenue, f)),
-    charges: FIXTURES.flatMap((f) => withApp(f.statement.charges, f)),
-    entries: FIXTURES.flatMap((f) => withApp(f.statement.entries, f)).sort(
-      (a, b) =>
-        b.day.localeCompare(a.day) ||
-        a.application.localeCompare(b.application),
+    revenue: FIXTURES.flatMap((f) => withAgent(f.statement.revenue, f)),
+    charges: FIXTURES.flatMap((f) => withAgent(f.statement.charges, f)),
+    entries: FIXTURES.flatMap((f) => withAgent(f.statement.entries, f)).sort(
+      (a, b) => b.day.localeCompare(a.day) || a.agent.localeCompare(b.agent),
     ),
   };
 }
 
-function exampleFixture(application: unknown, index: number) {
-  const name = typeof application === "string" ? application : "";
+function exampleFixture(agent: unknown, index: number) {
+  const name = typeof agent === "string" ? agent : "";
   return (
     FIXTURES.find((fixture) => fixture.meta.name === name) ??
     FIXTURES[index % FIXTURES.length]
@@ -75,11 +73,11 @@ function exampleFixture(application: unknown, index: number) {
 }
 
 /** Full metrics block (live tiles + 24h trend) for the matching fixture. */
-export function exampleAppMetrics(
+export function exampleAgentMetrics(
   index: number,
-  application?: unknown,
+  agent?: unknown,
 ): Record<string, any> {
-  const fixture = exampleFixture(application, index);
+  const fixture = exampleFixture(agent, index);
   return {
     provider: "grafana_prometheus",
     windowSeconds: 900,
@@ -89,11 +87,11 @@ export function exampleAppMetrics(
   };
 }
 
-/** Complete example app cards, for accounts with no live apps at all. */
-export function exampleAppCards(project: object) {
+/** Complete example agent cards, for accounts with no live agents at all. */
+export function exampleAgentCards(project: object) {
   return FIXTURES.map((fixture, index) => ({
-    applicationId: fixture.meta.applicationId,
-    application: fixture.meta.name,
+    agentId: fixture.meta.agentId,
+    agent: fixture.meta.name,
     active: fixture.meta.status !== "inactive",
     loaded: fixture.meta.status === "healthy",
     releaseTag: fixture.meta.releaseTag,
@@ -101,41 +99,41 @@ export function exampleAppCards(project: object) {
     status: fixture.meta.status,
     project,
     exampleFixture: fixture.meta.name,
-    metrics: exampleAppMetrics(index, fixture.meta.name),
+    metrics: exampleAgentMetrics(index, fixture.meta.name),
   }));
 }
 
 /**
- * Fill example trend metrics onto live app cards that lack them. Any metric
+ * Fill example trend metrics onto live agent cards that lack them. Any metric
  * the backend actually reported wins; only null/missing fields are filled.
  * `filled` reports whether any card needed example data.
  */
 export function withExampleTrends<
   T extends {
-    application?: unknown;
+    agent?: unknown;
     metrics?: Record<string, any> | null;
   },
 >(
-  apps: T[],
-): { apps: Array<T & { exampleFixture?: string }>; filled: boolean } {
+  agents: T[],
+): { agents: Array<T & { exampleFixture?: string }>; filled: boolean } {
   let filled = false;
-  const out = apps.map((app, index) => {
-    const metrics = app.metrics ?? {};
+  const out = agents.map((agent, index) => {
+    const metrics = agent.metrics ?? {};
     const hasTrend =
       metrics.chats24h != null ||
       metrics.toolCalls24h != null ||
       metrics.transactions24h != null;
-    if (hasTrend) return app;
+    if (hasTrend) return agent;
     filled = true;
-    const fixture = exampleFixture(app.application, index);
+    const fixture = exampleFixture(agent.agent, index);
     const real = Object.fromEntries(
       Object.entries(metrics).filter(([, value]) => value != null),
     );
     return {
-      ...app,
+      ...agent,
       exampleFixture: fixture.meta.name,
-      metrics: { ...exampleAppMetrics(index, app.application), ...real },
+      metrics: { ...exampleAgentMetrics(index, agent.agent), ...real },
     };
   });
-  return { apps: out, filled };
+  return { agents: out, filled };
 }

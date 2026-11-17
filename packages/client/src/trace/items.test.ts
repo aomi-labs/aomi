@@ -30,7 +30,7 @@ describe("delegated runs", () => {
       argsText: "{}",
       toolCallId: failedRun.callId,
       toolName: "task",
-      args: { label: "Prepare swap", app: "default", prompt: "Swap" },
+      args: { label: "Prepare swap", agent: "default", prompt: "Swap" },
       result: { status: "failed" },
     } satisfies TraceToolPart;
     const recoveredCommit = {

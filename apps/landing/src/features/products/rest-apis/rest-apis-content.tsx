@@ -41,7 +41,7 @@ const lifecycle = [
   {
     number: "03",
     title: "Guard",
-    body: "Enforce chain, signer, ordering, slippage, and application policy.",
+    body: "Enforce chain, signer, ordering, slippage, and agent policy.",
   },
   {
     number: "04",
@@ -75,7 +75,7 @@ const sharedPipelineStages = [
   {
     number: "03",
     title: "Guard",
-    body: "Enforce chain, signer, ordering, slippage, and application policy.",
+    body: "Enforce chain, signer, ordering, slippage, and agent policy.",
     guarantee: "Errors fail closed",
     guaranteeBody:
       "Typed failures explain the next step without widening authority.",
@@ -127,7 +127,7 @@ const guarantees = [
   {
     icon: LockKeyhole,
     title: "Errors fail closed",
-    body: "Public errors expose what the caller should do next without leaking private applications or wallet ownership.",
+    body: "Public errors expose what the caller should do next without leaking private agents or wallet ownership.",
   },
 ] as const;
 
@@ -139,7 +139,7 @@ const aomi = new Aomi({
 
 const run = aomi.agent.run(
   "Move my USDC into the best yield on Base",
-  { target: { mode: "direct", app: "default" } },
+  { target: { mode: "direct", agent: "aomi/main" } },
 );
 
 run.on("action", (action) => renderApproval(action));
@@ -152,7 +152,7 @@ const curlExample = `curl https://aomi.chat/v1/agent/chat \\
   -H "Content-Type: application/json" \\
   -d '{ "message": "Move idle USDC into the best yield on Base",
         "mode": "direct",
-        "app": "default",
+        "agent": "aomi/main",
         "userState": { "evm": { "address": "0xAb5…", "chain_id": 8453 } } }'
 
 # → 200 { "session_id": "sess_…", "cursor": "cur_…",
@@ -203,11 +203,11 @@ const integrationLedger = [
 
 export default function RestApiProductPage({
   humanInterfaceHref = "/products/widget",
-  pluginSdkHref = "/products/plugin-sdk",
+  packageSdkHref = "/products/package-sdk",
   useMarketingLayout = false,
 }: {
   humanInterfaceHref?: string;
-  pluginSdkHref?: string;
+  packageSdkHref?: string;
   useMarketingLayout?: boolean;
 } = {}) {
   return (
@@ -233,7 +233,12 @@ export default function RestApiProductPage({
                 View the API reference
                 <ArrowUpRight aria-hidden />
               </a>
-              <Link to="." search={true} hash="integration" className={styles.secondaryButton}>
+              <Link
+                to="."
+                search={true}
+                hash="integration"
+                className={styles.secondaryButton}
+              >
                 Integration checklist
                 <ArrowRight aria-hidden />
               </Link>
@@ -575,7 +580,7 @@ export default function RestApiProductPage({
             />
             <figcaption>
               From{" "}
-              <Link to="/research/$slug" params={{slug: "aomibench-v0-1"}}>
+              <Link to="/research/$slug" params={{ slug: "aomibench-v0-1" }}>
                 AomiBench: benchmarking frontier models on onchain execution
               </Link>
             </figcaption>
@@ -677,7 +682,7 @@ export default function RestApiProductPage({
               Integrating into an existing product? Start here. Want Aomi to
               host the agent and the customer-facing surface too? See the{" "}
               <Link to={humanInterfaceHref}>Human Interface</Link> and{" "}
-              <Link to={pluginSdkHref}>Plugin SDK</Link>—the same signer can
+              <Link to={packageSdkHref}>Package SDK</Link>—the same signer can
               remain in control across every surface.
             </p>
           </div>

@@ -26,9 +26,9 @@
 
 ### Patch Changes
 
-- Only a `payment_required` 402 opens the out-of-funds modal. A `builder_debt` 402 says the App is temporarily unavailable until its builder adds funds, and other 402 codes show "App unavailable". A rate-limited guest sign-in (429) throws `GuestSignInError` with `retryAfterSeconds`, ends the pending send instead of leaving the thinking indicator running, and shows "Too many requests" with the wait. The Coinbase Wallet and Base Account connectors pass `preference.telemetry: false`, so the SDKs no longer load Coinbase's analytics script from cca-lite.coinbase.com.
+- Only a `payment_required` 402 opens the out-of-funds modal. A `builder_debt` 402 says the Agent is temporarily unavailable until its builder adds funds, and other 402 codes show "Agent unavailable". A rate-limited guest sign-in (429) throws `GuestSignInError` with `retryAfterSeconds`, ends the pending send instead of leaving the thinking indicator running, and shows "Too many requests" with the wait. The Coinbase Wallet and Base Account connectors pass `preference.telemetry: false`, so the SDKs no longer load Coinbase's analytics script from cca-lite.coinbase.com.
 - Expose explicit live and Stripe sandbox credit funding, show the Base Sepolia payment option, and warn that test payments add spendable credits to the current account balance.
-- A send that never started now ends at once. A 503 `app_loading` and a failed guest session check no longer leave the thinking indicator and Stop running. The composer gets the message back and a notice says what happened. A failed guest session check is a `GuestSignInError`. The new notices read "App starting" and "App not available" for a 403 or 404 on a Direct App. In a Direct-only widget the composer keeps a failed message's text: its editor no longer clears the restored draft when it remounts. A finished working trace with a failed step shows a warning and the failed count in its header.
+- A send that never started now ends at once. A 503 `agent_loading` and a failed guest session check no longer leave the thinking indicator and Stop running. The composer gets the message back and a notice says what happened. A failed guest session check is a `GuestSignInError`. The new notices read "Agent starting" and "Agent not available" for a 403 or 404 on a Direct Agent. In a Direct-only widget the composer keeps a failed message's text: its editor no longer clears the restored draft when it remounts. A finished working trace with a failed step shows a warning and the failed count in its header.
 
 ## 1.0.2
 
@@ -48,7 +48,7 @@
 
 - 665e1dc: Cut over to owner-scoped funding events and one Card / USDC checkout for account and builder credits. Remove top-up and purchase APIs, end-user BYOK options and funding headers. Consumers must upgrade with the backend; no compatibility adapters are provided.
 
-  Builder grants specify canonical model coverage. App metadata carries fundedModelOnly and sponsoredModelIds inline. Hosting charges debit builder credits, separately from personal Chat credits.
+  Builder grants specify canonical model coverage. Agent metadata carries fundedModelOnly and sponsoredModelIds inline. Hosting charges debit builder credits, separately from personal Chat credits.
 
   Use the generated CreditBalance and CreditLedger contracts. credits.get() returns only the balance; load history with credits.ledger(). Remove AomiCreditPosition/AomiCreditActivity and export CreditBalance, CreditLedger and CreditLedgerEntry. The shared checkout component is CreditCheckoutDialog.
 
@@ -58,7 +58,7 @@
 
 - e7d4c1e: Agent wallets and approvals.
   - `client.account.wallets`: `listWallets()` (every wallet the account owns; an agent key carries `agent_wallet_id` and `maker_app`, a browser one `browser_app`), `agentWallets()` (`{pause_all, wallets}`), `createAgentWallet`, `updateAgentWallet` (rename, pause, archive), `agentWalletBalances`, `withdrawAgentWallet`, `pauseAll(paused)` (`PUT /v1/account/pause-all`) and `setThreadWallet(threadId, id)`. Failures are `AomiWalletError`; wallet ids are `w_<id>` (`walletRef`, `parseWalletRef`).
-  - `client.account.connections`: list, label (`setConnectionSettings(key, {label?})`), lanes (`setConnectionWallets(key, {wallets: [{id, lane}], application?, new_app_wallet?: {lane}, ask_only?})`) and disconnect. Every connection sees every wallet; an `AomiLane` says who finishes its trade from an agent wallet: `portal` (you approve on Aomi), `here` (it approves its own) or `instant`. `ask_only` caps every lane at `portal`. `listWallets()` entries carry the caller's `lane`.
+  - `client.account.connections`: list, label (`setConnectionSettings(key, {label?})`), lanes (`setConnectionWallets(key, {wallets: [{id, lane}], agent?, new_app_wallet?: {lane}, ask_only?})`) and disconnect. Every connection sees every wallet; an `AomiLane` says who finishes its trade from an agent wallet: `portal` (you approve on Aomi), `here` (it approves its own) or `instant`. `ask_only` caps every lane at `portal`. `listWallets()` entries carry the caller's `lane`.
   - `client.account.link`: preview, confirm and cancel a one-time link code for a platform account (`previewLink("telegram", code)`; `LinkError`, `isLinkCode`).
   - `aomi.commits.get(ref)` opens a commit without a thread (`CommitHandle`: `view`, `review`, `refresh()`, `sign()`, `approve()`, `reject()`). It loads every member of the commit's batch; `batch` lists them and `settled` says when the whole operation is over. Writes name the reviewed version and digest (`CommitStaleError`); `CommitNotFoundError`, `CommitApprovalForbiddenError`, `CommitExpiredError`, `CommitNotAwaitingApprovalError`.
   - `CommitView` gains the `awaiting_approval` state and `approval`; `CommitRefView` gains `can_approve` and `sign_url`.
@@ -72,9 +72,9 @@
   - `aomi.agent.thread(id?)` → `Thread.send(text)` → `Turn`: await it for `{ state, reply, commits }` (a failed turn rejects with `turn_failed`), iterate `turn.steps({ decode? })`, `turn.interrupt()`. `thread.rename()`, `aomi.agent.threads.list()`; `aomi.agent.run()` answers `reply`.
   - One `Commit` (`CommitHandle`) for EVM and Solana transactions and messages: `kind`, `state`, `signUrl`, `sign()` and `approve()` (at the version you were handed or reviewed), `refresh()`, `settled()` (waits; rejects with `CommitSettleError`; the snapshot is `settlement`).
   - `aomi.pipeline.build(op, args)`, `operations()`, `invoke()` use the default app unless `{ app }` is given, pick EVM or Solana from the operation and fill `topic`; for EVM, `build.commit()` answers a Commit. `aomi.pipeline.skills.list()`.
-  - `aomi.account`: `me()`, `wallets.list/balance`, `apps.install/uninstall` and `apps.credentials(name).set/save/clear` (by name or application id), `guard.get/set` (with `revision`), `statement()`, `logins`, `merge()` (offers and Retry-After are on the error), `keys` (the BYOK and secrets vault, `/v1/account/keys`), `policies` (on-chain Swig policies), `switchTo(ticket)`, SIWE/SIWS nonce and verify, Solana wallet links, `exchangeProviderCredential(c, { newSession })` and `grantDeviceLink()` (a Privy or Para credential for the CLI's one-time device-link code). `aomi.builder.credits`.
+  - `aomi.account`: `me()`, `wallets.list/balance`, `apps.install/uninstall` and `apps.credentials(name).set/save/clear` (by name or agent id), `guard.get/set` (with `revision`), `statement()`, `logins`, `merge()` (offers and Retry-After are on the error), `keys` (the BYOK and secrets vault, `/v1/account/keys`), `policies` (on-chain Swig policies), `switchTo(ticket)`, SIWE/SIWS nonce and verify, Solana wallet links, `exchangeProviderCredential(c, { newSession })` and `grantDeviceLink()` (a Privy or Para credential for the CLI's one-time device-link code). `aomi.builder.credits`.
   - `AomiError` (`code`, `hint`, `status`) and `isAomiError(e, code?)`. `AccountGraphApiError` messages are the server's message or code.
-  - `AomiClient`'s secret methods use `/v1/account/keys`; `AomiClient.resolveAppKey(key)` and `addAccountApp(…, { apiKey })`. An `x402` client is kept when there is no signer.
+  - `AomiClient`'s secret methods use `/v1/account/keys`; `AomiClient.resolveAgentKey(key)` and `addAccountAgent(…, { apiKey })`. An `x402` client is kept when there is no signer.
   - Subpaths: `@aomi-labs/client/viem` (`viemSigner`), `@aomi-labs/client/solana` (`solanaSigner`; Solana libraries are now optional peers), `@aomi-labs/client/node` (`fileGrants`), and `@aomi-labs/client/trace`, the React-free trace decoder: `decode(step)` turns a tool call into a title, chips, status and icon key; `traceFromEvents(events)` groups one turn into notes, steps, delegated agents, context steps and folded `read_tool_output` reads. Icons are string keys (`"swap"`, `"simulate"`, `chain:8453`), so each renderer picks its own glyphs. The root entry does not import it.
 
 - 391ac57: Allow browser OAuth sessions to retain non-exportable DPoP keys in IndexedDB and restore without interactive authorization. Export the shared account menu, avatar, checkout and widget scope for host composition; support menus below a header control.
@@ -120,7 +120,7 @@
 ## 0.7.5
 
 - Normalize backend-owned Library `feature_catalog` and registration metadata
-  while keeping same-name hosted apps distinct by application ID.
+  while keeping same-name hosted apps distinct by agent ID.
 
 ## 0.7.4
 

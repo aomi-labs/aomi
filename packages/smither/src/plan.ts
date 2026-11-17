@@ -1,7 +1,7 @@
 import path from "node:path";
 import { z } from "zod";
 
-export const WORKFLOW_NAME = "aomi-app-from-scratch";
+export const WORKFLOW_NAME = "aomi-package-from-scratch";
 
 // ---------------------------------------------------------------------------
 // Phase vocabulary — the composition model
@@ -34,8 +34,6 @@ export const computeOpSchema = z.enum([
   "binaries",
   "codegen",
   "validate",
-  "smoke",
-  "deploy",
   "result",
 ]);
 export type ComputeOp = z.infer<typeof computeOpSchema>;
@@ -74,9 +72,8 @@ export const agentPhaseSchema = z.object({
    *  process cwd) instead of the SDK checkout — for cross-codebase work like
    *  proposing APIs inside a game engine's repo. */
   repo: z.string().optional(),
-  /** Loop-body conditional: mount only when the latest validation is red
-   *  ("prev-red") or the latest eval failed ("prev-eval-fail"). */
-  onlyIf: z.enum(["prev-red", "prev-eval-fail"]).optional(),
+  /** Mount only after a failed validation. */
+  onlyIf: z.literal("prev-red").optional(),
   label: z.string().optional(),
 });
 
@@ -101,25 +98,6 @@ export const gatePhaseSchema = z.object({
   label: z.string().optional(),
 });
 
-/** A behavioral eval: run the compiled plugin against a scenario prompt, then
- *  score the transcript against a rubric with an LLM judge. Produces a metric
- *  and a pass/fail against `threshold` — the exit signal for an `eval-pass`
- *  loop. Generalizes smoke from "did it run" to "did it do the right thing". */
-export const evalPhaseSchema = z.object({
-  kind: z.literal("eval"),
-  id: phaseIdSchema,
-  /** Prompt fed to `aomi-run` against the compiled plugin. */
-  scenario: z.string().min(1),
-  /** How the judge scores the transcript (0..1). */
-  rubric: z.string().min(1),
-  /** Pass bar; the loop exits when the latest eval's score ≥ threshold. */
-  threshold: z.number().min(0).max(1).default(0.7),
-  /** Judge agent. Defaults to plan.builder (claude when builder is none). */
-  judge: z.enum(["claude", "codex"]).optional(),
-  label: z.string().optional(),
-});
-export type EvalPhase = z.infer<typeof evalPhaseSchema>;
-
 export type AgentPhase = z.infer<typeof agentPhaseSchema>;
 
 export const innerPhaseSchema = z.discriminatedUnion("kind", [
@@ -127,13 +105,12 @@ export const innerPhaseSchema = z.discriminatedUnion("kind", [
   agentPhaseSchema,
   clarifyPhaseSchema,
   gatePhaseSchema,
-  evalPhaseSchema,
 ]);
 export type InnerPhase = z.infer<typeof innerPhaseSchema>;
 
 /**
  * A bounded retry loop. `until` names the persisted exit predicate
- * (validation green, or an eval scoring at/above its threshold). `onMax`
+ * (validation green). `onMax`
  * governs the tail: "fail" aborts the run; "return-last" stops gracefully and
  * lets the composition continue — pair it with a following clarify/gate to
  * escalate the decision to the human instead of hard-failing.
@@ -141,7 +118,7 @@ export type InnerPhase = z.infer<typeof innerPhaseSchema>;
 export const loopPhaseSchema = z.object({
   kind: z.literal("loop"),
   id: phaseIdSchema,
-  until: z.enum(["validation-green", "eval-pass"]),
+  until: z.literal("validation-green"),
   maxRounds: z.number().int().min(1).max(6).default(3),
   /** Tail behavior. Omitted ⇒ "fail" (abort the run). "return-last" stops the
    *  loop gracefully at maxRounds so the composition can continue. */
@@ -186,7 +163,6 @@ export const phaseSchema = z.discriminatedUnion("kind", [
   agentPhaseSchema,
   clarifyPhaseSchema,
   gatePhaseSchema,
-  evalPhaseSchema,
   loopPhaseSchema,
   parallelPhaseSchema,
   waitExternalPhaseSchema,
@@ -199,20 +175,20 @@ export type Phase = z.infer<typeof phaseSchema>;
 
 /**
  * The contract between the intent conversation and the Smithers workflow.
- * The chat distills user intent into this plan; `buildAppWorkflow` renders
+ * The chat distills user intent into this plan; `buildPackageWorkflow` renders
  * the task graph from `resolveComposition(plan)`. Everything the workflow's
  * shape depends on lives here so the composed graph is a pure function of
  * (plan, persisted state).
  */
 export const buildPlanSchema = z.object({
-  app: z
+  packageName: z
     .string()
     .min(1)
-    .regex(/^[a-zA-Z0-9_-]+$/, "app must be a simple package name"),
+    .regex(/^[a-zA-Z0-9_-]+$/, "package must be a simple package name"),
   sdkRoot: z.string().min(1),
   source: z.enum(["discover", "url", "existing"]).default("discover"),
   openApiUrl: z.string().url().optional(),
-  userStory: z.string().default("Create and validate an Aomi app."),
+  userStory: z.string().default("Create and validate an Aomi package."),
   shared: z.boolean().default(false),
   force: z.boolean().default(false),
   build: z.boolean().default(true),
@@ -223,22 +199,7 @@ export const buildPlanSchema = z.object({
   reviewer: z.enum(["claude", "codex"]).default("codex"),
   /** Validate/fix loop budget: 1 validation + up to N agent repair rounds. */
   maxFixRounds: z.number().int().min(0).max(5).default(2),
-  smoke: z.boolean().default(false),
-  smokePrompt: z.string().default("List the app capabilities in one paragraph."),
-  deploy: z.boolean().default(false),
-  /** Deploy from a standalone source repo instead of the SDK checkout —
-   *  `aomi-build deploy` requires a pushed GitHub commit with a tracked
-   *  aomi.toml, which the SDK monorepo does not provide for generated apps. */
-  deployPath: z.string().optional(),
-  /** Repo-relative aomi.toml to scope the deploy to one app (a deploy repo
-   *  may host several apps). */
-  deployAomiToml: z.string().optional(),
-  /** Backend platform tag. Passed explicitly because aomi-build prefers the
-   *  operator's saved config over the manifest when resolving the platform. */
-  deployPlatform: z.string().optional(),
-  /** Skip approval gates (headless --yes). */
   autoApprove: z.boolean().default(false),
-  /** Proceed even when the SDK checkout can't be synced with GitHub. */
   allowStaleSdk: z.boolean().default(false),
   /** Composed phase list. Absent ⇒ `classicComposition` (the flag-driven
    *  pipeline). Present ⇒ the intent agent (edited by the human in preview)
@@ -248,10 +209,10 @@ export const buildPlanSchema = z.object({
 
 export type BuildPlan = z.infer<typeof buildPlanSchema>;
 
-/** Stable Smithers node id for an app stage. Resume depends on these never
+/** Stable Smithers node id for an package stage. Resume depends on these never
  *  changing shape, so derive them from data only. */
-export function nodeId(app: string, stage: string): string {
-  return `${app}:${stage}`;
+export function nodeId(packageName: string, stage: string): string {
+  return `${packageName}:${stage}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -268,7 +229,12 @@ export function classicComposition(plan: BuildPlan): Phase[] {
   if (plan.builder !== "none") {
     phases.push({ kind: "agent", id: "curate", role: "curate" });
     if (plan.review) {
-      phases.push({ kind: "agent", id: "review", role: "review", agent: plan.reviewer });
+      phases.push({
+        kind: "agent",
+        id: "review",
+        role: "review",
+        agent: plan.reviewer,
+      });
     }
   }
   phases.push({
@@ -284,21 +250,6 @@ export function classicComposition(plan: BuildPlan): Phase[] {
             { kind: "agent", id: "fix", role: "fix", onlyIf: "prev-red" },
           ],
   });
-  if (plan.smoke) {
-    phases.push({ kind: "compute", id: "smoke", op: "smoke" });
-  }
-  if (plan.deploy) {
-    if (!plan.autoApprove) {
-      phases.push({
-        kind: "gate",
-        id: "deploy-gate",
-        title: `Deploy ${plan.app} to Aomi?`,
-        summary:
-          "Ships the validated build via aomi-build deploy. Requires an activation token (flag, AOMI_APP_ACTIVATION_TOKEN, or ~/.config/aomi/config.toml).",
-      });
-    }
-    phases.push({ kind: "compute", id: "deploy", op: "deploy" });
-  }
   phases.push({ kind: "compute", id: "result", op: "result" });
   return phases;
 }
@@ -309,7 +260,9 @@ export function classicComposition(plan: BuildPlan): Phase[] {
 export function resolveComposition(plan: BuildPlan): Phase[] {
   if (!plan.phases || plan.phases.length === 0) return classicComposition(plan);
   const phases = [...plan.phases];
-  const hasResult = phases.some((p) => p.kind === "compute" && p.op === "result");
+  const hasResult = phases.some(
+    (p) => p.kind === "compute" && p.op === "result",
+  );
   if (!hasResult) phases.push({ kind: "compute", id: "result", op: "result" });
   return phases;
 }
@@ -348,25 +301,35 @@ export function compositionIssues(plan: BuildPlan): string[] {
   // id uniqueness across every phase, container and leaf alike.
   const seen = new Set<string>();
   for (const phase of phases) {
-    for (const p of [phase, ...(phase.kind === "loop" || phase.kind === "parallel" ? innerPhasesOf(phase) : [])]) {
+    for (const p of [
+      phase,
+      ...(phase.kind === "loop" || phase.kind === "parallel"
+        ? innerPhasesOf(phase)
+        : []),
+    ]) {
       if (seen.has(p.id)) issues.push(`phases: duplicate id "${p.id}"`);
       seen.add(p.id);
     }
   }
 
-  // binaries must precede anything that reads the built binaries or plugin.
+  // binaries must precede anything that reads the built binaries or package.
   const flat = orderedFlat(phases);
-  const flatIndex = (pred: (p: InnerPhase | Phase) => boolean) => flat.findIndex(pred);
-  const binariesAt = flatIndex((p) => p.kind === "compute" && p.op === "binaries");
+  const flatIndex = (pred: (p: InnerPhase | Phase) => boolean) =>
+    flat.findIndex(pred);
+  const binariesAt = flatIndex(
+    (p) => p.kind === "compute" && p.op === "binaries",
+  );
   const needsBinaries: Array<{ what: string; at: number }> = [
-    { what: "codegen", at: flatIndex((p) => p.kind === "compute" && p.op === "codegen") },
-    { what: "smoke", at: flatIndex((p) => p.kind === "compute" && p.op === "smoke") },
-    { what: "deploy", at: flatIndex((p) => p.kind === "compute" && p.op === "deploy") },
-    { what: "eval", at: flatIndex((p) => p.kind === "eval") },
+    {
+      what: "codegen",
+      at: flatIndex((p) => p.kind === "compute" && p.op === "codegen"),
+    },
   ];
   for (const { what, at } of needsBinaries) {
     if (at !== -1 && (binariesAt === -1 || binariesAt > at)) {
-      issues.push(`phases: "${what}" needs a "binaries" compute phase before it`);
+      issues.push(
+        `phases: "${what}" needs a "binaries" compute phase before it`,
+      );
     }
   }
 
@@ -384,11 +347,6 @@ export function compositionIssues(plan: BuildPlan): string[] {
     ) {
       issues.push(
         `phases: loop "${phase.id}" exits on validation-green but has no "validate" compute phase in its body`,
-      );
-    }
-    if (phase.until === "eval-pass" && !phase.body.some((p) => p.kind === "eval")) {
-      issues.push(
-        `phases: loop "${phase.id}" exits on eval-pass but has no "eval" phase in its body`,
       );
     }
   }
@@ -423,8 +381,6 @@ const OP_LABEL: Record<ComputeOp, string> = {
   binaries: "Sync SDK from GitHub, build aomi binaries",
   codegen: "aomi-build codegen",
   validate: "Validate (cargo fmt/clippy/test)",
-  smoke: "Compile plugin, local aomi-run smoke",
-  deploy: "Deploy via aomi-build",
   result: "Summarize run",
 };
 
@@ -438,7 +394,10 @@ const ROLE_LABEL: Record<AgentRole, (agent: string) => string> = {
   design: (a) => `Design integration with ${a}`,
 };
 
-export function phaseAgent(plan: BuildPlan, phase: { role: AgentRole; agent?: "claude" | "codex" }): "claude" | "codex" {
+export function phaseAgent(
+  plan: BuildPlan,
+  phase: { role: AgentRole; agent?: "claude" | "codex" },
+): "claude" | "codex" {
   if (phase.agent) return phase.agent;
   if (phase.role === "review") return plan.reviewer;
   return plan.builder === "none" ? "claude" : plan.builder;
@@ -477,7 +436,7 @@ function stageLabel(plan: BuildPlan, phase: Phase | InnerPhase): string {
       if (phase.op === "codegen") {
         return plan.source === "existing"
           ? "aomi-build gen-client + gen-tool from existing spec"
-          : "aomi-build new-app codegen";
+          : "aomi-build new-package codegen";
       }
       return OP_LABEL[phase.op];
     case "agent":
@@ -486,14 +445,9 @@ function stageLabel(plan: BuildPlan, phase: Phase | InnerPhase): string {
       return phase.question;
     case "gate":
       return phase.title;
-    case "eval":
-      return `Eval: run scenario, judge (pass ≥ ${phase.threshold})`;
     case "wait-external":
       return `Wait for external: ${phase.waitingFor}`;
     case "loop": {
-      if (phase.until === "eval-pass") {
-        return `Run + eval, refine (up to ${phase.maxRounds - 1} rounds)`;
-      }
       const repairs = phase.body.filter((p) => p.kind === "agent").length;
       return repairs > 0
         ? `Validate, repair (up to ${phase.maxRounds - 1} rounds)`
@@ -504,16 +458,22 @@ function stageLabel(plan: BuildPlan, phase: Phase | InnerPhase): string {
   }
 }
 
-function stageFor(plan: BuildPlan, phase: Phase | InnerPhase, branchOf?: string): PlanStage {
-  const id = (stage: string) => nodeId(plan.app, stage);
-  const base = { id: id(phase.id), label: stageLabel(plan, phase), ...(branchOf ? { branchOf } : {}) };
+function stageFor(
+  plan: BuildPlan,
+  phase: Phase | InnerPhase,
+  branchOf?: string,
+): PlanStage {
+  const id = (stage: string) => nodeId(plan.packageName, stage);
+  const base = {
+    id: id(phase.id),
+    label: stageLabel(plan, phase),
+    ...(branchOf ? { branchOf } : {}),
+  };
   switch (phase.kind) {
     case "compute":
       return { ...base, kind: "compute" };
     case "agent":
       return { ...base, kind: "agent" };
-    case "eval":
-      return { ...base, kind: "eval" };
     case "wait-external":
       return { ...base, kind: "wait-external" };
     case "loop":
@@ -526,7 +486,11 @@ function stageFor(plan: BuildPlan, phase: Phase | InnerPhase, branchOf?: string)
       return {
         ...base,
         kind: "clarify",
-        clarify: { question: phase.question, summary: phase.summary, options: phase.options },
+        clarify: {
+          question: phase.question,
+          summary: phase.summary,
+          options: phase.options,
+        },
       };
   }
 }
@@ -542,8 +506,8 @@ export function stageKeyForNode(plan: BuildPlan, nodeIdValue: string): string {
   for (const phase of resolveComposition(plan)) {
     if (phase.kind !== "loop") continue;
     for (const inner of phase.body) {
-      if (nodeId(plan.app, inner.id) === nodeIdValue) {
-        return nodeId(plan.app, phase.id);
+      if (nodeId(plan.packageName, inner.id) === nodeIdValue) {
+        return nodeId(plan.packageName, phase.id);
       }
     }
   }
@@ -556,7 +520,8 @@ export function stagesFor(plan: BuildPlan): PlanStage[] {
     if (phase.kind === "parallel") {
       stages.push(stageFor(plan, phase));
       for (const branch of phase.branches) {
-        for (const inner of branch) stages.push(stageFor(plan, inner, phase.id));
+        for (const inner of branch)
+          stages.push(stageFor(plan, inner, phase.id));
       }
       continue;
     }
@@ -571,22 +536,22 @@ export function describePlan(plan: BuildPlan): string[] {
     plan.source === "url"
       ? `OpenAPI url: ${plan.openApiUrl ?? "(missing)"}`
       : plan.source === "existing"
-        ? `existing spec: apps/${plan.app}/openapi.yaml`
+        ? `existing spec: packages/${plan.packageName}/openapi.yaml`
         : "discover spec via aomi-build";
   const lines = [
-    `app: ${plan.app}`,
+    `package: ${plan.packageName}`,
     `sdk: ${plan.sdkRoot}${plan.allowStaleSdk ? " (stale allowed)" : " (synced from GitHub)"}`,
     `source: ${source}`,
     `story: ${plan.userStory}`,
     `builder: ${plan.builder}${plan.review ? ` · reviewed by ${plan.reviewer}` : ""}`,
     `fix rounds: ${plan.maxFixRounds}`,
-    `smoke: ${plan.smoke ? plan.smokePrompt : "off"}`,
-    `deploy: ${plan.deploy ? (plan.autoApprove ? "yes (auto-approved)" : "yes (gated)") : "off"}`,
   ];
   if (plan.shared) lines.push("shared: generate provider under ext/");
   if (plan.force) lines.push("force: overwrite generated files");
   if (plan.phases && plan.phases.length > 0) {
-    lines.push(`composition: ${plan.phases.length} custom phases (composed from intent)`);
+    lines.push(
+      `composition: ${plan.phases.length} custom phases (composed from intent)`,
+    );
   }
   return lines;
 }
@@ -617,11 +582,16 @@ export function finalizePlan(
   if (!parsed.success) {
     return {
       plan: null,
-      issues: parsed.error.issues.map((issue) => `${issue.path.join(".") || "plan"}: ${issue.message}`),
+      issues: parsed.error.issues.map(
+        (issue) => `${issue.path.join(".") || "plan"}: ${issue.message}`,
+      ),
     };
   }
   if (parsed.data.source === "url" && !parsed.data.openApiUrl) {
-    return { plan: null, issues: ["openApiUrl: required when source is \"url\""] };
+    return {
+      plan: null,
+      issues: ['openApiUrl: required when source is "url"'],
+    };
   }
   const issues = compositionIssues(parsed.data);
   if (issues.length > 0) {

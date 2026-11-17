@@ -5,7 +5,7 @@ import { useAomiDisplayCache } from "@aomi-labs/react";
 import type { WalletFamily } from "@/wallet/types";
 
 /**
- * What the account chip needs for its first paint, saved per backend and app
+ * What the account chip needs for its first paint, saved per backend and agent
  * so a reload shows the account at once while the session is confirmed. It
  * holds display data only, never a credential.
  */
@@ -87,7 +87,7 @@ export function useAccountSnapshot(): [
   (value: AccountSnapshot | null) => void,
 ] {
   const scope = useAomiDisplayCache()?.scope;
-  const key = `${PREFIX}${scope ? `${scope.backendUrl}|${scope.appId}` : "default"}`;
+  const key = `${PREFIX}${scope ? `${scope.backendUrl}|${scope.agentScope}` : "default"}`;
   const storedSnapshot = useSyncExternalStore(
     subscribe,
     () => read(key),

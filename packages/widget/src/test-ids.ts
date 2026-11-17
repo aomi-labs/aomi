@@ -6,7 +6,7 @@ export const testIds = {
   frame: "aomi-frame",
   composer: "aomi-composer",
   composerInput: "aomi-composer-input",
-  composerSelectedApp: "composer-selected-app",
+  composerSelectedAgent: "composer-selected-agent",
   send: "aomi-send",
   stop: "aomi-stop",
   messageList: "aomi-message-list",

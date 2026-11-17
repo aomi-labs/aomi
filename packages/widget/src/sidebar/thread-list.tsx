@@ -370,7 +370,7 @@ const ThreadListItemMenu: FC<{
   // Collapsed to zero width by default so the title uses the full row; on row
   // hover / keyboard focus (scoped to *this* row via the named group) it
   // expands and the title reflows to a truncated "…". Named group so an
-  // ancestor `.group` in a host app can't reveal every row at once. Pinned
+  // ancestor `.group` in a host agent can't reveal every row at once. Pinned
   // open while the menu is showing, since the cursor leaves the row for the
   // portaled popover. Touch devices reveal the control without a hover gesture.
   const revealClass = open

@@ -10,7 +10,7 @@ import type { ToolFact, ToolMatcher, ToolOperation } from "../../types";
  * a run whose result carries no `agent_id` join key, an older transcript, or a
  * "Phase 0" reload with no live sidecar.
  *
- * Args are the `ChildTaskRequest` (`{label, app, prompt}`); the public result
+ * Args are the `ChildTaskRequest` (`{label, agent, prompt}`); the public result
  * projection is `{agent_id, status, staged_count}`.
  */
 

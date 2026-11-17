@@ -16,13 +16,13 @@ import {
 import { CopyButton } from "@/account/account-management/controls";
 import { ConnectionMark } from "./connection-mark";
 
-type App = {
+type Agent = {
   name: string;
   kind: AomiConnectionKind;
   description?: string;
 };
 
-const AI_CLIENTS: App[] = [
+const AI_CLIENTS: Agent[] = [
   { name: "Claude", kind: "ai" },
   { name: "Codex", kind: "ai" },
   { name: "Cursor", kind: "ai" },
@@ -32,7 +32,7 @@ const AI_CLIENTS: App[] = [
     description: "Any agent that speaks MCP",
   },
 ];
-const MORE: App[] = [
+const MORE: Agent[] = [
   { name: "Telegram", kind: "telegram", description: "Any Aomi bot" },
   { name: "Terminal", kind: "cli", description: "Aomi CLI" },
   { name: "Your own app", kind: "app", description: "SDK" },
@@ -89,17 +89,19 @@ function GuideLink({ href, children }: { href: string; children: ReactNode }) {
  * instead of wallets, then one screen per app in the same sheet.
  */
 export function ConnectAppSheet({ onClose }: { onClose: () => void }) {
-  const [app, setApp] = useState<App | null>(null);
+  const [app, setAgent] = useState<Agent | null>(null);
   const back = (
-    <FootnoteLink onClick={() => setApp(null)}>Choose another app</FootnoteLink>
+    <FootnoteLink onClick={() => setAgent(null)}>
+      Choose another app
+    </FootnoteLink>
   );
-  const row = (choice: App) => (
+  const row = (choice: Agent) => (
     <ChoiceRow
       key={choice.name}
       leading={<ConnectionMark kind={choice.kind} name={choice.name} />}
       title={choice.name}
       description={choice.description}
-      onClick={() => setApp(choice)}
+      onClick={() => setAgent(choice)}
     />
   );
 

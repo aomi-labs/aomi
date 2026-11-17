@@ -49,10 +49,10 @@ export type AomiRuntimeProviderProps = {
   aomi?: Aomi;
   /** Credentials stay in memory unless a host opts into tab-scoped persistence. */
   apiKeyPersistence?: "memory" | "session";
-  applicationId?: number | string | null;
+  agent?: string | null;
   /** Optional host-fixed target. Omit to use the per-thread Auto/Direct control. */
   agentTarget?: AgentTarget;
-  appPlatforms?: AomiPlatformFilter;
+  catalogPlatforms?: AomiPlatformFilter;
   clientOptions?: Omit<AomiClientOptions, "baseUrl">;
   actions?: ActionCapabilities;
   commits?: CommitCapabilities;
@@ -68,7 +68,7 @@ export type AomiRuntimeProviderProps = {
   persistThread?: boolean;
   /** Full localStorage key override for vendors that need exact isolation. */
   threadPersistenceKey?: string;
-  /** Extra key segment for tenant/user/app scoping of the stored thread. */
+  /** Extra key segment for tenant/user/agent scoping of the stored thread. */
   threadPersistenceScope?: string | null;
 };
 
@@ -83,9 +83,9 @@ export function AomiRuntimeProvider({
   backendUrl,
   aomi: suppliedAomi,
   apiKeyPersistence,
-  applicationId,
+  agent,
   agentTarget,
-  appPlatforms,
+  catalogPlatforms,
   clientOptions,
   actions,
   commits,
@@ -107,12 +107,12 @@ export function AomiRuntimeProvider({
       threadPersistenceKey ??
       buildThreadPersistenceKey({
         backendUrl,
-        applicationId,
+        agent,
         scope: threadPersistenceScope,
       })
     );
   }, [
-    applicationId,
+    agent,
     backendUrl,
     persistThread,
     threadPersistenceKey,
@@ -155,7 +155,7 @@ export function AomiRuntimeProvider({
   return (
     <DisplayCacheProvider
       backendUrl={backendUrl}
-      applicationId={applicationId}
+      agent={agent}
       account={account}
       persistence={displayPersistence}
       aomi={aomi}
@@ -175,9 +175,9 @@ export function AomiRuntimeProvider({
               }
               apiKeyPersistence={apiKeyPersistence}
               backendUrl={backendUrl}
-              applicationId={applicationId}
+              agent={agent}
               agentTarget={agentTarget}
-              appPlatforms={appPlatforms}
+              catalogPlatforms={catalogPlatforms}
               accountSessionAvailable={accountSessionAvailable}
               actions={actions}
               commits={commits}
@@ -206,9 +206,9 @@ type AomiRuntimeInnerProps = {
     | AomiClientOptions["oauth"];
   apiKeyPersistence?: "memory" | "session";
   backendUrl: string;
-  applicationId?: number | string | null;
+  agent?: string | null;
   agentTarget?: AgentTarget;
-  appPlatforms?: AomiPlatformFilter;
+  catalogPlatforms?: AomiPlatformFilter;
   accountSessionAvailable: boolean;
   actions?: ActionCapabilities;
   commits?: CommitCapabilities;
@@ -225,9 +225,9 @@ function AomiRuntimeInner({
   accountAuthSource,
   apiKeyPersistence,
   backendUrl,
-  applicationId,
+  agent,
   agentTarget,
-  appPlatforms,
+  catalogPlatforms,
   accountSessionAvailable,
   actions,
   commits,
@@ -248,8 +248,8 @@ function AomiRuntimeInner({
       sessionId={threadContext.currentThreadId}
       getThreadMetadata={threadContext.getThreadMetadata}
       updateThreadMetadata={threadContext.updateThreadMetadata}
-      appPlatforms={appPlatforms}
-      applicationId={applicationId}
+      catalogPlatforms={catalogPlatforms}
+      agent={agent}
       accountSessionAvailable={accountSessionAvailable}
       account={account}
     >

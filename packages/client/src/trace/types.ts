@@ -5,7 +5,7 @@
 export type TraceGlyph =
   | "agent"
   | "allowance"
-  | "app"
+  | "toolset"
   | "approve"
   | "archive"
   | "block"
@@ -51,11 +51,11 @@ export type TraceGlyph =
   | "wallet"
   | "warning";
 
-/** A glyph, or a logo key: a chain id, an app brand or a skill id. */
+/** A glyph, or a logo key: a chain id, an agent brand or a skill id. */
 export type TraceIcon =
   | TraceGlyph
   | `chain:${number}`
-  | `app:${string}`
+  | `toolset:${string}`
   | `skill:${string}`;
 
 export type ToolConfidence = "high" | "medium" | "fallback";
@@ -63,13 +63,13 @@ export type ToolConfidence = "high" | "medium" | "fallback";
 export type ToolChip = {
   key?: string;
   label: string;
-  /** App and skill names, rendered with a graphical separator. */
+  /** Agent and skill names, rendered with a graphical separator. */
   labelParts?: readonly [string, string];
   /** Stable identity for attribution badges with potentially identical labels. */
   id?: string;
   title?: string;
   skillId?: string;
-  attribution?: "app" | "skill";
+  attribution?: "toolset" | "skill";
   icon?: TraceIcon;
   essential?: boolean;
 };

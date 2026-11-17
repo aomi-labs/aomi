@@ -71,8 +71,8 @@ function Names({ names }: { names: readonly string[] }) {
   );
 }
 
-const appLabel = (id: string, catalog: AomiRulesCatalog | null) =>
-  catalog?.apps.find((app) => app.id === id)?.label ??
+const protocolLabel = (id: string, catalog: AomiRulesCatalog | null) =>
+  catalog?.protocols.find((protocol) => protocol.id === id)?.label ??
   `${id.charAt(0).toUpperCase()}${id.slice(1)}`;
 
 /**
@@ -100,7 +100,7 @@ export function WalletRules({
   const [editing, setEditing] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [panel, setPanel] = useState<
-    "apps" | "limit" | "admin" | "template" | null
+    "protocols" | "limit" | "admin" | "template" | null
   >(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -240,7 +240,7 @@ export function WalletRules({
 
   const pending = rules.pending;
   const {
-    apps,
+    protocols,
     limits,
     not_after: notAfter,
     owner_only: ownerOnly,
@@ -249,8 +249,8 @@ export function WalletRules({
   const left = pending ? timeUntil(pending.expires_at) : null;
   const write = (next: Partial<AomiRuleSet>) =>
     void save({ rules: { ...rules.rules, ...next } });
-  // An app list already keeps plain sends to the owner's wallets.
-  const sendsHome = ownerOnly || apps !== null;
+  // A protocol list already keeps plain sends to the owner's wallets.
+  const sendsHome = ownerOnly || protocols !== null;
   // Once a provider checks on chain, each rule says who checks it.
   const onChain = enforcers(rules.enforcement).length > 0;
   const checkedBy = (covers: Parameters<typeof enforcers>[1]) =>
@@ -373,38 +373,44 @@ export function WalletRules({
       ) : (
         <>
           <ListGroup aria-busy={saving || undefined}>
-            <div data-rule="apps">
+            <div data-rule="protocols">
               <div className={ROW}>
-                <p className={cn(SENTENCE, !apps && "text-aomi-muted")}>
-                  {apps?.length ? (
+                <p className={cn(SENTENCE, !protocols && "text-aomi-muted")}>
+                  {protocols?.length ? (
                     <>
                       Can use{" "}
-                      <Names names={apps.map((id) => appLabel(id, catalog))} />
+                      <Names
+                        names={protocols.map((id) => protocolLabel(id, catalog))}
+                      />
                     </>
-                  ) : apps ? (
-                    "Can use no app"
+                  ) : protocols ? (
+                    "Can use no protocol"
                   ) : (
-                    "Can use any app"
+                    "Can use any protocol"
                   )}
                 </p>
-                {checkedBy((covers) => covers.apps.length > 0)}
+                {checkedBy((covers) => covers.protocols.length > 0)}
                 <AomiButton
                   size="sm"
-                  aria-expanded={panel === "apps"}
-                  onClick={() => setPanel(panel === "apps" ? null : "apps")}
+                  aria-expanded={panel === "protocols"}
+                  onClick={() =>
+                    setPanel(panel === "protocols" ? null : "protocols")
+                  }
                 >
                   <Plus />
-                  App
+                  Protocol
                 </AomiButton>
               </div>
-              {panel === "apps" ? (
-                <AppPicker
+              {panel === "protocols" ? (
+                <ProtocolPicker
                   catalog={catalog}
                   onRetry={catalogFailed ? loadCatalog : undefined}
-                  selected={apps ?? []}
+                  selected={protocols ?? []}
                   saving={saving}
                   onCancel={() => setPanel(null)}
-                  onSave={(ids) => write({ apps: ids.length ? ids : null })}
+                  onSave={(ids) =>
+                    write({ protocols: ids.length ? ids : null })
+                  }
                 />
               ) : null}
             </div>
@@ -481,11 +487,15 @@ export function WalletRules({
               </p>
               {sendsHome ? checkedBy((covers) => covers.owner_only) : null}
               <span className="type-meta text-aomi-muted flex items-center gap-2">
-                {ownerOnly ? "On" : apps !== null ? "With an app list" : "Off"}
+                {ownerOnly
+                  ? "On"
+                  : protocols !== null
+                    ? "With a protocol list"
+                    : "Off"}
                 <Switch
                   aria-label="Sends only to your wallets"
                   checked={sendsHome}
-                  disabled={saving || (!ownerOnly && apps !== null)}
+                  disabled={saving || (!ownerOnly && protocols !== null)}
                   onCheckedChange={(on) => write({ owner_only: on })}
                 />
               </span>
@@ -797,8 +807,8 @@ function CatalogState({
   );
 }
 
-/** The catalog's apps as checkboxes; unchecking every one lifts the rule. */
-function AppPicker({
+/** The catalog's protocols as checkboxes; unchecking every one lifts the rule. */
+function ProtocolPicker({
   catalog,
   onRetry,
   selected,
@@ -815,48 +825,50 @@ function AppPicker({
   onSave: (ids: string[]) => void;
 }) {
   const [picked, setPicked] = useState<readonly string[]>(selected);
-  // An app the rule names but the catalog dropped can still be removed.
+  // An protocol the rule names but the catalog dropped can still be removed.
   const options = [
-    ...(catalog?.apps ?? []),
+    ...(catalog?.protocols ?? []),
     ...selected
-      .filter((id) => !catalog?.apps.some((app) => app.id === id))
-      .map((id) => ({ id, label: appLabel(id, catalog) })),
+      .filter(
+        (id) => !catalog?.protocols.some((protocol) => protocol.id === id),
+      )
+      .map((id) => ({ id, label: protocolLabel(id, catalog) })),
   ];
   return (
-    <div role="group" aria-label="Allowed apps" className={PANEL}>
+    <div role="group" aria-label="Allowed protocols" className={PANEL}>
       {options.length ? (
         <div className="flex flex-wrap gap-x-4 gap-y-2">
-          {options.map((app) => (
+          {options.map((protocol) => (
             <label
-              key={app.id}
+              key={protocol.id}
               className="type-control flex cursor-pointer items-center gap-2"
             >
               <input
                 type="checkbox"
-                checked={picked.includes(app.id)}
+                checked={picked.includes(protocol.id)}
                 onChange={(event) =>
                   setPicked(
                     event.target.checked
-                      ? [...picked, app.id]
-                      : picked.filter((id) => id !== app.id),
+                      ? [...picked, protocol.id]
+                      : picked.filter((id) => id !== protocol.id),
                   )
                 }
               />
-              {app.label}
+              {protocol.label}
             </label>
           ))}
         </div>
       ) : (
         <CatalogState
-          empty={catalog ? "No apps to pick from yet." : null}
-          loading="Loading apps…"
-          failed="Couldn’t load the apps."
+          empty={catalog ? "No protocols to pick from yet." : null}
+          loading="Loading protocols…"
+          failed="Couldn’t load the protocols."
           onRetry={onRetry}
         />
       )}
       <PanelActions
         saving={saving}
-        label="Save apps"
+        label="Save protocols"
         onCancel={onCancel}
         onSave={() => onSave([...picked].sort())}
       />
@@ -901,7 +913,7 @@ function TemplatePicker({
         </div>
       ))}
       <p className="type-meta text-aomi-muted">
-        A template replaces this wallet&rsquo;s rules. If it gives the agent
+        A template replaces this wallet&rsquo;s rules. If it gives the protocol
         more than it has now, it waits for approval.
       </p>
       <div className="flex justify-end">

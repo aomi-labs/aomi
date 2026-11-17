@@ -15,7 +15,10 @@ export type Config = {
   payment: string | null;
   /** The manager tunnel; null keeps the control-plane routes on the backend pool. */
   manager: string | null;
-  cors: { hostPatterns: readonly string[]; taskPublicOrigins: readonly string[] };
+  cors: {
+    hostPatterns: readonly string[];
+    taskPublicOrigins: readonly string[];
+  };
   portal: {
     hosts: ReadonlySet<string>;
     redirects: ReadonlyMap<string, string>;
@@ -54,7 +57,8 @@ function hosts(value: string | undefined): Set<string> {
   return new Set(list(value).map((host) => host.toLowerCase()));
 }
 
-const DNS_HOST = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
+const DNS_HOST =
+  /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
 
 /**
  * Parse exact legacy portal hosts to canonical HTTPS origins. Restrict the
@@ -66,26 +70,43 @@ export function portalHostRedirects(
   portalHosts: ReadonlySet<string>,
 ): ReadonlyMap<string, string> {
   const redirects = new Map<string, string>();
-  for (const entry of (value ?? "").split(",").map((item) => item.trim()).filter(Boolean)) {
+  for (const entry of (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)) {
     const separator = entry.indexOf("=");
     if (separator <= 0 || separator !== entry.lastIndexOf("="))
-      throw new Error("PORTAL_HOST_REDIRECTS entries must be host=https://origin");
+      throw new Error(
+        "PORTAL_HOST_REDIRECTS entries must be host=https://origin",
+      );
     const source = entry.slice(0, separator).trim().toLowerCase();
     if (!DNS_HOST.test(source) || portalHosts.has(source))
-      throw new Error(`PORTAL_HOST_REDIRECTS source ${source} is not a distinct DNS host`);
+      throw new Error(
+        `PORTAL_HOST_REDIRECTS source ${source} is not a distinct DNS host`,
+      );
     let target: URL;
     try {
       target = new URL(entry.slice(separator + 1).trim());
     } catch {
-      throw new Error(`PORTAL_HOST_REDIRECTS target for ${source} is not an origin`);
+      throw new Error(
+        `PORTAL_HOST_REDIRECTS target for ${source} is not an origin`,
+      );
     }
     if (
-      target.protocol !== "https:" || target.username || target.password || target.port ||
-      target.pathname !== "/" || target.search || target.hash ||
+      target.protocol !== "https:" ||
+      target.username ||
+      target.password ||
+      target.port ||
+      target.pathname !== "/" ||
+      target.search ||
+      target.hash ||
       !portalHosts.has(target.hostname.toLowerCase())
     )
-      throw new Error(`PORTAL_HOST_REDIRECTS target for ${source} must be one canonical portal origin`);
-    if (redirects.has(source)) throw new Error(`PORTAL_HOST_REDIRECTS repeats ${source}`);
+      throw new Error(
+        `PORTAL_HOST_REDIRECTS target for ${source} must be one canonical portal origin`,
+      );
+    if (redirects.has(source))
+      throw new Error(`PORTAL_HOST_REDIRECTS repeats ${source}`);
     redirects.set(source, target.origin);
   }
   return redirects;
@@ -103,7 +124,9 @@ export function config(env: EdgeEnv): Config {
     payment: origin(env.PAYMENT_ORIGIN),
     manager: origin(env.MANAGER_ORIGIN),
     cors: {
-      hostPatterns: list(env.CORS_ALLOWED_HOST_PATTERNS).map((pattern) => pattern.toLowerCase()),
+      hostPatterns: list(env.CORS_ALLOWED_HOST_PATTERNS).map((pattern) =>
+        pattern.toLowerCase(),
+      ),
       taskPublicOrigins: list(env.TASK_CORS_PUBLIC_ORIGINS),
     },
     portal: {
@@ -111,7 +134,7 @@ export function config(env: EdgeEnv): Config {
       redirects: portalHostRedirects(env.PORTAL_HOST_REDIRECTS, portalHosts),
       upstream: origin(env.PORTAL_UPSTREAM_ORIGIN),
       trustedOrigins: list(env.PORTAL_TRUSTED_ORIGINS),
-      catalogPlatforms: list(env.APP_CATALOG_PLATFORMS),
+      catalogPlatforms: list(env.CATALOG_PLATFORMS),
     },
     landing: {
       hosts: hosts(env.LANDING_HOSTS),
@@ -143,11 +166,17 @@ const checked = new WeakSet<EdgeEnv>();
  */
 export function assertAuthBindings(env: EdgeEnv): void {
   if (checked.has(env)) return;
-  const local = ["development", "test"].includes((env as { NODE_ENV?: string }).NODE_ENV ?? "");
+  const local = ["development", "test"].includes(
+    (env as { NODE_ENV?: string }).NODE_ENV ?? "",
+  );
   const result = AUTH_BINDINGS.safeParse(env);
   if (!local && !result.success) {
-    const missing = result.error.issues.map((issue) => issue.path.join(".")).join(", ");
-    throw new EdgeError(503, "auth_unconfigured", { cause: new Error(`invalid bindings: ${missing}`) });
+    const missing = result.error.issues
+      .map((issue) => issue.path.join("."))
+      .join(", ");
+    throw new EdgeError(503, "auth_unconfigured", {
+      cause: new Error(`invalid bindings: ${missing}`),
+    });
   }
   checked.add(env);
 }

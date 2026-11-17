@@ -14,7 +14,7 @@ import type { SmitherBackend } from "@aomi-labs/smither";
 const mocks = vi.hoisted(() => ({
   api: {},
   createAomiSmither: vi.fn(),
-  findRunByOwnerApp: vi.fn(),
+  findRunByOwnerPackage: vi.fn(),
   resolveRunBackend: vi.fn(),
   prepareRun: vi.fn(),
   executeRunUntilSettled: vi.fn(),
@@ -32,12 +32,12 @@ vi.mock("@aomi-labs/smither", () => ({
   finalizePlan: vi.fn(),
   readRunView: vi.fn(),
   requestRunCancel: vi.fn(),
-  sanitizeAppName: vi.fn(),
+  sanitizeAgentName: vi.fn(),
   stageKeyForNode: vi.fn(),
   stagesFor: vi.fn(),
 }));
 vi.mock("./registry", () => ({
-  findRunByOwnerApp: mocks.findRunByOwnerApp,
+  findRunByOwnerPackage: mocks.findRunByOwnerPackage,
   findRunById: vi.fn(),
   registerRun: vi.fn(),
   updateRun: vi.fn(),
@@ -63,10 +63,15 @@ import { startBuildRun } from "./engine";
 describe("build engine storage initialization", () => {
   let directory: string;
   let runsRoot: string;
-  const app = "fresh-app";
+  const packageName = "fresh-package";
   const stop = new Error("stop after opening the store");
   const start = () =>
-    startBuildRun({ app, owner: "owner", prompt: "fixture", builder: "none" });
+    startBuildRun({
+      packageName,
+      owner: "owner",
+      prompt: "fixture",
+      builder: "none",
+    });
 
   beforeEach(() => {
     vi.resetAllMocks();
@@ -81,7 +86,7 @@ describe("build engine storage initialization", () => {
       }),
     );
     // Stop at the registry boundary without running agents or deployment.
-    mocks.findRunByOwnerApp.mockRejectedValue(stop);
+    mocks.findRunByOwnerPackage.mockRejectedValue(stop);
   });
 
   afterEach(() => {
@@ -111,7 +116,7 @@ describe("build engine storage initialization", () => {
     );
     expect(mocks.createAomiSmither).toHaveBeenCalledWith({
       kind: "pglite",
-      dataDir: path.join(runsRoot, app, "pglite"),
+      dataDir: path.join(runsRoot, packageName, "pglite"),
     });
     resolveApi(mocks.api);
     expect(await requests).toEqual([
@@ -120,10 +125,10 @@ describe("build engine storage initialization", () => {
     ]);
     await expect(start()).rejects.toBe(stop);
     expect(mocks.createAomiSmither).toHaveBeenCalledOnce();
-    expect(mocks.findRunByOwnerApp).toHaveBeenCalledWith(
+    expect(mocks.findRunByOwnerPackage).toHaveBeenCalledWith(
       mocks.api,
       "owner",
-      app,
+      packageName,
     );
     expect(mocks.prepareRun).not.toHaveBeenCalled();
     expect(mocks.executeRunUntilSettled).not.toHaveBeenCalled();
@@ -141,7 +146,7 @@ describe("build engine storage initialization", () => {
     await expect(start()).rejects.toBe(failure);
     await expect(start()).rejects.toBe(stop);
     expect(mocks.createAomiSmither).toHaveBeenCalledTimes(2);
-    expect(mocks.findRunByOwnerApp).toHaveBeenCalledOnce();
+    expect(mocks.findRunByOwnerPackage).toHaveBeenCalledOnce();
   });
 
   it("passes through the PostgreSQL backend without creating local run directories", async () => {
@@ -152,7 +157,9 @@ describe("build engine storage initialization", () => {
     mocks.resolveRunBackend.mockReturnValue(backend);
     mocks.createAomiSmither.mockResolvedValue(mocks.api);
     await expect(start()).rejects.toBe(stop);
-    expect(mocks.resolveRunBackend).toHaveBeenCalledWith(app, { runsRoot });
+    expect(mocks.resolveRunBackend).toHaveBeenCalledWith(packageName, {
+      runsRoot,
+    });
     expect(mocks.createAomiSmither).toHaveBeenCalledWith(backend);
     expect(readdirSync(directory)).toEqual([]);
     expect(mocks.prepareRun).not.toHaveBeenCalled();

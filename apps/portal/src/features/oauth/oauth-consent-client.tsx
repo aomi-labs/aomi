@@ -40,15 +40,15 @@ const SCOPE_LINES: Record<string, string[]> = {
   "mcp:agent": [CHAT, TRADE],
   "agent:actions:resolve": [TRADE],
   "pipeline:execute": [TRADE],
-  "pipeline:catalog": ["Browse Aomi apps and tools"],
-  "mcp:pipeline": ["Browse Aomi apps and tools"],
+  "pipeline:catalog": ["Browse Aomi toolsets and tools"],
+  "mcp:pipeline": ["Browse Aomi toolsets and tools"],
   "payments:submit": ["Pay for its own requests"],
   "account:packages:read": ["See your packages and their state"],
   "account:packages:write": ["Turn packages on or off and set their keys"],
   "account:credentials:read": [
-    "See which app keys are set, never their values",
+    "See which package keys are set, never their values",
   ],
-  "account:credentials:write": ["Save and remove app keys"],
+  "account:credentials:write": ["Save and remove package keys"],
   "account:credits:read": ["See your credits"],
   "account:credits:fund": ["Top up your credits"],
   "account:usage:read": ["See your usage"],
@@ -75,14 +75,19 @@ const GUEST_SCOPES = new Set([
   "offline_access",
 ]);
 
-/** `/v1/apps/<app>/mcp`: a client locked to one app. */
-const APP_MCP = /\/v1\/apps\/([a-z0-9][a-z0-9-_]{0,62})\/mcp$/;
-
-/** The app an app-locked resource names, if the request asks for one. */
-export function consentApp(resource: string | null): string | undefined {
+/** The canonical agent named by an agent MCP resource. */
+export function consentAgent(resource: string | null): string | undefined {
   if (!resource) return undefined;
   try {
-    return APP_MCP.exec(new URL(resource).pathname)?.[1];
+    const encoded = /^\/v1\/agents\/([^/]+)\/mcp$/.exec(
+      new URL(resource).pathname,
+    )?.[1];
+    if (!encoded) return undefined;
+    const agent = decodeURIComponent(encoded);
+    return /^[a-z0-9][a-z0-9_-]{0,62}\/[a-z0-9][a-z0-9_-]{0,62}$/.test(agent) &&
+      encodeURIComponent(agent) === encoded
+      ? agent
+      : undefined;
   } catch {
     return undefined;
   }
@@ -126,7 +131,8 @@ export function ConsentSheet({ name }: { name: string }) {
   const [unsaved, setUnsaved] = useState<string | null>(null);
   const client = useMemo(() => createPortalAomi(), []);
   const resource = params.get("resource");
-  const app = consentApp(resource);
+  const agent = consentAgent(resource);
+  const agentName = agent?.split("/").at(-1);
   const askOnly = params.get("mode") === "ask";
   const clientId = params.get("client_id");
   // The lanes to write once the grant is made; Allow waits until they load.
@@ -232,8 +238,8 @@ export function ConsentSheet({ name }: { name: string }) {
       <SheetHeader
         title={`Allow ${name}?`}
         description={
-          app
-            ? `${name} will use ${app.charAt(0).toUpperCase()}${app.slice(1)} with your Aomi account.`
+          agentName
+            ? `${name} will use ${agentName.charAt(0).toUpperCase()}${agentName.slice(1)} with your Aomi account.`
             : `${name} will use your Aomi account.`
         }
         onClose={() => void decide(false)}
@@ -256,7 +262,7 @@ export function ConsentSheet({ name }: { name: string }) {
             client={client}
             connectionKey={connectionKey}
             name={name}
-            app={app}
+            agent={agent}
             askOnly={askOnly}
             onChange={lanes.onChange}
           />

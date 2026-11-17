@@ -133,18 +133,15 @@ function getBrowserAuthOrigin(): BrowserAuthOrigin | null {
 export function WalletProviders({ children }: Props) {
   const e2eWallet = useE2EWalletSeed();
   const searchParams = useSearchParams();
-  const applicationId =
-    searchParams.get("application_id") ??
-    searchParams.get("applicationId") ??
-    "portal";
+  const agent = searchParams.get("agent") ?? "portal";
   const preferenceStorage = useMemo(
     () =>
       createScopedStorage({
         backendUrl:
           typeof window === "undefined" ? "/" : window.location.origin,
-        appId: applicationId,
+        agentScope: agent,
       }),
-    [applicationId],
+    [agent],
   );
   const [signInProvider, setSignInProvider] = useState<SignInProvider | null>(
     null,

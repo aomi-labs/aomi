@@ -1,23 +1,13 @@
 import { sha256Hex } from "../kernel/crypto";
 import type { FetchLike } from "../kernel/proxy";
 
-export type PublicCatalogKind = "models" | "apps" | "skills";
+export type PublicCatalogKind = "models" | "toolsets" | "skills";
 const PATHS: Record<PublicCatalogKind, string> = {
   models: "/api/thread/models",
-  apps: "/api/thread/apps",
+  toolsets: "/api/resource/toolsets",
   skills: "/api/resource/skills",
 };
-const APP_FIELDS = [
-  "name",
-  "label",
-  "application_id",
-  "platform",
-  "app_release_tag",
-  "feature_catalog",
-  "chain_ids",
-  "is_public",
-  "is_active",
-];
+const TOOLSET_FIELDS = ["name", "display_name"];
 const SKILL_FIELDS = [
   "id",
   "name",
@@ -36,7 +26,10 @@ function row(value: unknown): Record<string, unknown> | null {
 }
 
 function pick(source: Record<string, unknown>, fields: readonly string[]) {
-  const projected: Record<string, string | number | boolean | Array<string | number>> = {};
+  const projected: Record<
+    string,
+    string | number | boolean | Array<string | number>
+  > = {};
   for (const field of fields) {
     const value = source[field];
     if (
@@ -48,28 +41,38 @@ function pick(source: Record<string, unknown>, fields: readonly string[]) {
     else if (Array.isArray(value))
       projected[field] = value.filter(
         (item): item is string | number =>
-          typeof item === "string" || (typeof item === "number" && Number.isFinite(item)),
+          typeof item === "string" ||
+          (typeof item === "number" && Number.isFinite(item)),
       );
   }
   return projected;
 }
 
 /** Explicit projection. No account enablement, arbitrary metadata, secrets or installed state. */
-export function projectPublicCatalog(kind: PublicCatalogKind, value: unknown): unknown {
+export function projectPublicCatalog(
+  kind: PublicCatalogKind,
+  value: unknown,
+): unknown {
   if (kind === "models")
-    return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
-  if (kind === "apps")
-    return (Array.isArray(value) ? value : []).flatMap((item) => {
-      const app = row(item);
-      return app && app.is_public === true && app.is_active === true && typeof app.name === "string"
-        ? [pick(app, APP_FIELDS)]
+    return Array.isArray(value)
+      ? value.filter((item) => typeof item === "string")
+      : [];
+  if (kind === "toolsets") {
+    const toolsets = row(value)?.toolsets;
+    return (Array.isArray(toolsets) ? toolsets : []).flatMap((item) => {
+      const toolset = row(item);
+      return toolset && typeof toolset.name === "string"
+        ? [pick(toolset, TOOLSET_FIELDS)]
         : [];
     });
+  }
   const skills = row(value)?.skills;
   return {
     skills: (Array.isArray(skills) ? skills : []).flatMap((item) => {
       const skill = row(item);
-      return skill && typeof skill.id === "string" && typeof skill.name === "string"
+      return skill &&
+        typeof skill.id === "string" &&
+        typeof skill.name === "string"
         ? [pick(skill, SKILL_FIELDS)]
         : [];
     }),
@@ -87,37 +90,46 @@ export async function publicCatalog(
   backendOrigin: string,
   fetchImpl: FetchLike,
 ): Promise<Response> {
-  const incoming = new URL(request.url);
   const upstreamUrl = new URL(PATHS[kind], backendOrigin);
-  // Only public catalog filters. Never copy account, app key, session, or auth query fields.
-  if (kind === "apps")
-    for (const platform of incoming.searchParams.getAll("platform"))
-      upstreamUrl.searchParams.append("platform", platform);
+  // Only public catalog filters. Never copy account, agent key, session, or auth query fields.
+  if (kind === "toolsets") upstreamUrl.searchParams.set("limit", "20");
   if (kind === "skills") upstreamUrl.searchParams.set("limit", "100");
   const upstreamHeaders = new Headers({ accept: "application/json" });
   // The backend's thread extractors require a transport id even for reads.
   // A fresh, edge-owned id selects anonymous public state and cannot reuse a
   // caller's account-bound thread. These routes require no bearer assertion.
-  if (kind === "apps" || kind === "models")
+  if (kind === "toolsets" || kind === "models")
     upstreamHeaders.set("x-thread-id", `public-catalog-${crypto.randomUUID()}`);
   let upstream: Response;
   try {
     upstream = await fetchImpl(
       // workerd supports only "follow" and "manual"; a redirecting backend is unavailable.
-      new Request(upstreamUrl, { method: "GET", headers: upstreamHeaders, redirect: "manual" }),
+      new Request(upstreamUrl, {
+        method: "GET",
+        headers: upstreamHeaders,
+        redirect: "manual",
+      }),
       { cache: "no-store" },
     );
   } catch {
-    return Response.json({ error: "catalog_unavailable" }, { status: 502, headers: { "cache-control": "no-store" } });
+    return Response.json(
+      { error: "catalog_unavailable" },
+      { status: 502, headers: { "cache-control": "no-store" } },
+    );
   }
   if (upstream.status >= 300 && upstream.status < 400)
-    return Response.json({ error: "catalog_unavailable" }, { status: 502, headers: { "cache-control": "no-store" } });
+    return Response.json(
+      { error: "catalog_unavailable" },
+      { status: 502, headers: { "cache-control": "no-store" } },
+    );
   if (!upstream.ok)
     return Response.json(
       { error: "catalog_unavailable" },
       { status: upstream.status, headers: { "cache-control": "no-store" } },
     );
-  const body = JSON.stringify(projectPublicCatalog(kind, await upstream.json()));
+  const body = JSON.stringify(
+    projectPublicCatalog(kind, await upstream.json()),
+  );
   const etag = `"${await sha256Hex(body)}"`;
   const headers = {
     "content-type": "application/json",
@@ -127,5 +139,8 @@ export async function publicCatalog(
   };
   if (request.headers.get("if-none-match") === etag)
     return new Response(null, { status: 304, headers });
-  return new Response(request.method === "HEAD" ? null : body, { status: 200, headers });
+  return new Response(request.method === "HEAD" ? null : body, {
+    status: 200,
+    headers,
+  });
 }

@@ -1,16 +1,11 @@
-// Models and apps this runtime may use. Both are scoped to the credential
-// (app key and account), not to the open chat, so switching chats never
-// refetches them. Inside a runtime without a key they come from the public
-// catalog; a standalone control provider asks the backend directly.
+// Models and agents this runtime may use. Both are scoped to the credential
+// (agent key and account), not to the open chat, so switching chats never
+// refetches them. Models can use the public catalog; an explicit agent key
+// resolves its one private agent.
 
 import { useCallback, useMemo } from "react";
 import type { MutableRefObject } from "react";
-import type {
-  AomiAppDescriptor,
-  Aomi,
-  AomiPlatformFilter,
-  ApplicationId,
-} from "@aomi-labs/client";
+import type { AgentCard, Aomi, AomiPlatformFilter } from "@aomi-labs/client";
 import { useAomiDisplayCache, useDisplayQuery } from "../query/display-cache";
 import { displayQueries } from "../query/queries";
 import { resolveAutoModel } from "./model-selection";
@@ -18,9 +13,9 @@ import { resolveAutoModel } from "./model-selection";
 export type AuthEndpointsState = {
   availableModels: string[];
   defaultModel: string | null;
-  authorizedApps: string[];
-  appDescriptors: AomiAppDescriptor[];
-  defaultApp: string | null;
+  authorizedAgents: string[];
+  agentCards: AgentCard[];
+  defaultAgent: string | null;
   /** False once the latest model read settled (success or failure). */
   modelsLoading?: boolean;
 };
@@ -28,8 +23,8 @@ export type AuthEndpointsState = {
 export type AuthEndpointsActions = {
   /** Force a refresh of the models list. */
   getAvailableModels: () => Promise<string[]>;
-  /** Force a refresh of the authorized apps list. */
-  getAuthorizedApps: () => Promise<string[]>;
+  /** Force a refresh of the authorized agents list. */
+  getAuthorizedAgents: () => Promise<string[]>;
 };
 
 type UseAuthEndpointsOptions = {
@@ -38,25 +33,24 @@ type UseAuthEndpointsOptions = {
   /** Stable getter for the current control-session id (clientId + sessionId). */
   getControlSessionId: () => string;
   apiKey: string | null;
-  /** Changes whenever the app key does. */
+  /** Changes whenever the agent key does. */
   credentialRevision: number;
-  /** Optional backend platform filter for the app catalog. */
-  appPlatforms?: AomiPlatformFilter;
-  /** Hosted app this runtime is scoped to; routed on by the edge. */
-  applicationId?: ApplicationId;
+  /** Optional backend platform filter for the agent catalog. */
+  catalogPlatforms?: AomiPlatformFilter;
+  /** Hosted agent this runtime is scoped to; routed on by the edge. */
+  agent?: string | null;
   accountSessionAvailable?: boolean;
 };
 
-const NO_APPS: AomiAppDescriptor[] = [];
-const DEFAULT_APPS: AomiAppDescriptor[] = [{ name: "default" }];
+const NO_AGENTS: AgentCard[] = [];
 const NO_MODELS: string[] = [];
 
-function getDefaultApp(apps: string[]): string | null {
-  return apps.includes("default") ? "default" : (apps[0] ?? null);
+function getDefaultAgent(agents: string[]): string | null {
+  return agents[0] ?? "aomi/main";
 }
 
-const appNames = (apps: ReadonlyArray<{ name: string }>) =>
-  apps.map((app) => app.name);
+const agentNames = (agents: ReadonlyArray<AgentCard>) =>
+  agents.map((agent) => agent.agent);
 
 /** Provider-internal: consumers use `useAuthEndpoints` from control-context. */
 export function useAuthEndpointsImpl({
@@ -65,18 +59,16 @@ export function useAuthEndpointsImpl({
   getControlSessionId,
   apiKey,
   credentialRevision,
-  appPlatforms,
-  applicationId,
-  accountSessionAvailable = false,
+  agent,
 }: UseAuthEndpointsOptions): {
   state: AuthEndpointsState;
   actions: AuthEndpointsActions;
 } {
   const api = aomiRef.current;
-  const appId = applicationId?.toString() ?? "";
+  const agentScope = agent ?? "";
   const credential = {
     sessionId: getControlSessionId,
-    appId,
+    agentScope,
     credential: credentialRevision,
   };
   const publicLane = Boolean(useAomiDisplayCache()) && !apiKey;
@@ -85,41 +77,35 @@ export function useAuthEndpointsImpl({
       ? displayQueries.models(api)
       : displayQueries.authorizedModels(api, credential),
   );
-  const apps = useDisplayQuery(
-    !publicLane || accountSessionAvailable
-      ? displayQueries.authorizedApps(api, {
-          ...credential,
-          apiKey: () => apiKeyRef.current,
-          platforms: appPlatforms,
-        })
-      : displayQueries.appCatalog(api, appPlatforms),
+  const agents = useDisplayQuery(
+    displayQueries.authorizedAgents(api, {
+      credential: credentialRevision,
+      apiKey: () => apiKeyRef.current,
+    }),
   );
-  const appDescriptors = apps.data ?? (apps.error ? DEFAULT_APPS : NO_APPS);
-  // App sponsorship describes that app's funding, not general chat model
+  const agentCards = agents.data ?? NO_AGENTS;
+  // Agent sponsorship describes that agent's funding, not general chat model
   // availability. Supplier selection belongs to the backend routing policy.
   const availableModels = models.data ?? NO_MODELS;
-  const authorizedApps = useMemo(
-    () => appNames(appDescriptors),
-    [appDescriptors],
-  );
+  const authorizedAgents = useMemo(() => agentNames(agentCards), [agentCards]);
   const getAvailableModels = useCallback(
     async () => (await models.refetch()).data ?? NO_MODELS,
     [models.refetch],
   );
-  const getAuthorizedApps = useCallback(
-    async () => appNames((await apps.refetch()).data ?? DEFAULT_APPS),
-    [apps.refetch],
+  const getAuthorizedAgents = useCallback(
+    async () => agentNames((await agents.refetch()).data ?? NO_AGENTS),
+    [agents.refetch],
   );
 
   return {
     state: {
       availableModels,
       defaultModel: resolveAutoModel(availableModels),
-      authorizedApps,
-      appDescriptors,
-      defaultApp: getDefaultApp(authorizedApps),
+      authorizedAgents,
+      agentCards,
+      defaultAgent: getDefaultAgent(authorizedAgents),
       modelsLoading: models.isPending,
     },
-    actions: { getAvailableModels, getAuthorizedApps },
+    actions: { getAvailableModels, getAuthorizedAgents },
   };
 }

@@ -39,8 +39,8 @@ export type WalletViewRow = {
   /** `AGENT_WALLET`, or the wallet app (`Privy`, `MetaMask`). */
   brand: string;
   addresses: readonly { family: "evm" | "svm"; address: string }[];
-  /** The app an agent wallet was made in. */
-  app?: string | null;
+  /** The agent an agent wallet was made in. */
+  agent?: string | null;
   paused?: boolean;
   /** Not made yet: shown until consent creates it. */
   pending?: ReactNode;
@@ -417,9 +417,9 @@ export function WalletView({
             title={
               <span className="flex min-w-0 items-baseline gap-1.5">
                 <span className="truncate">{row.name}</span>
-                {row.app ? (
+                {row.agent ? (
                   <span className="type-meta text-aomi-muted shrink-0">
-                    made in {row.app}
+                    made in {row.agent}
                   </span>
                 ) : null}
               </span>

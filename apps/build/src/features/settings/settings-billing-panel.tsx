@@ -112,7 +112,7 @@ export function SettingsBillingPanel() {
           Add credits
         </button>
         <p className="text-dim mt-3 text-xs">
-          Hosting: $10 per active app each month.
+          Hosting: $10 per active agent each month.
         </p>
       </div>
       {error && (
@@ -164,13 +164,13 @@ export function SettingsBillingPanel() {
         <ul className="divide-border divide-y">
           {statement?.charges.map((charge) => (
             <li
-              key={`${charge.applicationId}:${charge.application}:${charge.item}`}
+              key={`${charge.agentId}:${charge.agent}:${charge.item}`}
               className="flex justify-between gap-3 py-3 text-sm"
             >
               <span>
                 {charge.item}
                 <small className="text-dim block">
-                  {charge.application} · {charge.events} charges
+                  {charge.agent} · {charge.events} charges
                 </small>
               </span>
               <span>{dollars(charge.amount * 1_000_000)}</span>

@@ -14,7 +14,7 @@ const INSTALL_COMMAND = "npm install @aomi-labs/widget";
 export const metadata: Metadata = {
   title: "Widget | Aomi",
   description:
-    "Embed Aomi's chat-to-transaction surface in your product with your authentication, wallet experience, and application policy.",
+    "Embed Aomi's chat-to-transaction surface in your product with your authentication, wallet experience, and agent policy.",
   robots: { index: false, follow: false },
 };
 
@@ -28,8 +28,8 @@ const integrationChoices = [
     body: "Register Para or Privy only when you want their authentication session and embedded-wallet experience.",
   },
   {
-    title: "Application policy",
-    body: "An Aomi application ID selects the backend-owned execution, sponsorship, and fee policy for every widget action.",
+    title: "Agent policy",
+    body: "An Aomi agent ID selects the backend-owned execution, sponsorship, and fee policy for every widget action.",
   },
 ] as const;
 
@@ -50,7 +50,7 @@ export function WidgetProductPageContent({
             <p className={pageStyles.eyebrow}>TELEGRAM</p>
             <h2>Set up integration with no code</h2>
             <p className={pageStyles.telegramLead}>
-              Paste a BotFather token, attach your hosted plugin, and Aomi runs
+              Paste a BotFather token, select your hosted agent, and Aomi runs
               the bot. Every user chats on their own Aomi identity and
               wallet—and decides for themselves whether the agent may sign.
             </p>
@@ -60,7 +60,7 @@ export function WidgetProductPageContent({
               rel="noreferrer"
               className={pageStyles.textLink}
             >
-              Register a bot in Aomi Build
+              Register a channel in Aomi Build
               <ArrowUpRight aria-hidden className="size-4" />
             </a>
           </div>
@@ -74,12 +74,12 @@ export function WidgetProductPageContent({
               [
                 "02",
                 "Register it",
-                "Paste the token and pick the apps it serves. Aomi verifies it with Telegram and activates the webhook.",
+                "Paste the token and select its agent. Aomi verifies it with Telegram and activates the webhook.",
               ],
               [
                 "03",
                 "Users just chat",
-                "Each person messages on their own Aomi identity, wallets, and threads. /app switches between attached apps.",
+                "Each person messages on their own Aomi identity, wallets, and threads.",
               ],
               [
                 "04",
@@ -129,11 +129,16 @@ export function WidgetProductPageContent({
               <p className={pageStyles.heroSupport}>
                 Put the same chat-to-transaction experience used by Aomi Portal
                 where your users already are: embedded in your product, or in a
-                Telegram bot you register in minutes. Bring your application,
+                Telegram bot you register in minutes. Bring your agent,
                 authentication, and signer. Aomi brings the execution harness.
               </p>
               <div className={pageStyles.heroActions}>
-                <Link to="." search={true} hash="install" className={pageStyles.primaryButton}>
+                <Link
+                  to="."
+                  search={true}
+                  hash="install"
+                  className={pageStyles.primaryButton}
+                >
                   Start integrating
                   <ArrowUpRight aria-hidden className="size-4" />
                 </Link>
@@ -203,9 +208,8 @@ export function WidgetProductPageContent({
               <p className={pageStyles.eyebrow}>INSTALL AND CONFIGURE</p>
               <h2>Own the integration. Keep the execution runtime.</h2>
               <p>
-                Install the packaged widget, bind one application ID, and choose
-                the authentication and wallets that already belong in your
-                product.
+                Install the packaged widget, bind one agent ID, and choose the
+                authentication and wallets that already belong in your product.
               </p>
               <div className={pageStyles.commandBox} data-liquid-glass>
                 <Code2 aria-hidden className="size-4" />

@@ -175,7 +175,7 @@ describe("the runtime's display queries", () => {
       <>
         <DisplayCacheProvider
           backendUrl="/one"
-          applicationId={8}
+          agent="publisher/eight"
           account={{ kind: "user", id: "a" }}
           persistence="none"
         >
@@ -183,7 +183,7 @@ describe("the runtime's display queries", () => {
         </DisplayCacheProvider>
         <DisplayCacheProvider
           backendUrl="/two"
-          applicationId={8}
+          agent="publisher/eight"
           account={{ kind: "user", id: "a" }}
           persistence="none"
         >
@@ -198,7 +198,7 @@ describe("the runtime's display queries", () => {
     expect(caches[0].key("profile")).toEqual([
       "aomi",
       "/one",
-      "8",
+      "publisher/eight",
       { kind: "user", id: "a" },
       "profile",
     ]);

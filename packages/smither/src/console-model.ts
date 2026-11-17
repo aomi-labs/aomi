@@ -8,7 +8,12 @@
  * the in-process engine hands the TUI.
  */
 
-export type StageStatus = "pending" | "running" | "complete" | "failed" | "waiting";
+export type StageStatus =
+  | "pending"
+  | "running"
+  | "complete"
+  | "failed"
+  | "waiting";
 
 /** One row of the branded stage rail; shape of each `props.stages[]` entry. */
 export type UiStage = {
@@ -70,8 +75,8 @@ export function eventNodeId(frame: EventFrameLike): string | undefined {
 
 /**
  * Collapse a raw node id onto the stage-rail key. The validate/repair loop runs
- * as two child nodes (`<app>:validate`, `<app>:fix`) that both report into the
- * single `<app>:validate-loop` rail row — same collapse the TUI does.
+ * as two child nodes (`<package>:validate`, `<package>:fix`) that both report into the
+ * single `<package>:validate-loop` rail row — same collapse the TUI does.
  */
 export function stageKeyForNodeId(nodeIdValue: string): string {
   if (nodeIdValue.endsWith(":validate") || nodeIdValue.endsWith(":fix")) {
@@ -91,19 +96,35 @@ function includesAny(haystack: string, needles: string[]): boolean {
  * to matching the event name — both case-insensitively, since the wire may
  * carry PascalCase (`NodeStarted`) or dotted-lowercase (`node.started`).
  */
-export function statusFromFrame(frame: EventFrameLike): StageStatus | undefined {
+export function statusFromFrame(
+  frame: EventFrameLike,
+): StageStatus | undefined {
   const status = String(frame.payload?.status ?? "").toLowerCase();
-  if (includesAny(status, ["fulfilled", "succeed", "finished", "complete", "success"])) {
+  if (
+    includesAny(status, [
+      "fulfilled",
+      "succeed",
+      "finished",
+      "complete",
+      "success",
+    ])
+  ) {
     return "complete";
   }
   if (includesAny(status, ["rejected", "failed", "error"])) return "failed";
-  if (includesAny(status, ["waiting", "pending_approval", "needs_approval"])) return "waiting";
-  if (includesAny(status, ["running", "in_progress", "started", "active"])) return "running";
+  if (includesAny(status, ["waiting", "pending_approval", "needs_approval"]))
+    return "waiting";
+  if (includesAny(status, ["running", "in_progress", "started", "active"]))
+    return "running";
 
   const event = frame.event.toLowerCase();
-  if (includesAny(event, ["waiting", "approvalrequested", "approval_requested"])) return "waiting";
+  if (
+    includesAny(event, ["waiting", "approvalrequested", "approval_requested"])
+  )
+    return "waiting";
   if (includesAny(event, ["fail", "error", "reject"])) return "failed";
-  if (includesAny(event, ["finish", "succeed", "complete", "fulfil"])) return "complete";
+  if (includesAny(event, ["finish", "succeed", "complete", "fulfil"]))
+    return "complete";
   if (includesAny(event, ["retry"])) return "running";
   if (includesAny(event, ["start", "running"])) return "running";
   // A node emitting heartbeats or agent activity is running, even when its
@@ -184,7 +205,9 @@ export function summarizeFrame(frame: EventFrameLike): string {
 }
 
 /** Coarse class for color-coding a feed row. */
-export function frameTone(frame: EventFrameLike): "error" | "wait" | "node" | "muted" {
+export function frameTone(
+  frame: EventFrameLike,
+): "error" | "wait" | "node" | "muted" {
   const event = frame.event.toLowerCase();
   if (includesAny(event, ["fail", "error", "reject"])) return "error";
   if (includesAny(event, ["waiting", "approval"])) return "wait";

@@ -1,46 +1,52 @@
-import type { AomiAppDescriptor } from "@aomi-labs/client";
+import type { AgentCard } from "@aomi-labs/client";
 import {
   decode,
   type InterpretedToolStep,
   type ToolChip,
   type ToolStepInput,
 } from "@aomi-labs/client/trace";
-import { resolveAppIdentity } from "@/lib/apps/app-identity";
+import { resolveAgentIdentity } from "@aomi-labs/client";
 import { skillLabel } from "@/composer/capabilities/skill-label";
 import type { SkillSummary } from "@/composer/capabilities/skill-catalog";
 
 export type TraceAttribution = {
-  apps?: readonly AomiAppDescriptor[];
+  agents?: readonly AgentCard[];
   skills?: readonly Pick<SkillSummary, "id" | "name" | "injectedTools">[];
 };
 
-function appChip(name: string, catalog?: TraceAttribution): ToolChip {
-  const matches = catalog?.apps?.filter((app) => app.name === name) ?? [];
+function agentChip(name: string, catalog?: TraceAttribution): ToolChip {
+  const matches =
+    catalog?.agents?.filter((agent) => agent.agent === name) ?? [];
   // Duplicate hosted names do not identify a particular publisher.
-  const identity = resolveAppIdentity(
+  const identity = resolveAgentIdentity(
     matches.length === 1 ? matches[0]! : name,
   );
   return {
-    id: `app:${name}`,
-    attribution: "app",
+    id: `agent:${name}`,
+    attribution: "toolset",
     label: identity.displayName,
-    title: `App: ${identity.displayName}`,
-    icon: matches.length === 1 ? `app:${identity.brandId}` : "app",
+    title: `Toolset: ${identity.displayName}`,
+    icon:
+      matches.length === 1 && identity.brandId
+        ? `toolset:${identity.brandId}`
+        : "toolset",
   };
 }
 
 export function skillChip(id: string, catalog?: TraceAttribution): ToolChip {
   const skill = catalog?.skills?.find((skill) => skill.id === id);
   const label = skillLabel({ name: skill?.name || id });
-  const namespace = id.includes("/") ? id.split("/")[0] : undefined;
-  const app = namespace ? appChip(namespace, catalog) : undefined;
+  const namespace = id.includes("/")
+    ? id.slice(0, id.lastIndexOf("/"))
+    : undefined;
+  const agent = namespace ? agentChip(namespace, catalog) : undefined;
   return {
     id: `skill:${id}`,
     skillId: id,
-    label: app ? `${app.label} / ${label}` : label,
-    ...(app ? { labelParts: [app.label, label] as const } : {}),
-    title: app ? `${app.title} / Skill: ${label}` : `Skill: ${label}`,
-    icon: app?.icon ?? `skill:${id}`,
+    label: agent ? `${agent.label} / ${label}` : label,
+    ...(agent ? { labelParts: [agent.label, label] as const } : {}),
+    title: agent ? `${agent.title} / Skill: ${label}` : `Skill: ${label}`,
+    icon: agent?.icon ?? `skill:${id}`,
   };
 }
 
@@ -60,28 +66,30 @@ export function attributeToolStep(
     ...skillChip(skill.id, catalog),
     attribution: "skill" as const,
   }));
-  const ownedApps = new Set(
+  const ownedAgents = new Set(
     owners.flatMap((skill) =>
-      skill.id.includes("/") ? [skill.id.split("/")[0]!] : [],
+      skill.id.includes("/")
+        ? [skill.id.slice(0, skill.id.lastIndexOf("/"))!]
+        : [],
     ),
   );
-  const apps =
-    catalog?.apps?.filter(
-      (app) =>
-        Array.isArray(app.metadata?.tool_names) &&
-        app.metadata.tool_names.includes(rawLabel),
+  const agents =
+    catalog?.agents?.filter(
+      (agent) =>
+        Array.isArray(agent.metadata?.tool_names) &&
+        agent.metadata.tool_names.includes(rawLabel),
     ) ?? [];
-  // Exact declarations only. A prefix, selected app, or prior activation
+  // Exact declarations only. A prefix, selected agent, or prior activation
   // cannot establish who supplied a tool. Ambiguous bare names stay untagged.
-  const appChips =
-    apps.length === 1 && !ownedApps.has(apps[0]!.name)
-      ? [appChip(apps[0]!.name, catalog)]
+  const agentChips =
+    agents.length === 1 && !ownedAgents.has(agents[0]!.agent)
+      ? [agentChip(agents[0]!.agent, catalog)]
       : [];
   const chips = [
     ...step.chips.map((chip) =>
       chip.skillId ? skillChip(chip.skillId, catalog) : chip,
     ),
-    ...appChips,
+    ...agentChips,
     ...skillChips,
   ];
   const seen = new Set<string>();
@@ -96,7 +104,7 @@ export function attributeToolStep(
   };
 }
 
-/** A decoded step with the apps and skills that declare its tool. */
+/** A decoded step with the agents and skills that declare its tool. */
 export const interpretToolStep = (
   input: ToolStepInput & { attribution?: TraceAttribution },
 ): InterpretedToolStep =>

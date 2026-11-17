@@ -1,20 +1,20 @@
-import type { AppFixture } from "../types";
+import type { AgentFixture } from "../types";
 import { transactions } from "./transactions";
 import { logs } from "./logs";
 import { statement } from "./statement";
 
-// playground-example — dual-VM app (SVM + EVM). Medium activity across
+// playground-example — dual-VM agent (SVM + EVM). Medium activity across
 // Base, Ethereum, and Solana; one cross-family bridge tool that errors.
 
-export const playgroundExample: AppFixture = {
+export const playgroundExample: AgentFixture = {
   meta: {
     name: "playground-example",
-    applicationId: 79,
+    agentId: 79,
     families: ["svm", "evm"],
-    releaseTag: "apps-142228159-rb87f6980b6-playground-example",
+    releaseTag: "agents-142228159-rb87f6980b6-playground-example",
     sdkVersion: "3.0.2",
     status: "healthy",
-    repo: "aomi-labs/apps",
+    repo: "aomi-labs/agents",
   },
   card: {
     requestsPerMinute: 0.05,

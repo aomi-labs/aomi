@@ -5,8 +5,8 @@ import { AppWindowIcon, Globe2Icon, WandSparklesIcon } from "lucide-react";
 import { useMemo, type FC } from "react";
 import { SUPPORTED_CHAINS, getChainInfo, useControl } from "@aomi-labs/react";
 
-import { resolveAppIdentity } from "@/lib/apps/app-identity";
-import { getAppIcon } from "@/icons/app-map";
+import { resolveAgentIdentity } from "@aomi-labs/client";
+import { getAgentIcon } from "@/icons/agent-map";
 import { getChainIcon } from "@/icons/chain-map";
 import { getSkillIcon } from "@/icons/skills/skill-icons";
 import { SolanaIcon } from "@/icons/chain-icons";
@@ -19,7 +19,7 @@ import { useAomiWalletKit } from "@/wallet/context";
 import { walletPickerItems } from "@/composer/capability-composer/catalog";
 
 type CapabilityHint = {
-  kind: "app" | "skill" | "chain" | "wallet";
+  kind: "agent" | "skill" | "chain" | "wallet";
   id: string;
 };
 
@@ -39,7 +39,7 @@ function capabilityHints(value: unknown): CapabilityHint[] {
     if (!item || typeof item !== "object") return false;
     const candidate = item as Record<string, unknown>;
     return (
-      (candidate.kind === "app" ||
+      (candidate.kind === "agent" ||
         candidate.kind === "skill" ||
         candidate.kind === "chain" ||
         candidate.kind === "wallet") &&
@@ -57,15 +57,15 @@ export function splitCapabilityText(
   capabilities: readonly RenderedCapability[],
   selected: readonly CapabilityHint[] = [],
 ): CapabilityTextSegment[] {
-  const missingApps = capabilities.filter(
+  const missingAgents = capabilities.filter(
     (capability) =>
-      capability.kind === "app" &&
+      capability.kind === "agent" &&
       selected.some(
-        (hint) => hint.kind === "app" && hint.id === capability.id,
+        (hint) => hint.kind === "agent" && hint.id === capability.id,
       ) &&
       !text.includes(capability.token),
   );
-  text = [...missingApps.map((app) => app.token), text].join(" ");
+  text = [...missingAgents.map((agent) => agent.token), text].join(" ");
   const byToken = new Map(
     capabilities.map((capability) => [capability.token, capability]),
   );
@@ -102,12 +102,9 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
   const capabilities = useMemo<RenderedCapability[]>(() => {
     const walletItems = walletPickerItems(wallets);
     const catalogHints: CapabilityHint[] = [
-      ...state.appDescriptors.map((app) => ({
-        kind: "app" as const,
-        id:
-          app.applicationId === null || app.applicationId === undefined
-            ? `name:${app.name}`
-            : `application:${app.applicationId}`,
+      ...state.agentCards.map((agent) => ({
+        kind: "agent" as const,
+        id: `agent:${agent.agent}`,
       })),
       ...(skills ?? []).map((skill) => ({
         kind: "skill" as const,
@@ -132,25 +129,20 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
       const identity = `${hint.kind}:${hint.id}`;
       if (seen.has(identity)) return [];
       seen.add(identity);
-      if (hint.kind === "app") {
-        const descriptor = hint.id.startsWith("application:")
-          ? state.appDescriptors.find(
-              (app) =>
-                String(app.applicationId) ===
-                hint.id.slice("application:".length),
-            )
-          : state.appDescriptors.find(
-              (app) => app.name === hint.id.replace(/^name:/u, ""),
-            );
-        const appName = descriptor?.name ?? hint.id.replace(/^name:/u, "");
-        const info = resolveAppIdentity(descriptor ?? appName);
+      if (hint.kind === "agent") {
+        const slug = hint.id.replace(/^agent:/u, "");
+        const descriptor = state.agentCards.find(
+          (agent) => agent.agent === slug,
+        );
+        const agentName = descriptor?.agent ?? slug;
+        const info = resolveAgentIdentity(descriptor ?? agentName);
         const label = info.displayName;
         return [
           {
             ...hint,
             label,
             token: `▦ ${label}`,
-            Icon: getAppIcon(info.brandId) ?? AppWindowIcon,
+            Icon: getAgentIcon(info.brandId) ?? AppWindowIcon,
           },
         ];
       }
@@ -212,7 +204,7 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
         },
       ];
     });
-  }, [hints, networkPreferences, skills, state.appDescriptors, wallets]);
+  }, [hints, networkPreferences, skills, state.agentCards, wallets]);
   const segments = useMemo(
     () => splitCapabilityText(text, capabilities, hints),
     [capabilities, hints, text],

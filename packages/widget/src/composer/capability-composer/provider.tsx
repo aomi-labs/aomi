@@ -16,14 +16,14 @@ import {
 import { useControl, useThreadContext, useChatView } from "@aomi-labs/react";
 import {
   normalizeAomiRouting,
-  sameDirectRoutingApp,
+  sameDirectRoutingAgent,
   toAgentTarget,
   type AomiRoutingConfig,
-  type DirectRoutingApp,
+  type DirectRoutingAgent,
 } from "@/controls/routing";
 import { buildCapabilityHintPayload } from "@/thread/capability-hint-payload";
 import type {
-  AppTagRequest,
+  AgentTagRequest,
   CapabilityMention,
   ExecutionPolicy,
 } from "./model";
@@ -32,20 +32,20 @@ type CapabilityComposerContextValue = {
   mentions: CapabilityMention[];
   policy: ExecutionPolicy;
   /** Explicit host tag or active Direct target; an Auto allowlist is not selection. */
-  selectedApp: DirectRoutingApp | AppTagRequest | null;
+  selectedAgent: DirectRoutingAgent | AgentTagRequest | null;
   hintsEnabled: boolean;
   hostError: string | null;
   capabilityPickerRequest: number;
-  /** Host app tag waiting for the input to insert it as a mention. */
-  appTagRequest: AppTagRequest | null;
-  consumeAppTagRequest: () => void;
+  /** Host agent tag waiting for the input to insert it as a mention. */
+  agentTagRequest: AgentTagRequest | null;
+  consumeAgentTagRequest: () => void;
   openCapabilityPicker: () => void;
   consumeCapabilityPickerRequest: () => void;
   addMention: (mention: CapabilityMention) => void;
   retainMentions: (keys: ReadonlySet<string>) => void;
   prepareSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  enabledAppIds?: readonly string[];
-  allowAppMentions: boolean;
+  enabledAgentIds?: readonly string[];
+  allowAgentMentions: boolean;
 };
 
 const CapabilityComposerContext =
@@ -63,14 +63,14 @@ export function useCapabilityComposer(): CapabilityComposerContextValue {
 
 export function CapabilityComposerProvider({
   children,
-  enabledAppIds,
+  enabledAgentIds,
   routing,
-  initialAppTag,
+  initialAgentTag,
 }: {
   children: ReactNode;
-  enabledAppIds?: readonly string[];
+  enabledAgentIds?: readonly string[];
   routing?: AomiRoutingConfig;
-  initialAppTag?: AppTagRequest;
+  initialAgentTag?: AgentTagRequest;
 }) {
   const { onAgentModeSelect, onAgentTargetSelect } = useControl();
   const threadContext = useThreadContext();
@@ -86,34 +86,21 @@ export function CapabilityComposerProvider({
   const currentControl = threadContext.getThreadMetadata(
     threadContext.currentThreadId,
   )?.control;
-  const storedMode =
-    currentControl?.agentMode ??
-    (currentControl?.app || currentControl?.applicationId != null
-      ? "direct"
-      : undefined);
-  // Routing is host-owned: a mode stored by an earlier mode picker (or the
-  // device-wide preference) must not strand a chat outside the host default.
+  const storedMode = currentControl?.agentMode;
   const policy: ExecutionPolicy = normalizedRouting.defaultMode;
-  const currentDirectApp: DirectRoutingApp | null =
-    currentControl?.applicationId != null &&
-    Number.isSafeInteger(Number(currentControl.applicationId))
-      ? {
-          applicationId: Number(currentControl.applicationId),
-          ...(currentControl.app ? { app: currentControl.app } : {}),
-        }
-      : currentControl?.app
-        ? { app: currentControl.app }
-        : null;
-  const selectedDirectApp =
-    (currentDirectApp
-      ? normalizedRouting.directApps.find((candidate) =>
-          sameDirectRoutingApp(candidate, currentDirectApp),
+  const currentDirectAgent: DirectRoutingAgent | null = currentControl?.agent
+    ? { agent: currentControl.agent }
+    : null;
+  const selectedDirectAgent =
+    (currentDirectAgent
+      ? normalizedRouting.directAgents.find((candidate) =>
+          sameDirectRoutingAgent(candidate, currentDirectAgent),
         )
       : undefined) ??
-    normalizedRouting.directApps[0] ??
+    normalizedRouting.directAgents[0] ??
     null;
-  const selectedApp =
-    initialAppTag ?? (policy === "direct" ? selectedDirectApp : null);
+  const selectedAgent =
+    initialAgentTag ?? (policy === "direct" ? selectedDirectAgent : null);
   const [mentions, setMentions] = useState<CapabilityMention[]>(
     () =>
       (view?.store.get(view.threadId)?.mentions ?? []) as CapabilityMention[],
@@ -144,20 +131,20 @@ export function CapabilityComposerProvider({
     view?.store.patch(view.threadId, { mentions });
   }, [view, mentions]);
 
-  // Offer the host's app tag once, after the mount-time mention reset above.
-  const [appTagRequest, setAppTagRequest] = useState<AppTagRequest | null>(
-    null,
-  );
-  const appTagKey = initialAppTag
-    ? `${initialAppTag.app}:${initialAppTag.applicationId ?? ""}`
-    : "";
-  const offeredAppTag = useRef("");
+  // Offer the host's agent tag once, after the mount-time mention reset above.
+  const [agentTagRequest, setAgentTagRequest] =
+    useState<AgentTagRequest | null>(null);
+  const agentTagKey = initialAgentTag ? initialAgentTag.agent : "";
+  const offeredAgentTag = useRef("");
   useEffect(() => {
-    if (!initialAppTag || offeredAppTag.current === appTagKey) return;
-    offeredAppTag.current = appTagKey;
-    setAppTagRequest(initialAppTag);
-  }, [appTagKey, initialAppTag]);
-  const consumeAppTagRequest = useCallback(() => setAppTagRequest(null), []);
+    if (!initialAgentTag || offeredAgentTag.current === agentTagKey) return;
+    offeredAgentTag.current = agentTagKey;
+    setAgentTagRequest(initialAgentTag);
+  }, [agentTagKey, initialAgentTag]);
+  const consumeAgentTagRequest = useCallback(
+    () => setAgentTagRequest(null),
+    [],
+  );
 
   useEffect(() => {
     if (normalizedRouting.error) return;
@@ -168,20 +155,22 @@ export function CapabilityComposerProvider({
       return;
     }
     if (
-      selectedDirectApp &&
+      selectedDirectAgent &&
       (storedMode !== "direct" ||
-        !currentDirectApp ||
-        !sameDirectRoutingApp(selectedDirectApp, currentDirectApp))
+        !currentDirectAgent ||
+        !sameDirectRoutingAgent(selectedDirectAgent, currentDirectAgent))
     ) {
-      onAgentTargetSelect(toAgentTarget(selectedDirectApp), { persist: false });
+      onAgentTargetSelect(toAgentTarget(selectedDirectAgent), {
+        persist: false,
+      });
     }
   }, [
-    currentDirectApp,
+    currentDirectAgent,
     normalizedRouting,
     onAgentModeSelect,
     onAgentTargetSelect,
     policy,
-    selectedDirectApp,
+    selectedDirectAgent,
     storedMode,
   ]);
 
@@ -212,27 +201,27 @@ export function CapabilityComposerProvider({
     () => ({
       mentions,
       policy,
-      selectedApp,
+      selectedAgent,
       hintsEnabled,
       hostError: normalizedRouting.error,
       capabilityPickerRequest,
-      appTagRequest,
-      consumeAppTagRequest,
+      agentTagRequest,
+      consumeAgentTagRequest,
       openCapabilityPicker,
       consumeCapabilityPickerRequest,
       addMention,
       retainMentions,
       prepareSubmit,
-      enabledAppIds,
-      allowAppMentions: hintsEnabled,
+      enabledAgentIds,
+      allowAgentMentions: hintsEnabled,
     }),
     [
       addMention,
-      appTagRequest,
+      agentTagRequest,
       capabilityPickerRequest,
-      consumeAppTagRequest,
+      consumeAgentTagRequest,
       consumeCapabilityPickerRequest,
-      enabledAppIds,
+      enabledAgentIds,
       hintsEnabled,
       mentions,
       normalizedRouting.error,
@@ -240,7 +229,7 @@ export function CapabilityComposerProvider({
       policy,
       prepareSubmit,
       retainMentions,
-      selectedApp,
+      selectedAgent,
     ],
   );
 
@@ -300,7 +289,7 @@ const noop = () => {};
 
 /**
  * An edit box's own mentions under the thread composer's routing. The thread
- * composer's picker and app-tag requests stay with the thread composer.
+ * composer's picker and agent-tag requests stay with the thread composer.
  */
 export function EditCapabilityComposerProvider({
   children,
@@ -321,8 +310,8 @@ export function EditCapabilityComposerProvider({
       addMention,
       retainMentions,
       capabilityPickerRequest: 0,
-      appTagRequest: null,
-      consumeAppTagRequest: noop,
+      agentTagRequest: null,
+      consumeAgentTagRequest: noop,
       openCapabilityPicker: noop,
       consumeCapabilityPickerRequest: noop,
     }),

@@ -2,7 +2,7 @@ import type { SecretSlot } from "./types";
 
 export type { SecretSlot };
 
-/** Slots configured by the app Builder rather than each chat user. */
+/** Slots configured by the agent Builder rather than each chat user. */
 export function builderSecretSlots(
   slots: SecretSlot[] | undefined,
 ): SecretSlot[] {

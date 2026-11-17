@@ -10,7 +10,7 @@ describe("intake server", () => {
   });
 
   it("serves a self-contained page that polls /intake and follows buildUrl", async () => {
-    handle = await startIntakeServer({ app: "demo" });
+    handle = await startIntakeServer({ packageName: "demo" });
     const page = await (await fetch(handle.url)).text();
     expect(page).toContain("<!doctype html>");
     expect(page).toContain("/intake");
@@ -21,9 +21,12 @@ describe("intake server", () => {
   });
 
   it("reflects live state and the intake → preview → building transition", async () => {
-    handle = await startIntakeServer({ app: "morpho" });
+    handle = await startIntakeServer({ packageName: "morpho" });
     const read = async () =>
-      (await (await fetch(`${handle!.url}intake`)).json()) as Record<string, unknown>;
+      (await (await fetch(`${handle!.url}intake`)).json()) as Record<
+        string,
+        unknown
+      >;
 
     let state = await read();
     expect(state.phase).toBe("intake");
@@ -34,7 +37,7 @@ describe("intake server", () => {
         { role: "smither", text: "What do you wanna build?" },
         { role: "user", text: "a morpho pool manager" },
       ],
-      draft: { app: "morpho", builder: "claude" },
+      draft: { packageName: "morpho", builder: "claude" },
       thinking: true,
       thinkingSince: 1,
     });
@@ -43,7 +46,7 @@ describe("intake server", () => {
     expect(state.thinking).toBe(true);
 
     const plan = buildPlanSchema.parse({
-      app: "morpho",
+      packageName: "morpho",
       sdkRoot: "/tmp",
       builder: "none",
       phases: [
@@ -51,7 +54,11 @@ describe("intake server", () => {
         { kind: "agent", id: "synthesize", role: "synthesize" },
       ],
     });
-    handle.update({ thinking: false, phase: "preview", stages: stagesFor(plan) });
+    handle.update({
+      thinking: false,
+      phase: "preview",
+      stages: stagesFor(plan),
+    });
     state = await read();
     expect(state.phase).toBe("preview");
     expect((state.stages as { id: string }[]).map((s) => s.id)).toEqual([
@@ -60,15 +67,18 @@ describe("intake server", () => {
       "morpho:result",
     ]);
 
-    handle.update({ phase: "building", buildUrl: "http://127.0.0.1:7332/workflows/morpho" });
+    handle.update({
+      phase: "building",
+      buildUrl: "http://127.0.0.1:7332/workflows/morpho",
+    });
     state = await read();
     expect(state.phase).toBe("building");
     expect(state.buildUrl).toBe("http://127.0.0.1:7332/workflows/morpho");
   });
 
   it("picks the next port when the preferred one is taken", async () => {
-    handle = await startIntakeServer({ app: "a", port: 7455 });
-    const second = await startIntakeServer({ app: "b", port: 7455 });
+    handle = await startIntakeServer({ packageName: "a", port: 7455 });
+    const second = await startIntakeServer({ packageName: "b", port: 7455 });
     try {
       expect(second.port).toBe(handle.port + 1);
     } finally {

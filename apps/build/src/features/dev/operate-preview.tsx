@@ -1,27 +1,31 @@
 // TEMPORARY visual harness for the Operate pages. All four tabs render the
 // REAL OperateView components; window.fetch is stubbed to serve ./fixtures
 // (goal-digger: SVM, playground-example: SVM+EVM, geckoterminal: EVM) in the
-// exact Build API wire shape. Only the app drill-down remains a design mock.
+// exact Build API wire shape. Only the agent drill-down remains a design mock.
 
 import { Suspense, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { GitHubSessionProvider } from "@/components/control-plane/github-session-context";
 import { OperateView, type ViewKind } from "@/features/operate/operate-view";
-import { AppDetailView } from "@/features/operate/app-detail-view";
+import { AgentDetailView } from "@/features/operate/agent-detail-view";
 import {
   ALL_LOGS,
   ALL_TRANSACTIONS,
-  APP_NAMES,
-  appFixture,
+  AGENT_NAMES,
+  agentFixture,
   type LogRecord,
   type TxRecord,
 } from "@/features/operate/fixtures";
 import {
-  exampleAppCards,
+  exampleAgentCards,
   exampleStatement,
 } from "@/features/operate/fixtures/wire";
 
-const SOURCE = { id: 141779906, repositoryLink: "aomi-labs/apps", apps: [] };
+const SOURCE = {
+  id: 141779906,
+  repositoryLink: "aomi-labs/agents",
+  agents: [],
+};
 const SOMM_RECIPIENT = "0x5D907BEa404e6F821d467314a9cA07663CF64c9B";
 const SOMM_RECEIPT =
   "0x55e510bb72adb05979adc8afad8c70fa7ca3d0c2cb5dca9432bf82e46ff1df74";
@@ -41,8 +45,8 @@ const SOMM_PAYMENTS = {
   },
   resources: [
     {
-      application: "somm-agent",
-      applicationId: 2_936_606,
+      agent: "somm-agent",
+      agentId: 2_936_606,
       tool: "get_idle_assets",
       flatCredits: 100,
       flatUsd: 1,
@@ -67,8 +71,8 @@ const SOMM_PAYMENTS = {
       id: `settle:${SOMM_RECEIPT}`,
       kind: "settlement_confirmed",
       occurredAt: 1_785_119_866,
-      application: "somm-agent",
-      applicationId: 2_936_606,
+      agent: "somm-agent",
+      agentId: 2_936_606,
       tools: [],
       credits: 100,
       usd: 1,
@@ -85,8 +89,8 @@ const SOMM_PAYMENTS = {
       id: "usage:somm-proof-fee",
       kind: "fee_accrued",
       occurredAt: 1_785_117_576,
-      application: "somm-agent",
-      applicationId: 2_936_606,
+      agent: "somm-agent",
+      agentId: 2_936_606,
       tools: ["get_idle_assets"],
       credits: 100,
       usd: 1,
@@ -108,8 +112,8 @@ function txWire(tx: TxRecord) {
   return {
     id: tx.id,
     externalTxId: tx.externalTxId,
-    application: tx.app,
-    applicationId: appFixture(tx.app)?.meta.applicationId ?? null,
+    agent: tx.agent,
+    agentId: agentFixture(tx.agent)?.meta.agentId ?? null,
     status: tx.status,
     txHash: tx.hash ?? null,
     chainId: tx.family === "svm" ? 0 : (CHAIN_IDS[tx.chain] ?? 1),
@@ -151,9 +155,9 @@ function logWire(log: LogRecord, index: number) {
   return {
     occurredAt: log.ts,
     eventType: log.eventType ?? "tool_invocation",
-    id: `${log.app}-${log.ts}-${index}`,
-    application: log.app,
-    applicationId: appFixture(log.app)?.meta.applicationId ?? null,
+    id: `${log.agent}-${log.ts}-${index}`,
+    agent: log.agent,
+    agentId: agentFixture(log.agent)?.meta.agentId ?? null,
     summary: log.summary,
     details: {},
     kind: log.kind,
@@ -170,7 +174,7 @@ function logWire(log: LogRecord, index: number) {
 
 const OBSERVABILITY = {
   projects: [SOURCE],
-  scope: "owned_applications",
+  scope: "owned_agents",
   monitoring: {
     provider: "grafana_prometheus",
     status: "ok",
@@ -179,18 +183,18 @@ const OBSERVABILITY = {
   dashboardLinks: [
     {
       label: "Open dashboard",
-      url: "https://grafana.example.com/d/app",
-      scope: "owned_applications",
+      url: "https://grafana.example.com/d/agent",
+      scope: "owned_agents",
     },
   ],
   platformMetrics: [],
-  apps: [
+  agents: [
     {
-      applicationId: 2_936_606,
-      application: "somm-agent",
+      agentId: 2_936_606,
+      agent: "somm-agent",
       active: true,
       loaded: true,
-      releaseTag: "apps-somm-agent-proof",
+      releaseTag: "agents-somm-agent-proof",
       sdkVersion: "3.0.3",
       status: "healthy",
       pricing: {
@@ -226,7 +230,7 @@ const OBSERVABILITY = {
       },
       source: SOURCE,
     },
-    ...exampleAppCards(SOURCE),
+    ...exampleAgentCards(SOURCE),
   ],
   payments: SOMM_PAYMENTS,
 };
@@ -238,8 +242,8 @@ const TRANSACTIONS = {
       id: `partner-payout:${SOMM_RECEIPT}`,
       kind: "partner_payout",
       externalTxId: SOMM_RECEIPT,
-      application: "somm-agent",
-      applicationId: 2_936_606,
+      agent: "somm-agent",
+      agentId: 2_936_606,
       status: "confirmed",
       txHash: SOMM_RECEIPT,
       chainId: 84532,
@@ -292,8 +296,8 @@ const LOGS = {
       occurredAt: 1_785_119_866,
       eventType: "usage",
       id: `settle:${SOMM_RECEIPT}`,
-      application: "somm-agent",
-      applicationId: 2_936_606,
+      agent: "somm-agent",
+      agentId: 2_936_606,
       summary: "Partner settlement confirmed · 100 credits",
       details: {
         source: "partner_settlement",
@@ -316,8 +320,8 @@ const LOGS = {
       occurredAt: 1_785_117_576,
       eventType: "usage",
       id: "usage:somm-proof-fee",
-      application: "somm-agent",
-      applicationId: 2_936_606,
+      agent: "somm-agent",
+      agentId: 2_936_606,
       summary: "Partner fee accrued · 100 credits",
       details: {
         source: "partner_fee",
@@ -327,7 +331,7 @@ const LOGS = {
         billing: {
           items: [
             {
-              app: "somm-agent",
+              agent: "somm-agent",
               tool: "get_idle_assets",
               kind: "tool_call",
               credits: 100,
@@ -422,34 +426,34 @@ export default function DevOperatePreview() {
   });
   const router = useRouter();
   const [kind, setKind] = useState<ViewKind>("usage");
-  const [detailApp, setDetailApp] = useState<string | null>(null);
+  const [detailAgent, setDetailAgent] = useState<string | null>(null);
   if (!ready) return null;
 
-  const detail = detailApp ? appFixture(detailApp) : undefined;
+  const detail = detailAgent ? agentFixture(detailAgent) : undefined;
   if (detail) {
     return (
-      <AppDetailView
-        app={detail}
+      <AgentDetailView
+        agent={detail}
         example
-        dashboardHref="https://grafana.example.com/d/app"
-        onBack={() => setDetailApp(null)}
+        dashboardHref="https://grafana.example.com/d/agent"
+        onBack={() => setDetailAgent(null)}
         onOpenTrace={(tool) => {
           // Deep link through real URL params — the same links the product uses.
           router.navigate({
-            href: `/dev/operate-preview?app=${encodeURIComponent(detail.meta.name)}&tool=${encodeURIComponent(tool)}`,
+            href: `/dev/operate-preview?agent=${encodeURIComponent(detail.meta.name)}&tool=${encodeURIComponent(tool)}`,
             resetScroll: false,
             replace: true,
           });
-          setDetailApp(null);
+          setDetailAgent(null);
           setKind("logs");
         }}
         onOpenTx={(txId) => {
           router.navigate({
-            href: `/dev/operate-preview?app=${encodeURIComponent(detail.meta.name)}&tx=${encodeURIComponent(txId)}`,
+            href: `/dev/operate-preview?agent=${encodeURIComponent(detail.meta.name)}&tx=${encodeURIComponent(txId)}`,
             resetScroll: false,
             replace: true,
           });
-          setDetailApp(null);
+          setDetailAgent(null);
           setKind("transactions");
         }}
       />
@@ -474,17 +478,17 @@ export default function DevOperatePreview() {
           </button>
         ))}
       </div>
-      {/* Harness-only: clicking any app card opens its drill-down mock. */}
+      {/* Harness-only: clicking any agent card opens its drill-down mock. */}
       <div
         onClickCapture={(event) => {
           if (kind !== "observability") return;
           const card = (event.target as HTMLElement).closest(
             "div.rounded-md.border",
           );
-          const name = APP_NAMES.find((appName) =>
-            card?.textContent?.includes(appName),
+          const name = AGENT_NAMES.find((agentName) =>
+            card?.textContent?.includes(agentName),
           );
-          if (name) setDetailApp(name);
+          if (name) setDetailAgent(name);
         }}
       >
         <Suspense fallback={null}>

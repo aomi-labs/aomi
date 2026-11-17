@@ -119,7 +119,7 @@ export function useUser() {
  * shadowed the outer. The chat composer would read from one store while
  * `AomiWalletKitSync` wrote to another, so wallet connects never
  * propagated to the chat's `user_state`. Collapsing nested mounts to the
- * outermost store fixes that without forcing host apps to wire the
+ * outermost store fixes that without forcing host agents to wire the
  * provider themselves.
  */
 export function ExtUserProvider({ children }: { children: ReactNode }) {

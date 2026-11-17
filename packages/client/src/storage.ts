@@ -1,7 +1,7 @@
 /** Browser preference storage. Credentials belong in memory or scoped session storage. */
 export type StorageScope = {
   backendUrl: string;
-  appId?: string | number | null;
+  agentScope?: string | number | null;
   principal?: string | null;
 };
 export type ScopedStorage = {
@@ -42,7 +42,7 @@ export function createScopedStorage(
     "aomi",
     "v2",
     part(backend(scope.backendUrl)),
-    part(scope.appId),
+    part(scope.agentScope),
     ...(scope.principal ? [part(scope.principal)] : []),
   ].join(":");
   const key = (name: string) => `${prefix}:${name}`;

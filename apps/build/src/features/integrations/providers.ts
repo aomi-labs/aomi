@@ -1,4 +1,4 @@
-// Shared definitions for the external bot/channel integrations surfaced on the
+// Shared definitions for the external channel integrations surfaced on the
 // Integrations page. Imported by both the client view and the Build server route so the
 // two validate against the same provider ids and field shapes.
 
@@ -53,9 +53,9 @@ export const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
         required: true,
       },
       {
-        key: "applicationId",
-        label: "Application ID",
-        placeholder: "Optional application / client ID",
+        key: "clientId",
+        label: "Client ID",
+        placeholder: "Optional client ID",
         secret: false,
         required: false,
       },

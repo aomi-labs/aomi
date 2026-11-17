@@ -38,7 +38,7 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
       name: "Payment-Signature",
       schema: { type: "string" },
     });
-    // The agent MCP locked to one app.
+    // The agent MCP locked to one agent.
     expect(publicApi.paths["/v1/agents/{agent}/mcp"].post.operationId).toBe(
       "agentMcp",
     );

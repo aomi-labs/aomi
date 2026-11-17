@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   dispatchSandboxRun: vi.fn(),
   finalizePlan: vi.fn(),
   findRunById: vi.fn(),
-  findRunByOwnerApp: vi.fn(),
+  findRunByOwnerPackage: vi.fn(),
   readRunView: vi.fn(),
   registerRun: vi.fn(),
   sandboxRunnerConfig: vi.fn(),
@@ -25,14 +25,14 @@ vi.mock("@aomi-labs/smither", () => ({
   readRunView: mocks.readRunView,
   requestRunCancel: vi.fn(),
   resolveRunBackend: vi.fn(() => ({})),
-  sanitizeAppName: vi.fn((value: string) => value),
+  sanitizePackageName: vi.fn((value: string) => value),
   stageKeyForNode: vi.fn((value: string) => value),
   stagesFor: vi.fn(() => []),
 }));
 
 vi.mock("./registry", () => ({
   findRunById: mocks.findRunById,
-  findRunByOwnerApp: mocks.findRunByOwnerApp,
+  findRunByOwnerPackage: mocks.findRunByOwnerPackage,
   registerRun: mocks.registerRun,
   updateRun: vi.fn(),
 }));
@@ -67,16 +67,13 @@ vi.mock("@/server/failures", () => ({
 
 import { readRunFile, reconstructBuildRun, startBuildRun } from "./engine";
 
-const runId = "smither-test-app-00000000-0000-0000-0000-000000000001";
+const runId = "smither-test-package-00000000-0000-0000-0000-000000000001";
 
 describe("build engine operational failures", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
-    Reflect.deleteProperty(
-      globalThis,
-      Symbol.for("aomi-build.smither-engine"),
-    );
+    Reflect.deleteProperty(globalThis, Symbol.for("aomi-build.smither-engine"));
     mocks.createAomiSmither.mockResolvedValue(mocks.api);
   });
 
@@ -97,7 +94,7 @@ describe("build engine operational failures", () => {
     mocks.findRunById.mockResolvedValue({
       runId,
       ownerLogin: "owner",
-      app: "test-app",
+      packageName: "test-package",
       runner: "vercel-sandbox",
       status: "running",
       sandboxId: "sandbox",
@@ -130,10 +127,10 @@ describe("build engine operational failures", () => {
 
   it("reports a failed second resume read and starts a replacement run", async () => {
     const error = new Error("private observer store failure");
-    mocks.findRunByOwnerApp.mockResolvedValue({
+    mocks.findRunByOwnerPackage.mockResolvedValue({
       runId,
       ownerLogin: "owner",
-      app: "test-app",
+      packageName: "test-package",
       runner: "vercel-sandbox",
       status: "running",
       sandboxId: "old-sandbox",
@@ -146,7 +143,7 @@ describe("build engine operational failures", () => {
       .mockResolvedValueOnce({ status: "running", nodes: [], outputs: {} })
       .mockRejectedValueOnce(error);
     mocks.finalizePlan.mockReturnValue({
-      plan: { app: "test-app", sdkRoot: "/tmp" },
+      plan: { packageName: "test-package", sdkRoot: "/tmp" },
       issues: [],
     });
     mocks.sandboxRunnerConfig.mockReturnValue({ sdkRoot: "/tmp" });
@@ -158,7 +155,11 @@ describe("build engine operational failures", () => {
     vi.stubEnv("AOMI_BUILD_RUNNER", "vercel-sandbox");
 
     await expect(
-      startBuildRun({ prompt: "test", owner: "owner", app: "test-app" }),
+      startBuildRun({
+        prompt: "test",
+        owner: "owner",
+        packageName: "test-package",
+      }),
     ).resolves.toMatchObject({
       runId,
       dispatch: { sandbox: { sandboxId: "new-sandbox" } },
@@ -179,11 +180,11 @@ describe("build engine operational failures", () => {
       readRunFile(
         {
           runId,
-          app: "test-app",
+          packageName: "test-package",
           plan: { sdkRoot: "/definitely/missing" },
           api: mocks.api,
         } as never,
-        "test-app/src/lib.rs",
+        "test-package/src/lib.rs",
       ),
     ).resolves.toBeNull();
     expect(mocks.capture).toHaveBeenCalledWith(error, {

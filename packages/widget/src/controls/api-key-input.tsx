@@ -25,8 +25,8 @@ export type ApiKeyInputProps = {
 
 export const ApiKeyInput: FC<ApiKeyInputProps> = ({
   className,
-  title = "App key",
-  description = "Private Apps need a key. Enter the one the App's builder shared with you.",
+  title = "Agent key",
+  description = "Private Agents need a key. Enter the one the Agent's builder shared with you.",
 }) => {
   // The control context changes during every turn; only the key matters here.
   const { state, actions } = useApiKey();
@@ -62,7 +62,7 @@ const ApiKeyDialog = memo(function ApiKeyDialog({
           variant="ghost"
           size="icon"
           className={cn("relative rounded-full", className)}
-          aria-label={hasApiKey ? "App key configured" : "Set App key"}
+          aria-label={hasApiKey ? "Agent key configured" : "Set Agent key"}
         >
           <KeyIcon className={cn("h-4 w-4", hasApiKey && "text-green-500")} />
         </Button>
@@ -75,13 +75,13 @@ const ApiKeyDialog = memo(function ApiKeyDialog({
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
             <Label htmlFor="api-key" className="mb-2">
-              App key
+              Agent key
             </Label>
             <div className="relative">
               <Input
                 id="api-key"
                 type={showKey ? "text" : "password"}
-                placeholder={hasApiKey ? "********" : "Enter the App key"}
+                placeholder={hasApiKey ? "********" : "Enter the Agent key"}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 className="rounded-full pr-10"
@@ -92,7 +92,7 @@ const ApiKeyDialog = memo(function ApiKeyDialog({
                 size="icon"
                 className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                 onClick={() => setShowKey(!showKey)}
-                aria-label={showKey ? "Hide App key" : "Show App key"}
+                aria-label={showKey ? "Hide Agent key" : "Show Agent key"}
               >
                 {showKey ? (
                   <EyeIcon className="h-4 w-4" />
@@ -104,7 +104,7 @@ const ApiKeyDialog = memo(function ApiKeyDialog({
             {hasApiKey && (
               <p className="text-muted-foreground text-xs">
                 <CheckIcon className="mr-1 inline h-3 w-3 text-green-500" />
-                App key is configured
+                Agent key is configured
               </p>
             )}
           </div>

@@ -2,19 +2,19 @@ import type { BuildTemplate } from "@/features/build/contracts";
 
 /** First-viewport starters on empty Create (order matters). */
 export const FEATURED_TEMPLATE_IDS = [
-  "tpl_arbitrage_bot",
+  "tpl_arbitrage_agent",
   "tpl_openapi_agent",
   "tpl_trading_agent",
 ] as const;
 
 export const BUILD_TEMPLATES: BuildTemplate[] = [
   {
-    id: "tpl_arbitrage_bot",
-    name: "Arbitrage Bot",
+    id: "tpl_arbitrage_agent",
+    name: "Arbitrage Agent",
     description: "Multi-venue arbitrage with execution and risk guardrails.",
     category: "trading",
     prompt:
-      "I wanna build a hyperliquid & binance arb bot with risk limits and paper-trade first.",
+      "I wanna build a hyperliquid & binance arb agent with risk limits and paper-trade first.",
   },
   {
     id: "tpl_trading_agent",
@@ -27,11 +27,12 @@ export const BUILD_TEMPLATES: BuildTemplate[] = [
   },
   {
     id: "tpl_telegram_bot",
-    name: "Telegram Bot",
-    description: "Auto-responding command bot with deployment and alert hooks.",
+    name: "Telegram Channel",
+    description:
+      "Auto-responding command channel with deployment and alert hooks.",
     category: "social",
     prompt:
-      "Build a Telegram bot that answers portfolio questions and alerts on fills. Give /start a concise greeting that identifies the active app and tells users to use /app to switch between the bot's attached apps.",
+      "Build a Telegram bot that answers portfolio questions and alerts on fills. Give /start a concise greeting that identifies the channel's agent.",
   },
   {
     id: "tpl_openapi_agent",
@@ -39,7 +40,7 @@ export const BUILD_TEMPLATES: BuildTemplate[] = [
     description: "Wrap REST APIs as agent-callable tools from OpenAPI specs.",
     category: "infra",
     prompt:
-      "Scaffold an Aomi app from OpenAPI specs for Hyperliquid and Binance.",
+      "Scaffold an Aomi package from OpenAPI specs for Hyperliquid and Binance.",
   },
   {
     id: "tpl_mcp_server",
@@ -66,9 +67,10 @@ export const BUILD_TEMPLATES: BuildTemplate[] = [
   },
   {
     id: "tpl_discord_bot",
-    name: "Discord Bot",
-    description: "Moderation and command bot with webhook integrations.",
+    name: "Discord Channel",
+    description: "Moderation and command channel with webhook integrations.",
     category: "social",
-    prompt: "Build a Discord bot for alerts and slash commands into our agent.",
+    prompt:
+      "Build a Discord channel for alerts and slash commands into our agent.",
   },
 ];

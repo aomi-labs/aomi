@@ -6,7 +6,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { AomiRoutingConfig, DirectRoutingApp } from "@aomi-labs/widget";
+import type { AomiRoutingConfig, DirectRoutingAgent } from "@aomi-labs/widget";
 import { AomiFrame } from "@aomi-labs/widget/frame";
 import {
   DEFAULT_SIDEBAR_PRODUCTS,
@@ -27,11 +27,11 @@ import { useAomiRuntime } from "@aomi-labs/react";
 import { OverlayPortal } from "@/components/shell/overlay-portal";
 import {
   usePortalClientOptions,
-  useRequestedAppConfig,
+  useRequestedAgentConfig,
 } from "@/lib/portal-client-options";
 import { SvmWalletBindingGate } from "@aomi-labs/widget/host-composition";
 
-const DEFAULT_ENABLED_APPS = ["default"] as const;
+const DEFAULT_ENABLED_AGENTS = ["default"] as const;
 const SETTINGS_TABS: readonly SettingsTab[] = [
   "general",
   "account",
@@ -40,42 +40,33 @@ const SETTINGS_TABS: readonly SettingsTab[] = [
   "usage",
 ];
 
-function directTarget(
-  app: string,
-  applicationId: string | null,
-): DirectRoutingApp {
-  const parsed = applicationId === null ? NaN : Number(applicationId);
-  return Number.isSafeInteger(parsed) && parsed > 0
-    ? { app, applicationId: parsed }
-    : { app };
-}
-
 const AUTO_ROUTING: AomiRoutingConfig = { targets: [{ mode: "auto" }] };
 
 /**
- * Portal chats always run Auto; users tag apps with the composer's + picker.
- * An unlocked `?app=` link pre-tags its app the same way; only a locked
- * project link pins its app, silently, as a Direct target.
+ * Portal chats always run Auto; users tag agents with the composer's + picker.
+ * An unlocked `?agent=` link pre-tags its agent the same way; only a locked
+ * project link pins its agent, silently, as a Direct target.
  */
 function PortalComposer({
   lockedTarget,
-  appTag,
+  agentTag,
   sendDisabled,
   opening,
 }: {
-  lockedTarget?: DirectRoutingApp;
-  appTag?: { app: string; applicationId?: number };
+  lockedTarget?: DirectRoutingAgent;
+  agentTag?: { agent: string };
   sendDisabled: boolean;
   opening: boolean;
 }) {
   // A list that failed never confirms the link; the new chat is usable then.
   const { threadListError } = useAomiRuntime();
-  const enabledApps = useAccountOverview()?.user.apps ?? DEFAULT_ENABLED_APPS;
+  const enabledAgents =
+    useAccountOverview()?.user.agents ?? DEFAULT_ENABLED_AGENTS;
   const routing = useMemo<AomiRoutingConfig>(
     () =>
       lockedTarget
         ? {
-            targets: [{ mode: "direct", apps: [lockedTarget] }],
+            targets: [{ mode: "direct", agents: [lockedTarget] }],
             defaultMode: "direct",
           }
         : AUTO_ROUTING,
@@ -89,8 +80,8 @@ function PortalComposer({
       controlBarProps={{
         hideApiKey: true,
         routing,
-        enabledAppIds: enabledApps,
-        initialAppTag: appTag,
+        enabledAgentIds: enabledAgents,
+        initialAgentTag: agentTag,
         hideNetwork: true,
       }}
     />
@@ -354,25 +345,22 @@ export function PortalAomiFrame() {
     revision: 0,
     clearThreadUrl: false,
   }));
-  const requestedApp = useRequestedAppConfig();
-  const lockedApp = requestedApp.locked ? requestedApp.app : null;
-  const lockedApplicationId = lockedApp ? requestedApp.applicationId : null;
+  const requestedAgent = useRequestedAgentConfig();
+  const lockedAgent = requestedAgent.locked ? requestedAgent.agent : null;
   const lockedTarget = useMemo(
-    () =>
-      lockedApp ? directTarget(lockedApp, lockedApplicationId) : undefined,
-    [lockedApp, lockedApplicationId],
+    () => (lockedAgent ? { agent: lockedAgent } : undefined),
+    [lockedAgent],
   );
-  const appTag = useMemo(
+  const agentTag = useMemo(
     () =>
-      requestedApp.app && !requestedApp.locked
+      requestedAgent.agent && !requestedAgent.locked
         ? {
-            ...directTarget(requestedApp.app, requestedApp.applicationId),
-            app: requestedApp.app,
+            agent: requestedAgent.agent,
           }
         : undefined,
-    [requestedApp.app, requestedApp.applicationId, requestedApp.locked],
+    [requestedAgent.agent, requestedAgent.locked],
   );
-  const clientOptions = usePortalClientOptions(lockedApp, lockedApplicationId);
+  const clientOptions = usePortalClientOptions();
   const backendUrl = getBackendUrl();
   // Settings and the packages catalog are siblings of the frame so their
   // backdrops cover the sidebar and chat as one surface.
@@ -524,7 +512,7 @@ export function PortalAomiFrame() {
           width="100%"
           height="100%"
           backendUrl={backendUrl}
-          applicationId={lockedApplicationId}
+          agent={lockedAgent}
           displayPersistence="account"
           agentTarget={
             lockedTarget ? { mode: "direct", ...lockedTarget } : undefined
@@ -555,7 +543,7 @@ export function PortalAomiFrame() {
           </AomiFrame.Header>
           <PortalComposer
             lockedTarget={lockedTarget}
-            appTag={appTag}
+            agentTag={agentTag}
             // First Send joins the shared cookie preparation. A linked chat
             // waits for its target so admission cannot create a different chat.
             sendDisabled={

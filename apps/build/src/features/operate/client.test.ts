@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { operateAppDetailFetch, operateFetch } from "./client";
+import { operateAgentDetailFetch, operateFetch } from "./client";
 
 const fetchMock = vi.fn();
 
@@ -28,11 +28,11 @@ describe("operate client Project identity", () => {
     );
   });
 
-  it("addresses application detail by its canonical application id", async () => {
-    await operateAppDetailFetch(2938032, "7d");
+  it("addresses agent detail by its canonical agent id", async () => {
+    await operateAgentDetailFetch(2938032, "7d");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/build/operate/observability/detail?applicationId=2938032&window=7d",
+      "/api/build/operate/observability/detail?agentId=2938032&window=7d",
       { signal: expect.any(AbortSignal) },
     );
   });

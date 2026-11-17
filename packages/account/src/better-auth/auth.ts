@@ -135,256 +135,264 @@ export function createAuth(input: Env) {
   const env = readAccountAuthEnv(input);
   const resources = aomiOAuthResources(input);
   const resourcePolicies = aomiOAuthResourcePolicies(input);
-  const isLoopbackAuthRuntime = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(
-    new URL(env.betterAuthUrl).hostname,
-  );
+  const isLoopbackAuthRuntime = [
+    "localhost",
+    "127.0.0.1",
+    "::1",
+    "[::1]",
+  ].includes(new URL(env.betterAuthUrl).hostname);
   // Better Auth seeds configured resources during plugin initialization. Unit
   // suites build it while intentionally running without PostgreSQL; the
   // resource/scope contract remains covered by oauth-policy and route tests.
   const seedOAuthResources = input.NODE_ENV !== "test";
   return betterAuth({
-  database: currentPool,
-  trustedOrigins: env.trustedOrigins,
-  secret: env.betterAuthSecret,
-  baseURL: env.betterAuthUrl,
-  basePath: "/api/auth",
-  disabledPaths: ["/token", "/sign-in/anonymous"],
-  advanced: {
-    ipAddress: {
-      ipAddressHeaders: env.clientIpHeader ? [env.clientIpHeader] : [],
-    },
-  },
-  rateLimit: {
-    customStorage: accountRateLimitStorage,
-    // Local browsers and integration suites all share the loopback IP, so the
-    // production anonymous-account limit otherwise locks out every local
-    // browser after ten total attempts. Hosted environments remain limited.
-    enabled: !isLoopbackAuthRuntime,
-    customRules: {
-      "/oauth2/register": { window: 60 * 60, max: 30 },
-      "/oauth2/authorize": { window: 60, max: 30 },
-      "/oauth2/token": { window: 60, max: 60 },
-      "/device/code": { window: 60, max: 20 },
-      // The plugin's own rule is 5 reads per code lifetime; one CLI login
-      // reads three codes.
-      "/device": { window: 60, max: 20 },
-    },
-  },
-  onAPIError: {
-    onError: observeBetterAuthFailure,
-  },
-  user: {
-    modelName: "ba_users",
-    fields: {
-      emailVerified: "email_verified",
-      createdAt: "created_at",
-      updatedAt: "updated_at",
-    },
-  },
-  session: {
-    modelName: "ba_sessions",
-    fields: {
-      expiresAt: "expires_at",
-      createdAt: "created_at",
-      updatedAt: "updated_at",
-      ipAddress: "ip_address",
-      userAgent: "user_agent",
-      userId: "user_id",
-    },
-    expiresIn: 60 * 60 * 24 * 7,
-    updateAge: 60 * 60 * 24,
-  },
-  account: {
-    modelName: "ba_accounts",
-    fields: {
-      accountId: "account_id",
-      providerId: "provider_id",
-      issuer: "issuer",
-      userId: "user_id",
-      accessToken: "access_token",
-      refreshToken: "refresh_token",
-      idToken: "id_token",
-      accessTokenExpiresAt: "access_token_expires_at",
-      refreshTokenExpiresAt: "refresh_token_expires_at",
-      createdAt: "created_at",
-      updatedAt: "updated_at",
-    },
-    accountLinking: {
-      enabled: true,
-      allowDifferentEmails: false,
-      trustedProviders: [],
-    },
-  },
-  verification: {
-    modelName: "ba_verifications",
-    fields: {
-      expiresAt: "expires_at",
-      createdAt: "created_at",
-      updatedAt: "updated_at",
-    },
-  },
-  plugins: [
-    jwt({
-      // The option lives under `jwt`; at the top level Better Auth ignores it and
-      // signs with the bare origin, which the edge then rejects as the wrong issuer.
-      jwt: { issuer: resources.authorizationServerIssuer },
-      disableSettingJwtHeader: true,
-      jwks: {
-        rotationInterval: 30 * 24 * 60 * 60,
-        gracePeriod: 31 * 24 * 60 * 60,
+    database: currentPool,
+    trustedOrigins: env.trustedOrigins,
+    secret: env.betterAuthSecret,
+    baseURL: env.betterAuthUrl,
+    basePath: "/api/auth",
+    disabledPaths: ["/token", "/sign-in/anonymous"],
+    advanced: {
+      ipAddress: {
+        ipAddressHeaders: env.clientIpHeader ? [env.clientIpHeader] : [],
       },
-      schema: {
+    },
+    rateLimit: {
+      customStorage: accountRateLimitStorage,
+      // Local browsers and integration suites all share the loopback IP, so the
+      // production anonymous-account limit otherwise locks out every local
+      // browser after ten total attempts. Hosted environments remain limited.
+      enabled: !isLoopbackAuthRuntime,
+      customRules: {
+        "/oauth2/register": { window: 60 * 60, max: 30 },
+        "/oauth2/authorize": { window: 60, max: 30 },
+        "/oauth2/token": { window: 60, max: 60 },
+        "/device/code": { window: 60, max: 20 },
+        // The plugin's own rule is 5 reads per code lifetime; one CLI login
+        // reads three codes.
+        "/device": { window: 60, max: 20 },
+      },
+    },
+    onAPIError: {
+      onError: observeBetterAuthFailure,
+    },
+    user: {
+      modelName: "ba_users",
+      fields: {
+        emailVerified: "email_verified",
+        createdAt: "created_at",
+        updatedAt: "updated_at",
+      },
+    },
+    session: {
+      modelName: "ba_sessions",
+      fields: {
+        expiresAt: "expires_at",
+        createdAt: "created_at",
+        updatedAt: "updated_at",
+        ipAddress: "ip_address",
+        userAgent: "user_agent",
+        userId: "user_id",
+      },
+      expiresIn: 60 * 60 * 24 * 7,
+      updateAge: 60 * 60 * 24,
+    },
+    account: {
+      modelName: "ba_accounts",
+      fields: {
+        accountId: "account_id",
+        providerId: "provider_id",
+        issuer: "issuer",
+        userId: "user_id",
+        accessToken: "access_token",
+        refreshToken: "refresh_token",
+        idToken: "id_token",
+        accessTokenExpiresAt: "access_token_expires_at",
+        refreshTokenExpiresAt: "refresh_token_expires_at",
+        createdAt: "created_at",
+        updatedAt: "updated_at",
+      },
+      accountLinking: {
+        enabled: true,
+        allowDifferentEmails: false,
+        trustedProviders: [],
+      },
+    },
+    verification: {
+      modelName: "ba_verifications",
+      fields: {
+        expiresAt: "expires_at",
+        createdAt: "created_at",
+        updatedAt: "updated_at",
+      },
+    },
+    plugins: [
+      jwt({
+        // The option lives under `jwt`; at the top level Better Auth ignores it and
+        // signs with the bare origin, which the edge then rejects as the wrong issuer.
+        jwt: { issuer: resources.authorizationServerIssuer },
+        disableSettingJwtHeader: true,
         jwks: {
-          modelName: "ba_jwks",
-          fields: {
-            publicKey: "public_key",
-            privateKey: "private_key",
-            createdAt: "created_at",
-            expiresAt: "expires_at",
-            alg: "alg",
-            crv: "crv",
-          },
+          rotationInterval: 30 * 24 * 60 * 60,
+          gracePeriod: 31 * 24 * 60 * 60,
         },
-      },
-    }),
-    snakeCasedSiwe(
-      canonicalSiwe({
-        domain: env.siweDomain,
-        emailDomainName: env.siweEmailDomain,
-        anonymous: true,
-        getNonce: async () => generateRandomString(32, "a-z", "A-Z", "0-9"),
-        verifyMessage: verifySiweMessage,
-      }),
-    ),
-    aomiSiwsPlugin({
-      domain: env.siweDomain,
-      baseUrl: env.betterAuthUrl,
-      getNonce: async () => generateRandomString(32, "a-z", "A-Z", "0-9"),
-    }),
-    bearer(),
-    anonymous({
-      emailDomainName: new URL(env.betterAuthUrl).hostname,
-      schema: { user: { fields: { isAnonymous: "is_anonymous" } } },
-      onLinkAccount: async ({ anonymousUser, newUser }) => {
-        await linkAnonymousCanonicalAccount({
-          anonymousBetterAuthUserId: anonymousUser.user.id,
-          newBetterAuthUserId: newUser.user.id,
-          newEmail: newUser.user.email,
-          newEmailVerified: newUser.user.emailVerified,
-          newName: newUser.user.name,
-          newAvatarUrl: newUser.user.image,
-        });
-      },
-    }),
-    withoutTestDatabaseInit(
-      compatiblePlugin(
-        snakeCasedOAuth(
-          mcp({
-            loginPage: "/oauth/authorize",
-            consentPage: "/oauth/consent",
-            resource: resources.agentMcp,
-            resources: seedOAuthResources
-              ? resourcePolicies.map((policy) => ({
-                  identifier: policy.identifier,
-                  allowedScopes: [...policy.grantableScopes],
-                  accessTokenTtl: 5 * 60,
-                  dpopBoundAccessTokensRequired:
-                    policy.dpopBoundAccessTokensRequired,
-                }))
-              : [],
-            resourceSeedMode: "overwrite",
-            scopes: [...AOMI_SCOPES],
-            // Do not attach server defaults to dynamic clients. Agent,
-            // Pipeline, and REST registrations must remain exact-resource.
-            // Codex's RFC 7591 payload omits the non-standard `resources`
-            // extension, so the Portal transactionally binds that client to
-            // the one resource named by its first authorize request.
-            clientRegistrationDefaultResources: [],
-            clientRegistrationAllowedResources: seedOAuthResources
-              ? [
-                  resources.agentMcp,
-                  resources.pipelineMcp,
-                  resources.agentRest,
-                  resources.pipelineRest,
-                  resources.accountRest,
-                  resources.apiRest,
-                ]
-              : [],
-            clientRegistrationDefaultScopes: [
-              ...MCP_CLIENT_REGISTRATION_SCOPES,
-            ],
-            // What a client may ASK for at registration. Better Auth fails a
-            // registration outright on any requested scope missing from this
-            // list, and MCP clients do request `openid` — Codex does — so
-            // refusing it here broke registration before the browser opened.
-            // Breadth here is safe because the grant is bounded at authorize.
-            clientRegistrationAllowedScopes: [...AOMI_SCOPES],
-            clientRegistrationRequirePKCE: true,
-            allowDynamicClientRegistration: true,
-            allowUnauthenticatedClientRegistration: true,
-            allowPublicClientPrelogin: true,
-            accessTokenExpiresIn: 5 * 60,
-            refreshTokenReuseInterval: 0,
-            customAccessTokenClaims: async ({ user }) => {
-              if (!user) throw new Error("oauth_user_required");
-              const canonical = await getOrCreateAomiUserForBetterAuthSession({
-                betterAuthUserId: user.id,
-                email: user.email,
-                emailVerified: user.emailVerified,
-                name: user.name,
-                avatarUrl: user.image,
-              });
-              return {
-                [AOMI_CANONICAL_USER_CLAIM]: canonical.id,
-                [AOMI_PRINCIPAL_CLASS_CLAIM]:
-                  user.isAnonymous === true ? "guest" : "user",
-              };
-            },
-          }),
-        ),
-      ),
-      seedOAuthResources,
-    ),
-    cimd({
-      // Workers cannot reach private addresses, so plain fetch is the safe
-      // transport; redirects are refused by the plugin either way.
-      fetchClientMetadataResource: (url, init) =>
-        fetch(url, { ...init, redirect: "manual" }),
-      metadataProfile: "mcp-2026-07-28",
-      // client_uri is display-only and may live on another origin (Hermes
-      // Agent hosts its document on github.io); keep logout redirects bound.
-      originBoundFields: ["post_logout_redirect_uris"],
-      onClientCreated: async ({ client, context }) => {
-        const resource = context.query?.resource;
-        if (typeof resource === "string") {
-          await bindAomiPublicClientResource({
-            clientId: client.clientId,
-            resource,
-          });
-        }
-      },
-    }),
-    compatiblePlugin(
-      oauthDeviceAuthorization({
-        verificationUri: `${resources.portalOrigin}/oauth/device`,
         schema: {
-          deviceCode: {
-            modelName: "ba_oauth_device_codes",
-            fields: DEVICE_CODE_FIELDS,
+          jwks: {
+            modelName: "ba_jwks",
+            fields: {
+              publicKey: "public_key",
+              privateKey: "private_key",
+              createdAt: "created_at",
+              expiresAt: "expires_at",
+              alg: "alg",
+              crv: "crv",
+            },
           },
         },
       }),
-    ),
-    aomiProviderAuthPlugin(),
-    aomiAccountMergePlugin(),
-    aomiSiweWalletAppPlugin(),
-    aomiWidgetOAuthBootstrapPlugin(),
-  ],
+      snakeCasedSiwe(
+        canonicalSiwe({
+          domain: env.siweDomain,
+          emailDomainName: env.siweEmailDomain,
+          anonymous: true,
+          getNonce: async () => generateRandomString(32, "a-z", "A-Z", "0-9"),
+          verifyMessage: verifySiweMessage,
+        }),
+      ),
+      aomiSiwsPlugin({
+        domain: env.siweDomain,
+        baseUrl: env.betterAuthUrl,
+        getNonce: async () => generateRandomString(32, "a-z", "A-Z", "0-9"),
+      }),
+      bearer(),
+      anonymous({
+        emailDomainName: new URL(env.betterAuthUrl).hostname,
+        schema: { user: { fields: { isAnonymous: "is_anonymous" } } },
+        onLinkAccount: async ({ anonymousUser, newUser }) => {
+          await linkAnonymousCanonicalAccount({
+            anonymousBetterAuthUserId: anonymousUser.user.id,
+            newBetterAuthUserId: newUser.user.id,
+            newEmail: newUser.user.email,
+            newEmailVerified: newUser.user.emailVerified,
+            newName: newUser.user.name,
+            newAvatarUrl: newUser.user.image,
+          });
+        },
+      }),
+      withoutTestDatabaseInit(
+        compatiblePlugin(
+          snakeCasedOAuth(
+            mcp({
+              loginPage: "/oauth/authorize",
+              consentPage: "/oauth/consent",
+              resource: resources.agentGatewayMcp,
+              resources: seedOAuthResources
+                ? resourcePolicies.map((policy) => ({
+                    identifier: policy.identifier,
+                    allowedScopes: [...policy.grantableScopes],
+                    accessTokenTtl: 5 * 60,
+                    dpopBoundAccessTokensRequired:
+                      policy.dpopBoundAccessTokensRequired,
+                  }))
+                : [],
+              resourceSeedMode: "overwrite",
+              scopes: [...AOMI_SCOPES],
+              // Do not attach server defaults to dynamic clients. Agent,
+              // Pipeline, and REST registrations must remain exact-resource.
+              // Codex's RFC 7591 payload omits the non-standard `resources`
+              // extension, so the Portal transactionally binds that client to
+              // the one resource named by its first authorize request.
+              clientRegistrationDefaultResources: [],
+              clientRegistrationAllowedResources: seedOAuthResources
+                ? [
+                    resources.agentGatewayMcp,
+                    resources.pipelineMcp,
+                    resources.agentRest,
+                    resources.pipelineRest,
+                    resources.accountRest,
+                    resources.apiRest,
+                  ]
+                : [],
+              clientRegistrationDefaultScopes: [
+                ...MCP_CLIENT_REGISTRATION_SCOPES,
+              ],
+              // What a client may ASK for at registration. Better Auth fails a
+              // registration outright on any requested scope missing from this
+              // list, and MCP clients do request `openid` — Codex does — so
+              // refusing it here broke registration before the browser opened.
+              // Breadth here is safe because the grant is bounded at authorize.
+              clientRegistrationAllowedScopes: [...AOMI_SCOPES],
+              clientRegistrationRequirePKCE: true,
+              allowDynamicClientRegistration: true,
+              allowUnauthenticatedClientRegistration: true,
+              allowPublicClientPrelogin: true,
+              accessTokenExpiresIn: 5 * 60,
+              refreshTokenReuseInterval: 0,
+              customAccessTokenClaims: async ({ user }) => {
+                if (!user) throw new Error("oauth_user_required");
+                const canonical = await getOrCreateAomiUserForBetterAuthSession(
+                  {
+                    betterAuthUserId: user.id,
+                    email: user.email,
+                    emailVerified: user.emailVerified,
+                    name: user.name,
+                    avatarUrl: user.image,
+                  },
+                );
+                return {
+                  [AOMI_CANONICAL_USER_CLAIM]: canonical.id,
+                  [AOMI_PRINCIPAL_CLASS_CLAIM]:
+                    user.isAnonymous === true ? "guest" : "user",
+                };
+              },
+            }),
+          ),
+        ),
+        seedOAuthResources,
+      ),
+      cimd({
+        // Workers cannot reach private addresses, so plain fetch is the safe
+        // transport; redirects are refused by the plugin either way.
+        fetchClientMetadataResource: (url, init) =>
+          fetch(url, { ...init, redirect: "manual" }),
+        metadataProfile: "mcp-2026-07-28",
+        // client_uri is display-only and may live on another origin (Hermes
+        // Agent hosts its document on github.io); keep logout redirects bound.
+        originBoundFields: ["post_logout_redirect_uris"],
+        onClientCreated: async ({ client, context }) => {
+          const resource = context.query?.resource;
+          if (typeof resource === "string") {
+            await bindAomiPublicClientResource({
+              clientId: client.clientId,
+              resource,
+            });
+          }
+        },
+      }),
+      compatiblePlugin(
+        oauthDeviceAuthorization({
+          verificationUri: `${resources.portalOrigin}/oauth/device`,
+          schema: {
+            deviceCode: {
+              modelName: "ba_oauth_device_codes",
+              fields: DEVICE_CODE_FIELDS,
+            },
+          },
+        }),
+      ),
+      aomiProviderAuthPlugin(),
+      aomiAccountMergePlugin(),
+      aomiSiweWalletAppPlugin(),
+      aomiWidgetOAuthBootstrapPlugin(),
+    ],
   });
 }
 
 export type Auth = ReturnType<typeof createAuth>;
 
-export function handleWalletAuthRequest(auth: Auth, request: Request): Promise<Response> {
+export function handleWalletAuthRequest(
+  auth: Auth,
+  request: Request,
+): Promise<Response> {
   return withSiweWalletApp(request, (stripped) => auth.handler(stripped));
 }

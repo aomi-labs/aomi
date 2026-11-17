@@ -12,7 +12,7 @@ export type BuildRunStageStatus =
   | "waiting";
 
 export type BuildRunStage = {
-  /** Stable workflow node id (`<app>:<phase>`). */
+  /** Stable workflow node id (`<package>:<phase>`). */
   id: string;
   label: string;
   kind:
@@ -58,13 +58,13 @@ export type BuildRunFileNode = {
 
 export type BuildRunSnapshot = {
   runId: string;
-  app: string;
+  packageName: string;
   status: BuildRunStatus;
   stages: BuildRunStage[];
   approvals: BuildRunApproval[];
   /** Rolling tail of engine activity lines (already human-readable). */
   lines: string[];
-  /** The generated crate on disk (apps/<app>), present once codegen ran. */
+  /** The generated crate on disk (packages/<package>), present once codegen ran. */
   fileTree: BuildRunFileNode[];
   /** Curate agent's structured report, read from the run's curation row. */
   curation?: { summary: string; changedFiles: string; followUps: string };
@@ -78,7 +78,7 @@ export type BuildRunSnapshot = {
 export type CreateBuildRunRequest = {
   prompt: string;
   /** Simple package name; derived from the prompt when absent. */
-  app?: string;
+  packageName?: string;
   /** Skip approval gates (defaults to true until the UI renders approvals). */
   autoApprove?: boolean;
   /** Curation/repair agent; "none" runs the deterministic pipeline only
@@ -88,7 +88,7 @@ export type CreateBuildRunRequest = {
 
 export type CreateBuildRunResponse = {
   runId: string;
-  app: string;
+  packageName: string;
   stages: BuildRunStage[];
 };
 

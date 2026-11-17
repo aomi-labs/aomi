@@ -115,7 +115,7 @@ it("keeps /new from replacing a thread while its turn is running", async () => {
     },
   };
   vi.mocked(connect).mockResolvedValue(
-    aomi as Awaited<ReturnType<typeof connect>>,
+    aomi as unknown as Awaited<ReturnType<typeof connect>>,
   );
   const finished = runTui({});
   try {

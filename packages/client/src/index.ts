@@ -22,12 +22,12 @@ export { AomiApiError, apiErrorFields } from "./api-error";
 export type { ApiErrorFields } from "./api-error";
 export { AomiCreditApiError } from "./account/credits";
 export { AgentApiError, AgentTransport } from "./agent/transport";
-export type { AgentAppAccessErrorCode } from "./agent/transport";
+export type { AgentAccessErrorCode } from "./agent/transport";
 export { projectConversationEvents } from "./session/conversation";
 export {
   EvmPipelineTransport,
   PipelineApiError,
-  PipelineAppsTransport,
+  PipelineToolsetsTransport,
   PipelineOperationTransport,
   PipelineSkillTransport,
   PipelineSkillsTransport,
@@ -274,11 +274,11 @@ export type {
 // ======================================================================// Types
 // ======================================================================
 export type {
-  AomiAppDescriptor,
+  AgentCard,
+  ToolsetCard,
+  ThreadCatalog,
   AomiFeatureCategory,
-  AomiArtifactStatus,
   AomiPlatformFilter,
-  ApplicationId,
   AomiRequestOptions,
   AomiRequestQueryValue,
   AomiClientOptions,
@@ -313,7 +313,6 @@ export type {
   AomiDeleteSecretResponse,
   AomiIngestSecretsResponse,
   AomiListSecretsResponse,
-  AomiSecretSlot,
   AomiSimulateFee,
   AomiSimulateResponse,
   SimulationCall,
@@ -337,19 +336,15 @@ export {
   type AccountSessionProvider,
   type AccountSessionSigner,
 } from "./widget-session";
+export { normalizeAgentCard, agentIdentityKey } from "./agent-card";
 export {
-  normalizeAppDescriptor,
-  appIdentityKey,
-  isOfficialAppDescriptor,
-} from "./app-descriptor";
-export {
-  APP_CATEGORIES,
-  CURATED_APP_IDS,
-  canonicalAppId,
-  resolveAppIdentity,
-  type AppCategoryInfo,
-  type AppInfo,
-} from "./app-identity";
+  AGENT_CATEGORIES,
+  CURATED_AGENT_IDS,
+  canonicalAgentId,
+  resolveAgentIdentity,
+  type AgentCategoryInfo,
+  type AgentInfo,
+} from "./agent-identity";
 export { safeEnv } from "./internal/env";
 export type { AomiClientType } from "./user-state";
 
@@ -505,7 +500,7 @@ export type {
 export type {
   AomiAgentWallet,
   AomiAgentWalletAddress,
-  AomiAgentWalletApp,
+  AomiAgentWalletToolset,
   AomiAgentWalletAsset,
   AomiAgentWalletBalances,
   AomiAgentWalletConnection,
@@ -528,7 +523,7 @@ export type {
   AomiRulesAdmin,
   AomiRulesAdminWallet,
   AomiRulesCatalog,
-  AomiRulesCatalogApp,
+  AomiRulesCatalogProtocol,
   AomiRulesCatalogToken,
   AomiRulesChangeRequest,
   AomiRulesChangeResult,
@@ -541,7 +536,7 @@ export { AomiWallets } from "./sdk/wallets";
 export type {
   AomiAccountConnection,
   AomiAccountConnections,
-  AomiConnectionApp,
+  AomiConnectionAgent,
   AomiConnectionTelegram,
   AomiConnectionKind,
   AomiConnectionSettings,

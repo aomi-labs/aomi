@@ -9,9 +9,9 @@ const SESSION_HEADER = {
   required: true,
 };
 
-const APP_KEY_HEADER = {
-  key: "Aomi-App-Key",
-  placeholder: "your-app-key (optional)",
+const AGENT_KEY_HEADER = {
+  key: "Aomi-Agent-Key",
+  placeholder: "your-agent-key (optional)",
 };
 
 const ENDPOINTS: EndpointDef[] = [
@@ -33,32 +33,29 @@ const ENDPOINTS: EndpointDef[] = [
     label: "Start Turn",
     method: "POST",
     path: "/v1/agent/chat",
-    description:
-      "Submit StartTurnIntent. Returns the first ordered EventPage.",
+    description: "Submit StartTurnIntent. Returns the first ordered EventPage.",
     params: [
       { key: "sessionId", placeholder: "session-uuid", required: true },
       { key: "message", placeholder: "Hello!", required: true },
-      { key: "app", placeholder: "default" },
+      { key: "agent", placeholder: "aomi/main" },
     ],
-    headers: [SESSION_HEADER, APP_KEY_HEADER],
+    headers: [SESSION_HEADER, AGENT_KEY_HEADER],
   },
   {
     label: "Interrupt",
     method: "POST",
     path: "/v1/agent/chat/{sessionId}/interrupt",
-    description:
-      "Submit InterruptIntent and receive the resulting EventPage.",
+    description: "Submit InterruptIntent and receive the resulting EventPage.",
     headers: [SESSION_HEADER],
   },
   {
-    label: "Get Apps",
+    label: "Get Catalog",
     method: "GET",
-    path: "/api/thread/apps",
-    description: "List available apps (agents) for the current context.",
-    params: [
-      { key: "public_key", placeholder: "0x…" },
-    ],
-    headers: [SESSION_HEADER, APP_KEY_HEADER],
+    path: "/api/thread/catalog",
+    description:
+      "List toolsets and packages for the signed-in account and thread.",
+    params: [{ key: "public_key", placeholder: "0x…" }],
+    headers: [SESSION_HEADER, AGENT_KEY_HEADER],
   },
   {
     label: "Get Models",
@@ -75,9 +72,9 @@ const ENDPOINTS: EndpointDef[] = [
       "Set the model for a session. Returns { success, rig, baml, created }.",
     params: [
       { key: "rig", placeholder: "gpt-4o", required: true },
-      { key: "app", placeholder: "default" },
+      { key: "toolset", placeholder: "default" },
     ],
-    headers: [SESSION_HEADER, APP_KEY_HEADER],
+    headers: [SESSION_HEADER, AGENT_KEY_HEADER],
   },
 ];
 

@@ -64,8 +64,8 @@ const PLANS: Record<Audience, readonly Plan[]> = {
     {
       label: "Hosting",
       price: "$10",
-      unit: "per app · per month",
-      body: "A flat fee to run your app on Aomi's hosted runtime — sessions, orchestration, deployment, and execution included.",
+      unit: "per agent · per month",
+      body: "A flat fee to run your agent on Aomi's hosted runtime — sessions, orchestration, deployment, and execution included.",
       points: [
         "Unlimited turns",
         "Every surface: widget, Telegram, API, Portal",
@@ -94,7 +94,7 @@ const PLANS: Record<Audience, readonly Plan[]> = {
       label: "Revenue share",
       price: "10 / 30%",
       unit: "of the fees you set",
-      body: "Charge your users for tool calls or take a cut of value your app moves. You set the prices and keep the rest.",
+      body: "Charge your users for tool calls or take a cut of value your agent moves. You set the prices and keep the rest.",
       points: [
         "10% of the tool fees you charge",
         "30% of the onchain outcome fees you take",
@@ -109,7 +109,7 @@ const NEVER_CHARGED = [
   "Turns that fail or get interrupted",
   "Tool calls blocked by policy",
   "Simulations, quotes, and previews",
-  "Gas — you pay the network directly, or your app sponsors it",
+  "Gas — you pay the network directly, or your agent sponsors it",
 ] as const;
 
 export function PricingSwitch() {
@@ -137,7 +137,7 @@ export function PricingSwitch() {
         </div>
         <p className={styles.switchNote}>
           {audience === "user"
-            ? "You use Aomi, or an app built on it."
+            ? "You use Aomi, or an agent built on it."
             : "You build on Aomi and charge your own customers."}
         </p>
       </div>
@@ -191,12 +191,13 @@ export function PricingSwitch() {
         <div className={styles.addOn}>
           <div>
             <p className={styles.eyebrow}>When the agent moves money</p>
-            <h3>Some apps take a small cut of what you move.</h3>
+            <h3>Some agents take a small cut of what you move.</h3>
             <p>
-              If an app charges a fee on a swap or transfer, it is shown in the
-              confirmation before you sign, taken in the token you are moving,
-              and only ever charged when the transaction succeeds. Aomi never
-              takes it from your wallet — it rides inside your own transaction.
+              If an agent charges a fee on a swap or transfer, it is shown in
+              the confirmation before you sign, taken in the token you are
+              moving, and only ever charged when the transaction succeeds. Aomi
+              never takes it from your wallet — it rides inside your own
+              transaction.
             </p>
           </div>
           <ul className={styles.neverList}>
@@ -215,9 +216,9 @@ export function PricingSwitch() {
             <p className={styles.eyebrow}>What you can charge for</p>
             <h3>Your prices, your product.</h3>
             <p>
-              Put a flat price on any tool your app exposes, and take a
-              percentage of value your app moves onchain. Both are declared in
-              your app&apos;s config, collected automatically, and paid to the
+              Put a flat price on any tool your agent exposes, and take a
+              percentage of value your agent moves onchain. Both are declared in
+              your agent&apos;s config, collected automatically, and paid to the
               account you nominate — Aomi&apos;s share comes out of what you
               charge, never as a second charge to your customer.
             </p>

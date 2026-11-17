@@ -97,7 +97,7 @@ function supervisorApi(): Promise<AomiSmitherApi> {
 
 export type SuperviseAction = {
   runId: string;
-  app: string;
+  packageName: string;
   decision: SuperviseDecision;
 };
 
@@ -170,7 +170,11 @@ export async function superviseOnce(): Promise<SuperviseAction[]> {
         identifySupervisorFailure(error, "build.supervisor_store_read"),
       );
       // Store hiccup: decide "none" this tick rather than reaping blind.
-      actions.push({ runId: record.runId, app: record.app, decision: "none" });
+      actions.push({
+        runId: record.runId,
+        packageName: record.packageName,
+        decision: "none",
+      });
       continue;
     }
     const decision = superviseDecision({
@@ -186,7 +190,11 @@ export async function superviseOnce(): Promise<SuperviseAction[]> {
         identifySupervisorFailure(error, "build.supervisor_apply_decision"),
       );
     }
-    actions.push({ runId: record.runId, app: record.app, decision });
+    actions.push({
+      runId: record.runId,
+      packageName: record.packageName,
+      decision,
+    });
   }
   return actions;
 }

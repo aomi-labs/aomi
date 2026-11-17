@@ -1,7 +1,7 @@
 "use client";
 
 import type { AomiPackage } from "@aomi-labs/client";
-import { AppIdentityIcon } from "@/icons/app-identity-icon";
+import { AgentIdentityIcon } from "@/icons/agent-identity-icon";
 import { brandId } from "./model";
 
 interface PackageIconProps {
@@ -11,7 +11,7 @@ interface PackageIconProps {
 
 export function PackageIcon({ row, size = "row" }: PackageIconProps) {
   return (
-    <AppIdentityIcon
+    <AgentIdentityIcon
       brandId={brandId(row)}
       name={row.display_name}
       imageUrl={row.icon_url}

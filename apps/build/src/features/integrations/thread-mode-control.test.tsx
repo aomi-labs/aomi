@@ -12,7 +12,7 @@ describe("ThreadModeControl", () => {
     expect(help).toHaveTextContent("?");
     expect(help).toHaveClass("h-[18px]", "w-[18px]", "text-[11px]");
     expect(screen.getByRole("tooltip")).toHaveTextContent(
-      "Single thread keeps the bot to one conversation",
+      "Single thread keeps the channel to one conversation",
     );
 
     fireEvent.click(screen.getByRole("radio", { name: "Multiple threads" }));

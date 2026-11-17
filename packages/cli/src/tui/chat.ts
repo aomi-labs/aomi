@@ -446,7 +446,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     try {
       const options = turnOptions(aomi, loadState(), {
         thread,
-        app: flags.app,
+        agent: flags.agent,
         model: flags.model,
         chain: flags.chain,
         walletPick: started ? undefined : walletPick,
@@ -456,7 +456,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       const hinted = mentions.hint(text);
       running = aomi.agent
         .thread(thread)
-        .send(flags.app ? text : hinted, options);
+        .send(flags.agent ? text : hinted, options);
       for await (const step of running.steps({ decode })) {
         signing = undefined;
         view.steps.push(step);

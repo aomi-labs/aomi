@@ -193,9 +193,11 @@ function AccountSummaryCard({
   const month = useUsageStatement().month;
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const position = useAccountCredits();
-  const turns = month?.apps.reduce((sum, app) => sum + app.model.turns, 0) ?? 0;
+  const turns =
+    month?.agents.reduce((sum, agent) => sum + agent.model.turns, 0) ?? 0;
   const calls =
-    month?.apps.reduce((sum, app) => sum + (app.tool?.calls ?? 0), 0) ?? 0;
+    month?.agents.reduce((sum, agent) => sum + (agent.tool?.calls ?? 0), 0) ??
+    0;
 
   return (
     <div className={cn(settingsPanelClass, "@container")}>

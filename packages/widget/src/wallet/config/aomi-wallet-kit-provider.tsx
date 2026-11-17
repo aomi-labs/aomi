@@ -78,8 +78,8 @@ import { canonicalWalletKey } from "@/wallet/catalog/wallet-branding";
 import {
   detectProviderSugar,
   getWalletProvider,
-  type WalletProviderPlugin,
-} from "@/wallet/providers/plugin-registry";
+  type WalletProviderAdapter,
+} from "@/wallet/providers/provider-registry";
 import { MissingWalletSdkError } from "@/wallet/providers/sdk-loaders";
 import type {
   AccountConfig,
@@ -356,7 +356,7 @@ function MaybeSvmWalletProvider({
 function WalletKitComposerOutlet({
   account,
   auth,
-  authPlugin,
+  authAdapter,
   children,
   execution,
   providers,
@@ -366,7 +366,7 @@ function WalletKitComposerOutlet({
 }: {
   account?: AccountConfig;
   auth?: AuthConfig;
-  authPlugin?: WalletProviderPlugin;
+  authAdapter?: WalletProviderAdapter;
   children: ReactNode;
   execution?: ExecutionConfig;
   providers?: ProvidersConfig;
@@ -375,10 +375,10 @@ function WalletKitComposerOutlet({
   setSelectedSolanaNetworkId: (networkId: string) => void;
 }) {
   const externalSvmWallet = useSafeSvmWallet();
-  if (authPlugin?.renderComposer) {
+  if (authAdapter?.renderComposer) {
     return (
       <>
-        {authPlugin.renderComposer({
+        {authAdapter.renderComposer({
           account,
           auth,
           children,
@@ -445,7 +445,7 @@ function DefaultEvmRuntimeProvider({
 function AomiEvmExternalWalletProvider({
   account,
   auth,
-  authPlugin,
+  authAdapter,
   children,
   evmWallets,
   execution,
@@ -455,7 +455,7 @@ function AomiEvmExternalWalletProvider({
 }: {
   account?: AccountConfig;
   auth?: AuthConfig;
-  authPlugin?: WalletProviderPlugin;
+  authAdapter?: WalletProviderAdapter;
   children: ReactNode;
   evmWallets: Exclude<WalletsConfig["evm"], false | undefined> | undefined;
   execution?: ExecutionConfig;
@@ -486,16 +486,16 @@ function AomiEvmExternalWalletProvider({
     }),
     [evmWallets, persistExternalWallet, routing.routedChains],
   );
-  const authPluginAvailable =
-    authPlugin?.isAvailable?.({ auth, providers }) ?? true;
+  const authAdapterAvailable =
+    authAdapter?.isAvailable?.({ auth, providers }) ?? true;
   useEffect(() => {
-    if (!authPlugin || authPluginAvailable) return;
+    if (!authAdapter || authAdapterAvailable) return;
     console.warn(
-      `[aomi-wallet-kit] Auth provider "${authPlugin.id}" is requested by \`auth\` but unavailable: its public credential is missing (providers.${authPlugin.id} apiKey/appId). The wallet picker will show browser wallets only.`,
+      `[aomi-wallet-kit] Auth provider "${authAdapter.id}" is requested by \`auth\` but unavailable: its public credential is missing (providers.${authAdapter.id} apiKey/appId). The wallet picker will show browser wallets only.`,
     );
-  }, [authPlugin, authPluginAvailable]);
-  const shouldUseAuthPlugin = Boolean(
-    authPlugin?.renderComposer && authPluginAvailable,
+  }, [authAdapter, authAdapterAvailable]);
+  const shouldUseAuthAdapter = Boolean(
+    authAdapter?.renderComposer && authAdapterAvailable,
   );
   const runtimeChildren = (
     <MaybeSvmWalletProvider resolvedSvm={resolvedSvm}>
@@ -507,7 +507,7 @@ function AomiEvmExternalWalletProvider({
         <WalletKitComposerOutlet
           account={account}
           auth={auth}
-          authPlugin={shouldUseAuthPlugin ? authPlugin : undefined}
+          authAdapter={shouldUseAuthAdapter ? authAdapter : undefined}
           execution={execution}
           providers={providers}
           resolvedSvm={resolvedSvm}
@@ -519,9 +519,9 @@ function AomiEvmExternalWalletProvider({
       </WalletChainRouter>
     </MaybeSvmWalletProvider>
   );
-  // The provider SDK itself (`authPlugin.wrap`) is mounted above, by the islands.
-  return shouldUseAuthPlugin && authPlugin?.renderEvmRuntimeProvider ? (
-    authPlugin.renderEvmRuntimeProvider({
+  // The provider SDK itself (`authAdapter.wrap`) is mounted above, by the islands.
+  return shouldUseAuthAdapter && authAdapter?.renderEvmRuntimeProvider ? (
+    authAdapter.renderEvmRuntimeProvider({
       config: evmConfig,
       children: runtimeChildren,
     })
@@ -559,7 +559,7 @@ function AomiSvmExternalWalletProvider({
 function AomiExternalWalletProvider({
   account,
   auth,
-  authPlugin,
+  authAdapter,
   children,
   execution,
   providers,
@@ -567,7 +567,7 @@ function AomiExternalWalletProvider({
 }: {
   account?: AccountConfig;
   auth?: AuthConfig;
-  authPlugin?: WalletProviderPlugin;
+  authAdapter?: WalletProviderAdapter;
   children: ReactNode;
   execution?: ExecutionConfig;
   providers?: ProvidersConfig;
@@ -598,7 +598,7 @@ function AomiExternalWalletProvider({
     <AomiEvmExternalWalletProvider
       account={account}
       auth={auth}
-      authPlugin={authPlugin}
+      authAdapter={authAdapter}
       evmWallets={evmWallets}
       execution={execution}
       providers={providers}
@@ -673,21 +673,21 @@ function RuntimeMount({
 
 /** One provider SDK. It stays mounted once loaded; only the active one hosts the runtime. */
 function ProviderShell({
-  plugin,
+  adapter,
   auth,
   active,
   providers,
   signIn,
   children,
 }: {
-  plugin: WalletProviderPlugin;
+  adapter: WalletProviderAdapter;
   auth?: AuthConfig;
   active: boolean;
   providers?: ProvidersConfig;
   signIn: SocialSignIn;
   children: ReactNode;
 }) {
-  const { id } = plugin;
+  const { id } = adapter;
   const { onFailure } = signIn;
   const { supportedEvmChains } = useAomiWalletNetworkPreferences();
   const shellAuth = useMemo<AuthConfig>(
@@ -698,8 +698,8 @@ function ProviderShell({
     (message: string | null) => onFailure(id, message),
     [id, onFailure],
   );
-  return plugin.wrap
-    ? plugin.wrap({
+  return adapter.wrap
+    ? adapter.wrap({
         auth: shellAuth,
         providers,
         supportedChains: supportedEvmChains,
@@ -709,24 +709,24 @@ function ProviderShell({
     : children;
 }
 
-type LoadedPlugin = WalletProviderPlugin | "failed";
+type LoadedAdapter = WalletProviderAdapter | "failed";
 
-function useLoadedPlugins(
+function useLoadedAdapters(
   ids: readonly string[],
   onFailed: (id: string, message: string) => void,
-): Record<string, LoadedPlugin> {
-  const [loaded, setLoaded] = useState<Record<string, LoadedPlugin>>({});
+): Record<string, LoadedAdapter> {
+  const [loaded, setLoaded] = useState<Record<string, LoadedAdapter>>({});
   const loading = useRef(new Set<string>());
   useEffect(() => {
     for (const id of ids) {
-      const plugin = getWalletProvider(id);
-      if (!plugin || loaded[id] || loading.current.has(id)) continue;
-      if (!plugin.load) {
-        setLoaded((current) => ({ ...current, [id]: plugin }));
+      const adapter = getWalletProvider(id);
+      if (!adapter || loaded[id] || loading.current.has(id)) continue;
+      if (!adapter.load) {
+        setLoaded((current) => ({ ...current, [id]: adapter }));
         continue;
       }
       loading.current.add(id);
-      void plugin
+      void adapter
         .load()
         .then((next) => setLoaded((current) => ({ ...current, [id]: next })))
         .catch((error: unknown) => {
@@ -741,12 +741,12 @@ function useLoadedPlugins(
         .finally(() => loading.current.delete(id));
     }
   }, [ids, loaded, onFailed]);
-  // Plugins registered without a loader are ready on the first render.
+  // Adapters registered without a loader are ready on the first render.
   return useMemo(() => {
-    const ready: Record<string, LoadedPlugin> = { ...loaded };
+    const ready: Record<string, LoadedAdapter> = { ...loaded };
     for (const id of ids) {
-      const plugin = getWalletProvider(id);
-      if (plugin && !plugin.load && !ready[id]) ready[id] = plugin;
+      const adapter = getWalletProvider(id);
+      if (adapter && !adapter.load && !ready[id]) ready[id] = adapter;
     }
     return ready;
   }, [ids, loaded]);
@@ -759,7 +759,7 @@ function WalletIslands({
   active,
   unknownProvider,
   ...props
-}: Omit<Parameters<typeof AomiExternalWalletProvider>[0], "authPlugin"> & {
+}: Omit<Parameters<typeof AomiExternalWalletProvider>[0], "authAdapter"> & {
   store: WalletAuthStore;
   signIn: SocialSignIn;
   active?: string;
@@ -784,36 +784,36 @@ function WalletIslands({
         : [],
     [active, evmEnabled, warmProviders],
   );
-  const plugins = useLoadedPlugins(shellIds, fail);
-  const activePlugin = active ? plugins[active] : undefined;
+  const adapters = useLoadedAdapters(shellIds, fail);
+  const activeAdapter = active ? adapters[active] : undefined;
   const activeLoading = Boolean(
-    active && getWalletProvider(active)?.load && !activePlugin,
+    active && getWalletProvider(active)?.load && !activeAdapter,
   );
-  const runtimePlugin = activePlugin === "failed" ? undefined : activePlugin;
+  const runtimeAdapter = activeAdapter === "failed" ? undefined : activeAdapter;
   const runtime = activeLoading ? null : (
     <RuntimeMount key={active ?? "browser-wallet"} store={store}>
       <AomiExternalWalletProvider
         {...props}
         auth={auth}
-        authPlugin={runtimePlugin}
+        authAdapter={runtimeAdapter}
       >
         {null}
       </AomiExternalWalletProvider>
     </RuntimeMount>
   );
   const runtimeInShell = Boolean(
-    runtimePlugin && active && shellIds.includes(active),
+    runtimeAdapter && active && shellIds.includes(active),
   );
   return (
     <QueryClientProvider client={queryClient}>
       <WalletAuthPublisherContext.Provider value={store.publish}>
         {shellIds.map((id) => {
-          const plugin = plugins[id];
-          if (!plugin || plugin === "failed") return null;
+          const adapter = adapters[id];
+          if (!adapter || adapter === "failed") return null;
           return (
             <ProviderShell
               key={id}
-              plugin={plugin}
+              adapter={adapter}
               auth={auth}
               active={id === active}
               providers={props.providers}
@@ -880,7 +880,7 @@ export function AomiWalletKitProvider(input: AomiWalletKitProviderInput) {
           props.account && props.account.mode === "aomi-backend"
             ? (props.account.baseUrl ?? "")
             : "",
-        appId: props.applicationId,
+        agentScope: props.agent,
       }}
     >
       <FullTestnetConfigContext.Provider value={props.fullTestnet}>

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { LatencyChart } from "./app-detail-view";
+import { LatencyChart } from "./agent-detail-view";
 
 function chart(values: Array<number | null>) {
   const root = document.createElement("div");

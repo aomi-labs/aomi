@@ -115,7 +115,7 @@ export const fintechSolution: SolutionConfig = {
     {
       label: "02",
       title: "Constrain",
-      body: "Apply application policy, account permissions, and portfolio limits.",
+      body: "Apply agent policy, account permissions, and portfolio limits.",
     },
     {
       label: "03",
@@ -225,7 +225,7 @@ export const defiSolution: SolutionConfig = {
     {
       label: "02",
       title: "Compare",
-      body: "Normalize net outcomes, liquidity, fees, and application risk bands.",
+      body: "Normalize net outcomes, liquidity, fees, and agent risk bands.",
     },
     {
       label: "03",
@@ -254,11 +254,11 @@ export const defiSolution: SolutionConfig = {
       href: "/products/rest-apis",
     },
     {
-      name: "Plugin SDK",
+      name: "Package SDK",
       badge: "RUST",
       title: "Teach Aomi your protocol",
-      body: "Package protocol reads and transaction builders as a hosted application in the shared runtime.",
-      href: "/products/plugin-sdk",
+      body: "Package protocol reads and transaction builders as a hosted agent in the shared runtime.",
+      href: "/products/package-sdk",
     },
   ],
   finalTitle: "Make the protocol easy without making it opaque.",
@@ -472,11 +472,11 @@ export const nftSolution: SolutionConfig = {
       href: "/products/widget",
     },
     {
-      name: "Plugin SDK",
+      name: "Package SDK",
       badge: "RUST",
       title: "Encode marketplace knowledge",
-      body: "Package catalog search, listing validation, and transaction builders as a hosted Aomi App.",
-      href: "/products/plugin-sdk",
+      body: "Package catalog search, listing validation, and transaction builders as a hosted Aomi Agent.",
+      href: "/products/package-sdk",
     },
     {
       name: "Agent API",
@@ -495,7 +495,7 @@ export const walletsSolution: SolutionConfig = {
   id: "wallets",
   eyebrow: "AOMI FOR WALLETS",
   headline: "Give every wallet an execution layer.",
-  lede: "Add intent-driven swaps, transfers, bridging, yield, and application actions above the authentication and signer your users already trust. Keys never move to Aomi.",
+  lede: "Add intent-driven swaps, transfers, bridging, yield, and agent actions above the authentication and signer your users already trust. Keys never move to Aomi.",
   audience:
     "For self-custody wallets, embedded-wallet providers, and retail fintech",
   accent: "#14785f",
@@ -542,7 +542,7 @@ export const walletsSolution: SolutionConfig = {
     },
     {
       title: "Explain what will change",
-      body: "Show assets out, assets in, destination, approvals, fees, slippage, warnings, and the exact application involved.",
+      body: "Show assets out, assets in, destination, approvals, fees, slippage, warnings, and the exact agent involved.",
     },
     {
       title: "Make advanced actions approachable",

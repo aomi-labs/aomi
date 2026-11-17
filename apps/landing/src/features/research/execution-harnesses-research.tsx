@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import {Link} from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { AomiLogo } from "@/components/aomi-logo";
 import type { ResearchPost } from "@/lib/research";
 import styles from "./execution-harnesses-research.module.css";
@@ -59,7 +59,7 @@ const layers = [
       ["PayPal", "paypal"],
       ["Bankr", "bankr"],
       ["Virtuals", "virtuals"],
-      ["partner-built agent apps"],
+      ["partner-built agents"],
     ],
   ],
   [
@@ -305,11 +305,7 @@ const aomiMapAbove = [
 ] as const;
 
 const aomiMapBelow = [
-  [
-    "Domain execution",
-    "AgentKit · 1inch · deBridge",
-    "Primary · layer 3",
-  ],
+  ["Domain execution", "AgentKit · 1inch · deBridge", "Primary · layer 3"],
   [
     "Wallets and mandates",
     "Coinbase · MetaMask · Privy",
@@ -646,7 +642,7 @@ const risks = [
 ] as const;
 
 const checklist = [
-  ["Who owns the user or task?", "Surface and application"],
+  ["Who owns the user or task?", "Surface and agent"],
   ["Who runs the model loop and task state?", "Runtime and orchestration"],
   ["Who constructs the exact order or transaction?", "Domain execution"],
   [
@@ -1015,14 +1011,13 @@ export function ExecutionHarnessesResearch({ post }: Props) {
             instance of a broader shift toward domain-specific harnesses:
             systems that surround general models with trusted context,
             structured workflows, authority boundaries, and domain-specific
-            evaluation. The execution harness is distinct from models,
-            toolkits, wallets, payment protocols, and settlement rails because
-            it is accountable for stateful completion across them. A useful
-            harness should help the same model complete the same task more
-            reliably, with fewer tokens, delays, retries, unsafe actions, and
-            human interventions. We argue that harness interfaces may
-            standardize as the market matures, while execution quality remains
-            differentiated.
+            evaluation. The execution harness is distinct from models, toolkits,
+            wallets, payment protocols, and settlement rails because it is
+            accountable for stateful completion across them. A useful harness
+            should help the same model complete the same task more reliably,
+            with fewer tokens, delays, retries, unsafe actions, and human
+            interventions. We argue that harness interfaces may standardize as
+            the market matures, while execution quality remains differentiated.
           </p>
           <p className={styles.keywords}>
             <b>Keywords:</b> agentic payments, agentic finance, execution
@@ -1041,8 +1036,8 @@ export function ExecutionHarnessesResearch({ post }: Props) {
             become operational through domain knowledge, structured workflows,
             controls, and outcome-specific evaluation. Financial execution needs
             its own domain-specific harness: machinery that reliably carries an
-            agent&apos;s intent across the seven layers and proves that the requested
-            outcome occurred.
+            agent&apos;s intent across the seven layers and proves that the
+            requested outcome occurred.
           </p>
         </div>
 
@@ -1129,8 +1124,8 @@ export function ExecutionHarnessesResearch({ post }: Props) {
           </Figure>
           <p>
             This stack is the paper&apos;s starting point. It separates adjacent
-            markets before asking where responsibility is still incomplete.
-            The gap appears between adaptive planning and financial authority:
+            markets before asking where responsibility is still incomplete. The
+            gap appears between adaptive planning and financial authority:
             someone must construct, test, execute, recover, and reconcile the
             action across the other layers. Section 5 names that missing
             category only after the market evidence and boundaries are clear.
@@ -1256,10 +1251,10 @@ export function ExecutionHarnessesResearch({ post }: Props) {
           <p>
             The analysis combines official protocol specifications, first-party
             product documentation, independent onchain evidence, and Aomi
-            Labs&apos; operating perspective. The market taxonomy, player map, and
-            use-case maturity assessments extend an earlier ecosystem deep dive
-            published by Aomi Labs Research in August 2026, which remains the
-            underlying survey for this paper.
+            Labs&apos; operating perspective. The market taxonomy, player map,
+            and use-case maturity assessments extend an earlier ecosystem deep
+            dive published by Aomi Labs Research in August 2026, which remains
+            the underlying survey for this paper.
             <Cite n="17" /> Product capabilities are treated as vendor claims
             unless independently demonstrated. Transaction activity is evidence
             of technical use, not automatically evidence of durable or
@@ -1302,16 +1297,12 @@ export function ExecutionHarnessesResearch({ post }: Props) {
           </div>
         </Section>
 
-        <Section
-          number="3"
-          title="The seven-layer ecosystem"
-          id="layers"
-        >
+        <Section number="3" title="The seven-layer ecosystem" id="layers">
           <p>
             The seven-layer model becomes useful when it assigns each function
             to the actors that actually perform it. A protocol, wallet, runtime,
-            funding provider, or settlement rail may span several layers, but
-            no one label should be mistaken for the whole system.
+            funding provider, or settlement rail may span several layers, but no
+            one label should be mistaken for the whole system.
           </p>
           <h3>Layer 1 — Agent surfaces and vertical applications</h3>
           <p>
@@ -1340,9 +1331,7 @@ export function ExecutionHarnessesResearch({ post }: Props) {
             <Cite n="6" /> A stateful execution runtime goes further by owning
             the path to completion and the evidence left behind.
           </p>
-          <h3>
-            Layer 3 — Domain execution and transaction construction
-          </h3>
+          <h3>Layer 3 — Domain execution and transaction construction</h3>
           <p>
             Domain-execution providers then supply the exact mechanics of a
             swap, bridge, order, checkout, staking operation, or protocol call.
@@ -1403,9 +1392,7 @@ export function ExecutionHarnessesResearch({ post }: Props) {
             <Cite n="23" />
             <Cite n="19" />
           </p>
-          <h3>
-            Layer 5 — Payment coordination and acceptance protocols
-          </h3>
+          <h3>Layer 5 — Payment coordination and acceptance protocols</h3>
           <p>
             Layer five tells an agent what is for sale, how much it costs, which
             payment methods are accepted, what proof is required, and how the
@@ -1535,10 +1522,10 @@ export function ExecutionHarnessesResearch({ post }: Props) {
           <p>
             Authority must be both programmable and attributable. Credentials
             need isolation, mandates must encode scope and limits, and merchants
-            must know which agent is acting for which principal. This creates two
-            related but distinct markets: wallets that control access to money,
-            and identity, mandate, and reputation systems that establish the
-            legitimacy of its use.
+            must know which agent is acting for which principal. This creates
+            two related but distinct markets: wallets that control access to
+            money, and identity, mandate, and reputation systems that establish
+            the legitimacy of its use.
             <Cite n="12" />
             <Cite n="14" />
             <Cite n="15" />
@@ -1547,8 +1534,8 @@ export function ExecutionHarnessesResearch({ post }: Props) {
             Markets must also become legible and usable by software. Agents need
             structured descriptions of services, prices, schemas, and delivery
             terms; sellers need gateways that abstract verification and
-            settlement. Discovery without reputation becomes spam, while
-            payment without delivery proof invites fraud, so marketplaces will
+            settlement. Discovery without reputation becomes spam, while payment
+            without delivery proof invites fraud, so marketplaces will
             increasingly incorporate attestations, service histories, and
             escrow.
           </p>
@@ -1556,16 +1543,18 @@ export function ExecutionHarnessesResearch({ post }: Props) {
             A valid payment is not necessarily a correct action. Systems must
             test transaction semantics before signing, verify the resulting
             state, and select among stablecoin, card, bank, and local rails
-            according to the task&apos;s economic and regulatory requirements. This
-            separates execution assurance, which determines what should happen,
-            from payment orchestration, which determines how value should move.
+            according to the task&apos;s economic and regulatory requirements.
+            This separates execution assurance, which determines what should
+            happen, from payment orchestration, which determines how value
+            should move.
           </p>
           <p>
             Finally, autonomous spending must close the operational loop. Every
-            balance change, receipt, gas cost, refund, and tax event must map back
-            to an agent, mandate, task, user, and result. When the result is
-            wrong, settlement finality is insufficient; the system still needs
-            proof of delivery, recourse, and a clear allocation of liability.
+            balance change, receipt, gas cost, refund, and tax event must map
+            back to an agent, mandate, task, user, and result. When the result
+            is wrong, settlement finality is insufficient; the system still
+            needs proof of delivery, recourse, and a clear allocation of
+            liability.
           </p>
           <div className={styles.serviceGrid}>
             {serviceSectors.map(([title, description, examples]) => (
@@ -1638,18 +1627,17 @@ export function ExecutionHarnessesResearch({ post }: Props) {
             caption={
               <>
                 Maturity is read from Table 2, which follows. Complexity and
-                market size are
-                assessments, not measurements, so the axes are drawn as named
-                zones and bubble area as four steps rather than numeric scales.
-                Size asks how much spend a category could eventually address,
-                which is why treasury and procurement stay large while sitting
-                low on maturity. Colour restates the maturity band. The trend is
-                the report&apos;s own claim — value falls as physical
-                fulfilment, regulated advice, custody, credit, or ambiguous
-                liability enters the workflow — and the informative part is the
-                exception. Compliance and investigation workflows sit high on
-                complexity and high on maturity because a human stays
-                accountable at the end of them.
+                market size are assessments, not measurements, so the axes are
+                drawn as named zones and bubble area as four steps rather than
+                numeric scales. Size asks how much spend a category could
+                eventually address, which is why treasury and procurement stay
+                large while sitting low on maturity. Colour restates the
+                maturity band. The trend is the report&apos;s own claim — value
+                falls as physical fulfilment, regulated advice, custody, credit,
+                or ambiguous liability enters the workflow — and the informative
+                part is the exception. Compliance and investigation workflows
+                sit high on complexity and high on maturity because a human
+                stays accountable at the end of them.
               </>
             }
           >
@@ -1743,7 +1731,10 @@ export function ExecutionHarnessesResearch({ post }: Props) {
                 {maturityPoints.map(([label, x, y, anchor, band, size]) => {
                   const r = bubbleRadius(size);
                   return (
-                    <g className={`${styles.mpt} ${bandTone[band]}`} key={label}>
+                    <g
+                      className={`${styles.mpt} ${bandTone[band]}`}
+                      key={label}
+                    >
                       <circle cx={x} cy={y} r={r} />
                       <text
                         x={anchor === "start" ? x + r + 9 : x - r - 9}
@@ -1964,11 +1955,7 @@ export function ExecutionHarnessesResearch({ post }: Props) {
           </p>
         </Section>
 
-        <Section
-          number="6"
-          title="Player map and market structure"
-          id="actors"
-        >
+        <Section number="6" title="Player map and market structure" id="actors">
           <p>
             Early markets reward full-stack products because developers prefer
             one API and users prefer one trusted surface. Coinbase, Circle,
@@ -2276,7 +2263,7 @@ export function ExecutionHarnessesResearch({ post }: Props) {
             </li>
             <li>
               <b>Payment-protocol neutrality.</b> Treat x402, MPP, cards, and
-              direct stablecoin transfer as tools selected by app and mandate.
+              direct stablecoin transfer as tools selected by agent and mandate.
             </li>
             <li>
               <b>Evidence as a product.</b> Record user intent, tool calls,
@@ -2316,8 +2303,8 @@ export function ExecutionHarnessesResearch({ post }: Props) {
               Aomi Labs researches and develops infrastructure in the category
               analyzed here. This section presents our institutional thesis, not
               an independent market conclusion. External observations and vendor
-              claims are cited; the proposed benchmark is a falsifiable test, not
-              an already measured result.
+              claims are cited; the proposed benchmark is a falsifiable test,
+              not an already measured result.
             </p>
           </div>
         </Section>

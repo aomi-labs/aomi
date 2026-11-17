@@ -40,17 +40,22 @@ const SETTINGS = [
   "LANDING_HOSTS",
   "CORS_ALLOWED_HOST_PATTERNS",
   "TASK_CORS_PUBLIC_ORIGINS",
-  "APP_CATALOG_PLATFORMS",
+  "CATALOG_PLATFORMS",
   "BUILD_DEFAULT_PLATFORM",
 ];
 
-const RC_IDENTITY = ["RC_OIDC_ACCOUNT_ID", "RC_OIDC_SUBJECT", "RC_OIDC_WORKFLOWS"];
+const RC_IDENTITY = [
+  "RC_OIDC_ACCOUNT_ID",
+  "RC_OIDC_SUBJECT",
+  "RC_OIDC_WORKFLOWS",
+];
 
 // The checked-in Hyperdrive binding is the local one. A deploy runs a generated
 // copy of the config that binds the environment's Hyperdrive config instead
 // (EDGE_HYPERDRIVE_ID), or none where the environment runs no portal. The rc
 // config has no binding at all.
-const LOCAL_HYPERDRIVE = '"hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local" }],';
+const LOCAL_HYPERDRIVE =
+  '"hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local" }],';
 const DEPLOY_CONFIG = "wrangler.deploy.jsonc";
 
 function value(name, env) {
@@ -66,44 +71,72 @@ function required(name, env) {
 function origins(name, raw) {
   for (const origin of raw.split(",").map((part) => part.trim())) {
     const url = new URL(origin);
-    if (url.protocol !== "https:") throw new Error(`${name}: ${origin} is not https`);
+    if (url.protocol !== "https:")
+      throw new Error(`${name}: ${origin} is not https`);
   }
   return raw;
 }
 
 // A route is a host pattern with an optional path pattern, never a scheme.
 function routes(raw) {
-  const list = raw.split(",").map((part) => part.trim()).filter(Boolean);
-  if (list.length === 0) throw new Error("EDGE_ROUTES must name at least one route");
+  const list = raw
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (list.length === 0)
+    throw new Error("EDGE_ROUTES must name at least one route");
   for (const route of list) {
-    if (!/^[a-z0-9*][a-z0-9.*-]*(\/\S*)?$/i.test(route)) throw new Error(`EDGE_ROUTES: ${route} is not a route pattern`);
+    if (!/^[a-z0-9*][a-z0-9.*-]*(\/\S*)?$/i.test(route))
+      throw new Error(`EDGE_ROUTES: ${route} is not a route pattern`);
   }
   return list;
 }
 
 function portalHostRedirects(raw, portalHosts) {
-  const hosts = new Set((portalHosts ?? "").split(",").map((host) => host.trim().toLowerCase()).filter(Boolean));
-  const dnsHost = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
+  const hosts = new Set(
+    (portalHosts ?? "")
+      .split(",")
+      .map((host) => host.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const dnsHost =
+    /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
   const seen = new Set();
-  for (const entry of raw.split(",").map((part) => part.trim()).filter(Boolean)) {
+  for (const entry of raw
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)) {
     const separator = entry.indexOf("=");
     if (separator <= 0 || separator !== entry.lastIndexOf("="))
-      throw new Error("PORTAL_HOST_REDIRECTS entries must be host=https://origin");
+      throw new Error(
+        "PORTAL_HOST_REDIRECTS entries must be host=https://origin",
+      );
     const source = entry.slice(0, separator).trim().toLowerCase();
     if (!dnsHost.test(source) || hosts.has(source) || seen.has(source))
-      throw new Error(`PORTAL_HOST_REDIRECTS source ${source} is not a distinct DNS host`);
+      throw new Error(
+        `PORTAL_HOST_REDIRECTS source ${source} is not a distinct DNS host`,
+      );
     let target;
     try {
       target = new URL(entry.slice(separator + 1).trim());
     } catch {
-      throw new Error(`PORTAL_HOST_REDIRECTS target for ${source} is not an origin`);
+      throw new Error(
+        `PORTAL_HOST_REDIRECTS target for ${source} is not an origin`,
+      );
     }
     if (
-      target.protocol !== "https:" || target.username || target.password || target.port ||
-      target.pathname !== "/" || target.search || target.hash ||
+      target.protocol !== "https:" ||
+      target.username ||
+      target.password ||
+      target.port ||
+      target.pathname !== "/" ||
+      target.search ||
+      target.hash ||
       !hosts.has(target.hostname.toLowerCase())
     )
-      throw new Error(`PORTAL_HOST_REDIRECTS target for ${source} must be one canonical portal origin`);
+      throw new Error(
+        `PORTAL_HOST_REDIRECTS target for ${source} must be one canonical portal origin`,
+      );
     seen.add(source);
   }
 }
@@ -111,25 +144,38 @@ function portalHostRedirects(raw, portalHosts) {
 export function deployArgs(env = process.env) {
   const topology = required("EDGE_TOPOLOGY", env);
   if (!TOPOLOGIES.includes(topology))
-    throw new Error(`EDGE_TOPOLOGY must be one of ${TOPOLOGIES.join(", ")}, not ${topology}`);
+    throw new Error(
+      `EDGE_TOPOLOGY must be one of ${TOPOLOGIES.join(", ")}, not ${topology}`,
+    );
   const name = required("EDGE_WORKER_NAME", env);
   if (value("PORTAL_PAGES_SERVICE", env) === name)
-    throw new Error("PORTAL_PAGES_SERVICE must not target the Edge Worker itself");
+    throw new Error(
+      "PORTAL_PAGES_SERVICE must not target the Edge Worker itself",
+    );
   const vars = { EDGE_TOPOLOGY: topology };
-  for (const key of REQUIRED_ORIGINS) vars[key] = origins(key, required(key, env));
-  for (const key of OPTIONAL_ORIGINS) if (value(key, env)) vars[key] = origins(key, value(key, env));
+  for (const key of REQUIRED_ORIGINS)
+    vars[key] = origins(key, required(key, env));
+  for (const key of OPTIONAL_ORIGINS)
+    if (value(key, env)) vars[key] = origins(key, value(key, env));
   for (const key of SETTINGS) if (value(key, env)) vars[key] = value(key, env);
-  if (vars.PORTAL_HOST_REDIRECTS) portalHostRedirects(vars.PORTAL_HOST_REDIRECTS, vars.PORTAL_HOSTS);
+  if (vars.PORTAL_HOST_REDIRECTS)
+    portalHostRedirects(vars.PORTAL_HOST_REDIRECTS, vars.PORTAL_HOSTS);
   // The RC test identity (api/rc-oidc.ts) is configured for rc alone, all three or none.
   const present = RC_IDENTITY.filter((key) => value(key, env));
-  if (present.length && topology !== "rc") throw new Error(`${present[0]} is only valid for the rc topology`);
+  if (present.length && topology !== "rc")
+    throw new Error(`${present[0]} is only valid for the rc topology`);
   if (present.length && present.length !== RC_IDENTITY.length)
     throw new Error(`${RC_IDENTITY.join(", ")} must be set together`);
   for (const key of present) vars[key] = value(key, env);
   // The portal's account surface fails closed without its database and issuer;
   // Landing's own /api routes need its upstream.
-  if (vars.PORTAL_HOSTS) for (const key of ["EDGE_HYPERDRIVE_ID", "BETTER_AUTH_URL"]) required(key, env);
-  if (vars.BETTER_AUTH_URL && new URL(vars.BETTER_AUTH_URL).protocol !== "https:")
+  if (vars.PORTAL_HOSTS)
+    for (const key of ["EDGE_HYPERDRIVE_ID", "BETTER_AUTH_URL"])
+      required(key, env);
+  if (
+    vars.BETTER_AUTH_URL &&
+    new URL(vars.BETTER_AUTH_URL).protocol !== "https:"
+  )
     throw new Error("BETTER_AUTH_URL must use https");
   if (vars.LANDING_HOSTS) required("LANDING_UPSTREAM_ORIGIN", env);
   return [
@@ -142,8 +188,14 @@ export function deployArgs(env = process.env) {
     "",
     "--name",
     name,
-    ...routes(required("EDGE_ROUTES", env)).flatMap((route) => ["--route", route]),
-    ...Object.entries(vars).flatMap(([key, entry]) => ["--var", `${key}:${entry}`]),
+    ...routes(required("EDGE_ROUTES", env)).flatMap((route) => [
+      "--route",
+      route,
+    ]),
+    ...Object.entries(vars).flatMap(([key, entry]) => [
+      "--var",
+      `${key}:${entry}`,
+    ]),
   ];
 }
 
@@ -153,17 +205,28 @@ export function deployConfig(source, hyperdriveId, portalPagesService = "") {
     if (!/^[a-zA-Z0-9_-]+$/.test(portalPagesService))
       throw new Error("PORTAL_PAGES_SERVICE must be a Worker service name");
     const marker = '"vars": {},';
-    if (!source.includes(marker)) throw new Error("Worker config has no service insertion point");
+    if (!source.includes(marker))
+      throw new Error("Worker config has no service insertion point");
     const services = [{ binding: "PORTAL_PAGES", service: portalPagesService }];
-    source = source.replace(marker, `"services": ${JSON.stringify(services)},\n  ${marker}`);
+    source = source.replace(
+      marker,
+      `"services": ${JSON.stringify(services)},\n  ${marker}`,
+    );
   }
   if (!source.includes(LOCAL_HYPERDRIVE)) {
-    if (hyperdriveId) throw new Error("EDGE_HYPERDRIVE_ID is set, but this Worker config has no Hyperdrive binding");
+    if (hyperdriveId)
+      throw new Error(
+        "EDGE_HYPERDRIVE_ID is set, but this Worker config has no Hyperdrive binding",
+      );
     return source;
   }
   if (hyperdriveId && !/^[0-9a-f]{32}$/.test(hyperdriveId))
-    throw new Error(`EDGE_HYPERDRIVE_ID: ${hyperdriveId} is not a Hyperdrive config id`);
-  const binding = hyperdriveId ? LOCAL_HYPERDRIVE.replace('"local"', `"${hyperdriveId}"`) : "";
+    throw new Error(
+      `EDGE_HYPERDRIVE_ID: ${hyperdriveId} is not a Hyperdrive config id`,
+    );
+  const binding = hyperdriveId
+    ? LOCAL_HYPERDRIVE.replace('"local"', `"${hyperdriveId}"`)
+    : "";
   return source.replace(LOCAL_HYPERDRIVE, binding);
 }
 
@@ -172,9 +235,21 @@ export function deploy(env = process.env) {
   try {
     const args = deployArgs(env);
     // rc alone binds the replay Durable Object; see wrangler.rc.jsonc.
-    const source = value("EDGE_TOPOLOGY", env) === "rc" ? "wrangler.rc.jsonc" : "wrangler.jsonc";
-    writeFileSync(output, deployConfig(readFileSync(resolve(ROOT, source), "utf8"), value("EDGE_HYPERDRIVE_ID", env), value("PORTAL_PAGES_SERVICE", env)));
-    return spawnSync("pnpm", args, { cwd: ROOT, stdio: "inherit", env }).status ?? 1;
+    const source =
+      value("EDGE_TOPOLOGY", env) === "rc"
+        ? "wrangler.rc.jsonc"
+        : "wrangler.jsonc";
+    writeFileSync(
+      output,
+      deployConfig(
+        readFileSync(resolve(ROOT, source), "utf8"),
+        value("EDGE_HYPERDRIVE_ID", env),
+        value("PORTAL_PAGES_SERVICE", env),
+      ),
+    );
+    return (
+      spawnSync("pnpm", args, { cwd: ROOT, stdio: "inherit", env }).status ?? 1
+    );
   } catch (error) {
     console.error(error.message);
     return 1;

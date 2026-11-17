@@ -1,7 +1,7 @@
 {
   "name": "@aomi-labs/deploy",
-  "version": "1.0.0",
-  "description": "TypeScript toolkit for the Aomi platform deploy API: response schemas, wire types, errors, activation helpers and the browser launch client. The manager client lives in the workspace package @aomi-labs/internal.",
+  "version": "2.0.0",
+  "description": "TypeScript toolkit for the Aomi platform deploy API: response schemas, wire types, errors, project reads and the browser client. The manager client lives in the workspace package @aomi-labs/internal.",
   "license": "MIT",
   "repository": {
     "type": "git",

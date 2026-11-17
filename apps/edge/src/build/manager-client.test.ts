@@ -21,14 +21,32 @@ const DEV_PUBLIC_KEY = [
 beforeEach(resetEdgeServices);
 
 describe.each([
-  { name: "separate manager", backend: "https://backend.example", manager: "https://manager.example" },
-  { name: "backend fallback", backend: "https://backend.example", manager: undefined },
-  { name: "origin base paths", backend: "https://backend.example/backend", manager: "https://manager.example/manager" },
+  {
+    name: "separate manager",
+    backend: "https://backend.example",
+    manager: "https://manager.example",
+  },
+  {
+    name: "backend fallback",
+    backend: "https://backend.example",
+    manager: undefined,
+  },
+  {
+    name: "origin base paths",
+    backend: "https://backend.example/backend",
+    manager: "https://manager.example/manager",
+  },
 ])("Build client routing: $name", ({ backend, manager }) => {
-  it("keeps vault operations on Backend and control-plane operations on Manager", async () => {
-    const request = new Request("https://build.example/api/build/deployments/secrets", {
-      headers: { cookie: "aomi_github=browser-session", authorization: "Bearer browser-token" },
-    });
+  it("signs control-plane requests for Manager", async () => {
+    const request = new Request(
+      "https://build.example/api/build/deployments/secrets",
+      {
+        headers: {
+          cookie: "aomi_github=browser-session",
+          authorization: "Bearer browser-token",
+        },
+      },
+    );
     const env: EdgeEnv = {
       BUILD_HOSTS: "build.example",
       BUILD_UPSTREAM_ORIGIN: "https://build-vercel.example",
@@ -56,29 +74,26 @@ describe.each([
         redirect: outgoing.redirect,
       });
       const url = new URL(outgoing.url);
-      if (outgoing.url === `${backend}/api/_internal/secrets?application_id=42`)
-        return Response.json({ by_app: { demo: ["API_KEY"] } });
-      if (outgoing.url === `${backend}/api/_internal/secrets` && outgoing.method === "POST")
-        return Response.json({ handles: { API_KEY: "$SECRET:APP:demo::API_KEY" } });
-      if (outgoing.url === `${backend}/api/_internal/secrets` && outgoing.method === "DELETE")
-        return Response.json({ removed: true });
-      if (outgoing.url === `${manager ?? backend}/api/platforms/server-tags`)
-        return Response.json({ server_tags: ["v1"], sdk_version: "1.2.3" });
-      return Response.json({ error: `wrong upstream: ${url}` }, { status: 404 });
+      if (url.pathname.endsWith("/user/projects"))
+        return Response.json({ projects: [] });
+      return Response.json(
+        { error: `wrong upstream: ${url}` },
+        { status: 404 },
+      );
     })!;
     const client = await managerClient(request, context);
 
-    await expect(client.listAppSecrets({ applicationId: 42 })).resolves.toEqual({ byApp: { demo: ["API_KEY"] } });
-    await expect(client.ingestSecrets({ applicationId: 42, app: "demo", secrets: { API_KEY: "test-value" } }))
-      .resolves.toEqual({ handles: { API_KEY: "$SECRET:APP:demo::API_KEY" } });
-    await expect(client.removeAppSecret({ applicationId: 42, name: "API_KEY" })).resolves.toBe(true);
-    await expect(client.serverTags()).resolves.toMatchObject({ serverTags: ["v1"], sdkVersion: "1.2.3" });
-
-    expect(seen.map(({ url, method, body }) => ({ url, method, body }))).toEqual([
-      { url: `${backend}/api/_internal/secrets?application_id=42`, method: "GET", body: undefined },
-      { url: `${backend}/api/_internal/secrets`, method: "POST", body: { application_id: 42, app: "demo", secrets: { API_KEY: "test-value" } } },
-      { url: `${backend}/api/_internal/secrets`, method: "DELETE", body: { application_id: 42, name: "API_KEY" } },
-      { url: `${manager ?? backend}/api/platforms/server-tags`, method: "GET", body: undefined },
+    await expect(
+      client.listUserProjects({ githubUserId: "42" }),
+    ).resolves.toEqual([]);
+    expect(
+      seen.map(({ url, method, body }) => ({ url, method, body })),
+    ).toEqual([
+      {
+        url: `${manager ?? backend}/api/integrations/github-app/user/projects?github_user_id=42`,
+        method: "GET",
+        body: undefined,
+      },
     ]);
     const publicKey = await importSPKI(DEV_PUBLIC_KEY, "EdDSA");
     for (const call of seen) {
@@ -86,7 +101,10 @@ describe.each([
       expect(call.redirect).toBe("manual");
       expect(call.headers.get("cookie")).toBeNull();
       const bearer = call.headers.get("authorization")!.replace(/^Bearer /, "");
-      const { payload } = await jwtVerify(bearer, publicKey, { issuer: "aomi-edge", audience: "aomi-backend" });
+      const { payload } = await jwtVerify(bearer, publicKey, {
+        issuer: "aomi-edge",
+        audience: "aomi-backend",
+      });
       expect(payload).toMatchObject({ role: "service", sub: "aomi-edge" });
       expect(payload.exp! - payload.iat!).toBe(300);
     }

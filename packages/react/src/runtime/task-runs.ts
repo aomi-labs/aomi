@@ -33,7 +33,7 @@ export type TaskRunState = {
   agentId: string;
   callId: string;
   label: string;
-  app: string;
+  toolset: string;
   status: TaskRunStatus;
   startedAt: number;
   phase?: string;
@@ -65,7 +65,7 @@ const emptyRun = (event: TaskEvent): TaskRunState => ({
   agentId: event.agent_id,
   callId: event.call_id,
   label: "",
-  app: "",
+  toolset: "",
   status: "running",
   // The wire sends epoch seconds; consumers compare against Date.now() ms.
   startedAt: parseTimestamp(event.occurred_at),
@@ -130,14 +130,14 @@ export function selectTaskRuns(
             ...current,
             callId: event.call_id,
             label: event.label ?? "",
-            app: event.app,
+            toolset: event.toolset,
             startedAt: parseTimestamp(event.occurred_at),
           };
           break;
         case "task_phase":
           runs[event.agent_id] = {
             ...current,
-            app: event.app,
+            toolset: event.toolset,
             phase: event.phase,
             elapsedMs: event.elapsed_ms,
           };

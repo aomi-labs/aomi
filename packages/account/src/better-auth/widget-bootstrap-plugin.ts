@@ -256,7 +256,7 @@ async function validateHandoff(body: z.infer<typeof handoffSchema>) {
     !client.redirectUris.includes(ticket.redirectUri) ||
     !client.resources.includes(ticket.resource) ||
     !resourcePolicy ||
-    resourcePolicy.kind === "agentMcp" ||
+    resourcePolicy.kind === "agentGatewayMcp" ||
     resourcePolicy.kind === "pipelineMcp" ||
     ticket.scopes.some(
       (scope) =>

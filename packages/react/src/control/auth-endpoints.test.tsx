@@ -4,7 +4,7 @@ import type { Aomi } from "@aomi-labs/client";
 import { useAuthEndpointsImpl } from "./auth-endpoints";
 
 describe("model reads", () => {
-  it("keeps the backend model catalog separate from app-sponsored routes", async () => {
+  it("keeps the backend model catalog separate from agent-sponsored routes", async () => {
     const catalog = [
       "openai:gpt-6.1-sol",
       "openai:gpt-6-luna",
@@ -12,35 +12,35 @@ describe("model reads", () => {
     ];
     const client = {
       getModels: vi.fn().mockResolvedValue(catalog),
-      getApps: vi.fn().mockResolvedValue([
-        {
-          name: "partner",
-          metadata: {
-            fundedModelOnly: true,
-            sponsoredModelIds: [
-              "openrouter:openai/gpt-6.1-sol",
-              "openrouter:openai/gpt-6-luna",
-              "openrouter:anthropic/claude-opus-5.5",
-              "openrouter:unavailable-model",
-            ],
-          },
+      resolveAgentKey: vi.fn().mockResolvedValue({
+        agent: "publisher/partner",
+        agent_id: 7,
+        display_name: "Partner",
+        metadata: {
+          fundedModelOnly: true,
+          sponsoredModelIds: [
+            "openrouter:openai/gpt-6.1-sol",
+            "openrouter:openai/gpt-6-luna",
+            "openrouter:anthropic/claude-opus-5.5",
+            "openrouter:unavailable-model",
+          ],
         },
-      ]),
+      }),
     };
     const aomiRef = { current: { raw: client } as unknown as Aomi };
-    const apiKeyRef = { current: null };
+    const apiKeyRef = { current: "key" };
     const getControlSessionId = () => "sponsored-model-session";
     const view = renderHook(() =>
       useAuthEndpointsImpl({
         aomiRef,
         apiKeyRef,
         getControlSessionId,
-        apiKey: null,
+        apiKey: "key",
         credentialRevision: 0,
       }),
     );
     await waitFor(() => {
-      expect(view.result.current.state.appDescriptors).toHaveLength(1);
+      expect(view.result.current.state.agentCards).toHaveLength(1);
       expect(view.result.current.state.availableModels).toEqual(catalog);
     });
     await act(async () => {
@@ -56,18 +56,23 @@ describe("model reads", () => {
         .fn()
         .mockRejectedValueOnce(new Error("unavailable"))
         .mockResolvedValueOnce(["model-a"]),
-      getApps: vi.fn().mockResolvedValue([{ name: "default" }]),
+      resolveAgentKey: vi.fn().mockResolvedValue({
+        agent_id: 7,
+        agent: "publisher/venue",
+        display_name: "Venue",
+        metadata: {},
+      }),
     };
     // Stable refs, as the provider passes them, so the mount fetch runs once.
     const aomiRef = { current: { raw: client } as unknown as Aomi };
-    const apiKeyRef = { current: null };
+    const apiKeyRef = { current: "key" };
     const getControlSessionId = () => "client-session";
     const view = renderHook(() =>
       useAuthEndpointsImpl({
         aomiRef,
         apiKeyRef,
         getControlSessionId,
-        apiKey: null,
+        apiKey: "key",
         credentialRevision: 0,
       }),
     );

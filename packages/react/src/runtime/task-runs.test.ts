@@ -20,7 +20,7 @@ describe("selectTaskRuns", () => {
         call_id: "call-1",
         agent_id: "agent-1",
         label: "Trader",
-        app: "swap",
+        toolset: "swap",
         resumed: false,
       },
       {
@@ -28,7 +28,7 @@ describe("selectTaskRuns", () => {
         type: "task_phase",
         call_id: "call-1",
         agent_id: "agent-1",
-        app: "swap",
+        toolset: "swap",
         phase: "executing",
         elapsed_ms: 10,
         observed_at_ms: 20,
@@ -59,7 +59,7 @@ describe("selectTaskRuns", () => {
 
     expect(selectTaskRuns(events)["agent-1"]).toMatchObject({
       label: "Trader",
-      app: "swap",
+      toolset: "swap",
       phase: "executing",
       elapsedMs: 10,
       status: "completed",
@@ -86,7 +86,7 @@ describe("selectTaskRuns", () => {
         call_id: "call-1",
         agent_id: "agent-1",
         label: "Trader",
-        app: "swap",
+        toolset: "swap",
         resumed: false,
       },
     ];
@@ -103,7 +103,7 @@ describe("selectTaskRuns", () => {
       call_id,
       agent_id: "agent-1",
       label: "Trader",
-      app: "swap",
+      toolset: "swap",
       resumed: sequence > 1,
     });
     const completed = (sequence: number, call_id: string): Event => ({
@@ -151,7 +151,7 @@ describe("selectTaskRuns", () => {
         call_id: "old",
         agent_id: "old-child",
         label: "Old",
-        app: "default",
+        toolset: "default",
         resumed: false,
       },
       {
@@ -168,7 +168,7 @@ describe("selectTaskRuns", () => {
         turn_id: "turn-2",
         agent_id: "new-child",
         label: "New",
-        app: "default",
+        toolset: "default",
         resumed: false,
       },
     ];
@@ -194,7 +194,7 @@ describe("selectTaskRuns", () => {
         call_id: "old",
         agent_id: "old-child",
         label: "Old",
-        app: "default",
+        toolset: "default",
         resumed: false,
       },
       {
@@ -223,7 +223,7 @@ describe("selectTaskRuns", () => {
         turn_id: "turn-2",
         agent_id: "new-child",
         label: "New",
-        app: "default",
+        toolset: "default",
         resumed: false,
       },
     ];

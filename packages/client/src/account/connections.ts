@@ -33,8 +33,8 @@ export type AomiAccountConnection = {
   detail: string | null;
   /** A Telegram bot's handles: the linked user (`@user`) and the bot (`@bot`). */
   telegram: AomiConnectionTelegram | null;
-  /** The app this connection is locked to; null when it is open. */
-  application: AomiConnectionApp | null;
+  /** The agent this connection is locked to; null when it is open. */
+  agent: AomiConnectionAgent | null;
   /** Always `portal`, whatever its wallets say. */
   ask_only: boolean;
   /** Its lanes set on agent wallets; a wallet left out has the default. */
@@ -47,7 +47,7 @@ export type AomiAccountConnection = {
   removable: boolean;
 };
 
-export type AomiConnectionApp = { id: number; name: string; label: string };
+export type AomiConnectionAgent = { id: number; name: string; label: string };
 
 export type AomiConnectionTelegram = { user: string | null; bot: string };
 
@@ -78,16 +78,16 @@ export type AomiConnectionSettings = Pick<
 
 /**
  * A connection's lanes on agent wallets; it replaces the lanes it had (a
- * wallet left out goes back to the default). `application` (an app's name,
- * from app-locked consent) locks the connection to that app. On an Ask-only
+ * wallet left out goes back to the default). `agent` (an agent's slug,
+ * from agent-locked consent) locks the connection to that agent. On an Ask-only
  * connection every lane is stored as `ask_aomi`.
  */
 export type AomiConnectionWalletsUpdate = {
   wallets: { id: string; lane: AomiLane }[];
-  application?: string;
+  agent?: string;
   /**
-   * With `application`: make the app's wallet now, in this lane, when none
-   * of `wallets` is one the app made.
+   * With `agent`: make the agent's wallet now, in this lane, when none
+   * of `wallets` is one the agent made.
    */
   new_app_wallet?: { lane: AomiLane };
   ask_only?: boolean;
@@ -198,7 +198,7 @@ function parseConnections(value: unknown): AomiAccountConnections {
           name: stringValue(row.name) ?? key,
           detail: stringValue(row.detail) ?? null,
           telegram: telegramOf(row.telegram),
-          application: appOf(row.application),
+          agent: agentOf(row.agent),
           ask_only: row.ask_only === true,
           wallets: walletsOf(row.wallets),
           last_used_at: numberOrNull(row.last_used_at),
@@ -218,11 +218,11 @@ function telegramOf(value: unknown): AomiConnectionTelegram | null {
     : null;
 }
 
-function appOf(value: unknown): AomiConnectionApp | null {
-  const app = asRecord(value);
-  const name = stringValue(app?.name);
-  if (!app || typeof app.id !== "number" || !name) return null;
-  return { id: app.id, name, label: stringValue(app.label) ?? name };
+function agentOf(value: unknown): AomiConnectionAgent | null {
+  const agent = asRecord(value);
+  const name = stringValue(agent?.name);
+  if (!agent || typeof agent.id !== "number" || !name) return null;
+  return { id: agent.id, name, label: stringValue(agent.label) ?? name };
 }
 
 function walletsOf(value: unknown): AomiConnectionWallet[] {

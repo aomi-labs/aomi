@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/account",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Server-only account graph and Better Auth: resolve-or-create the canonical user for the edge. Never bundle into a browser.",
   "type": "module",
   "main": "./src/index.ts",
@@ -20,7 +20,8 @@
     "./csrf": "./src/csrf.ts",
     "./rate-limit": "./src/rate-limit.ts",
     "./rate-limits.sql": "./src/db/rate-limits.sql",
-    "./build-session": "./src/build-session.ts"
+    "./build-session": "./src/build-session.ts",
+    "./agent-mcp-resources.sql": "./src/db/migrations/20261117160000_agent_mcp_resources.sql"
   },
   "scripts": {
     "type-check": "tsc --noEmit"

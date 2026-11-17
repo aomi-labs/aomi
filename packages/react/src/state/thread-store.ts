@@ -17,8 +17,7 @@ export type ThreadControlState = {
   agentMode?: AgentMode;
   model: string | null;
   modelMode?: ModelSelectionMode;
-  app: string | null;
-  applicationId: number | string | null;
+  agent: string | null;
   controlDirty: boolean;
 };
 
@@ -42,8 +41,7 @@ export function initThreadControl(): ThreadControlState {
   return {
     model: null,
     modelMode: "auto",
-    app: null,
-    applicationId: null,
+    agent: null,
     controlDirty: false,
   };
 }

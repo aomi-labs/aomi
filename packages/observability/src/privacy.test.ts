@@ -250,7 +250,7 @@ describe("scrubSentryEvent", () => {
                 {
                   filename: "/tmp/private-repository/generated-app/tool.js",
                   abs_path: "/tmp/private-repository/generated-app/tool.js",
-                  function: "privateAppName",
+                  function: "privateAgentName",
                   module: "private-repository",
                   lineno: 9,
                 },
@@ -327,17 +327,33 @@ describe("scrubSentryEvent", () => {
     const debugId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
     const event = scrubSentryEvent({
       exception: {
-        values: [{
-          stacktrace: { frames: [{ filename: `${codeFile}?token=secret#private`, lineno: 17 }] },
-        }],
+        values: [
+          {
+            stacktrace: {
+              frames: [
+                { filename: `${codeFile}?token=secret#private`, lineno: 17 },
+              ],
+            },
+          },
+        ],
       },
       debug_meta: {
-        images: [{ type: "sourcemap", code_file: `${codeFile}?cookie=secret`, debug_id: debugId }],
+        images: [
+          {
+            type: "sourcemap",
+            code_file: `${codeFile}?cookie=secret`,
+            debug_id: debugId,
+          },
+        ],
       },
     });
 
-    expect(event?.exception?.values?.[0]?.stacktrace?.frames?.[0]).toMatchObject({ filename: codeFile, lineno: 17 });
-    expect(event?.debug_meta?.images).toEqual([{ type: "sourcemap", code_file: codeFile, debug_id: debugId }]);
+    expect(
+      event?.exception?.values?.[0]?.stacktrace?.frames?.[0],
+    ).toMatchObject({ filename: codeFile, lineno: 17 });
+    expect(event?.debug_meta?.images).toEqual([
+      { type: "sourcemap", code_file: codeFile, debug_id: debugId },
+    ]);
     expect(JSON.stringify(event)).not.toContain("secret");
   });
 
@@ -345,11 +361,15 @@ describe("scrubSentryEvent", () => {
     const codeFile = "/var/task/_ssr/ssr.mjs";
     const event = scrubSentryEvent({
       exception: {
-        values: [{ stacktrace: { frames: [{ filename: codeFile, lineno: 3 }] } }],
+        values: [
+          { stacktrace: { frames: [{ filename: codeFile, lineno: 3 }] } },
+        ],
       },
     });
 
-    expect(event?.exception?.values?.[0]?.stacktrace?.frames?.[0]).toMatchObject({ filename: codeFile, lineno: 3 });
+    expect(
+      event?.exception?.values?.[0]?.stacktrace?.frames?.[0],
+    ).toMatchObject({ filename: codeFile, lineno: 3 });
   });
 
   it("drops non-error events and unsafe environment values", () => {

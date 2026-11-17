@@ -94,10 +94,7 @@ function resolveWidgetConfig(props: AomiWidgetProps): WidgetConfig {
     return {
       error: `agent must look like "publisher/name"; got ${JSON.stringify(props.agent)}.`,
     };
-  const baseUrl = (props.baseUrl ?? DEFAULT_BASE_URL).replace(
-    /\/+$/,
-    "",
-  );
+  const baseUrl = (props.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
   if (!/^https?:\/\/[^/]/.test(baseUrl) || !URL.canParse(baseUrl))
     return {
       error: `baseUrl must be an absolute http(s) URL; got ${JSON.stringify(baseUrl)}.`,
@@ -187,7 +184,7 @@ function ConfiguredWidget({
 
   return (
     <AomiWalletKitProvider
-      applicationId={agent}
+      agent={agent}
       auth={auth}
       providers={providers}
       wallets={props.wallets}
@@ -301,7 +298,7 @@ function WidgetFrame({
     >
       <AomiFrame.Root
         backendUrl={baseUrl}
-        applicationId={agent}
+        agent={agent}
         agentTarget={agentTarget}
         accountSessionAvailable={Boolean(walletKit.accountUser)}
         clientOptions={runtimeClientOptions}

@@ -16,13 +16,13 @@ const HARNESSES = [
     href: "/dev/integrations-preview",
     name: "Integrations preview",
     description:
-      "The real Integrations page (Telegram bots: add, edit apps, remove) over in-memory bot fixtures with a light/dark switch.",
+      "The real Integrations page (Telegram channels: add, edit agents, remove) over in-memory channel fixtures with a light/dark switch.",
   },
   {
     href: "/dev/operate-preview",
     name: "Operate preview",
     description:
-      "The real Operate tabs (observability, transactions, usage, logs) plus the app drill-down, served from BFF-shaped fixtures.",
+      "The real Operate tabs (observability, transactions, usage, logs) plus the agent drill-down, served from BFF-shaped fixtures.",
   },
 ] as const;
 

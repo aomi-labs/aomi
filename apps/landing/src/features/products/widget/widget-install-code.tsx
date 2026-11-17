@@ -49,7 +49,7 @@ import "@aomi-labs/widget/styles.css";
 export default function AssistantPage() {
   return (
     <AomiWidget
-      applicationId={process.env.NEXT_PUBLIC_AOMI_APPLICATION_ID!}
+      agent={process.env.NEXT_PUBLIC_AOMI_AGENT!}
       baseUrl={process.env.NEXT_PUBLIC_AOMI_API_URL!}${auth}
       height="calc(100dvh - 32px)"
     />

@@ -12,13 +12,11 @@ import {
   isTestnetChain,
   mentionGroups,
   parseSkillCatalog,
-  resolveAppIdentity,
   shortAddress,
   skillLabel,
   SUPPORTED_CHAIN_IDS,
   type Aomi,
   type AomiAccountWallet,
-  UNTAGGABLE_APPS,
   type MentionItem,
 } from "@aomi-labs/client";
 
@@ -27,8 +25,7 @@ export async function mentionCatalog(
   aomi: Aomi,
   thread: string,
 ): Promise<MentionItem[]> {
-  const [apps, skills, wallets] = await Promise.all([
-    aomi.raw.getApps(thread).catch(() => []),
+  const [skills, wallets] = await Promise.all([
     aomi.raw
       .getPublicCatalog("skills")
       .then(parseSkillCatalog)
@@ -39,23 +36,6 @@ export async function mentionCatalog(
   ]);
   const chainName = (id: number) => CHAIN_NAMES[id] ?? String(id);
   return [
-    ...apps
-      .filter((app) => !UNTAGGABLE_APPS.has(app.name))
-      .map((app): MentionItem => {
-        const { displayName: label, category } = resolveAppIdentity(app);
-        const id =
-          app.applicationId !== null && app.applicationId !== undefined
-            ? `application:${app.applicationId}`
-            : `name:${app.name}`;
-        return {
-          kind: "app",
-          id,
-          label,
-          appName: app.name,
-          description: category.label,
-          searchText: `${app.name} ${label} ${category.label} ${(app.chainIds ?? []).map(chainName).join(" ")}`,
-        };
-      }),
     ...skills.map(
       (skill): MentionItem => ({
         kind: "skill",

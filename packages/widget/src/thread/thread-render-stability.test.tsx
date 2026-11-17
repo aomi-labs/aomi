@@ -241,10 +241,10 @@ describe("thread rendering under live runtime updates", () => {
       view.getByRole("status", { name: "Waiting for response" }),
     ).toBeVisible();
     const started = {
+      agent: "aomi/market",
       type: "task_started",
       agent_id: "child",
       call_id: "child-call",
-      app: "market",
       occurred_at: 1,
     } as AomiRuntimeApi["events"][number];
     view.rerender(

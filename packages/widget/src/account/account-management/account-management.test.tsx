@@ -169,7 +169,7 @@ describe("Wallets & access", () => {
     );
   });
 
-  it("titles a row with its name and puts the app beside it", () => {
+  it("titles a row with its name and puts the agent beside it", () => {
     renderSettings([main, metamask]);
     expect(within(rowFor(main)).getByText("Main")).toBeInTheDocument();
     expect(within(rowFor(main)).getByText("Rabby")).toBeInTheDocument();

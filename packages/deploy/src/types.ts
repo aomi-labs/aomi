@@ -16,17 +16,17 @@ import type {
 export type * from "./schemas";
 
 export interface IngestSecretsInput {
-  applicationId: number;
-  app: string;
+  agentId: number;
+  agent: string;
   secrets: Record<string, string>;
 }
 
-export interface ListAppSecretsInput {
-  applicationId: number;
+export interface ListAgentSecretsInput {
+  agentId: number;
 }
 
-export interface RemoveAppSecretInput {
-  applicationId: number;
+export interface RemoveAgentSecretInput {
+  agentId: number;
   name: string;
 }
 
@@ -155,12 +155,12 @@ export interface GetUserProjectInput {
   visibilityGrant?: string;
 }
 
-export interface GetBuilderApplicationInput {
+export interface GetBuilderAgentInput {
   githubUserId: string;
-  applicationId: number;
+  agentId: number;
 }
 
-export interface BuilderAppKeyInput extends GetBuilderApplicationInput {
+export interface BuilderAgentKeyInput extends GetBuilderAgentInput {
   actor?: string;
 }
 
@@ -180,7 +180,7 @@ export interface GetUserProjectDeploymentInput {
 
 export interface PromoteUserProjectDeploymentInput extends GetUserProjectDeploymentInput {
   mode: "targeted" | "apply_composition";
-  apps?: string[];
+  agents?: string[];
   actor?: string;
 }
 
@@ -188,7 +188,7 @@ export interface ActivateUserProjectReleasesInput {
   githubUserId: string;
   projectId: number;
   releaseTags: string[];
-  apps: string[];
+  agents: string[];
   actor?: string;
 }
 
@@ -201,20 +201,20 @@ export interface ListUserDeploymentsInput {
 
 export interface ListDeploymentRecordsInput {
   platform: string;
-  app: string;
-  /** Disambiguates same-named apps across projects on one platform. */
+  agent: string;
+  /** Disambiguates same-named agents across projects on one platform. */
   projectId?: number;
 }
 
-export interface DeactivateApplicationInput {
+export interface DeactivateAgentInput {
   platform: string;
-  applicationId: number;
-  app?: string;
+  agentId: number;
+  agent?: string;
   actor?: string;
 }
 
 export interface ListDeploymentRecordsResult {
-  app: string;
+  agent: string;
   currentReleaseTag: string | null;
   records: DeploymentRecord[];
 }
@@ -275,14 +275,13 @@ export interface ListUserProjectLogsInput extends OwnedOperateProjectInput {
   type?: "deployment" | "usage" | "transaction" | string;
 }
 
-export interface BuilderBotsInput {
+export interface BuilderChannelsInput {
   githubUserId: string;
 }
 
-export interface CreateUserBotInput extends BuilderBotsInput {
-  applicationIds: number[];
-  handoverApplicationId: number;
-  botPlatform: string;
+export interface CreateUserChannelInput extends BuilderChannelsInput {
+  agentId: number;
+  kind: string;
   credential: string;
   label?: string;
   threadMode?: string;
@@ -295,10 +294,9 @@ export interface CreateUserBotInput extends BuilderBotsInput {
   commands?: string[];
 }
 
-export interface UpdateUserBotInput extends BuilderBotsInput {
-  botId: string;
-  applicationIds: number[];
-  handoverApplicationId: number;
+export interface UpdateUserChannelInput extends BuilderChannelsInput {
+  channelId: string;
+  agentId: number;
   /** Omitted = unchanged; blank clears the label (manager semantics). */
   label?: string;
   /** Omitted = unchanged; "single" | "multi". */
@@ -313,16 +311,16 @@ export interface UpdateUserBotInput extends BuilderBotsInput {
   commands?: string[];
 }
 
-export interface RevealUserBotCommandSecretInput extends BuilderBotsInput {
-  botId: string;
+export interface RevealUserChannelCommandSecretInput extends BuilderChannelsInput {
+  channelId: string;
 }
 
-export interface CheckUserBotWebhookInput extends BuilderBotsInput {
-  botId: string;
+export interface CheckUserChannelWebhookInput extends BuilderChannelsInput {
+  channelId: string;
 }
 
-export interface DeleteUserBotInput extends BuilderBotsInput {
-  botId: string;
+export interface DeleteUserChannelInput extends BuilderChannelsInput {
+  channelId: string;
 }
 
 export interface BuilderModelKeysInput {
@@ -347,7 +345,7 @@ export interface DeleteBuilderModelKeyInput extends BuilderModelKeysInput {
 /** Replace a key's grant set ("apply to projects"). */
 export interface SetModelKeyGrantsInput extends BuilderModelKeysInput {
   keyId: number;
-  applicationIds: number[];
+  agentIds: number[];
   modelIds: "*" | string[];
 }
 
@@ -359,7 +357,7 @@ export interface SetModelKeyGrantsInput extends BuilderModelKeysInput {
 export interface PromoteInput {
   platform: string;
   deploymentId: string;
-  apps?: string[];
+  agents?: string[];
   targetTags?: string[];
   actor?: string;
 }
@@ -373,21 +371,6 @@ export interface PromoteResult {
     sdkStatus?: SdkVersionStatus | null;
     activation?: ActivateResult["activation"];
   };
-}
-
-export interface ReleaseManifestPlugin {
-  file: string;
-  sha256: string;
-  secrets?: SecretSlot[];
-}
-
-/** The `manifest.json` asset published with every plugin release. */
-export interface ReleaseManifest {
-  app_release_tag: string;
-  sdk_version: string;
-  target: string;
-  commit: string;
-  plugins: Record<string, ReleaseManifestPlugin>;
 }
 
 export interface RerunDeploymentInput {

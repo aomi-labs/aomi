@@ -12,10 +12,10 @@ const result = await aomi.agent.run(
   { sessionId },
 );
 
-// Pin a task only when your integration explicitly needs one app:
+// Pin a task only when your integration explicitly needs one agent:
 // await aomi.agent.run("Get a Uniswap quote", {
 //   sessionId: crypto.randomUUID(),
-//   target: { mode: "direct", app: "uniswap" },
+//   target: { mode: "direct", agent: "aomi/uniswap" },
 // });
 const reply = [...result.messages]
   .reverse()

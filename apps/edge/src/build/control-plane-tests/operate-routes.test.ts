@@ -3,13 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BackendError } from "@aomi-labs/deploy";
 
 import {
-  operateAppDetailRoute,
-  operateBotsRoute,
-  operateBotsCommandSecretRoute,
-  operateBotsCreateRoute,
-  operateBotsDeleteRoute,
-  operateBotsUpdateRoute,
-  operateBotsWebhookRoute,
+  operateAgentDetailRoute,
+  operateChannelsRoute,
+  operateChannelsCommandSecretRoute,
+  operateChannelsCreateRoute,
+  operateChannelsDeleteRoute,
+  operateChannelsUpdateRoute,
+  operateChannelsWebhookRoute,
   operateLogsRoute,
   operateObservabilityRoute,
   operatePaymentsRoute,
@@ -20,24 +20,23 @@ import { getGitHubSession } from "./harness";
 
 const client = {
   listUserProjects: vi.fn(),
-  listUserProjectBots: vi.fn(),
-  createUserProjectBot: vi.fn(),
-  deleteUserProjectBot: vi.fn(),
-  listUserBots: vi.fn(),
-  createUserBot: vi.fn(),
-  updateUserBot: vi.fn(),
-  revealUserBotCommandSecret: vi.fn(),
-  checkUserBotWebhook: vi.fn(),
-  deleteUserBot: vi.fn(),
+  listUserProjectChannels: vi.fn(),
+  createUserProjectChannel: vi.fn(),
+  deleteUserProjectChannel: vi.fn(),
+  listUserChannels: vi.fn(),
+  createUserChannel: vi.fn(),
+  updateUserChannel: vi.fn(),
+  revealUserChannelCommandSecret: vi.fn(),
+  checkUserChannelWebhook: vi.fn(),
+  deleteUserChannel: vi.fn(),
   getUserProjectUsage: vi.fn(),
   getUserProjectStatement: vi.fn(),
   getUserObservability: vi.fn(),
   getUserPayments: vi.fn(),
   getUserProjectObservability: vi.fn(),
-  getBuilderApplicationDetail: vi.fn(),
+  getBuilderAgentDetail: vi.fn(),
   listUserProjectTransactions: vi.fn(),
   listUserProjectLogs: vi.fn(),
-  listUserProjectDeployments: vi.fn(),
   listUserTransactions: vi.fn(),
   getUserStatements: vi.fn(),
   getUserUsage: vi.fn(),
@@ -50,11 +49,11 @@ vi.mock("../manager-client", async (original) => ({
 }));
 
 function getReq(qs = "") {
-  return new Request(`http://localhost:3000/api/build/operate/bots${qs}`);
+  return new Request(`http://localhost:3000/api/build/operate/channels${qs}`);
 }
 
 function postJson(body: unknown) {
-  return new Request("http://localhost:3000/api/build/operate/bots", {
+  return new Request("http://localhost:3000/api/build/operate/channels", {
     method: "POST",
     headers: {
       origin: "http://localhost:3000",
@@ -65,7 +64,7 @@ function postJson(body: unknown) {
 }
 
 function patchJson(body: unknown) {
-  return new Request("http://localhost:3000/api/build/operate/bots", {
+  return new Request("http://localhost:3000/api/build/operate/channels", {
     method: "PATCH",
     headers: {
       origin: "http://localhost:3000",
@@ -75,21 +74,21 @@ function patchJson(body: unknown) {
   });
 }
 
-function commandSecretReq(botId: string) {
+function commandSecretReq(channelId: string) {
   return new Request(
-    `http://localhost:3000/api/build/operate/bots/${botId}/command-secret`,
+    `http://localhost:3000/api/build/operate/channels/${channelId}/command-secret`,
   );
 }
 
-function webhookReq(botId: string) {
+function webhookReq(channelId: string) {
   return new Request(
-    `http://localhost:3000/api/build/operate/bots/${botId}/webhook`,
+    `http://localhost:3000/api/build/operate/channels/${channelId}/webhook`,
     { method: "POST", headers: { origin: "http://localhost:3000" } },
   );
 }
 
 function deleteReq(qs: string) {
-  return new Request(`http://localhost:3000/api/build/operate/bots${qs}`, {
+  return new Request(`http://localhost:3000/api/build/operate/channels${qs}`, {
     method: "DELETE",
     headers: { origin: "http://localhost:3000" },
   });
@@ -108,14 +107,14 @@ function clearSession() {
 
 beforeEach(() => {
   client.listUserProjects.mockReset();
-  client.listUserProjectBots.mockReset();
-  client.createUserProjectBot.mockReset();
-  client.deleteUserProjectBot.mockReset();
-  client.listUserBots.mockReset();
-  client.createUserBot.mockReset();
-  client.updateUserBot.mockReset();
-  client.revealUserBotCommandSecret.mockReset();
-  client.deleteUserBot.mockReset();
+  client.listUserProjectChannels.mockReset();
+  client.createUserProjectChannel.mockReset();
+  client.deleteUserProjectChannel.mockReset();
+  client.listUserChannels.mockReset();
+  client.createUserChannel.mockReset();
+  client.updateUserChannel.mockReset();
+  client.revealUserChannelCommandSecret.mockReset();
+  client.deleteUserChannel.mockReset();
   client.getUserProjectUsage.mockReset();
   client.getUserProjectStatement.mockReset();
   client.getUserObservability.mockReset();
@@ -125,10 +124,9 @@ beforeEach(() => {
   client.getUserUsage.mockReset();
   client.listUserLogs.mockReset();
   client.getUserProjectObservability.mockReset();
-  client.getBuilderApplicationDetail.mockReset();
+  client.getBuilderAgentDetail.mockReset();
   client.listUserProjectTransactions.mockReset();
   client.listUserProjectLogs.mockReset();
-  client.listUserProjectDeployments.mockReset();
   getGitHubSession.mockReset();
 });
 
@@ -137,43 +135,43 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("operateBotsRoute", () => {
-  it("401s the bots list when not signed in with GitHub", async () => {
+describe("operateChannelsRoute", () => {
+  it("401s the channels list when not signed in with GitHub", async () => {
     clearSession();
-    const res = await operateBotsRoute(getReq());
+    const res = await operateChannelsRoute(getReq());
     expect(res.status).toBe(401);
     expect(client.listUserProjects).not.toHaveBeenCalled();
   });
 
-  it("lists builder-wide bots with applications from every bound platform", async () => {
+  it("lists builder-wide channels with agents from every bound platform", async () => {
     setSession({ githubUserId: "gh-1" });
     client.listUserProjects.mockResolvedValue([
       {
         id: 42,
         repositoryLink: "o/world-markets",
         platformName: "world-markets",
-        apps: [{ id: 77, name: "world-markets" }],
+        agents: [{ id: 77, name: "world-markets" }],
       },
     ]);
-    client.listUserBots.mockResolvedValue([
+    client.listUserChannels.mockResolvedValue([
       { id: "b1", platformUsername: "mybot" },
     ]);
-    const res = await operateBotsRoute(getReq());
+    const res = await operateChannelsRoute(getReq());
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
       projects: [
         {
           platformName: "world-markets",
-          apps: [{ id: 77, name: "world-markets" }],
+          agents: [{ id: 77, name: "world-markets" }],
         },
       ],
-      bots: [{ id: "b1", platformUsername: "mybot" }],
+      channels: [{ id: "b1", platformUsername: "mybot" }],
     });
     expect(client.listUserProjects).toHaveBeenCalledWith({
       githubUserId: "gh-1",
       platform: undefined,
     });
-    expect(client.listUserBots).toHaveBeenCalledWith(
+    expect(client.listUserChannels).toHaveBeenCalledWith(
       expect.objectContaining({
         githubUserId: "gh-1",
       }),
@@ -183,17 +181,17 @@ describe("operateBotsRoute", () => {
   it("does not fan out over every owned source", async () => {
     setSession({ githubUserId: "gh-1" });
     client.listUserProjects.mockResolvedValue([
-      { id: 1, apps: [] },
-      { id: 2, apps: [] },
+      { id: 1, agents: [] },
+      { id: 2, agents: [] },
     ]);
-    client.listUserBots.mockResolvedValue([
+    client.listUserChannels.mockResolvedValue([
       { id: "b1", platformUsername: "one" },
     ]);
-    const res = await operateBotsRoute(getReq());
+    const res = await operateChannelsRoute(getReq());
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.bots).toHaveLength(1);
-    expect(client.listUserBots).toHaveBeenCalledTimes(1);
+    expect(body.channels).toHaveLength(1);
+    expect(client.listUserChannels).toHaveBeenCalledTimes(1);
   });
 
   it("logs an owned-source Rust 5xx without creating a BFF Issue", async () => {
@@ -207,77 +205,74 @@ describe("operateBotsRoute", () => {
       ),
     );
 
-    const res = await operateBotsRoute(getReq());
+    const res = await operateChannelsRoute(getReq());
 
     expect(res.status).toBe(503);
     await expect(res.json()).resolves.toEqual({ error: "failed" });
   });
 });
 
-describe("operateBotsCreateRoute", () => {
+describe("operateChannelsCreateRoute", () => {
   it("401s create when not signed in with GitHub", async () => {
     clearSession();
-    const res = await operateBotsCreateRoute(
+    const res = await operateChannelsCreateRoute(
       postJson({
-        applicationIds: [1],
-        handoverApplicationId: 1,
+        agentId: 1,
         credential: "t",
       }),
     );
     expect(res.status).toBe(401);
-    expect(client.createUserBot).not.toHaveBeenCalled();
+    expect(client.createUserChannel).not.toHaveBeenCalled();
   });
 
-  it("rejects a create for apps the user does not own", async () => {
+  it("rejects a create for agents the user does not own", async () => {
     setSession({ githubUserId: "gh-1" });
-    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [] }]);
-    const res = await operateBotsCreateRoute(
+    client.listUserProjects.mockResolvedValue([{ id: 42, agents: [] }]);
+    const res = await operateChannelsCreateRoute(
       postJson({
-        applicationIds: [1],
-        handoverApplicationId: 1,
+        agentId: 1,
         credential: "t",
       }),
     );
     expect(res.status).toBe(403);
-    expect(client.createUserBot).not.toHaveBeenCalled();
+    expect(client.createUserChannel).not.toHaveBeenCalled();
   });
 
   it("400s an invalid body before calling the backend", async () => {
     setSession({ githubUserId: "gh-1" });
-    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [] }]);
-    let res = await operateBotsCreateRoute(
+    client.listUserProjects.mockResolvedValue([{ id: 42, agents: [] }]);
+    let res = await operateChannelsCreateRoute(
       postJson({
-        applicationIds: "nope",
-        handoverApplicationId: 1,
+        agentId: "nope",
         credential: "t",
       }),
     );
     expect(res.status).toBe(400);
 
-    res = await operateBotsCreateRoute(
+    res = await operateChannelsCreateRoute(
       postJson({
-        applicationIds: [1],
-        handoverApplicationId: 1,
+        agentId: 1,
         credential: "   ",
       }),
     );
     expect(res.status).toBe(400);
-    expect(client.createUserBot).not.toHaveBeenCalled();
+    expect(client.createUserChannel).not.toHaveBeenCalled();
   });
 
-  it("creates a bot with owned cross-source app mappings", async () => {
+  it("creates a channel with one owned agent", async () => {
     setSession({ githubUserId: "gh-1" });
-    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [{ id: 7 }] }]);
-    client.createUserBot.mockResolvedValue({
+    client.listUserProjects.mockResolvedValue([
+      { id: 42, agents: [{ id: 7 }] },
+    ]);
+    client.createUserChannel.mockResolvedValue({
       id: "b1",
-      platform: "telegram",
+      kind: "telegram",
     });
-    const res = await operateBotsCreateRoute(
+    const res = await operateChannelsCreateRoute(
       postJson({
-        applicationIds: [7],
-        handoverApplicationId: 7,
+        agentId: 7,
         credential: "secret-token",
-        label: "My Bot",
+        label: "My Channel",
         miniAppUrl: "",
         miniAppLabel: " Portfolio ",
         commandEndpoint: "https://api.world.inc/commands/",
@@ -286,18 +281,17 @@ describe("operateBotsCreateRoute", () => {
     );
     expect(res.status).toBe(201);
     await expect(res.json()).resolves.toMatchObject({
-      bot: { id: "b1", platform: "telegram" },
+      channel: { id: "b1", kind: "telegram" },
     });
     // Shape only: values are forwarded untouched (blank URL → null) and the
     // manager canonicalises trailing slashes, case and leading slashes.
-    expect(client.createUserBot).toHaveBeenCalledWith(
+    expect(client.createUserChannel).toHaveBeenCalledWith(
       expect.objectContaining({
         githubUserId: "gh-1",
-        applicationIds: [7],
-        handoverApplicationId: 7,
-        botPlatform: "telegram",
+        agentId: 7,
+        kind: "telegram",
         credential: "secret-token",
-        label: "My Bot",
+        label: "My Channel",
         miniAppUrl: null,
         miniAppLabel: "Portfolio",
         commandEndpoint: "https://api.world.inc/commands/",
@@ -308,16 +302,17 @@ describe("operateBotsCreateRoute", () => {
 
   it("omits command config the body did not mention", async () => {
     setSession({ githubUserId: "gh-1" });
-    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [{ id: 7 }] }]);
-    client.createUserBot.mockResolvedValue({ id: "b1" });
-    await operateBotsCreateRoute(
+    client.listUserProjects.mockResolvedValue([
+      { id: 42, agents: [{ id: 7 }] },
+    ]);
+    client.createUserChannel.mockResolvedValue({ id: "b1" });
+    await operateChannelsCreateRoute(
       postJson({
-        applicationIds: [7],
-        handoverApplicationId: 7,
+        agentId: 7,
         credential: "secret-token",
       }),
     );
-    const input = client.createUserBot.mock.calls[0][0];
+    const input = client.createUserChannel.mock.calls[0][0];
     expect(input).not.toHaveProperty("miniAppUrl");
     expect(input).not.toHaveProperty("miniAppLabel");
     expect(input).not.toHaveProperty("commandEndpoint");
@@ -326,10 +321,11 @@ describe("operateBotsCreateRoute", () => {
 
   it("400s a shape-invalid command config before calling the backend", async () => {
     setSession({ githubUserId: "gh-1" });
-    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [{ id: 7 }] }]);
+    client.listUserProjects.mockResolvedValue([
+      { id: 42, agents: [{ id: 7 }] },
+    ]);
     const base = {
-      applicationIds: [7],
-      handoverApplicationId: 7,
+      agentId: 7,
       credential: "secret-token",
     };
     for (const bad of [
@@ -338,31 +334,34 @@ describe("operateBotsCreateRoute", () => {
       { commands: "b, p" },
       { commands: ["b", 3] },
     ]) {
-      const res = await operateBotsCreateRoute(postJson({ ...base, ...bad }));
+      const res = await operateChannelsCreateRoute(
+        postJson({ ...base, ...bad }),
+      );
       expect(res.status).toBe(400);
       const [field] = Object.keys(bad);
       await expect(res.json()).resolves.toEqual({
         error: `missing or invalid \`${field}\``,
       });
     }
-    expect(client.createUserBot).not.toHaveBeenCalled();
+    expect(client.createUserChannel).not.toHaveBeenCalled();
   });
 
   it("forwards the manager's 400 message instead of mirroring its rules", async () => {
     setSession({ githubUserId: "gh-1" });
-    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [{ id: 7 }] }]);
-    client.createUserBot.mockRejectedValue(
+    client.listUserProjects.mockResolvedValue([
+      { id: 42, agents: [{ id: 7 }] },
+    ]);
+    client.createUserChannel.mockRejectedValue(
       new BackendError(
-        "create_user_bot",
+        "create_user_channel",
         400,
-        "create_user_bot failed (400)",
+        "create_user_channel failed (400)",
         JSON.stringify({ error: "command `start` is reserved" }),
       ),
     );
-    const res = await operateBotsCreateRoute(
+    const res = await operateChannelsCreateRoute(
       postJson({
-        applicationIds: [7],
-        handoverApplicationId: 7,
+        agentId: 7,
         credential: "secret-token",
         commandEndpoint: "https://api.world.inc/commands",
         commands: ["start"],
@@ -376,12 +375,13 @@ describe("operateBotsCreateRoute", () => {
 
   it("never logs or echoes the credential value on failure paths", async () => {
     setSession({ githubUserId: "gh-1" });
-    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [{ id: 7 }] }]);
-    client.createUserBot.mockRejectedValue(new Error("backend down"));
-    const res = await operateBotsCreateRoute(
+    client.listUserProjects.mockResolvedValue([
+      { id: 42, agents: [{ id: 7 }] },
+    ]);
+    client.createUserChannel.mockRejectedValue(new Error("backend down"));
+    const res = await operateChannelsCreateRoute(
       postJson({
-        applicationIds: [7],
-        handoverApplicationId: 7,
+        agentId: 7,
         credential: "top-secret",
       }),
     );
@@ -390,73 +390,72 @@ describe("operateBotsCreateRoute", () => {
   });
 });
 
-describe("operateBotsUpdateRoute", () => {
+describe("operateChannelsUpdateRoute", () => {
   const owned = () =>
-    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [{ id: 7 }] }]);
+    client.listUserProjects.mockResolvedValue([
+      { id: 42, agents: [{ id: 7 }] },
+    ]);
 
   it("forwards only the fields the body names, clearing blank URLs", async () => {
     setSession({ githubUserId: "gh-1" });
     owned();
-    client.updateUserBot.mockResolvedValue({ id: "b1" });
-    const res = await operateBotsUpdateRoute(
+    client.updateUserChannel.mockResolvedValue({ id: "b1" });
+    const res = await operateChannelsUpdateRoute(
       patchJson({
-        botId: "b1",
-        applicationIds: [7],
-        handoverApplicationId: 7,
+        channelId: "b1",
+        agentId: 7,
         commandEndpoint: "",
         commands: [],
       }),
     );
     expect(res.status).toBe(200);
-    const input = client.updateUserBot.mock.calls[0][0];
+    const input = client.updateUserChannel.mock.calls[0][0];
     expect(input).toMatchObject({
-      botId: "b1",
-      applicationIds: [7],
-      handoverApplicationId: 7,
+      channelId: "b1",
+      agentId: 7,
       commandEndpoint: null,
       commands: [],
     });
     expect(input).not.toHaveProperty("miniAppUrl");
   });
 
-  it("passes the manager's webhook warning beside the saved bot, never inside it", async () => {
+  it("passes the manager's webhook warning beside the saved channel, never inside it", async () => {
     setSession({ githubUserId: "gh-1" });
     owned();
-    client.updateUserBot.mockResolvedValue({
+    client.updateUserChannel.mockResolvedValue({
       id: "b1",
       webhookWarning: "Telegram setWebhook failed (502 Bad Gateway)",
     });
-    const res = await operateBotsUpdateRoute(
-      patchJson({ botId: "b1", applicationIds: [7], handoverApplicationId: 7 }),
+    const res = await operateChannelsUpdateRoute(
+      patchJson({ channelId: "b1", agentId: 7 }),
     );
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({
-      bot: { id: "b1" },
+      channel: { id: "b1" },
       webhookWarning: "Telegram setWebhook failed (502 Bad Gateway)",
     });
 
-    client.updateUserBot.mockResolvedValue({ id: "b1" });
-    const clean = await operateBotsUpdateRoute(
-      patchJson({ botId: "b1", applicationIds: [7], handoverApplicationId: 7 }),
+    client.updateUserChannel.mockResolvedValue({ id: "b1" });
+    const clean = await operateChannelsUpdateRoute(
+      patchJson({ channelId: "b1", agentId: 7 }),
     );
-    await expect(clean.json()).resolves.toEqual({ bot: { id: "b1" } });
+    await expect(clean.json()).resolves.toEqual({ channel: { id: "b1" } });
   });
 
   it("400s a shape-invalid command config and forwards a manager 400", async () => {
     setSession({ githubUserId: "gh-1" });
     owned();
-    let res = await operateBotsUpdateRoute(
+    let res = await operateChannelsUpdateRoute(
       patchJson({
-        botId: "b1",
-        applicationIds: [7],
-        handoverApplicationId: 7,
+        channelId: "b1",
+        agentId: 7,
         miniAppUrl: { url: "x" },
       }),
     );
     expect(res.status).toBe(400);
-    expect(client.updateUserBot).not.toHaveBeenCalled();
+    expect(client.updateUserChannel).not.toHaveBeenCalled();
 
-    client.updateUserBot.mockRejectedValue(
+    client.updateUserChannel.mockRejectedValue(
       new BackendError(
         "update_user_bot",
         400,
@@ -464,11 +463,10 @@ describe("operateBotsUpdateRoute", () => {
         JSON.stringify({ error: "commands require a command_endpoint" }),
       ),
     );
-    res = await operateBotsUpdateRoute(
+    res = await operateChannelsUpdateRoute(
       patchJson({
-        botId: "b1",
-        applicationIds: [7],
-        handoverApplicationId: 7,
+        channelId: "b1",
+        agentId: 7,
         commands: ["b"],
       }),
     );
@@ -479,58 +477,58 @@ describe("operateBotsUpdateRoute", () => {
   });
 });
 
-describe("operateBotsCommandSecretRoute", () => {
+describe("operateChannelsCommandSecretRoute", () => {
   it("401s when not signed in with GitHub", async () => {
     clearSession();
-    const res = await operateBotsCommandSecretRoute(commandSecretReq("b1"));
+    const res = await operateChannelsCommandSecretRoute(commandSecretReq("b1"));
     expect(res.status).toBe(401);
-    expect(client.revealUserBotCommandSecret).not.toHaveBeenCalled();
+    expect(client.revealUserChannelCommandSecret).not.toHaveBeenCalled();
   });
 
   it("reveals the secret through the session's builder id", async () => {
     setSession({ githubUserId: "gh-1" });
-    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [] }]);
-    client.revealUserBotCommandSecret.mockResolvedValue({
+    client.listUserProjects.mockResolvedValue([{ id: 42, agents: [] }]);
+    client.revealUserChannelCommandSecret.mockResolvedValue({
       commandSecret: "deadbeef",
     });
-    const res = await operateBotsCommandSecretRoute(commandSecretReq("b1"));
+    const res = await operateChannelsCommandSecretRoute(commandSecretReq("b1"));
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
     await expect(res.json()).resolves.toEqual({ commandSecret: "deadbeef" });
-    expect(client.revealUserBotCommandSecret).toHaveBeenCalledWith({
+    expect(client.revealUserChannelCommandSecret).toHaveBeenCalledWith({
       githubUserId: "gh-1",
-      botId: "b1",
+      channelId: "b1",
     });
   });
 
-  it("forwards the manager's rejection of a bot the builder does not own", async () => {
+  it("forwards the manager's rejection of a channel the builder does not own", async () => {
     setSession({ githubUserId: "gh-1" });
-    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [] }]);
-    client.revealUserBotCommandSecret.mockRejectedValue(
+    client.listUserProjects.mockResolvedValue([{ id: 42, agents: [] }]);
+    client.revealUserChannelCommandSecret.mockRejectedValue(
       new BackendError(
         "reveal_user_bot_command_secret",
         404,
         "reveal_user_bot_command_secret failed (404)",
-        JSON.stringify({ error: "bot not found" }),
+        JSON.stringify({ error: "channel not found" }),
       ),
     );
-    const res = await operateBotsCommandSecretRoute(commandSecretReq("b9"));
+    const res = await operateChannelsCommandSecretRoute(commandSecretReq("b9"));
     expect(res.status).toBe(404);
-    await expect(res.json()).resolves.toEqual({ error: "bot not found" });
+    await expect(res.json()).resolves.toEqual({ error: "channel not found" });
   });
 });
 
-describe("operateBotsWebhookRoute", () => {
+describe("operateChannelsWebhookRoute", () => {
   it("401s when not signed in with GitHub", async () => {
     clearSession();
-    const res = await operateBotsWebhookRoute(webhookReq("b1"));
+    const res = await operateChannelsWebhookRoute(webhookReq("b1"));
     expect(res.status).toBe(401);
-    expect(client.checkUserBotWebhook).not.toHaveBeenCalled();
+    expect(client.checkUserChannelWebhook).not.toHaveBeenCalled();
   });
 
   it("checks the webhook through the session's builder id", async () => {
     setSession({ githubUserId: "gh-1" });
-    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [] }]);
+    client.listUserProjects.mockResolvedValue([{ id: 42, agents: [] }]);
     const webhook = {
       urlMatches: false,
       pendingUpdateCount: 3,
@@ -538,63 +536,63 @@ describe("operateBotsWebhookRoute", () => {
       reasserted: true,
       warning: null,
     };
-    client.checkUserBotWebhook.mockResolvedValue(webhook);
-    const res = await operateBotsWebhookRoute(webhookReq("b1"));
+    client.checkUserChannelWebhook.mockResolvedValue(webhook);
+    const res = await operateChannelsWebhookRoute(webhookReq("b1"));
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
     await expect(res.json()).resolves.toEqual({ webhook });
-    expect(client.checkUserBotWebhook).toHaveBeenCalledWith({
+    expect(client.checkUserChannelWebhook).toHaveBeenCalledWith({
       githubUserId: "gh-1",
-      botId: "b1",
+      channelId: "b1",
     });
   });
 
-  it("forwards the manager's rejection of a bot the builder does not own", async () => {
+  it("forwards the manager's rejection of a channel the builder does not own", async () => {
     setSession({ githubUserId: "gh-1" });
-    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [] }]);
-    client.checkUserBotWebhook.mockRejectedValue(
+    client.listUserProjects.mockResolvedValue([{ id: 42, agents: [] }]);
+    client.checkUserChannelWebhook.mockRejectedValue(
       new BackendError(
         "check_user_bot_webhook",
         404,
         "check_user_bot_webhook failed (404)",
-        JSON.stringify({ error: "bot registration not found" }),
+        JSON.stringify({ error: "channel registration not found" }),
       ),
     );
-    const res = await operateBotsWebhookRoute(webhookReq("b9"));
+    const res = await operateChannelsWebhookRoute(webhookReq("b9"));
     expect(res.status).toBe(404);
     await expect(res.json()).resolves.toEqual({
-      error: "bot registration not found",
+      error: "channel registration not found",
     });
   });
 });
 
-describe("operateBotsDeleteRoute", () => {
+describe("operateChannelsDeleteRoute", () => {
   it("401s delete when not signed in with GitHub", async () => {
     clearSession();
-    const res = await operateBotsDeleteRoute(deleteReq("?botId=b1"));
+    const res = await operateChannelsDeleteRoute(deleteReq("?channelId=b1"));
     expect(res.status).toBe(401);
-    expect(client.deleteUserBot).not.toHaveBeenCalled();
+    expect(client.deleteUserChannel).not.toHaveBeenCalled();
   });
 
-  it("400s a delete missing botId", async () => {
+  it("400s a delete missing channelId", async () => {
     setSession({ githubUserId: "gh-1" });
-    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [] }]);
-    const res = await operateBotsDeleteRoute(deleteReq(""));
+    client.listUserProjects.mockResolvedValue([{ id: 42, agents: [] }]);
+    const res = await operateChannelsDeleteRoute(deleteReq(""));
     expect(res.status).toBe(400);
-    expect(client.deleteUserBot).not.toHaveBeenCalled();
+    expect(client.deleteUserChannel).not.toHaveBeenCalled();
   });
 
-  it("deletes a bot for an owned source", async () => {
+  it("deletes a channel for an owned source", async () => {
     setSession({ githubUserId: "gh-1" });
-    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [] }]);
-    client.deleteUserBot.mockResolvedValue(undefined);
-    const res = await operateBotsDeleteRoute(deleteReq("?botId=b1"));
+    client.listUserProjects.mockResolvedValue([{ id: 42, agents: [] }]);
+    client.deleteUserChannel.mockResolvedValue(undefined);
+    const res = await operateChannelsDeleteRoute(deleteReq("?channelId=b1"));
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ ok: true });
-    expect(client.deleteUserBot).toHaveBeenCalledWith(
+    expect(client.deleteUserChannel).toHaveBeenCalledWith(
       expect.objectContaining({
         githubUserId: "gh-1",
-        botId: "b1",
+        channelId: "b1",
       }),
     );
   });
@@ -607,12 +605,14 @@ function observabilityReq() {
   return new Request("http://localhost:3000/api/build/operate/observability");
 }
 function transactionsReq(qs = "") {
-  return new Request(`http://localhost:3000/api/build/operate/transactions${qs}`);
+  return new Request(
+    `http://localhost:3000/api/build/operate/transactions${qs}`,
+  );
 }
 function logsReq(qs = "") {
   return new Request(`http://localhost:3000/api/build/operate/logs${qs}`);
 }
-function appDetailReq(qs = "?applicationId=77") {
+function agentDetailReq(qs = "?agentId=77") {
   return new Request(
     `http://localhost:3000/api/build/operate/observability/detail${qs}`,
   );
@@ -620,7 +620,7 @@ function appDetailReq(qs = "?applicationId=77") {
 
 const oneSource = (platformName = "community") =>
   client.listUserProjects.mockResolvedValue([
-    { id: 900, repositoryLink: "o/r", platformName, apps: [] },
+    { id: 900, repositoryLink: "o/r", platformName, agents: [] },
   ]);
 
 // The route consumes the deploy client's already-camelCased results.
@@ -652,7 +652,7 @@ function emptyPayments() {
   };
 }
 
-function sharedSettlementPayments(applicationId: number | null = null) {
+function sharedSettlementPayments(agentId: number | null = null) {
   return {
     ...emptyPayments(),
     summary: {
@@ -674,8 +674,8 @@ function sharedSettlementPayments(applicationId: number | null = null) {
         id: "settle:shared",
         kind: "settlement_confirmed",
         occurredAt: 1_700_000_000,
-        application: applicationId == null ? null : `app-${applicationId}`,
-        applicationId,
+        agent: agentId == null ? null : `package-${agentId}`,
+        agentId,
         tools: [],
         credits: 100,
         usd: 1,
@@ -804,8 +804,8 @@ describe("operateUsageRoute statement fallback", () => {
       revenue: [
         {
           subject: "tool_invocation",
-          application: "real-bot",
-          applicationId: 1,
+          agent: "real-channel",
+          agentId: 1,
           events: 3,
           gross: 9,
           platformFee: 0.9,
@@ -823,14 +823,14 @@ describe("operateUsageRoute statement fallback", () => {
     expect(res.status).toBe(200);
     expect(body.example).toBeUndefined();
     expect(body.statement.summary.net).toBeCloseTo(6.1, 2);
-    expect(body.statement.revenue[0].application).toBe("real-bot");
+    expect(body.statement.revenue[0].agent).toBe("real-channel");
   });
 
   it("deduplicates a recipient-bucket settlement shared by two projects", async () => {
     setSession({ githubUserId: "gh-1" });
     client.listUserProjects.mockResolvedValue([
-      { id: 900, repositoryLink: "o/one", apps: [] },
-      { id: 901, repositoryLink: "o/two", apps: [] },
+      { id: 900, repositoryLink: "o/one", agents: [] },
+      { id: 901, repositoryLink: "o/two", agents: [] },
     ]);
     client.getUserUsage.mockResolvedValue(
       [900, 901].map((id) => ({ ...emptyUsage, project: { id } })),
@@ -876,16 +876,16 @@ describe("operateObservabilityRoute live data", () => {
       {
         project: { id: 900 },
         platform: "community",
-        scope: "owned_applications",
+        scope: "owned_agents",
         monitoring: {
           provider: "grafana_prometheus",
           status: "ok",
           windowSeconds: 900,
         },
-        apps: [
+        agents: [
           {
-            applicationId: 1,
-            application: "real-bot",
+            id: 1,
+            agent: "real-channel",
             active: true,
             loaded: true,
             status: "healthy",
@@ -909,8 +909,8 @@ describe("operateObservabilityRoute live data", () => {
 
     expect(res.status).toBe(200);
     expect(body.example).toBeUndefined();
-    const card = body.apps.find(
-      (a: { application: string }) => a.application === "real-bot",
+    const card = body.agents.find(
+      (a: { agent: string }) => a.agent === "real-channel",
     );
     expect(card.metrics.errorRate).toBe(0.5); // real value preserved
     expect(card.metrics.p95LatencyMs).toBe(1234); // real value preserved
@@ -918,16 +918,16 @@ describe("operateObservabilityRoute live data", () => {
     expect(card.metrics.chatsHourly).toBeUndefined();
   });
 
-  it("returns an empty app list when the account has no live apps", async () => {
+  it("returns an empty agent list when the account has no live agents", async () => {
     setSession({ githubUserId: "gh-1" });
     oneSource();
     client.getUserObservability.mockResolvedValue([
       {
         project: { id: 900 },
         platform: "community",
-        scope: "owned_applications",
+        scope: "owned_agents",
         monitoring: null,
-        apps: [],
+        agents: [],
         dashboardLinks: [],
         platformMetrics: [],
       },
@@ -938,7 +938,7 @@ describe("operateObservabilityRoute live data", () => {
 
     expect(res.status).toBe(200);
     expect(body.example).toBeUndefined();
-    expect(body.apps).toEqual([]);
+    expect(body.agents).toEqual([]);
     expect(body.monitoring.status).toBe("unconfigured");
   });
 
@@ -949,16 +949,16 @@ describe("operateObservabilityRoute live data", () => {
       {
         project: { id: 900 },
         platform: "community",
-        scope: "owned_applications",
+        scope: "owned_agents",
         monitoring: {
           provider: "grafana_prometheus",
           status: "ok",
           windowSeconds: 900,
         },
-        apps: [
+        agents: [
           {
-            applicationId: 1,
-            application: "real-bot",
+            id: 1,
+            agent: "real-channel",
             active: true,
             loaded: true,
             status: "healthy",
@@ -976,16 +976,16 @@ describe("operateObservabilityRoute live data", () => {
         // must not render here. Its own platform's page shows it.
         project: { id: 1620 },
         platform: "somm.finance",
-        scope: "owned_applications",
+        scope: "owned_agents",
         monitoring: {
           provider: "grafana_prometheus",
           status: "ok",
           windowSeconds: 900,
         },
-        apps: [
+        agents: [
           {
-            applicationId: 2,
-            application: "somm-agent",
+            id: 2,
+            agent: "somm-agent",
             active: true,
             loaded: true,
             status: "healthy",
@@ -1013,8 +1013,8 @@ describe("operateObservabilityRoute live data", () => {
     expect(body.degraded).toBeUndefined();
     expect(body.payments).toBeUndefined();
     expect(
-      body.apps.map((app: { application: string }) => app.application),
-    ).toEqual(["real-bot"]);
+      body.agents.map((packageName: { agent: string }) => packageName.agent),
+    ).toEqual(["real-channel"]);
     expect(body.monitoring.status).toBe("ok");
   });
 
@@ -1030,7 +1030,7 @@ describe("operateObservabilityRoute live data", () => {
               id: 1620,
               repositoryLink: "o/somm",
               platformName: "somm.finance",
-              apps: [],
+              agents: [],
             },
           ]
         : [
@@ -1038,23 +1038,23 @@ describe("operateObservabilityRoute live data", () => {
               id: 900,
               repositoryLink: "o/r",
               platformName: "community",
-              apps: [],
+              agents: [],
             },
           ],
     );
-    const snapshot = (id: number, platform: string, application: string) => ({
+    const snapshot = (id: number, platform: string, agent: string) => ({
       project: { id },
       platform,
-      scope: "owned_applications",
+      scope: "owned_agents",
       monitoring: {
         provider: "grafana_prometheus",
         status: "ok",
         windowSeconds: 900,
       },
-      apps: [
+      agents: [
         {
-          applicationId: id,
-          application,
+          id: id,
+          agent,
           active: true,
           loaded: true,
           status: "healthy",
@@ -1066,7 +1066,7 @@ describe("operateObservabilityRoute live data", () => {
       platformMetrics: [],
     });
     client.getUserObservability.mockResolvedValue([
-      snapshot(900, "community", "real-bot"),
+      snapshot(900, "community", "real-channel"),
       snapshot(1620, "somm.finance", "somm-agent"),
     ]);
 
@@ -1083,7 +1083,7 @@ describe("operateObservabilityRoute live data", () => {
       expect.objectContaining({ githubUserId: "gh-1" }),
     );
     expect(
-      body.apps.map((app: { application: string }) => app.application),
+      body.agents.map((packageName: { agent: string }) => packageName.agent),
     ).toEqual(["somm-agent"]);
     expect(body.projects.map((project: { id: number }) => project.id)).toEqual([
       1620,
@@ -1140,102 +1140,114 @@ describe("operatePaymentsRoute", () => {
   });
 });
 
-describe("operateAppDetailRoute", () => {
-  it("requires a valid application id", async () => {
+describe("operateAgentDetailRoute", () => {
+  it("requires a valid agent id", async () => {
     setSession({ githubUserId: "gh-1" });
-    const res = await operateAppDetailRoute(
-      appDetailReq("?applicationId=nope"),
-    );
+    const res = await operateAgentDetailRoute(agentDetailReq("?agentId=nope"));
     expect(res.status).toBe(400);
     expect(client.listUserProjects).not.toHaveBeenCalled();
   });
 
   it("refuses an older manager response for a requested seven-day window", async () => {
     setSession({ githubUserId: "gh-1" });
-    client.getBuilderApplicationDetail.mockResolvedValue({
-      project: { id: 900 }, windowSeconds: 86400,
+    client.getBuilderAgentDetail.mockResolvedValue({
+      project: { id: 900 },
+      windowSeconds: 86400,
     });
-    const response = await operateAppDetailRoute(new Request(
-      "http://localhost:3000/api/build/operate/observability/detail?applicationId=77&window=7d",
-    ));
+    const response = await operateAgentDetailRoute(
+      new Request(
+        "http://localhost:3000/api/build/operate/observability/detail?agentId=77&window=7d",
+      ),
+    );
     expect(response.status).toBe(503);
-    expect(client.getBuilderApplicationDetail).toHaveBeenCalledWith({
-      githubUserId: "gh-1", applicationId: 77, window: "7d",
+    expect(client.getBuilderAgentDetail).toHaveBeenCalledWith({
+      githubUserId: "gh-1",
+      agentId: 77,
+      window: "7d",
     });
     expect(client.getUserProjectObservability).not.toHaveBeenCalled();
   });
 
   it("rejects unsupported activity ranges before contacting the manager", async () => {
     setSession({ githubUserId: "gh-1" });
-    const response = await operateAppDetailRoute(new Request(
-      "http://localhost:3000/api/build/operate/observability/detail?applicationId=77&window=365d",
-    ));
+    const response = await operateAgentDetailRoute(
+      new Request(
+        "http://localhost:3000/api/build/operate/observability/detail?agentId=77&window=365d",
+      ),
+    );
     expect(response.status).toBe(400);
-    expect(client.getBuilderApplicationDetail).not.toHaveBeenCalled();
+    expect(client.getBuilderAgentDetail).not.toHaveBeenCalled();
   });
 
-  it.each(["1h", "24h", "7d", "30d"] as const)("derives the owned application and forwards the %s range", async (window) => {
-    setSession({ githubUserId: "gh-1" });
-    oneSource("world-markets");
-    client.getBuilderApplicationDetail.mockResolvedValue({
-      project: { id: 900 },
-      windowSeconds: { "1h": 3600, "24h": 86400, "7d": 604800, "30d": 2592000 }[window],
-      platform: "community",
-      app: { applicationId: 77, name: "demo" },
-    });
-    client.getUserProjectObservability.mockResolvedValue({
-      apps: [{ applicationId: 77, application: "demo", status: "healthy" }],
-    });
-    client.listUserProjectTransactions.mockResolvedValue({
-      project: { id: 900 },
-      platform: "community",
-      transactions: [
-        { id: "tx-match", applicationId: 77 },
-        { id: "tx-other", applicationId: 88 },
-      ],
-      nextCursor: null,
-    });
-    client.listUserProjectLogs.mockResolvedValue({
-      project: { id: 900 },
-      platform: "community",
-      logs: [
-        { id: "log-match", applicationId: 77 },
-        { id: "log-other", applicationId: 88 },
-      ],
-      nextCursor: null,
-    });
-    client.listUserProjectDeployments.mockResolvedValue([
-      { deploymentId: "dep-1", apps: [] },
-    ]);
+  it.each(["1h", "24h", "7d", "30d"] as const)(
+    "derives the owned agent and forwards the %s range",
+    async (window) => {
+      setSession({ githubUserId: "gh-1" });
+      oneSource("world-markets");
+      client.getBuilderAgentDetail.mockResolvedValue({
+        project: { id: 900 },
+        windowSeconds: {
+          "1h": 3600,
+          "24h": 86400,
+          "7d": 604800,
+          "30d": 2592000,
+        }[window],
+        platform: "community",
+        agent: { agentId: 77, name: "demo" },
+      });
+      client.getUserProjectObservability.mockResolvedValue({
+        agents: [{ agentId: 77, agent: "demo", status: "healthy" }],
+      });
+      client.listUserProjectTransactions.mockResolvedValue({
+        project: { id: 900 },
+        platform: "community",
+        transactions: [
+          { id: "tx-match", agentId: 77 },
+          { id: "tx-other", agentId: 88 },
+        ],
+        nextCursor: null,
+      });
+      client.listUserProjectLogs.mockResolvedValue({
+        project: { id: 900 },
+        platform: "community",
+        logs: [
+          { id: "log-match", agentId: 77 },
+          { id: "log-other", agentId: 88 },
+        ],
+        nextCursor: null,
+      });
 
-    const res = await operateAppDetailRoute(appDetailReq(`?applicationId=77&window=${window}`));
-    const body = await res.json();
+      const res = await operateAgentDetailRoute(
+        agentDetailReq(`?agentId=77&window=${window}`),
+      );
+      const body = await res.json();
 
-    expect(res.status).toBe(200);
-    expect(body.detail.app).toEqual({ applicationId: 77, name: "demo" });
-    expect(body.health).toEqual({
-      applicationId: 77,
-      application: "demo",
-      status: "healthy",
-    });
-    expect(body.transactions).toEqual([{ id: "tx-match", applicationId: 77 }]);
-    expect(body.logs).toEqual([{ id: "log-match", applicationId: 77 }]);
-    expect(body.deployments).toEqual([{ deploymentId: "dep-1", apps: [] }]);
-    expect(client.getBuilderApplicationDetail).toHaveBeenCalledWith({
-      githubUserId: "gh-1",
-      applicationId: 77,
-      window,
-    });
-    expect(client.listUserProjects).not.toHaveBeenCalled();
-  });
+      expect(res.status).toBe(200);
+      expect(body.detail.agent).toEqual({ agentId: 77, name: "demo" });
+      expect(body.health).toEqual({
+        agentId: 77,
+        agent: "demo",
+        status: "healthy",
+      });
+      expect(body.transactions).toEqual([{ id: "tx-match", agentId: 77 }]);
+      expect(body.logs).toEqual([{ id: "log-match", agentId: 77 }]);
+      expect(body.deployments).toEqual([]);
+      expect(client.getBuilderAgentDetail).toHaveBeenCalledWith({
+        githubUserId: "gh-1",
+        agentId: 77,
+        window,
+      });
+      expect(client.listUserProjects).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("account-wide batch reads", () => {
   beforeEach(() => {
     setSession({ githubUserId: "gh-1" });
     client.listUserProjects.mockResolvedValue([
-      { id: 900, repositoryLink: "o/one", apps: [] },
-      { id: 1620, repositoryLink: "partner/app", apps: [] },
+      { id: 900, repositoryLink: "o/one", agents: [] },
+      { id: 1620, repositoryLink: "partner/package", agents: [] },
     ]);
   });
 
@@ -1247,7 +1259,7 @@ describe("account-wide batch reads", () => {
           platform: "community",
         },
         {
-          project: { id: 1620, repositoryLink: "partner/app" },
+          project: { id: 1620, repositoryLink: "partner/package" },
           platform: "somm.finance",
         },
       ],
@@ -1291,7 +1303,12 @@ describe("account-wide batch reads", () => {
    *  dropped, and the global cursor still carries the reader forward. */
   it("scopes the merged transactions page to the selected platform", async () => {
     client.listUserProjects.mockResolvedValue([
-      { id: 900, repositoryLink: "o/one", platformName: "community", apps: [] },
+      {
+        id: 900,
+        repositoryLink: "o/one",
+        platformName: "community",
+        agents: [],
+      },
     ]);
     client.listUserTransactions.mockResolvedValue({
       projects: [
@@ -1300,7 +1317,7 @@ describe("account-wide batch reads", () => {
           platform: "community",
         },
         {
-          project: { id: 1620, repositoryLink: "partner/app" },
+          project: { id: 1620, repositoryLink: "partner/package" },
           platform: "somm.finance",
         },
       ],
@@ -1365,8 +1382,8 @@ describe("account-wide batch reads", () => {
         daily: [
           {
             periodUtcDay: "2026-07-15",
-            application: "app",
-            applicationId: 1,
+            agent: "package",
+            agentId: 1,
             inputTokens: 10,
             outputTokens: 5,
             creditsUsed: 2,
@@ -1444,10 +1461,10 @@ describe("account-wide batch reads", () => {
     // A shared settlement belongs to the account, not one project.
     expect(body.logs[1].project).toBeNull();
     expect(body.nextCursor).toEqual({
-        occurredAt: 1_699_999_999,
-        eventType: "usage",
-        id: "settle:shared",
-      });
+      occurredAt: 1_699_999_999,
+      eventType: "usage",
+      id: "settle:shared",
+    });
   });
 
   /** The merged stream spans every platform the account owns. Rows for a
@@ -1455,7 +1472,12 @@ describe("account-wide batch reads", () => {
    *  (a shared partner settlement has no project) belong to every view. */
   it("scopes the merged log stream to the selected platform", async () => {
     client.listUserProjects.mockResolvedValue([
-      { id: 900, repositoryLink: "o/one", platformName: "community", apps: [] },
+      {
+        id: 900,
+        repositoryLink: "o/one",
+        platformName: "community",
+        agents: [],
+      },
     ]);
     client.listUserLogs.mockResolvedValue({
       projects: [
@@ -1576,7 +1598,7 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
     await vi.waitFor(() => expect(snapshotStarted).toBe(true));
     expect(client.getUserObservability).toHaveBeenCalledOnce();
 
-    release([{ id: 42, repositoryLink: "o/r", apps: [] }]);
+    release([{ id: 42, repositoryLink: "o/r", agents: [] }]);
     const res = await pending;
     expect(res.status).toBe(200);
     // The dropdown still gets the full list — parallel, not dropped.
@@ -1599,7 +1621,7 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
     );
     await vi.waitFor(() => expect(pageStarted).toBe(true));
 
-    release([{ id: 42, repositoryLink: "o/r", apps: [] }]);
+    release([{ id: 42, repositoryLink: "o/r", agents: [] }]);
     expect((await pending).status).toBe(200);
   });
 
@@ -1619,7 +1641,7 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
     await vi.waitFor(() => expect(pageStarted).toBe(true));
     expect(client.listUserTransactions).toHaveBeenCalledOnce();
 
-    release([{ id: 42, repositoryLink: "o/r", apps: [] }]);
+    release([{ id: 42, repositoryLink: "o/r", agents: [] }]);
     const res = await pending;
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({ projects: [{ id: 42 }] });
@@ -1641,7 +1663,7 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
     await vi.waitFor(() => expect(sweepStarted).toBe(true));
     expect(client.getUserUsage).toHaveBeenCalledOnce();
 
-    release([{ id: 42, repositoryLink: "o/r", apps: [] }]);
+    release([{ id: 42, repositoryLink: "o/r", agents: [] }]);
     const res = await pending;
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({ projects: [{ id: 42 }] });
@@ -1664,7 +1686,7 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
     );
     await vi.waitFor(() => expect(ledgerStarted).toBe(true));
 
-    release([{ id: 42, repositoryLink: "o/r", apps: [] }]);
+    release([{ id: 42, repositoryLink: "o/r", agents: [] }]);
     const res = await pending;
 
     expect(res.status).toBe(200);
@@ -1676,12 +1698,12 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
   it("scopes unfiltered payments to the selected platform's projects", async () => {
     setSession({ githubUserId: "gh-1" });
     oneSource();
-    const withResource = (application: string) => ({
+    const withResource = (agent: string) => ({
       ...emptyPayments(),
-      resources: [{ application, priced: true }],
+      resources: [{ agent, priced: true }],
     });
     client.getUserPayments.mockResolvedValue([
-      { project: { id: 900 }, payments: withResource("real-bot") },
+      { project: { id: 900 }, payments: withResource("real-channel") },
       { project: { id: 1620 }, payments: withResource("somm-agent") },
     ]);
 
@@ -1693,10 +1715,8 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
     expect(res.status).toBe(200);
     expect(client.getUserPayments).toHaveBeenCalledOnce();
     expect(
-      body.payments.resources.map(
-        (r: { application: string }) => r.application,
-      ),
-    ).toEqual(["real-bot"]);
+      body.payments.resources.map((r: { agent: string }) => r.agent),
+    ).toEqual(["real-channel"]);
   });
 
   /** …but a source-scoped request still must, because that is where
@@ -1704,7 +1724,7 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
   it("still resolves the source list to authorize a scoped payments request", async () => {
     setSession({ githubUserId: "gh-1" });
     client.listUserProjects.mockResolvedValue([
-      { id: 42, repositoryLink: "o/r", apps: [] },
+      { id: 42, repositoryLink: "o/r", agents: [] },
     ]);
     client.getUserPayments.mockResolvedValue([]);
 

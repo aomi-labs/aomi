@@ -1,27 +1,22 @@
 // =============================================================================
-// usePerThreadControl — per-thread model & app selection
+// usePerThreadControl — per-thread model & agent selection
 // =============================================================================
 //
-// Each chat thread carries its own "control" metadata (model, modelMode, app,
+// Each chat thread carries its own "control" metadata (model, modelMode, agent,
 // controlDirty). This hook owns:
 //   - Reading / writing that per-thread metadata.
 //   - The auto-effect that fills in a missing model from stored preference
 //     OR re-aligns "auto" threads to the latest available default.
-//   - The two user-facing setters (onModelSelect, onAppSelect).
+//   - The two user-facing setters (onModelSelect, onAgentSelect).
 //   - The pending-control state carried by the next Agent start.
 //
-// State that isn't per-thread (apiKey, available models, authorized apps)
+// State that isn't per-thread (apiKey, available models, authorized agents)
 // is read via refs — this hook depends on but doesn't own them.
 
 import { createScopedStorage, type ScopedStorage } from "@aomi-labs/client";
 import { useCallback, useEffect } from "react";
 import type { MutableRefObject } from "react";
-import type {
-  AgentMode,
-  AgentTarget,
-  AomiAppDescriptor,
-  ApplicationId,
-} from "@aomi-labs/client";
+import type { AgentMode, AgentTarget } from "@aomi-labs/client";
 import {
   initThreadControl,
   type ThreadControlState,
@@ -38,10 +33,6 @@ const AGENT_MODE_STORAGE_KEY = "aomi_agent_mode";
 type StoredModelPreference = {
   mode: ModelSelectionMode;
   model: string | null;
-};
-
-type AppSelectionOptions = {
-  applicationId?: ApplicationId;
 };
 
 type DirectAgentTarget = Extract<AgentTarget, { mode: "direct" }>;
@@ -120,91 +111,17 @@ function getFallbackModel(
   return defaultModel ?? resolveAutoModel(models);
 }
 
-function normalizeApplicationId(value: unknown): ApplicationId {
-  if (typeof value === "number")
-    return Number.isSafeInteger(value) ? value : null;
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    return trimmed ? trimmed : null;
-  }
-  return null;
-}
-
-function sameApplicationId(left: unknown, right: unknown): boolean {
-  return (
-    normalizeApplicationId(left)?.toString() ===
-    normalizeApplicationId(right)?.toString()
-  );
-}
-
-function findAuthorizedDescriptor(
-  app: string,
-  applicationId: ApplicationId,
-  descriptors: AomiAppDescriptor[],
-): AomiAppDescriptor | null {
-  const scopedId = normalizeApplicationId(applicationId);
-  if (scopedId !== null) {
-    return (
-      descriptors.find(
-        (descriptor) =>
-          descriptor.name === app &&
-          sameApplicationId(descriptor.applicationId, scopedId),
-      ) ?? null
-    );
-  }
-  return (
-    descriptors.find(
-      (descriptor) =>
-        descriptor.name === app &&
-        normalizeApplicationId(descriptor.applicationId) === null,
-    ) ?? null
-  );
-}
-
-function resolveAuthorizedApp(
-  app: string | null | undefined,
-  applicationId: ApplicationId,
-  authorizedApps: string[],
-  appDescriptors: AomiAppDescriptor[],
-  defaultApp: string | null,
-): AomiAppDescriptor | null {
-  if (app) {
-    const scopedId = normalizeApplicationId(applicationId);
-    const exact = findAuthorizedDescriptor(app, applicationId, appDescriptors);
-    if (exact) return exact;
-    const nameRequiresApplicationId = appDescriptors.some(
-      (descriptor) =>
-        descriptor.name === app &&
-        normalizeApplicationId(descriptor.applicationId) !== null,
-    );
-    if (
-      scopedId === null &&
-      !nameRequiresApplicationId &&
-      authorizedApps.includes(app)
-    ) {
-      return { name: app, applicationId: null };
-    }
-  }
-  if (!defaultApp) return null;
-  return (
-    findAuthorizedDescriptor(defaultApp, null, appDescriptors) ?? {
-      name: defaultApp,
-    }
-  );
-}
-
 export type PerThreadControlActions = {
   getCurrentThreadControl: () => ThreadControlState;
   getCurrentThreadAgentMode: () => AgentMode;
   getCurrentThreadTarget: () => AgentTarget;
-  getCurrentThreadApp: () => string;
-  getCurrentThreadApplicationId: () => ApplicationId;
+  getCurrentThreadAgent: () => string;
   getPreferredThreadControl: () => ThreadControlState;
   onModelSelect: (
     model: string,
     options?: { mode?: ModelSelectionMode },
   ) => Promise<void>;
-  onAppSelect: (app: string, options?: AppSelectionOptions) => void;
+  onAgentSelect: (agent: string) => void;
   onAgentTargetSelect: (
     target: DirectAgentTarget,
     options?: AgentModeSelectionOptions,
@@ -231,9 +148,6 @@ type UsePerThreadControlOptions = {
   /** Refs for the same data, used by callbacks that fire outside render. */
   availableModelsRef: MutableRefObject<string[]>;
   defaultModelRef: MutableRefObject<string | null>;
-  authorizedAppsRef: MutableRefObject<string[]>;
-  appDescriptorsRef: MutableRefObject<AomiAppDescriptor[]>;
-  defaultAppRef: MutableRefObject<string | null>;
   /** Current thread id (reactive — used to retrigger the auto-model effect). */
   sessionId: string;
 };
@@ -249,9 +163,6 @@ export function usePerThreadControlImpl({
   defaultModel,
   availableModelsRef,
   defaultModelRef,
-  authorizedAppsRef,
-  appDescriptorsRef,
-  defaultAppRef,
   sessionId,
 }: UsePerThreadControlOptions): PerThreadControlActions {
   const getCurrentThreadControl = useCallback((): ThreadControlState => {
@@ -275,78 +186,36 @@ export function usePerThreadControlImpl({
     };
   }, [storage]);
 
-  const getCurrentThreadApp = useCallback((): string => {
-    const currentControl =
-      getThreadMetadataRef.current(sessionIdRef.current)?.control ??
-      initThreadControl();
-    return (
-      resolveAuthorizedApp(
-        currentControl.app,
-        currentControl.applicationId,
-        authorizedAppsRef.current,
-        appDescriptorsRef.current,
-        defaultAppRef.current,
-      )?.name ?? "default"
-    );
-  }, [storage]);
+  const getCurrentThreadAgent = useCallback(
+    (): string => getCurrentThreadControl().agent ?? "aomi/main",
+    [getCurrentThreadControl],
+  );
 
-  const getCurrentThreadAgentMode = useCallback((): AgentMode => {
-    const control = getCurrentThreadControl();
-    return (
-      control.agentMode ??
-      (control.app || control.applicationId !== null ? "direct" : "auto")
-    );
-  }, [getCurrentThreadControl]);
-
-  const getCurrentThreadApplicationId = useCallback((): ApplicationId => {
-    const currentControl =
-      getThreadMetadataRef.current(sessionIdRef.current)?.control ??
-      initThreadControl();
-    return (
-      resolveAuthorizedApp(
-        currentControl.app,
-        currentControl.applicationId,
-        authorizedAppsRef.current,
-        appDescriptorsRef.current,
-        defaultAppRef.current,
-      )?.applicationId ?? null
-    );
-  }, [storage]);
+  const getCurrentThreadAgentMode = useCallback(
+    (): AgentMode => getCurrentThreadControl().agentMode ?? "auto",
+    [getCurrentThreadControl],
+  );
 
   const getCurrentThreadTarget = useCallback((): AgentTarget => {
-    if (getCurrentThreadAgentMode() === "auto") return { mode: "auto" };
-    const currentControl = getCurrentThreadControl();
-    const applicationId = normalizeApplicationId(currentControl.applicationId);
-    if (applicationId !== null) {
-      const parsed = Number(applicationId);
-      if (Number.isSafeInteger(parsed) && parsed > 0) {
-        return {
-          mode: "direct",
-          applicationId: parsed,
-          ...(currentControl.app ? { app: currentControl.app } : {}),
-        };
-      }
-    }
-    return { mode: "direct", app: getCurrentThreadApp() };
-  }, [getCurrentThreadAgentMode, getCurrentThreadControl, getCurrentThreadApp]);
+    const mode = getCurrentThreadAgentMode();
+    const agent = getCurrentThreadControl().agent;
+    return { mode, ...(agent ? { agent } : {}) };
+  }, [getCurrentThreadAgentMode, getCurrentThreadControl]);
 
   const onAgentTargetSelect = useCallback(
     (target: DirectAgentTarget, options?: AgentModeSelectionOptions) => {
       const threadId = sessionIdRef.current;
-      const currentControl =
-        getThreadMetadataRef.current(threadId)?.control ?? initThreadControl();
       updateThreadMetadataRef.current(threadId, {
         control: {
-          ...currentControl,
+          ...getCurrentThreadControl(),
           agentMode: "direct",
-          app: target.app ?? null,
-          applicationId: normalizeApplicationId(target.applicationId),
+          agent: target.agent ?? "aomi/main",
           controlDirty: true,
         },
       });
       if (options?.persist !== false) writeStoredAgentMode(storage, "direct");
     },
-    [storage],
+    [storage, getCurrentThreadControl],
   );
 
   const onModelSelect = useCallback(
@@ -378,41 +247,11 @@ export function usePerThreadControlImpl({
     [storage],
   );
 
-  const onAppSelect = useCallback(
-    (app: string, options?: AppSelectionOptions) => {
-      const threadId = sessionIdRef.current;
-      const currentControl =
-        getThreadMetadataRef.current(threadId)?.control ?? initThreadControl();
-      const descriptor = resolveAuthorizedApp(
-        app,
-        options?.applicationId ?? null,
-        authorizedAppsRef.current,
-        appDescriptorsRef.current,
-        null,
-      );
-      const hasAuthData =
-        authorizedAppsRef.current.length > 0 ||
-        appDescriptorsRef.current.length > 0;
-      if (hasAuthData && !descriptor) {
-        console.warn("[per-thread-control] Cannot select unauthorized app", {
-          app,
-        });
-        return;
-      }
-      updateThreadMetadataRef.current(threadId, {
-        control: {
-          ...currentControl,
-          agentMode: "direct",
-          app: descriptor?.name ?? app,
-          applicationId: normalizeApplicationId(
-            options?.applicationId ?? descriptor?.applicationId ?? null,
-          ),
-          controlDirty: true,
-        },
-      });
-      writeStoredAgentMode(storage, "direct");
+  const onAgentSelect = useCallback(
+    (agent: string) => {
+      onAgentTargetSelect({ mode: "direct", agent });
     },
-    [storage],
+    [onAgentTargetSelect],
   );
 
   const onAgentModeSelect = useCallback(
@@ -533,11 +372,10 @@ export function usePerThreadControlImpl({
     getCurrentThreadControl,
     getCurrentThreadAgentMode,
     getCurrentThreadTarget,
-    getCurrentThreadApp,
-    getCurrentThreadApplicationId,
+    getCurrentThreadAgent,
     getPreferredThreadControl,
     onModelSelect,
-    onAppSelect,
+    onAgentSelect,
     onAgentTargetSelect,
     onAgentModeSelect,
     markControlSynced,

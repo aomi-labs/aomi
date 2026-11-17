@@ -48,7 +48,11 @@ function memoryKeys() {
   const rows: Stored[] = [];
   let clock = 1_800_000_000;
   let touchFails = false;
-  const visible = ({ hash: _hash, builderId: _builderId, ...key }: Stored): ApiKey => key;
+  const visible = ({
+    hash: _hash,
+    builderId: _builderId,
+    ...key
+  }: Stored): ApiKey => key;
   const store: ApiKeyStore = {
     async create({ hash, prefix, builderId, capabilities, label }) {
       const row: Stored = {
@@ -69,13 +73,23 @@ function memoryKeys() {
       return rows.filter((row) => row.builderId === builderId).map(visible);
     },
     async revoke(builderId, id) {
-      const row = rows.find((candidate) => candidate.id === id && candidate.builderId === builderId);
+      const row = rows.find(
+        (candidate) => candidate.id === id && candidate.builderId === builderId,
+      );
       if (row) row.revokedAt ??= clock++;
       return Boolean(row);
     },
     async find(hash) {
-      const row = rows.find((candidate) => candidate.hash === hash && candidate.revokedAt === null);
-      return row ? { id: row.id, builderId: row.builderId, capabilities: row.capabilities } : null;
+      const row = rows.find(
+        (candidate) => candidate.hash === hash && candidate.revokedAt === null,
+      );
+      return row
+        ? {
+            id: row.id,
+            builderId: row.builderId,
+            capabilities: row.capabilities,
+          }
+        : null;
     },
     async touch(id) {
       if (touchFails) throw new Error("database is read-only");
@@ -92,9 +106,15 @@ let keys: ReturnType<typeof memoryKeys>;
 /** Every upstream answers; a test asserts on what was sent, and to where. */
 const upstream: FetchLike = async (request) => {
   const url = new URL(request.url);
-  seen.push({ url, method: request.method, authorization: request.headers.get("authorization") });
-  if (url.pathname === "/api/integrations/github-app/user/projects") return Response.json({ projects: [] });
-  if (url.pathname === "/api/platforms/server-tags") return Response.json({ server_tags: ["v1"], sdk_version: "1.2.3" });
+  seen.push({
+    url,
+    method: request.method,
+    authorization: request.headers.get("authorization"),
+  });
+  if (url.pathname === "/api/integrations/github-app/user/projects")
+    return Response.json({ projects: [] });
+  if (url.pathname === "/api/platforms/server-tags")
+    return Response.json({ server_tags: ["v1"], sdk_version: "1.2.3" });
   return Response.json({ ok: true });
 };
 
@@ -104,26 +124,46 @@ const cookie = async (githubUserId: string) =>
 
 function build(path: string, init: RequestInit = {}): Promise<Response> {
   const request = new Request(`${BUILD}${path}`, init);
-  return handleBuildRequest(request, { ...buildContext(request, env, upstream)!, keys: keys.store });
+  return handleBuildRequest(request, {
+    ...buildContext(request, env, upstream)!,
+    keys: keys.store,
+  });
 }
 
 /** A portal write: the session cookie from Build's own origin. */
-async function portalWrite(githubUserId: string, method: string, body: unknown): Promise<Response> {
+async function portalWrite(
+  githubUserId: string,
+  method: string,
+  body: unknown,
+): Promise<Response> {
   return build("/api/build/keys", {
     method,
-    headers: { cookie: await cookie(githubUserId), origin: BUILD, "content-type": "application/json" },
+    headers: {
+      cookie: await cookie(githubUserId),
+      origin: BUILD,
+      "content-type": "application/json",
+    },
     body: JSON.stringify(body),
   });
 }
 
-async function createKey(githubUserId: string, capabilities: string[], label?: string) {
-  const response = await portalWrite(githubUserId, "POST", { capabilities, label });
+async function createKey(
+  githubUserId: string,
+  capabilities: string[],
+  label?: string,
+) {
+  const response = await portalWrite(githubUserId, "POST", {
+    capabilities,
+    label,
+  });
   expect(response.status).toBe(201);
   return (await response.json()) as ApiKey & { key: string };
 }
 
 async function listKeys(githubUserId: string): Promise<ApiKey[]> {
-  const response = await build("/api/build/keys", { headers: { cookie: await cookie(githubUserId) } });
+  const response = await build("/api/build/keys", {
+    headers: { cookie: await cookie(githubUserId) },
+  });
   expect(response.status).toBe(200);
   return (await response.json()).keys;
 }
@@ -132,7 +172,8 @@ const withKey = (key: string, extra: Record<string, string> = {}) => ({
   headers: { authorization: `Bearer ${key}`, ...extra },
 });
 
-const roleOf = (call: Seen) => decodeJwt(call.authorization!.replace(/^Bearer /, "")).role;
+const roleOf = (call: Seen) =>
+  decodeJwt(call.authorization!.replace(/^Bearer /, "")).role;
 
 beforeEach(() => {
   seen = [];
@@ -142,7 +183,11 @@ beforeEach(() => {
 
 describe("builder API key management", () => {
   it("returns the key once and stores only its hash", async () => {
-    const created = await createKey(ALICE, ["project:deploy", "project:observe", "project:deploy"], " ci ");
+    const created = await createKey(
+      ALICE,
+      ["project:deploy", "project:observe", "project:deploy"],
+      " ci ",
+    );
     expect(created.key).toMatch(/^aomi_key_[A-Za-z0-9_-]{43}$/);
     expect(created).toMatchObject({
       id: 1,
@@ -181,8 +226,15 @@ describe("builder API key management", () => {
   });
 
   it("validates capabilities against the three names", async () => {
-    for (const capabilities of [["project:delete"], ["builder:read"], "project:deploy", undefined])
-      expect((await portalWrite(ALICE, "POST", { capabilities })).status).toBe(400);
+    for (const capabilities of [
+      ["project:delete"],
+      ["builder:read"],
+      "project:deploy",
+      undefined,
+    ])
+      expect((await portalWrite(ALICE, "POST", { capabilities })).status).toBe(
+        400,
+      );
     expect(keys.rows).toEqual([]);
   });
 
@@ -191,13 +243,38 @@ describe("builder API key management", () => {
     const json = { "content-type": "application/json" };
     expect((await build("/api/build/keys")).status).toBe(401);
     // A cookie write from another origin.
-    const crossOrigin = { ...json, cookie: await cookie(ALICE), origin: "https://evil.example" };
-    expect((await build("/api/build/keys", { method: "POST", headers: crossOrigin, body })).status).toBe(403);
+    const crossOrigin = {
+      ...json,
+      cookie: await cookie(ALICE),
+      origin: "https://evil.example",
+    };
+    expect(
+      (
+        await build("/api/build/keys", {
+          method: "POST",
+          headers: crossOrigin,
+          body,
+        })
+      ).status,
+    ).toBe(403);
     // A CLI bearer is not a portal sign-in.
-    const cli = await signer.issueCliSession({ githubUserId: ALICE, githubLogin: "alice" });
+    const cli = await signer.issueCliSession({
+      githubUserId: ALICE,
+      githubLogin: "alice",
+    });
     const cliHeaders = { ...json, authorization: `Bearer ${cli}` };
-    expect((await build("/api/build/keys", { headers: cliHeaders })).status).toBe(401);
-    expect((await build("/api/build/keys", { method: "POST", headers: cliHeaders, body })).status).toBe(403);
+    expect(
+      (await build("/api/build/keys", { headers: cliHeaders })).status,
+    ).toBe(401);
+    expect(
+      (
+        await build("/api/build/keys", {
+          method: "POST",
+          headers: cliHeaders,
+          body,
+        })
+      ).status,
+    ).toBe(403);
     expect(keys.rows).toEqual([]);
   });
 });
@@ -206,20 +283,34 @@ describe("builder API key callers", () => {
   it("refuses an unknown or revoked key, even beside a valid session", async () => {
     const { key, id } = await createKey(ALICE, ["project:deploy"]);
     const unknown = `aomi_key_${"x".repeat(43)}`;
-    expect((await build("/api/build/deployments/projects", withKey(unknown))).status).toBe(401);
     expect(
-      (await build("/api/build/deployments/projects", withKey(unknown, { cookie: await cookie(ALICE) }))).status,
+      (await build("/api/build/deployments/projects", withKey(unknown))).status,
+    ).toBe(401);
+    expect(
+      (
+        await build(
+          "/api/build/deployments/projects",
+          withKey(unknown, { cookie: await cookie(ALICE) }),
+        )
+      ).status,
     ).toBe(401);
 
-    expect((await build("/api/build/deployments/projects", withKey(key))).status).toBe(200);
+    expect(
+      (await build("/api/build/deployments/projects", withKey(key))).status,
+    ).toBe(200);
     await portalWrite(ALICE, "DELETE", { id });
     seen = [];
-    expect((await build("/api/build/deployments/projects", withKey(key))).status).toBe(401);
+    expect(
+      (await build("/api/build/deployments/projects", withKey(key))).status,
+    ).toBe(401);
     expect(seen).toEqual([]);
   });
 
   it("calls the manager as the key's builder, never as the edge service", async () => {
-    const { key } = await createKey(ALICE, ["project:deploy", "project:observe"]);
+    const { key } = await createKey(ALICE, [
+      "project:deploy",
+      "project:observe",
+    ]);
     // A key for Alice beside Bob's cookie is still Alice.
     const response = await build(
       "/api/build/deployments/projects",
@@ -229,7 +320,9 @@ describe("builder API key callers", () => {
 
     expect(seen).toHaveLength(1);
     const [call] = seen;
-    expect(call.url.origin + call.url.pathname).toBe(`${MANAGER}/api/integrations/github-app/user/projects`);
+    expect(call.url.origin + call.url.pathname).toBe(
+      `${MANAGER}/api/integrations/github-app/user/projects`,
+    );
     expect(call.url.searchParams.get("github_user_id")).toBe(ALICE);
     const { payload } = await jwtVerify(
       call.authorization!.replace(/^Bearer /, ""),
@@ -250,9 +343,16 @@ describe("builder API key callers", () => {
 
   it("sends a key without capabilities as an unscoped builder bearer", async () => {
     const { key } = await createKey(ALICE, []);
-    expect((await build("/api/build/deployments/projects", withKey(key))).status).toBe(200);
+    expect(
+      (await build("/api/build/deployments/projects", withKey(key))).status,
+    ).toBe(200);
     const payload = decodeJwt(seen[0].authorization!.replace(/^Bearer /, ""));
-    expect(payload).toMatchObject({ sub: ALICE, role: "user", auth_source: "api_key", principal_class: "builder" });
+    expect(payload).toMatchObject({
+      sub: ALICE,
+      role: "user",
+      auth_source: "api_key",
+      principal_class: "builder",
+    });
     expect(payload).not.toHaveProperty("scope");
     expect(payload).not.toHaveProperty("resource");
   });
@@ -260,13 +360,23 @@ describe("builder API key callers", () => {
   it("serves the request when the last-used timestamp cannot be written", async () => {
     const { key } = await createKey(ALICE, ["project:deploy"]);
     keys.failTouches();
-    expect((await build("/api/build/deployments/projects", withKey(key))).status).toBe(200);
+    expect(
+      (await build("/api/build/deployments/projects", withKey(key))).status,
+    ).toBe(200);
   });
 
   it("answers 403 without an upstream call on every route that is not a manager endpoint", async () => {
-    const { key } = await createKey(ALICE, ["project:deploy", "project:activate", "project:observe"]);
+    const { key } = await createKey(ALICE, [
+      "project:deploy",
+      "project:activate",
+      "project:observe",
+    ]);
     // The cookie would open each of these; the key closes them.
-    const signedIn = withKey(key, { cookie: await cookie(ALICE), origin: BUILD, "content-type": "application/json" });
+    const signedIn = withKey(key, {
+      cookie: await cookie(ALICE),
+      origin: BUILD,
+      "content-type": "application/json",
+    });
     const closed: [string, string][] = [
       ["GET", "/api/build/keys"],
       ["POST", "/api/build/keys"],
@@ -281,12 +391,15 @@ describe("builder API key callers", () => {
       ["GET", "/api/integrations/github-app/oauth/start"],
       // Public, but it calls the manager with the service bearer.
       ["GET", "/api/build/deployments/sdk-status"],
-      // The pass-through to the Vercel Build app.
+      // The pass-through to the Vercel Build package.
       ["GET", "/api/build/sandbox/anything"],
       ["POST", "/api/integrations/anything"],
     ];
     for (const [method, path] of closed) {
-      const body = method === "GET" ? undefined : JSON.stringify({ id: 1, capabilities: [] });
+      const body =
+        method === "GET"
+          ? undefined
+          : JSON.stringify({ id: 1, capabilities: [] });
       const response = await build(path, { ...signedIn, method, body });
       expect([path, response.status]).toEqual([path, 403]);
       expect(await response.json()).toEqual({ error: "api_key_not_allowed" });
@@ -297,7 +410,9 @@ describe("builder API key callers", () => {
   });
 
   it("opens only endpoint() routes that stay on the manager to keys", () => {
-    const closed = BUILD_ROUTES.filter((route) => !route.keys).map((route) => route.operation);
+    const closed = BUILD_ROUTES.filter((route) => !route.keys).map(
+      (route) => route.operation,
+    );
     expect(closed).toEqual([
       "github.login",
       "github.callback",
@@ -311,28 +426,29 @@ describe("builder API key callers", () => {
       "api_key.list",
       "api_key.create",
       "api_key.revoke",
-      "deployment.sdk_status",
-      // These read the secrets vault, which a key cannot reach.
-      "deployment.activate",
-      "deployment.promote",
-      "deployment.required_secrets",
-      "deployment.secrets_read",
-      "deployment.secrets_write",
-      "deployment.secrets_delete",
     ]);
   });
 
   it("never mints the service bearer for a request that presents a key", async () => {
     const { key } = await createKey(ALICE, ["project:deploy"]);
-    const request = new Request(`${BUILD}/api/build/deployments/projects`, withKey(key));
+    const request = new Request(
+      `${BUILD}/api/build/deployments/projects`,
+      withKey(key),
+    );
     const ctx = { ...buildContext(request, env, upstream)!, keys: keys.store };
-    await expect(managerClient(request, ctx)).rejects.toMatchObject({ status: 403, code: "api_key_not_allowed" });
+    await expect(managerClient(request, ctx)).rejects.toMatchObject({
+      status: 403,
+      code: "api_key_not_allowed",
+    });
     expect(seen).toEqual([]);
   });
 
   it("keeps the builder bearer on manager routes", async () => {
     const { key } = await createKey(ALICE, ["project:deploy"]);
-    const request = new Request(`${BUILD}/api/build/deployments/secrets`, withKey(key));
+    const request = new Request(
+      `${BUILD}/api/build/deployments/secrets`,
+      withKey(key),
+    );
     const ctx = { ...buildContext(request, env, upstream)!, keys: keys.store };
     const grant = (await keys.store.find(await sha256Hex(key)))!;
     const client = await managerClient(request, ctx, {
@@ -340,23 +456,28 @@ describe("builder API key callers", () => {
       visibilityGrant: null,
       key: grant,
     });
-    // The secrets vault is a backend service route, not a manager route.
-    await expect(client.listAppSecrets({ applicationId: 42 })).rejects.toMatchObject({ status: 403 });
+    // No request is sent until the manager method is called.
     expect(seen).toEqual([]);
     // A manager route outside the builder door still gets the builder bearer; the manager refuses it.
-    await client.serverTags();
+    await client.getPublisher();
     expect(seen.map(roleOf)).toEqual(["user"]);
   });
 
   it("leaves session and CLI callers on the service bearer", async () => {
-    const viaCookie = await build("/api/build/deployments/projects", { headers: { cookie: await cookie(ALICE) } });
+    const viaCookie = await build("/api/build/deployments/projects", {
+      headers: { cookie: await cookie(ALICE) },
+    });
     expect(viaCookie.status).toBe(200);
-    const cli = await signer.issueCliSession({ githubUserId: ALICE, githubLogin: "alice" });
-    const viaCli = await build("/api/build/deployments/attempts?projectId=7", {
+    const cli = await signer.issueCliSession({
+      githubUserId: ALICE,
+      githubLogin: "alice",
+    });
+    const viaCli = await build("/api/build/deployments/projects", {
       headers: { authorization: `Bearer ${cli}` },
     });
     expect(viaCli.status).toBe(200);
     expect(seen.map(roleOf)).toEqual(["service", "service"]);
-    for (const call of seen) expect(call.url.searchParams.get("github_user_id")).toBe(ALICE);
+    for (const call of seen)
+      expect(call.url.searchParams.get("github_user_id")).toBe(ALICE);
   });
 });

@@ -11,13 +11,11 @@ import { AccountGraphWallet } from '@aomi-labs/client';
 import { AccountMergeOffer } from '@aomi-labs/client';
 import { AccountTransport } from '@aomi-labs/client';
 import { AomiAccountProfile } from '@aomi-labs/client';
-import { AomiAppDescriptor } from '@aomi-labs/client';
 import type { AomiConnectionKind } from '@aomi-labs/client';
 import type { AomiConnectionWalletsUpdate } from '@aomi-labs/client';
-import { AomiFeatureCategory } from '@aomi-labs/client';
 import type { AomiLane } from '@aomi-labs/client';
+import type { AomiPackage } from '@aomi-labs/client';
 import { AomiRuleChange } from '@aomi-labs/client';
-import { AomiSecretSlot } from '@aomi-labs/client';
 import { AomiWalletRules } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';
 import type { Chain } from 'viem';
@@ -303,7 +301,7 @@ export type AomiWalletKitProviderInput = AomiWalletKitProviderProps | {
 
 // @public (undocumented)
 export type AomiWalletKitProviderProps = {
-    applicationId?: string | number | null;
+    agent?: string | null;
     fullTestnet?: {
         rpcMap: Record<number, string>;
     };
@@ -381,7 +379,7 @@ export type ConsentWalletsProps = {
     connectionKey?: string;
     name: string;
     startLane?: AomiLane;
-    app?: string;
+    agent?: string;
     askOnly?: boolean;
     onChange: (state: ConsentWalletsState) => void;
 };
@@ -466,7 +464,7 @@ export function LoadingPane(input: {
 // @public (undocumented)
 export function MatrixTable(input: {
     month: MonthlyStatement;
-    appId?: string;
+    agentScope?: string;
     framed?: boolean;
 }): JSX.Element;
 
@@ -494,8 +492,8 @@ export function NotificationToaster(): ReactPortal | null;
 // @public (undocumented)
 export function OutcomeTable(input: {
     pairs: {
-        app: AppUsageEntry;
-        item: AppOutcomeItem;
+        agent: AgentUsageEntry;
+        item: AgentOutcomeItem;
     }[];
 }): JSX.Element;
 
@@ -641,7 +639,7 @@ export const testIds: {
     readonly frame: "aomi-frame";
     readonly composer: "aomi-composer";
     readonly composerInput: "aomi-composer-input";
-    readonly composerSelectedApp: "composer-selected-app";
+    readonly composerSelectedAgent: "composer-selected-agent";
     readonly send: "aomi-send";
     readonly stop: "aomi-stop";
     readonly messageList: "aomi-message-list";
@@ -679,9 +677,6 @@ export const testIds: {
     readonly paygate: "aomi-paygate";
 };
 
-// @public
-export function toCatalogPackage(app: AomiAppDescriptor): CatalogPackage;
-
 // @public (undocumented)
 export function usd(n: number): string;
 
@@ -691,7 +686,6 @@ export function useAccountOverview(): AccountOverview | null;
 // @public (undocumented)
 export function useAccountOverviewStore(): {
     seedAccountOverview: (data: AccountOverview | null) => void;
-    updateAccountApps: (accountUserId: string, apps: string[], applicationIds?: number[]) => void;
     loadOnce: () => Promise<void>;
 };
 

@@ -18,13 +18,13 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { VersionedTransaction } from '@solana/web3.js';
 
 // @public (undocumented)
-export function AomiParaPluginProvider(input: AomiParaPluginProviderProps): JSX.Element;
+export function AomiParaAdapterProvider(input: AomiParaAdapterProviderProps): JSX.Element;
 
 // @public (undocumented)
-export type AomiParaPluginProviderProps = {
+export type AomiParaAdapterProviderProps = {
     children: ReactNode;
     supportedChains?: readonly Chain[];
-    svmConfig?: PluginSvmRuntimeConfig;
+    svmConfig?: AdapterSvmRuntimeConfig;
     selectedSolanaNetwork?: SvmNetworkOption;
     setSelectedSolanaNetworkId?: (networkId: string) => void;
     supportedSolanaNetworks?: readonly SvmNetworkOption[];
@@ -33,6 +33,9 @@ export type AomiParaPluginProviderProps = {
     account?: AccountConfig;
     externalSvmWallet?: SafeSvmWalletState;
 };
+
+// @public (undocumented)
+export const paraAdapter: WalletProviderAdapter;
 
 // @public @deprecated (undocumented)
 export const paraAuth: typeof paraAuth_2;
@@ -47,9 +50,6 @@ export type ParaAuthOptions = {
     appUrl?: string;
     disableWorkers?: boolean;
 };
-
-// @public (undocumented)
-export const paraPlugin: WalletProviderPlugin;
 
 // @public (undocumented)
 export function registerAomiParaWalletProvider(): void;

@@ -78,7 +78,12 @@ describe("shared account transport", () => {
 
 it("validates a private key through thread discovery without requiring an account credential", async () => {
   const fetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-    Response.json([]),
+    Response.json({
+      agent_id: 7,
+      agent: "publisher/reader",
+      display_name: "Reader",
+      metadata: {},
+    }),
   );
   vi.stubGlobal("fetch", fetch);
   const getBearer = vi.fn(async () => {
@@ -86,10 +91,10 @@ it("validates a private key through thread discovery without requiring an accoun
   });
   const transport = createShellTransport("https://api.example", getBearer);
   await expect(
-    transport.aomi.raw.resolveAppKey("disposable-key"),
-  ).resolves.toEqual([]);
+    transport.aomi.raw.resolveAgentKey("disposable-key"),
+  ).resolves.toMatchObject({ agent: "publisher/reader" });
   expect(getBearer).not.toHaveBeenCalled();
-  expect(new Headers(fetch.mock.calls[0][1]?.headers).get("aomi-app-key")).toBe(
-    "disposable-key",
-  );
+  expect(
+    new Headers(fetch.mock.calls[0][1]?.headers).get("aomi-agent-key"),
+  ).toBe("disposable-key");
 });

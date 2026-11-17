@@ -71,7 +71,7 @@ export type ToolChip = {
     id?: string;
     title?: string;
     skillId?: string;
-    attribution?: "app" | "skill";
+    attribution?: "toolset" | "skill";
     icon?: TraceIcon;
     essential?: boolean;
 };
@@ -94,10 +94,10 @@ export type ToolStepInput = {
 export const traceFromEvents: <R extends TraceRun = TraceRun>(events: readonly Event_2[], runs?: readonly R[]) => TraceItem<TraceToolPart, R>[];
 
 // @public
-export type TraceGlyph = "agent" | "allowance" | "app" | "approve" | "archive" | "block" | "blocked" | "bridge" | "burn" | "code" | "coins" | "contract" | "copies" | "dollar" | "failed" | "gas" | "globe" | "hash" | "history" | "incoming" | "layers" | "list" | "network" | "outgoing" | "page" | "pending" | "percent" | "protocol" | "ranked" | "read" | "receipt" | "search" | "send" | "sign" | "simulate" | "skill" | "solana" | "success" | "swap" | "tag" | "tool" | "trend" | "trim" | "user" | "verified" | "wallet" | "warning";
+export type TraceGlyph = "agent" | "allowance" | "toolset" | "approve" | "archive" | "block" | "blocked" | "bridge" | "burn" | "code" | "coins" | "contract" | "copies" | "dollar" | "failed" | "gas" | "globe" | "hash" | "history" | "incoming" | "layers" | "list" | "network" | "outgoing" | "page" | "pending" | "percent" | "protocol" | "ranked" | "read" | "receipt" | "search" | "send" | "sign" | "simulate" | "skill" | "solana" | "success" | "swap" | "tag" | "tool" | "trend" | "trim" | "user" | "verified" | "wallet" | "warning";
 
 // @public
-export type TraceIcon = TraceGlyph | `chain:${number}` | `app:${string}` | `skill:${string}`;
+export type TraceIcon = TraceGlyph | `chain:${number}` | `toolset:${string}` | `skill:${string}`;
 
 // @public
 export type TraceItem<T extends TraceToolPart = TraceToolPart, R extends TraceRun = TraceRun> = {

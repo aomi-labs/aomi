@@ -30,7 +30,7 @@ function Statement({
   return (
     <div className="space-y-4">
       <p className="text-dim text-xs leading-5">
-        Revenue, platform fees, and charges for your apps in this statement
+        Revenue, platform fees, and charges for your agents in this statement
         period. End-user spend is reported separately under{" "}
         <Link
           href="/settings/billing"
@@ -97,7 +97,7 @@ function Statement({
             <thead className="bg-surface-subtle">
               <tr>
                 <th className={TH}>Subject</th>
-                <th className={TH}>App</th>
+                <th className={TH}>Agent</th>
                 <th className={TH}>Events</th>
                 <th className={TH}>Gross</th>
                 <th className={TH}>Platform fee</th>
@@ -110,7 +110,7 @@ function Statement({
                   <td className={`${TD} font-medium`}>
                     {subjectLabel(row.subject)}
                   </td>
-                  <td className={TD}>{row.application}</td>
+                  <td className={TD}>{row.agent}</td>
                   <td className={`${TD} text-xs`}>{row.events}</td>
                   <td className={`${TD} font-mono text-xs`}>
                     {usdLabel(row.gross)}
@@ -135,7 +135,7 @@ function Statement({
               <thead className="bg-surface-subtle">
                 <tr>
                   <th className={TH}>Item</th>
-                  <th className={TH}>App</th>
+                  <th className={TH}>Agent</th>
                   <th className={TH}>Events</th>
                   <th className={TH}>Amount</th>
                 </tr>
@@ -144,7 +144,7 @@ function Statement({
                 {charges.map((row, i) => (
                   <tr key={i}>
                     <td className={TD}>{subjectLabel(row.item)}</td>
-                    <td className={TD}>{row.application}</td>
+                    <td className={TD}>{row.agent}</td>
                     <td className={`${TD} text-dim text-xs`}>{row.events}</td>
                     <td className={`${TD} font-mono text-xs`}>
                       {usdLabel(row.amount)}
@@ -177,7 +177,7 @@ function Statement({
               ))}
             </div>
             <p className="text-dim mt-2 text-xs leading-4">
-              Token-level usage explains the base cost. Apps using
+              Token-level usage explains the base cost. Agents using
               customer-provided keys (BYOK) incur no model charges.
             </p>
           </div>
@@ -190,7 +190,7 @@ function Statement({
             <thead className="bg-surface-subtle">
               <tr>
                 <th className={TH}>Day</th>
-                <th className={TH}>App</th>
+                <th className={TH}>Agent</th>
                 <th className={TH}>Subject</th>
                 <th className={TH}>Events</th>
                 <th className={TH}>Gross</th>
@@ -204,7 +204,7 @@ function Statement({
                   <td className={`${TD} text-dim whitespace-nowrap`}>
                     {row.day}
                   </td>
-                  <td className={TD}>{row.application}</td>
+                  <td className={TD}>{row.agent}</td>
                   <td className={`${TD} text-xs`}>
                     {subjectLabel(row.subject)}
                   </td>
@@ -233,7 +233,7 @@ function Meter({ daily, breakdown }: { daily: Row[]; breakdown: Row[] }) {
   return (
     <div className="space-y-3">
       <p className="text-dim text-xs leading-5">
-        Model and token credits by app and day.{" "}
+        Model and token credits by agent and day.{" "}
         <Link
           href="/settings/billing"
           className="text-foreground hover:underline"
@@ -248,7 +248,7 @@ function Meter({ daily, breakdown }: { daily: Row[]; breakdown: Row[] }) {
             <thead className="bg-surface-subtle text-dim text-left text-xs uppercase">
               <tr>
                 <th className="px-3 py-2">Day</th>
-                <th className="px-3 py-2">App</th>
+                <th className="px-3 py-2">Agent</th>
                 <th className="px-3 py-2">Input</th>
                 <th className="px-3 py-2">Output</th>
                 <th className="px-3 py-2">Credits</th>
@@ -257,10 +257,10 @@ function Meter({ daily, breakdown }: { daily: Row[]; breakdown: Row[] }) {
             <tbody className="divide-border bg-surface divide-y">
               {daily.map((row, index) => (
                 <tr
-                  key={`${row.project?.id}-${row.periodUtcDay}-${row.application}-${index}`}
+                  key={`${row.project?.id}-${row.periodUtcDay}-${row.agent}-${index}`}
                 >
                   <td className="px-3 py-2">{row.periodUtcDay}</td>
-                  <td className="px-3 py-2">{row.application}</td>
+                  <td className="px-3 py-2">{row.agent}</td>
                   <td className="px-3 py-2 font-mono text-xs">
                     {tokensLabel(row.inputTokens)}
                   </td>

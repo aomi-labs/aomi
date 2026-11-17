@@ -4,18 +4,18 @@
 const HINTS_START = "<AOMI_UI_CAPABILITY_HINTS>";
 const HINTS_END = "</AOMI_UI_CAPABILITY_HINTS>";
 
-export type CapabilityKind = "app" | "skill" | "chain" | "wallet";
+export type CapabilityKind = "agent" | "skill" | "chain" | "wallet";
 
 export type CapabilityHint = {
   kind: CapabilityKind;
   id: string;
   label?: string;
-  appName?: string;
+  agentName?: string;
 };
 
 type CapabilityHintEnvelope = {
   capabilities: CapabilityHint[];
-  removedApps: CapabilityHint[];
+  removedAgents: CapabilityHint[];
 };
 
 const SAFE_ID = /^[a-zA-Z0-9][a-zA-Z0-9:._/-]{0,127}$/u;
@@ -26,7 +26,7 @@ function parseHint(raw: unknown): CapabilityHint | null {
   const kind = candidate.kind;
   const id = candidate.id;
   if (
-    (kind !== "app" &&
+    (kind !== "agent" &&
       kind !== "skill" &&
       kind !== "chain" &&
       kind !== "wallet") ||
@@ -42,17 +42,17 @@ function parseHint(raw: unknown): CapabilityHint | null {
           .trim()
           .slice(0, 100)
       : undefined;
-  const appName =
-    kind === "app" &&
-    typeof candidate.appName === "string" &&
-    SAFE_ID.test(candidate.appName)
-      ? candidate.appName
+  const agentName =
+    kind === "agent" &&
+    typeof candidate.agentName === "string" &&
+    SAFE_ID.test(candidate.agentName)
+      ? candidate.agentName
       : undefined;
   return {
     kind,
     id,
     ...(label ? { label } : {}),
-    ...(appName ? { appName } : {}),
+    ...(agentName ? { agentName } : {}),
   };
 }
 
@@ -67,20 +67,21 @@ function parseEnvelope(raw: unknown): CapabilityHintEnvelope | null {
     .map(parseHint)
     .filter((hint): hint is CapabilityHint => hint !== null)
     .slice(0, 16);
-  const removedApps = Array.isArray(candidate.removedApps)
-    ? candidate.removedApps
+  const removedAgents = Array.isArray(candidate.removedAgents)
+    ? candidate.removedAgents
         .map(parseHint)
         .filter(
           (hint): hint is CapabilityHint =>
-            hint?.kind === "app" &&
+            hint?.kind === "agent" &&
             !capabilities.some(
-              (selected) => selected.kind === "app" && selected.id === hint.id,
+              (selected) =>
+                selected.kind === "agent" && selected.id === hint.id,
             ),
         )
         .slice(0, 16)
     : [];
-  if (capabilities.length === 0 && removedApps.length === 0) return null;
-  return { capabilities, removedApps };
+  if (capabilities.length === 0 && removedAgents.length === 0) return null;
+  return { capabilities, removedAgents };
 }
 
 /**
@@ -96,50 +97,43 @@ export function appendCapabilityHints(text: string, raw: unknown): string {
     envelope.capabilities
       .filter((hint) => hint.kind === kind)
       .map((hint) => hint.id);
-  const apps = byKind("app");
+  const agents = byKind("agent");
   const skills = byKind("skill");
   const chains = byKind("chain");
   const lines = [
     HINTS_START,
     "These are capability preferences selected by the user in the Aomi UI.",
   ];
-  if (apps.length > 0) lines.push(`Preferred app ids: ${apps.join(", ")}.`);
+  if (agents.length > 0)
+    lines.push(`Preferred agent ids: ${agents.join(", ")}.`);
   for (const hint of envelope.capabilities.filter(
-    (hint) => hint.kind === "app",
+    (hint) => hint.kind === "agent",
   )) {
     lines.push(
-      `User selected app: ${hint.label ?? hint.id}. Use this app for relevant work; do not silently substitute another app.`,
+      `User selected agent: ${hint.label ?? hint.id}. Use this agent for relevant work; do not silently substitute another agent.`,
     );
   }
-  for (const hint of envelope.removedApps) {
+  for (const hint of envelope.removedAgents) {
     lines.push(
-      `User removed app selection: ${hint.label ?? hint.id} (${hint.id}). Avoid using this app for this turn. This removal guidance applies only to this turn.`,
+      `User removed agent selection: ${hint.label ?? hint.id} (${hint.id}). Avoid using this agent for this turn. This removal guidance applies only to this turn.`,
     );
   }
   for (const hint of envelope.capabilities.filter(
-    (hint) => hint.kind === "app",
+    (hint) => hint.kind === "agent",
   )) {
     const id = hint.id;
-    const applicationId = /^application:[1-9][0-9]*$/u.test(id)
-      ? Number(id.slice("application:".length))
-      : NaN;
-    const target =
-      Number.isSafeInteger(applicationId) && applicationId > 0
-        ? {
-            ...(hint.appName ? { app: hint.appName } : {}),
-            application_id: applicationId,
-          }
-        : id.startsWith("name:") && SAFE_ID.test(id.slice(5))
-          ? { app: id.slice(5) }
-          : null;
+    const slug = id.startsWith("agent:") ? id.slice(6) : "";
+    const target = /^[a-z0-9][a-z0-9_-]*\/[a-z0-9][a-z0-9_-]*$/.test(slug)
+      ? { agent: slug }
+      : null;
     if (!target) continue;
-    lines.push(`Selected app task target: ${JSON.stringify(target)}`);
+    lines.push(`Selected agent task target: ${JSON.stringify(target)}`);
   }
-  if (lines.some((line) => line.startsWith("Selected app task target:"))) {
+  if (lines.some((line) => line.startsWith("Selected agent task target:"))) {
     lines.push(
-      "For work addressed to a selected app, including requests to list its tools, call `task` with a work order in `tasks` using that target and the user's request as `prompt`.",
-      "Copy the selected app task target exactly. Display labels must not be used as task app names; when the target contains only application_id, omit app.",
-      "App-specific tools are loaded in the selected child, not in your own tool list. Do not infer app availability from your own tool list; report an actual task failure if the selected app cannot be loaded. Existing authorization and compatibility checks still apply.",
+      "For work addressed to a selected agent, including requests to list its tools, call `task` with a work order in `tasks` using that target and the user's request as `prompt`.",
+      "Copy the selected agent task target exactly. Display labels must not be used as task agent names; use the canonical agent slug.",
+      "Agent-specific tools are loaded in the selected child, not in your own tool list. Do not infer agent availability from your own tool list; report an actual task failure if the selected agent cannot be loaded. Existing authorization and compatibility checks still apply.",
     );
   }
   if (skills.length > 0) {
@@ -166,7 +160,7 @@ export function appendCapabilityHints(text: string, raw: unknown): string {
     );
   }
   lines.push(
-    "App selections guide relevant delegation, not unrelated work. Authorization and compatibility checks still apply. If a selected app fails, report the failure and any verified partial results; offer alternatives without silently substituting another app.",
+    "Agent selections guide relevant delegation, not unrelated work. Authorization and compatibility checks still apply. If a selected agent fails, report the failure and any verified partial results; offer alternatives without silently substituting another agent.",
     HINTS_END,
   );
   return `${text.trimEnd()}\n\n${lines.join("\n")}`;
@@ -182,7 +176,7 @@ export function stripCapabilityHints(text: string): string {
 }
 
 const HINT_LINES = [
-  ["app", "Preferred app ids: "],
+  ["agent", "Preferred agent ids: "],
   ["skill", "Preferred skill ids: "],
   ["chain", "Preferred execution chain ids: "],
   ["wallet", "Preferred wallet ids: "],
@@ -215,8 +209,8 @@ export type MentionItem = {
   label: string;
   description?: string;
   searchText: string;
-  /** An app: its registered name, kept for the task target. */
-  appName?: string;
+  /** An agent: its registered name, kept for the task target. */
+  agentName?: string;
   /** A wallet: the `w_N` id of each of its addresses (EVM, SVM). */
   walletIds?: readonly string[];
   /** Test and local networks stay out of the picker until searched for. */
@@ -230,8 +224,8 @@ export type MentionGroup<T extends MentionItem = MentionItem> = {
   items: T[];
 };
 
-/** Routing modes and built-ins the backend lists as apps: never tagged with "@". */
-export const UNTAGGABLE_APPS: ReadonlySet<string> = new Set([
+/** Routing modes and built-ins the backend lists as agents: never tagged with "@". */
+export const UNTAGGABLE_AGENTS: ReadonlySet<string> = new Set([
   "orchestrator",
   "auto",
   "default",
@@ -242,7 +236,7 @@ const BARE_MENTION_LIMIT = 4;
 const TESTNET_QUERY =
   /test|sepolia|devnet|holesky|goerli|amoy|fuji|local|anvil/;
 const MENTION_GROUPS = [
-  { kind: "app", label: "Apps" },
+  { kind: "agent", label: "Agents" },
   { kind: "skill", label: "Skills" },
   { kind: "chain", label: "Chains" },
   { kind: "wallet", label: "Wallets" },
@@ -277,15 +271,15 @@ export function mentionGroups<T extends MentionItem>(
       items: needle ? groupItems : groupItems.slice(0, BARE_MENTION_LIMIT),
     };
   });
-  const [apps, skills, chains, wallets] = groups as [
+  const [agents, skills, chains, wallets] = groups as [
     MentionGroup<T>,
     MentionGroup<T>,
     MentionGroup<T>,
     MentionGroup<T>,
   ];
   const others = chains.items.some(named)
-    ? [chains, apps, skills]
-    : [apps, skills, chains];
+    ? [chains, agents, skills]
+    : [agents, skills, chains];
   const ordered = needle ? [wallets, ...others] : [...others, wallets];
   return ordered.filter((group) => group.items.length > 0);
 }
@@ -311,7 +305,7 @@ export type CapabilitySelection = {
   kind: CapabilityKind;
   id: string;
   label?: string;
-  appName?: string;
+  agentName?: string;
   /** A wallet: the `w_N` id of each address, one hint apiece. */
   walletIds?: readonly string[];
 };
@@ -319,31 +313,31 @@ export type CapabilitySelection = {
 /** What a send's mentions become: the envelope `appendCapabilityHints` reads. */
 export function capabilityHintPayload(
   selections: readonly CapabilitySelection[],
-  removedApps: readonly CapabilitySelection[] = [],
+  removedAgents: readonly CapabilitySelection[] = [],
 ):
-  | { capabilities: CapabilityHint[]; removedApps?: CapabilityHint[] }
+  | { capabilities: CapabilityHint[]; removedAgents?: CapabilityHint[] }
   | undefined {
-  if (selections.length === 0 && removedApps.length === 0) return undefined;
+  if (selections.length === 0 && removedAgents.length === 0) return undefined;
   return {
-    ...(removedApps.length
+    ...(removedAgents.length
       ? {
-          removedApps: removedApps.map(({ id, label }) => ({
-            kind: "app" as const,
+          removedAgents: removedAgents.map(({ id, label }) => ({
+            kind: "agent" as const,
             id,
             ...(label ? { label } : {}),
           })),
         }
       : {}),
     capabilities: selections.flatMap(
-      ({ kind, id, label, appName, walletIds }) =>
+      ({ kind, id, label, agentName, walletIds }) =>
         (kind === "wallet" && walletIds?.length ? walletIds : [id]).map(
           (hintId) => ({
             kind,
             id: hintId,
-            ...((kind === "app" || kind === "wallet") && label
+            ...((kind === "agent" || kind === "wallet") && label
               ? { label }
               : {}),
-            ...(kind === "app" && appName ? { appName } : {}),
+            ...(kind === "agent" && agentName ? { agentName } : {}),
           }),
         ),
     ),

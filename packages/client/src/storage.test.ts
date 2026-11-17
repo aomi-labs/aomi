@@ -2,23 +2,23 @@ import { describe, expect, it } from "vitest";
 import { createScopedStorage } from "./storage";
 
 describe("scoped preference storage", () => {
-  it("isolates backend, app and principal and normalizes URL origins", () => {
+  it("isolates backend, agent and principal and normalizes URL origins", () => {
     localStorage.clear();
     const first = createScopedStorage({
       backendUrl: "https://API.example/",
-      appId: "one",
+      agentScope: "one",
     });
     const same = createScopedStorage({
       backendUrl: "https://api.example",
-      appId: "one",
+      agentScope: "one",
     });
     const second = createScopedStorage({
       backendUrl: "https://api.example",
-      appId: "two",
+      agentScope: "two",
     });
     const otherBackend = createScopedStorage({
       backendUrl: "https://other.example",
-      appId: "one",
+      agentScope: "one",
     });
     first.set("settings", "saved");
     expect(same.get("settings")).toBe("saved");
@@ -33,7 +33,7 @@ describe("scoped preference storage", () => {
     localStorage.setItem("old", "carried over");
     const storage = createScopedStorage({
       backendUrl: "https://api.example",
-      appId: "one",
+      agentScope: "one",
     });
     expect(storage.migrate("settings", "old")).toBe("carried over");
     expect(localStorage.getItem("old")).toBeNull();

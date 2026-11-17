@@ -13,7 +13,7 @@ import {
   smitherDbPath,
 } from "./state";
 import {
-  buildAppWorkflow,
+  buildPackageWorkflow,
   createAomiSmither,
   describeBackend,
   type AomiSmitherApi,
@@ -44,7 +44,7 @@ export function assertBunRuntime(): void {
  * bun:sqlite file and Node falls back to an embedded PGlite dir beside it.
  */
 export function resolveRunBackend(
-  app: string,
+  packageName: string,
   options: { runsRoot?: string; env?: NodeJS.ProcessEnv } = {},
 ): SmitherBackend {
   const env = options.env ?? process.env;
@@ -54,17 +54,20 @@ export function resolveRunBackend(
     return { kind: "postgres", connectionString };
   }
   if (isBunRuntime()) {
-    return { kind: "sqlite", dbPath: smitherDbPath(app, runsRoot) };
+    return { kind: "sqlite", dbPath: smitherDbPath(packageName, runsRoot) };
   }
-  return { kind: "pglite", dataDir: path.join(runDir(app, runsRoot), "pglite") };
+  return {
+    kind: "pglite",
+    dataDir: path.join(runDir(packageName, runsRoot), "pglite"),
+  };
 }
 
 export type PreparedRun = {
   api: AomiSmitherApi;
-  workflow: Awaited<ReturnType<typeof buildAppWorkflow>>;
+  workflow: Awaited<ReturnType<typeof buildPackageWorkflow>>;
   plan: BuildPlan;
   runId: string;
-  /** True when a prior run exists for this app and we're continuing it. */
+  /** True when a prior run exists for this package and we're continuing it. */
   resume: boolean;
   backend: SmitherBackend;
   /** Human-readable state location (sqlite path, pglite dir, or "postgres"). */
@@ -82,18 +85,19 @@ export async function prepareRun(options: {
   api?: AomiSmitherApi;
   /** Use a caller-allocated run id when creating fresh state (a control
    *  plane that pre-registers the run before dispatching a runner). An
-   *  existing run for the app still resumes under its own id. */
+   *  existing run for the package still resumes under its own id. */
   runId?: string;
 }): Promise<PreparedRun> {
   const runsRoot = options.runsRoot ?? defaultRunsRoot;
-  const app = options.plan.app;
+  const packageName = options.plan.packageName;
   if (options.overwrite) {
-    await resetRunState(app, runsRoot);
+    await resetRunState(packageName, runsRoot);
   }
-  await mkdir(runDir(app, runsRoot), { recursive: true });
+  await mkdir(runDir(packageName, runsRoot), { recursive: true });
   await savePlan(options.plan, runsRoot);
-  const existing = await loadRunState(app, runsRoot);
-  const backend = options.backend ?? resolveRunBackend(app, { runsRoot });
+  const existing = await loadRunState(packageName, runsRoot);
+  const backend =
+    options.backend ?? resolveRunBackend(packageName, { runsRoot });
   const api = options.api ?? (await createAomiSmither(backend));
   // run.json is only a local pointer; the run itself lives in the backend.
   // A pointer whose run the store doesn't know (fresh/shared Postgres, wiped
@@ -103,8 +107,8 @@ export async function prepareRun(options: {
     existing !== null && (await storeHasRun(api, existing.runId));
   const state = resumable
     ? existing
-    : await createRunState(app, runsRoot, options.runId);
-  const workflow = await buildAppWorkflow(api, options.plan, options.deps);
+    : await createRunState(packageName, runsRoot, options.runId);
+  const workflow = await buildPackageWorkflow(api, options.plan, options.deps);
   return {
     api,
     workflow,
@@ -150,7 +154,7 @@ export async function executeRun(
       // ends "finished" with unmounted phases still ahead.
       requireRerenderOnOutputChange: true,
       // The result row embeds the crate artifact (artifacts.ts); the engine's
-      // 200 KB default would reject it for any non-trivial app.
+      // 200 KB default would reject it for any non-trivial package.
       maxOutputBytes: 4_000_000,
     }),
   );
@@ -189,12 +193,14 @@ export async function executeRunUntilSettled(
       return result;
     }
     attempt = { ...attempt, resume: true };
-    await new Promise((wake) => setTimeout(wake, options.approvalPollMs ?? 2500));
+    await new Promise((wake) =>
+      setTimeout(wake, options.approvalPollMs ?? 2500),
+    );
   }
 }
 
 /**
- * Narrow raw-SQL door into the run store, for host-app tables that must live
+ * Narrow raw-SQL door into the run store, for host-package tables that must live
  * on the same connection (the embedded PGlite backend cannot be opened twice
  * in one process). Statements use `?` placeholders on every backend — the
  * storage layer translates for Postgres. Rows come back with on-disk column
@@ -228,7 +234,11 @@ export async function loadRunOutputs(
   runId: string,
 ): Promise<Record<string, ReadonlyArray<Record<string, unknown>>>> {
   const { loadOutputs } = await import("smithers-orchestrator");
-  const outputs = await loadOutputs(api.db as never, api.tables as never, runId);
+  const outputs = await loadOutputs(
+    api.db as never,
+    api.tables as never,
+    runId,
+  );
   return outputs as Record<string, ReadonlyArray<Record<string, unknown>>>;
 }
 
@@ -349,7 +359,8 @@ export async function decideApproval(options: {
   decidedBy?: string;
   selection?: { selected: string; notes?: string };
 }): Promise<void> {
-  const { SmithersDb, approveNode, denyNode } = await import("smithers-orchestrator");
+  const { SmithersDb, approveNode, denyNode } =
+    await import("smithers-orchestrator");
   const adapter = new SmithersDb(options.api.db as never);
   const decide = options.approve ? approveNode : denyNode;
   await Effect.runPromise(
@@ -361,7 +372,10 @@ export async function decideApproval(options: {
       options.note,
       options.decidedBy ?? "aomi-smither",
       options.selection
-        ? { selected: options.selection.selected, notes: options.selection.notes ?? null }
+        ? {
+            selected: options.selection.selected,
+            notes: options.selection.notes ?? null,
+          }
         : undefined,
     ),
   );

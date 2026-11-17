@@ -23,7 +23,7 @@ describe("resolveAomiBinaries", () => {
     expect(resolved.source).toBe("fresh-cargo-build");
     expect(resolved.aomiBuild).toBe(targetBinaryPaths(sdkRoot).aomiBuild);
     expect(calls[0]).toContain("cargo build --manifest-path");
-    expect(calls[0]).toContain("--features cli,dev-runtime --bins --release");
+    expect(calls[0]).toContain("--features cli --bins --release");
   });
 
   it("refuses stale fallbacks unless explicitly allowed", async () => {
@@ -31,14 +31,15 @@ describe("resolveAomiBinaries", () => {
     const bins = targetBinaryPaths(sdkRoot);
     await mkdir(path.dirname(bins.aomiBuild), { recursive: true });
     await writeFile(bins.aomiBuild, "");
-    await writeFile(bins.aomiRun, "");
     const runner: CommandRunner = async () => ({
       exitCode: 1,
       stdout: "",
       stderr: "cargo missing",
     });
 
-    await expect(resolveAomiBinaries(sdkRoot, runner)).rejects.toThrow(/--allow-stale-sdk/);
+    await expect(resolveAomiBinaries(sdkRoot, runner)).rejects.toThrow(
+      /--allow-stale-sdk/,
+    );
   });
 
   it("falls back to existing target binaries with a drift warning when allowed", async () => {
@@ -46,7 +47,6 @@ describe("resolveAomiBinaries", () => {
     const bins = targetBinaryPaths(sdkRoot);
     await mkdir(path.dirname(bins.aomiBuild), { recursive: true });
     await writeFile(bins.aomiBuild, "");
-    await writeFile(bins.aomiRun, "");
 
     const runner: CommandRunner = async () => ({
       exitCode: 1,
@@ -54,7 +54,9 @@ describe("resolveAomiBinaries", () => {
       stderr: "cargo missing",
     });
 
-    const resolved = await resolveAomiBinaries(sdkRoot, runner, { allowStale: true });
+    const resolved = await resolveAomiBinaries(sdkRoot, runner, {
+      allowStale: true,
+    });
 
     expect(resolved.source).toBe("stale-target-fallback");
     expect(resolved.warning).toContain("may lag the checkout");
@@ -68,7 +70,9 @@ describe("resolveAomiBinaries", () => {
       stderr: "",
     });
 
-    const resolved = await resolveAomiBinaries(sdkRoot, runner, { allowStale: true });
+    const resolved = await resolveAomiBinaries(sdkRoot, runner, {
+      allowStale: true,
+    });
 
     expect(resolved.source).toBe("path-fallback");
     expect(resolved.warning).toContain("PATH binaries");
@@ -76,7 +80,12 @@ describe("resolveAomiBinaries", () => {
 });
 
 /** Scripted git runner: responds by matching the subcommand sequence. */
-function gitRunner(script: Record<string, { exitCode?: number; stdout?: string; stderr?: string }>): {
+function gitRunner(
+  script: Record<
+    string,
+    { exitCode?: number; stdout?: string; stderr?: string }
+  >,
+): {
   runner: CommandRunner;
   calls: string[];
 } {
@@ -129,7 +138,9 @@ describe("ensureFreshSdkCheckout", () => {
     const { runner } = gitRunner({
       "symbolic-ref": { stdout: "refs/remotes/origin/main\n" },
       "rev-list --count HEAD..origin/main": { stdout: "2\n" },
-      "status --porcelain --untracked-files=no": { stdout: " M sdk/src/lib.rs\n" },
+      "status --porcelain --untracked-files=no": {
+        stdout: " M sdk/src/lib.rs\n",
+      },
       "rev-parse HEAD": { stdout: "abc\n" },
     });
 
@@ -138,7 +149,7 @@ describe("ensureFreshSdkCheckout", () => {
     );
   });
 
-  it("fast-forwards past untracked files (generated apps, .smithers state)", async () => {
+  it("fast-forwards past untracked files (generated packages, .smithers state)", async () => {
     const { runner, calls } = gitRunner({
       "symbolic-ref": { stdout: "refs/remotes/origin/main\n" },
       "rev-list --count HEAD..origin/main": { stdout: "1\n" },
@@ -151,7 +162,9 @@ describe("ensureFreshSdkCheckout", () => {
     const freshness = await ensureFreshSdkCheckout("/sdk", runner);
 
     expect(freshness.action).toBe("fast-forwarded");
-    expect(calls.join("\n")).toContain("status --porcelain --untracked-files=no");
+    expect(calls.join("\n")).toContain(
+      "status --porcelain --untracked-files=no",
+    );
   });
 
   it("throws when fetch fails, unless stale is allowed", async () => {
@@ -160,9 +173,13 @@ describe("ensureFreshSdkCheckout", () => {
       "rev-parse HEAD": { stdout: "abc\n" },
     });
 
-    await expect(ensureFreshSdkCheckout("/sdk", runner)).rejects.toThrow(/git fetch origin failed/);
+    await expect(ensureFreshSdkCheckout("/sdk", runner)).rejects.toThrow(
+      /git fetch origin failed/,
+    );
 
-    const allowed = await ensureFreshSdkCheckout("/sdk", runner, { allowStale: true });
+    const allowed = await ensureFreshSdkCheckout("/sdk", runner, {
+      allowStale: true,
+    });
     expect(allowed.action).toBe("fetch-failed");
     expect(allowed.warning).toContain("possibly stale SDK");
   });
@@ -176,7 +193,9 @@ describe("ensureFreshSdkCheckout", () => {
       "rev-parse HEAD": { stdout: "abc\n" },
     });
 
-    await expect(ensureFreshSdkCheckout("/sdk", runner)).rejects.toThrow(/local commits/);
+    await expect(ensureFreshSdkCheckout("/sdk", runner)).rejects.toThrow(
+      /local commits/,
+    );
     expect(calls.join("\n")).not.toContain("merge --ff-only");
   });
 });

@@ -17,15 +17,15 @@ type RequestResponse = (
 ) => Promise<Response>;
 
 /**
- * Stable `code`s the public API returns when the request names an App the
+ * Stable `code`s the public API returns when the request names an Agent the
  * caller cannot use. None of them is fixed by retrying with the same
  * credentials, and none of them means the conversation itself is gone.
  */
-export type AgentAppAccessErrorCode =
-  | "app_not_found"
-  | "app_inactive"
-  | "app_key_required"
-  | "app_key_not_scoped";
+export type AgentAccessErrorCode =
+  | "agent_not_found"
+  | "agent_inactive"
+  | "agent_key_required"
+  | "agent_key_not_scoped";
 
 export class AgentApiError extends AomiApiError {
   override name = "AgentApiError";
@@ -47,25 +47,23 @@ export class AgentApiError extends AomiApiError {
     return this.guestRotation;
   }
 
-  static readonly APP_ACCESS_CODES: readonly AgentAppAccessErrorCode[] = [
-    "app_not_found",
-    "app_inactive",
-    "app_key_required",
-    "app_key_not_scoped",
+  static readonly AGENT_ACCESS_CODES: readonly AgentAccessErrorCode[] = [
+    "agent_not_found",
+    "agent_inactive",
+    "agent_key_required",
+    "agent_key_not_scoped",
   ];
 
-  /** The App access failure this error reports, if it is one. */
-  get appAccessCode(): AgentAppAccessErrorCode | undefined {
-    return AgentApiError.APP_ACCESS_CODES.find((code) => code === this.code);
+  /** The Agent access failure this error reports, if it is one. */
+  get agentAccessCode(): AgentAccessErrorCode | undefined {
+    return AgentApiError.AGENT_ACCESS_CODES.find((code) => code === this.code);
   }
 }
 
 export class AgentTransport {
   readonly sessions: AgentSessionsTransport;
 
-  constructor(
-    private readonly requestResponse: RequestResponse,
-  ) {
+  constructor(private readonly requestResponse: RequestResponse) {
     this.sessions = new AgentSessionsTransport(requestResponse);
   }
 
@@ -322,7 +320,6 @@ function mutationHeaders(
     ...(options.paymentSignature
       ? { "payment-signature": options.paymentSignature }
       : {}),
-
   };
 }
 

@@ -163,7 +163,7 @@ describe("message commit review", () => {
           rows: [
             {
               kind: "sign_in",
-              domain: "hoodit.app",
+              domain: "hoodit.agent",
               statement: "Sign in to Hoodit.",
             },
           ],
@@ -172,7 +172,7 @@ describe("message commit review", () => {
       ),
     );
     const [row] = rows();
-    expect(row).toHaveTextContent("Sign in to hoodit.app");
+    expect(row).toHaveTextContent("Sign in to hoodit.agent");
     expect(row).toHaveTextContent("Sign in to Hoodit.");
   });
 

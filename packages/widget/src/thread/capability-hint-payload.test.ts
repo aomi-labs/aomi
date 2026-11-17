@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildCapabilityHintPayload } from "./capability-hint-payload";
 
 const selections = [
-  { kind: "app" as const, id: "name:uniswap" },
+  { kind: "agent" as const, id: "agent:aomi/uniswap" },
   { kind: "chain" as const, id: "eip155:8453" },
 ];
 

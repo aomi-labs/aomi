@@ -23,7 +23,7 @@ import {
   type MenuItem,
 } from "./controls";
 import {
-  appName,
+  walletName,
   familyTag,
   pendingHint,
   providerName,
@@ -36,7 +36,7 @@ import { AddressSummary } from "./labels";
 
 type RowHandler = (row: WalletRow) => void;
 
-/** A sign-in wallet's Manage sheet: its name, app and addresses. */
+/** A sign-in wallet's Manage sheet: its name, wallet brand and addresses. */
 export type ManagedWallet = { name: string; brand: string; rows: WalletRow[] };
 
 export type WalletRowHandlers = {
@@ -90,13 +90,13 @@ export function AddressRow({
 }) {
   const { rename, dialog } = useRenameDialog();
   const short = shortAddress(row.address);
-  const { title, app: titleApp } = rowTitle(row);
+  const { title, brand: titleBrand } = rowTitle(row);
   const email = rowEmail(row);
   const hint = pendingHint(row);
   const busy = pending?.endsWith(`:${row.key}`) ?? false;
   const locked = pending !== null;
   const external = !nested;
-  const app = appName(row);
+  const brand = walletName(row);
 
   // The wallet's own short menu: Manage first; making it active and copying
   // are the row and its copy button, the explorer is in Manage › Receive.
@@ -105,7 +105,7 @@ export function AddressRow({
     items.push({
       label: "Manage",
       icon: SlidersHorizontal,
-      onSelect: () => onManage({ name: title, brand: app, rows: [row] }),
+      onSelect: () => onManage({ name: title, brand, rows: [row] }),
     });
   if (row.linkedWalletId && onRename)
     items.push({
@@ -114,9 +114,9 @@ export function AddressRow({
       onSelect: () =>
         rename({
           title: "Rename wallet",
-          description: `Only you see this name. Leave it empty to show "${app}".`,
+          description: `Only you see this name. Leave it empty to show "${brand}".`,
           value: row.label ?? "",
-          placeholder: app,
+          placeholder: brand,
           allowEmpty: true,
           onSave: (label) => onRename(row, label || null),
         }),
@@ -148,7 +148,7 @@ export function AddressRow({
   const content = (
     <>
       <BrandMark
-        brand={app}
+        brand={brand}
         dim={dim}
         dot={dim ? "off" : row.connected || row.kind === "agent" ? "on" : "off"}
       />
@@ -156,9 +156,9 @@ export function AddressRow({
         {titleNode ?? (
           <span className="type-row flex min-w-0 items-baseline gap-1.5">
             <span className="truncate">{title}</span>
-            {titleApp ? (
+            {titleBrand ? (
               <span className="type-meta text-aomi-muted shrink-0">
-                {titleApp}
+                {titleBrand}
               </span>
             ) : null}
           </span>

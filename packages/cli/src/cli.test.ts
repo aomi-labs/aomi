@@ -198,7 +198,7 @@ describe("help", () => {
 });
 
 describe("command validation", () => {
-  it.each(["session", "wallet", "app", "byok"])(
+  it.each(["session", "wallet", "toolset", "byok"])(
     "rejects retired command %s",
     async (name) => {
       expect((await cli(name)).code).toBe(2);
@@ -537,7 +537,7 @@ describe("aomi rules", () => {
     agent_wallet_id: WALLET,
     wallet_name: "Trading wallet",
     revision: 3,
-    rules: { apps: null, limits: [], not_after: null, owner_only: true },
+    rules: { protocols: null, limits: [], not_after: null, owner_only: true },
     sentences: ["Can use Jupiter, Kamino", "Up to 0.5 SOL a day on Solana"],
     admin: { kind: "aomi_managed" },
     stopped_until: null,
@@ -568,7 +568,7 @@ describe("aomi rules", () => {
       name: "Trading wallet",
       paused: false,
       archived_at,
-      app: null,
+      toolset: null,
       last_used_at: null,
       created_at: 1,
       addresses: [],

@@ -71,7 +71,7 @@ const caseSteps = [
     ],
   },
   {
-    label: "02 · Tools + mandate = an Aomi app",
+    label: "02 · Tools + mandate = an Aomi package",
     title: "No net-new engineering.",
     body: "Endpoints wrap into tools; the investment mandate becomes enforced configuration rather than a document.",
     code: [
@@ -84,7 +84,7 @@ const caseSteps = [
   {
     label: "03 · Deployed in the hosted runtime",
     title: "One agent, every surface.",
-    body: "The same runtime that operates the vault faces depositors on web, Telegram, and Discord — and settles an app-level fee the product did not previously have.",
+    body: "The same runtime that operates the vault faces depositors on web, Telegram, and Discord — and settles an agent-level fee the product did not previously have.",
     code: [
       "keys held        0",
       "fork latency     ~200 ms",
@@ -281,12 +281,12 @@ export function FintechPage({ solution }: { solution: SolutionConfig }) {
             <span>Outcome</span>
             <strong>
               One agent executes the vault&apos;s operations and faces
-              depositors on every surface — with app-level fees settled
+              depositors on every surface — with agent-level fees settled
               on-rails, a revenue line that did not previously exist.
             </strong>
           </div>
           <ul>
-            <li>app-level fees · live on Aomi rails</li>
+            <li>agent-level fees · live on Aomi rails</li>
             <li>x402 pricing · onchain settlement</li>
             <li>shipped · agentic.somm.finance</li>
           </ul>

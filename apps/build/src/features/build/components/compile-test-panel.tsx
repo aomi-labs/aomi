@@ -24,7 +24,7 @@ export function CompileTestPanel({
           Verify before you ship
         </p>
         <p className="text-dim mt-0.5 text-[12px] leading-5">
-          Compile the generated app, then run a quick smoke test.
+          Compile the generated package and run its checks.
         </p>
       </div>
       <div className="flex flex-wrap gap-2">

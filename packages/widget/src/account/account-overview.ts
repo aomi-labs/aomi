@@ -26,10 +26,10 @@ export type AccountProfile = {
   verified_email?: string | null;
   tier?: string;
   created_at?: number;
-  /** The account's installed apps (`users.applications`). */
-  apps?: string[];
-  /** Exact installed hosted application rows. */
-  application_ids?: number[];
+  /** The account's installed agents (`users.agents`). */
+  agents?: string[];
+  /** Exact installed hosted agent rows. */
+  agent_ids?: number[];
 };
 
 /**

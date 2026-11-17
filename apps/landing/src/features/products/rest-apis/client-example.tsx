@@ -3,7 +3,7 @@ import { useState } from "react";
 import styles from "./rest-api.module.css";
 
 const tokenPattern =
-  /(#[^\n]*|\/\/[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|https?:\/\/[^\s\\]+|\b(?:import|from|const|for|await|of|if|return|true|false)\b|\b(?:app|wallet|type|text|action)\b(?=\s*:)|--?[A-Za-z]+|\b\d[\d,.]*\b)/g;
+  /(#[^\n]*|\/\/[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|https?:\/\/[^\s\\]+|\b(?:import|from|const|for|await|of|if|return|true|false)\b|\b(?:agent|toolset|wallet|type|text|action)\b(?=\s*:)|--?[A-Za-z]+|\b\d[\d,.]*\b)/g;
 
 function tokenClass(token: string) {
   if (token.startsWith("#") || token.startsWith("//")) {
@@ -13,7 +13,7 @@ function tokenClass(token: string) {
   if (token.startsWith("http")) return styles.codeProperty;
   if (token.startsWith("-")) return styles.codeProperty;
   if (/^\d/.test(token)) return styles.codeNumber;
-  if (["app", "wallet", "type", "text", "action"].includes(token)) {
+  if (["agent", "toolset", "wallet", "type", "text", "action"].includes(token)) {
     return styles.codeProperty;
   }
   return styles.codeKeyword;

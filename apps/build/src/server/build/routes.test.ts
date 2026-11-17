@@ -79,7 +79,7 @@ function createRequest(): Request {
   return new Request("http://localhost:3000/api/build/runs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: "make an app" }),
+    body: JSON.stringify({ prompt: "make a package" }),
   });
 }
 
@@ -183,7 +183,7 @@ describe("build route error classification", () => {
       mocks.reconstructBuildRun.mockResolvedValue(undefined);
       const response = await route(
         new Request(
-          "http://localhost:3000/api/build/runs/download?id=private-run&path=private-app/src/lib.rs",
+          "http://localhost:3000/api/build/runs/download?id=private-run&path=private-agent/src/lib.rs",
         ),
       );
 
@@ -196,14 +196,17 @@ describe("build route error classification", () => {
   );
 
   it("returns a sanitized 500 when a file store read fails", async () => {
-    const handle = { app: "private-app", plan: { sdkRoot: "/missing" } };
+    const handle = {
+      packageName: "private-agent",
+      plan: { sdkRoot: "/missing" },
+    };
     const error = new Error("private artifact store failure");
     mocks.getBuildRun.mockReturnValue(handle);
     mocks.readRunFile.mockRejectedValue(error);
 
     const response = await buildRunFileRoute(
       new Request(
-        "http://localhost:3000/api/build/runs/file?id=private-run&path=private-app/src/lib.rs",
+        "http://localhost:3000/api/build/runs/file?id=private-run&path=private-agent/src/lib.rs",
       ),
     );
 
@@ -222,7 +225,7 @@ describe("build route error classification", () => {
 
   it("preserves the 409 fallback when the stored download read fails", async () => {
     const handle = {
-      app: "private-app",
+      packageName: "private-agent",
       plan: { sdkRoot: "/definitely/missing" },
     };
     const error = new Error("private artifact download failure");

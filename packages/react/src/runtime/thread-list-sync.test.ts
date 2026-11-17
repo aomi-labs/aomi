@@ -29,11 +29,10 @@ describe("mergeThreadListMetadata", () => {
       mergeThreadListMetadata(fetched, latest).get("saved-chat")?.title,
     ).toBe("Reply with UI CHECK OK");
   });
-  it("does not invent a Direct app for a remote thread without target data", () => {
+  it("does not invent a Direct agent for a remote thread without target data", () => {
     expect(initRemoteThreadControl()).toMatchObject({
       agentMode: "auto",
-      app: null,
-      applicationId: null,
+      agent: null,
     });
   });
 
@@ -44,8 +43,8 @@ describe("mergeThreadListMetadata", () => {
     const selectedControl = {
       ...initThreadControl(),
       agentMode: "direct" as const,
-      app: "credential-demo",
-      applicationId: 16,
+      agent: "credential-demo",
+      agentId: 16,
       controlDirty: true,
     };
     const latest = new Map([

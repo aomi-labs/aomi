@@ -17,84 +17,91 @@ describe("Solana skill labels", () => {
   });
 });
 
-describe("selected app delegation", () => {
-  it("keeps a branded app's registered name in the task target", () => {
+describe("selected agent delegation", () => {
+  it("keeps a branded agent's registered name in the task target", () => {
     const message = appendCapabilityHints(
       "▦ Circle StableFX simulate a quote",
       {
         capabilities: [
           {
-            kind: "app",
-            id: "application:2937605",
+            kind: "agent",
+            id: "agent:publisher/agent-2937605",
             label: "Circle StableFX",
-            appName: "stablefx",
+            agentName: "stablefx",
           },
         ],
       },
     );
     expect(message).toContain(
-      'Selected app task target: {"app":"stablefx","application_id":2937605}',
+      'Selected agent task target: {"agent":"publisher/agent-2937605"}',
     );
     expect(message).toContain(
-      "Display labels must not be used as task app names",
+      "Display labels must not be used as task agent names",
     );
   });
 
   it.each([
-    ["application:123", '{"application_id":123}'],
-    ["name:cambrian", '{"app":"cambrian"}'],
+    ["agent:publisher/agent-123", '{"agent":"publisher/agent-123"}'],
+    ["agent:aomi/cambrian", '{"agent":"aomi/cambrian"}'],
   ])("gives Auto a concrete task target for %s", (id, target) => {
     const message = appendCapabilityHints("▦ Cambrian list ur tools", {
-      capabilities: [{ kind: "app", id }],
+      capabilities: [{ kind: "agent", id }],
     });
     expect(message).toContain(`task target: ${target}`);
     expect(message).toContain("including requests to list its tools");
     expect(message).toContain(
-      "Do not infer app availability from your own tool list",
+      "Do not infer agent availability from your own tool list",
     );
   });
 
-  it("does not turn malformed application selectors into task targets", () => {
+  it("does not turn malformed agent selectors into task targets", () => {
     for (const id of [
-      "application:0",
-      "application:-1",
-      "application:abc",
-      "application:1e2",
-      "application:0x10",
-      "application:9007199254740992",
+      "agent:no-slash",
+      "agent:publisher/",
+      "agent:/name",
+      "agent:publisher/name/extra",
+      "agent:publisher/UPPER",
     ]) {
       expect(
         appendCapabilityHints("hello", {
-          capabilities: [{ kind: "app", id }],
+          capabilities: [{ kind: "agent", id }],
         }),
       ).not.toContain("task target:");
     }
   });
 });
 
-describe("app selection and removal guidance", () => {
+describe("agent selection and removal guidance", () => {
   it("includes removal guidance even when no chips remain", () => {
     const message = appendCapabilityHints("continue", {
       capabilities: [],
-      removedApps: [
-        { kind: "app", id: "application:2937773", label: "Cambrian" },
+      removedAgents: [
+        {
+          kind: "agent",
+          id: "agent:publisher/agent-2937773",
+          label: "Cambrian",
+        },
       ],
     });
     expect(message).toContain(
-      "User removed app selection: Cambrian (application:2937773)",
+      "User removed agent selection: Cambrian (agent:publisher/agent-2937773)",
     );
     expect(message).toContain("only to this turn");
-    expect(message).not.toContain("Selected app task target");
+    expect(message).not.toContain("Selected agent task target");
   });
   it("prioritizes reselection and keeps irrelevant work optional", () => {
-    const app = { kind: "app", id: "application:2937773", label: "Cambrian" };
+    const agent = {
+      kind: "agent",
+      id: "agent:publisher/agent-2937773",
+      label: "Cambrian",
+    };
     const message = appendCapabilityHints("search USDC", {
-      capabilities: [app],
-      removedApps: [app],
+      capabilities: [agent],
+      removedAgents: [agent],
     });
-    expect(message).toContain("User selected app: Cambrian");
-    expect(message).toContain("Use this app for relevant work");
-    expect(message).not.toContain("User removed app selection");
+    expect(message).toContain("User selected agent: Cambrian");
+    expect(message).toContain("Use this agent for relevant work");
+    expect(message).not.toContain("User removed agent selection");
     expect(message).toContain(
       "offer alternatives without silently substituting",
     );

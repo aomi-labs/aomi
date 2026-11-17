@@ -8,9 +8,9 @@
 
 ### Patch Changes
 
-- Only a `payment_required` 402 opens the out-of-funds modal. A `builder_debt` 402 says the App is temporarily unavailable until its builder adds funds, and other 402 codes show "App unavailable". A rate-limited guest sign-in (429) throws `GuestSignInError` with `retryAfterSeconds`, ends the pending send instead of leaving the thinking indicator running, and shows "Too many requests" with the wait. The Coinbase Wallet and Base Account connectors pass `preference.telemetry: false`, so the SDKs no longer load Coinbase's analytics script from cca-lite.coinbase.com.
-- b08e7a9: Out of funds, the widget opens Add funds checkout in place instead of linking to Chat on another origin, so embedded hosts' visitors top up without leaving the page. A `builder_debt` refusal shows "App paused" instead of asking the user to pay, since their own balance can't fix it.
-- A send that never started now ends at once. A 503 `app_loading` and a failed guest session check no longer leave the thinking indicator and Stop running. The composer gets the message back and a notice says what happened. A failed guest session check is a `GuestSignInError`. The new notices read "App starting" and "App not available" for a 403 or 404 on a Direct App. In a Direct-only widget the composer keeps a failed message's text: its editor no longer clears the restored draft when it remounts. A finished working trace with a failed step shows a warning and the failed count in its header.
+- Only a `payment_required` 402 opens the out-of-funds modal. A `builder_debt` 402 says the Agent is temporarily unavailable until its builder adds funds, and other 402 codes show "Agent unavailable". A rate-limited guest sign-in (429) throws `GuestSignInError` with `retryAfterSeconds`, ends the pending send instead of leaving the thinking indicator running, and shows "Too many requests" with the wait. The Coinbase Wallet and Base Account connectors pass `preference.telemetry: false`, so the SDKs no longer load Coinbase's analytics script from cca-lite.coinbase.com.
+- b08e7a9: Out of funds, the widget opens Add funds checkout in place instead of linking to Chat on another origin, so embedded hosts' visitors top up without leaving the page. A `builder_debt` refusal shows "Agent paused" instead of asking the user to pay, since their own balance can't fix it.
+- A send that never started now ends at once. A 503 `agent_loading` and a failed guest session check no longer leave the thinking indicator and Stop running. The composer gets the message back and a notice says what happened. A failed guest session check is a `GuestSignInError`. The new notices read "Agent starting" and "Agent not available" for a 403 or 404 on a Direct Agent. In a Direct-only widget the composer keeps a failed message's text: its editor no longer clears the restored draft when it remounts. A finished working trace with a failed step shows a warning and the failed count in its header.
 - Updated dependencies
 - Updated dependencies
 - Updated dependencies [0e96552]
@@ -30,14 +30,14 @@
 
 - 665e1dc: Cut over to owner-scoped funding events and one Card / USDC checkout for account and builder credits. Remove top-up and purchase APIs, end-user BYOK options and funding headers. Consumers must upgrade with the backend; no compatibility adapters are provided.
 
-  Builder grants specify canonical model coverage. App metadata carries fundedModelOnly and sponsoredModelIds inline. Hosting charges debit builder credits, separately from personal Chat credits.
+  Builder grants specify canonical model coverage. Agent metadata carries fundedModelOnly and sponsoredModelIds inline. Hosting charges debit builder credits, separately from personal Chat credits.
 
   Use the generated CreditBalance and CreditLedger contracts. credits.get() returns only the balance; load history with credits.ledger(). Remove AomiCreditPosition/AomiCreditActivity and export CreditBalance, CreditLedger and CreditLedgerEntry. The shared checkout component is CreditCheckoutDialog.
 
 ### Minor Changes
 
 - e7d4c1e: Agent wallets: `AomiRuntimeApi` exposes `activeWallet` and `setThreadWallet(id)`, and the user state carries `wallet_pick`, `wallet_presence` and `active_wallet`. `ThreadMetadata` carries `origin` and `awaitingApproval`; chats started in Telegram stay off the list. Display resources `account-wallets`, `wallet-balance` and `connections`.
-- bb9e018: Accept an `account` prop on the runtime provider and keep display persistence per backend, App and account.
+- bb9e018: Accept an `account` prop on the runtime provider and keep display persistence per backend, Agent and account.
 - e008a8d: `AomiRuntimeProvider` takes `aomi` or makes one; the display cache's `apiClient` is now `aomi`; `ControlContextProvider` takes `aomi`. `CONTEXT_STEP_TOOL` and `ContextStep` come from `@aomi-labs/client/trace`. React no longer re-exports `AomiClient`, the wallet helpers and types (import them from `@aomi-labs/client`), `cn` (from `@aomi-labs/widget`) or `formatAddress` (use `shortAddress` from `@aomi-labs/client`).
 - Clean cutover of the TypeScript reform. Remove legacy widget exports, subpaths,
   auth props and the SDK wallet option; use signer and curated widget entries.
@@ -48,7 +48,7 @@
 
 ### Patch Changes
 
-- ea42447: Builders manage a private App's key from Build: `BackendClient.getBuilderAppKey` shows the current key and `regenerateBuilderAppKey` issues a new one, revoking the old. The App key input and the "App key required" notice now point people to the key the App's builder shared.
+- ea42447: Builders manage a private Agent's key from Build: `BackendClient.getBuilderAgentKey` shows the current key and `regenerateBuilderAgentKey` issues a new one, revoking the old. The Agent key input and the "Agent key required" notice now point people to the key the Agent's builder shared.
 - b35b714: Prefer GPT-6.1 Sol for new and Auto threads when the backend offers it, preserving manual model selections and existing fallbacks.
 - 82be57d: The account chip asks to sign in (or shows "Signing in…") instead of showing a connected wallet that has not signed in. @-mention tags and explorer links sit on the text baseline. Chat titles drop the mention markers. The working trace no longer shows a commit hand-off card; the activity panel shows signing.
 - Updated dependencies [665e1dc]

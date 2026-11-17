@@ -45,7 +45,7 @@ function identifySandboxFailure(
  * and extended lazily from the poll path (maybeExtendSandbox) — no background
  * loop, which keeps this serverless-shaped. If nobody polls, the sandbox
  * times out; the run resumes in a fresh sandbox on the next create for the
- * same app (run-plan resumes from store state). Cancel is a durable store
+ * same package (run-plan resumes from store state). Cancel is a durable store
  * write the in-sandbox engine polls; stopping the sandbox is best-effort
  * cleanup on top.
  *
@@ -167,7 +167,7 @@ export type SandboxDispatch = {
 /** Boot a sandbox and launch the headless runner for (plan, runId). */
 export async function dispatchSandboxRun(options: {
   planJson: string;
-  app: string;
+  packageName: string;
   runId: string;
   config: SandboxRunnerConfig;
   client?: SandboxClientLike;
@@ -192,7 +192,7 @@ export async function dispatchSandboxRun(options: {
       AOMI_SIDECAR_PUBKEY: options.sidecarPublicKeyPem ?? "",
       AOMI_SIDECAR_RUN_ID: options.runId,
       AOMI_SIDECAR_PORT: String(SIDECAR_PORT),
-      AOMI_SIDECAR_APP: options.app,
+      AOMI_SIDECAR_APP: options.packageName,
       // The image runs as root and the claude CLI refuses its
       // skip-permissions flags under root unless it knows it's inside a
       // sandbox. The microVM is exactly that.
@@ -209,9 +209,9 @@ export async function dispatchSandboxRun(options: {
         ? { SMITHER_OPENROUTER_MODEL: config.openrouterModel }
         : {}),
     },
-    tags: { app: options.app.slice(0, 64) },
+    tags: { packageName: options.packageName.slice(0, 64) },
   });
-  // Live-files sidecar first (serves apps/<app> while the run works), then
+  // Live-files sidecar first (serves packages/<package> while the run works), then
   // the runner. Older images without the sidecar script just log an error
   // for the first command; the run itself is unaffected.
   await sandbox.runCommand({

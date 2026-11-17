@@ -15,9 +15,7 @@ import { InjectedWallet, type InjectedProvider } from "./injected-wallet";
 
 const env = import.meta.env;
 const baseUrl = env.VITE_AOMI_BASE_URL?.trim() || "https://aomi.chat";
-const applicationId = env.VITE_AOMI_APPLICATION_ID?.trim()
-  ? Number(env.VITE_AOMI_APPLICATION_ID)
-  : undefined;
+const agent = env.VITE_AOMI_AGENT?.trim() || undefined;
 const allowedTargets = (env.VITE_ALLOWED_TARGETS ?? "")
   .split(",")
   .map((address) => address.trim().toLowerCase())
@@ -67,7 +65,7 @@ class LocalCommitRecovery implements CommitRecoveryStore {
   }
 }
 
-export function App() {
+export function Agent() {
   const [providers, setProviders] = useState<InjectedProvider[]>([]);
   const [findingProviders, setFindingProviders] = useState(true);
   const [wallet, setWallet] = useState<InjectedWallet>();
@@ -95,11 +93,9 @@ export function App() {
     if (!wallet) return;
     const wallets = wallet.toAomiWallets();
     const next = new Session(aomi.raw, {
-      // Omit `target` for the default Agent routing; pin an App with
-      // `{ mode: "direct", applicationId }`.
-      ...(applicationId
-        ? { target: { mode: "direct" as const, applicationId } }
-        : {}),
+      // Omit `target` for the default Agent routing; pin an Agent with
+      // `{ mode: "direct", agent }`.
+      ...(agent ? { target: { mode: "direct" as const, agent } } : {}),
       actions: walletCapabilities(wallets),
       commits: commitCapabilities(wallets, new LocalCommitRecovery()),
       // Tells the agent which address and chain it is building for.

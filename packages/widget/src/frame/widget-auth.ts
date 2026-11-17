@@ -6,7 +6,7 @@ import type {
 } from "@/wallet/config/types";
 
 export type PrivyAuthOptions = {
-  /** Privy public app ID. */
+  /** Privy public agent ID. */
   appId: string;
   appName?: string;
   appLogoUrl?: string;
@@ -97,4 +97,3 @@ export function resolveWidgetAuth(
     error: `Unknown auth type "${(auth as { type?: unknown }).type}". Use "browser_wallet", privyAuth(…) or paraAuth(…).`,
   };
 }
-

@@ -14,8 +14,8 @@ import {
   useCapabilityComposer,
 } from "./provider";
 import type { PickerItem } from "./model";
-import type { DirectRoutingApp } from "@/controls/routing";
-import { AppIndicator } from "@/controls/app-indicator";
+import type { DirectRoutingAgent } from "@/controls/routing";
+import { AgentIndicator } from "@/controls/agent-indicator";
 
 const fixture = vi.hoisted(() => ({
   text: "",
@@ -29,11 +29,11 @@ const fixture = vi.hoisted(() => ({
   onSend: () => {},
   mode: "auto" as "auto" | "direct",
   defaultMode: "auto" as "auto" | "direct",
-  directApps: [{ app: "default" }] as DirectRoutingApp[],
-  currentApp: { app: "default" } as DirectRoutingApp,
-  appTag: undefined as undefined | { app: string; applicationId?: number },
+  directAgents: [{ agent: "aomi/main" }] as DirectRoutingAgent[],
+  currentAgent: { agent: "aomi/main" } as DirectRoutingAgent,
+  agentTag: undefined as undefined | { agent: string; agentId?: number },
   sent: [] as unknown[],
-  getAuthorizedApps: vi.fn(async () => []),
+  getAuthorizedAgents: vi.fn(async () => []),
   onAgentModeSelect: vi.fn(),
   onAgentTargetSelect: vi.fn(),
 }));
@@ -53,10 +53,25 @@ vi.mock("@aomi-labs/react", () => ({
   useControl: () => fixture,
   useAuthEndpoints: () => ({
     state: {
-      appDescriptors: [
-        { name: "default", label: "Basic" },
-        { name: "aave", applicationId: 42, metadata: { source: "builtin" } },
-        { name: "research", applicationId: 43, label: "Research App" },
+      agentCards: [
+        {
+          agent_id: 7,
+          agent: "aomi/main",
+          display_name: "Basic",
+          metadata: {},
+        },
+        {
+          agent_id: 42,
+          agent: "aomi/aave",
+          display_name: "Aave",
+          metadata: { source: "builtin" },
+        },
+        {
+          agent_id: 43,
+          agent: "aomi/research",
+          display_name: "Research Agent",
+          metadata: {},
+        },
       ],
     },
   }),
@@ -64,7 +79,7 @@ vi.mock("@aomi-labs/react", () => ({
     currentThreadId: fixture.threadId,
     threadViewKey: fixture.threadId,
     getThreadMetadata: () => ({
-      control: { agentMode: fixture.mode, ...fixture.currentApp },
+      control: { agentMode: fixture.mode, ...fixture.currentAgent },
     }),
   }),
 }));
@@ -87,7 +102,7 @@ function Composer() {
   const composer = useCapabilityComposer();
   return (
     <>
-      <AppIndicator app={composer.selectedApp ?? undefined} />
+      <AgentIndicator agent={composer.selectedAgent ?? undefined} />
       <button
         onClick={() =>
           composer.addMention({
@@ -106,11 +121,11 @@ function Composer() {
       <button
         onClick={() =>
           composer.addMention({
-            kind: "app",
-            id: "application:2937773",
-            key: "app:cambrian",
+            kind: "agent",
+            id: "agent:2937773",
+            key: "agent:cambrian",
             label: "Cambrian",
-            appName: "cambrian",
+            agentName: "aomi/cambrian",
           })
         }
       >
@@ -157,11 +172,11 @@ function Harness() {
       routing={{
         targets: [
           { mode: "auto" },
-          { mode: "direct", apps: fixture.directApps },
+          { mode: "direct", agents: fixture.directAgents },
         ],
         defaultMode: fixture.defaultMode,
       }}
-      initialAppTag={fixture.appTag}
+      initialAgentTag={fixture.agentTag}
     >
       <Composer />
       <CapabilityMentionInput
@@ -181,9 +196,9 @@ beforeEach(() => {
   fixture.threadId = "thread-a";
   fixture.mode = "auto";
   fixture.defaultMode = "auto";
-  fixture.directApps = [{ app: "default" }];
-  fixture.currentApp = { app: "default" };
-  fixture.appTag = undefined;
+  fixture.directAgents = [{ agent: "aomi/main" }];
+  fixture.currentAgent = { agent: "aomi/main" };
+  fixture.agentTag = undefined;
   fixture.sent = [];
   fixture.onAgentModeSelect.mockClear();
   fixture.onAgentTargetSelect.mockClear();
@@ -261,26 +276,26 @@ describe("host-owned routing", () => {
     });
   });
 
-  it("pins the host's Direct app silently", async () => {
+  it("pins the host's Direct agent silently", async () => {
     fixture.defaultMode = "direct";
     render(<Harness />);
     await act(async () => {});
     expect(fixture.onAgentTargetSelect).toHaveBeenCalledWith(
-      { mode: "direct", app: "default" },
+      { agent: "aomi/main", mode: "direct" },
       { persist: false },
     );
   });
 });
 
-describe("turn-scoped app mentions", () => {
-  it("sends an app hint and clears it with the submitted message", async () => {
+describe("turn-scoped agent mentions", () => {
+  it("sends an agent hint and clears it with the submitted message", async () => {
     render(<Harness />);
     await act(async () => {
       fireEvent.click(screen.getByText("Choose Cambrian"));
     });
     expect(fixture.runConfig.custom.aomiCapabilityHints).toMatchObject({
       capabilities: [
-        { kind: "app", id: "application:2937773", appName: "cambrian" },
+        { kind: "agent", id: "agent:2937773", agentName: "aomi/cambrian" },
       ],
     });
     await act(async () => {
@@ -289,7 +304,7 @@ describe("turn-scoped app mentions", () => {
     expect(fixture.sent[0]).toMatchObject({
       custom: {
         aomiCapabilityHints: {
-          capabilities: [{ kind: "app", id: "application:2937773" }],
+          capabilities: [{ kind: "agent", id: "agent:2937773" }],
         },
       },
     });
@@ -297,7 +312,7 @@ describe("turn-scoped app mentions", () => {
     expect(fixture.runConfig.custom.aomiCapabilityHints).toBeUndefined();
     expect(localStorage.length).toBe(0);
   });
-  it("does not restore an app in another conversation or on remount", async () => {
+  it("does not restore an agent in another conversation or on remount", async () => {
     const view = render(<Harness />);
     await act(async () => {
       fireEvent.click(screen.getByText("Choose Cambrian"));
@@ -318,12 +333,12 @@ describe("turn-scoped app mentions", () => {
   });
 });
 
-it("inserts an app inline at the caret and removes it with Backspace", async () => {
+it("inserts an agent inline at the caret and removes it with Backspace", async () => {
   fixture.items = [
     {
-      kind: "app",
-      id: "application:2937773",
-      key: "app:cambrian",
+      kind: "agent",
+      id: "agent:2937773",
+      key: "agent:cambrian",
       label: "Cambrian",
       searchText: "Cambrian",
       Icon: () => <span aria-hidden="true" />,
@@ -342,7 +357,7 @@ it("inserts an app inline at the caret and removes it with Backspace", async () 
   fireEvent.click(screen.getByRole("option", { name: /Cambrian/ }));
 
   const mention = editor.querySelector<HTMLElement>("[data-capability-key]");
-  expect(mention?.dataset.capabilityKind).toBe("app");
+  expect(mention?.dataset.capabilityKind).toBe("agent");
   expect(editor.textContent).toContain("Ask Cambrian to swap");
   expect(editor.firstChild?.textContent).toBe("Ask ");
   expect(fixture.setText).toHaveBeenLastCalledWith("Ask ▦ Cambrian to swap");
@@ -359,12 +374,12 @@ it("inserts an app inline at the caret and removes it with Backspace", async () 
   expect(fixture.runConfig.custom.aomiCapabilityHints).toBeUndefined();
 });
 
-it("inserts a toolbar-picked app at the current caret, not ahead of the draft", async () => {
+it("inserts a toolbar-picked agent at the current caret, not ahead of the draft", async () => {
   fixture.items = [
     {
-      kind: "app",
-      id: "application:2937773",
-      key: "app:cambrian",
+      kind: "agent",
+      id: "agent:2937773",
+      key: "agent:cambrian",
       label: "Cambrian",
       searchText: "Cambrian",
       Icon: () => <span aria-hidden="true" />,
@@ -388,7 +403,7 @@ it("inserts a toolbar-picked app at the current caret, not ahead of the draft", 
   expect(screen.getByTestId("selections")).toHaveTextContent("Cambrian");
 });
 
-it("clears app and skill mentions together after send", async () => {
+it("clears agent and skill mentions together after send", async () => {
   fixture.text = "✦ Across hello";
   const view = render(<Harness />);
   await act(async () => {
@@ -414,7 +429,7 @@ it("mounts the picker outside the composer overflow boundary", async () => {
   });
 
   const listbox = screen.getByRole("listbox", {
-    name: "Apps, skills, chains, and wallets",
+    name: "Agents, skills, chains, and wallets",
   });
   expect(listbox.closest(".overflow-x-hidden")).toBeNull();
 });
@@ -501,20 +516,20 @@ it("shows an edited message's tags as tags and sends only what is left", async (
   });
 });
 
-it("pre-tags a host-requested app once, like a + picker choice", async () => {
+it("pre-tags a host-requested agent once, like a + picker choice", async () => {
   fixture.items = [
     {
-      kind: "app",
-      id: "application:2937773",
-      key: "app:application:2937773",
+      agent: "aomi/cambrian",
+      kind: "agent",
+      id: "agent:2937773",
+      key: "agent:agent:2937773",
       label: "Cambrian",
-      appName: "cambrian",
-      applicationId: 2937773,
+      agentName: "aomi/cambrian",
       searchText: "Cambrian",
       Icon: () => <span aria-hidden="true" />,
     },
   ];
-  fixture.appTag = { app: "cambrian" };
+  fixture.agentTag = { agent: "aomi/cambrian" };
   const view = render(<Harness />);
   await act(async () => {});
 
@@ -523,7 +538,7 @@ it("pre-tags a host-requested app once, like a + picker choice", async () => {
   expect(screen.getByTestId("selections")).toHaveTextContent("Cambrian");
   expect(fixture.prepareGuestSession).not.toHaveBeenCalled();
   expect(fixture.runConfig.custom.aomiCapabilityHints).toMatchObject({
-    capabilities: [{ kind: "app", id: "application:2937773" }],
+    capabilities: [{ kind: "agent", id: "agent:2937773" }],
   });
 
   await act(async () => {
@@ -532,59 +547,65 @@ it("pre-tags a host-requested app once, like a + picker choice", async () => {
   expect(editor.querySelectorAll("[data-capability-key]")).toHaveLength(1);
 });
 
-describe("selected app context", () => {
-  it("hides allowed Direct apps under Auto, even with a stored Direct target", () => {
+describe("selected agent context", () => {
+  it("hides allowed Direct agents under Auto, even with a stored Direct target", () => {
     fixture.mode = "direct";
-    fixture.currentApp = { applicationId: 42 };
-    fixture.directApps = [{ app: "default" }, { applicationId: 42 }];
+    fixture.currentAgent = { agent: "aomi/aave" };
+    fixture.directAgents = [{ agent: "aomi/main" }, { agent: "aomi/aave" }];
     render(<Harness />);
-    expect(screen.queryByTestId(testIds.composerSelectedApp)).toBeNull();
+    expect(screen.queryByTestId(testIds.composerSelectedAgent)).toBeNull();
   });
 
-  it("shows the active Direct app rather than the first allowed app", () => {
+  it("shows the active Direct agent rather than the first allowed agent", () => {
     fixture.mode = "direct";
     fixture.defaultMode = "direct";
-    fixture.currentApp = { applicationId: 42 };
-    fixture.directApps = [{ app: "default" }, { applicationId: 42 }];
+    fixture.currentAgent = { agent: "aomi/aave" };
+    fixture.directAgents = [{ agent: "aomi/main" }, { agent: "aomi/aave" }];
     render(<Harness />);
-    const indicator = screen.getByLabelText("Selected app: Aave");
+    const indicator = screen.getByLabelText("Selected agent: Aave");
     expect(indicator).toHaveTextContent(/^Aave$/);
     expect(indicator.querySelector("svg")).not.toHaveClass("lucide-app-window");
     expect(fixture.onAgentTargetSelect).not.toHaveBeenCalled();
   });
 
-  it("updates the configured Direct app and clears it on an Auto transition", () => {
+  it("updates the configured Direct agent and clears it on an Auto transition", () => {
     fixture.defaultMode = "direct";
-    fixture.directApps = [{ applicationId: 42 }];
+    fixture.directAgents = [{ agent: "aomi/aave" }];
     const view = render(<Harness />);
-    expect(screen.getByLabelText("Selected app: Aave")).toBeVisible();
-    fixture.directApps = [{ applicationId: 43 }];
+    expect(screen.getByLabelText("Selected agent: Aave")).toBeVisible();
+    fixture.directAgents = [{ agent: "aomi/research" }];
     view.rerender(<Harness />);
-    expect(screen.getByLabelText("Selected app: Research App")).toBeVisible();
-    expect(screen.queryByLabelText("Selected app: Aave")).toBeNull();
+    expect(
+      screen.getByLabelText("Selected agent: Research Agent"),
+    ).toBeVisible();
+    expect(screen.queryByLabelText("Selected agent: Aave")).toBeNull();
     fixture.defaultMode = "auto";
     view.rerender(<Harness />);
-    expect(screen.queryByTestId(testIds.composerSelectedApp)).toBeNull();
+    expect(screen.queryByTestId(testIds.composerSelectedAgent)).toBeNull();
   });
 
   it("preserves an explicit Portal tag in Auto and follows host tag changes", () => {
-    fixture.appTag = { app: "aave", applicationId: 42 };
+    fixture.agentTag = { agent: "aomi/aave" };
     const view = render(<Harness />);
-    expect(screen.getByLabelText("Selected app: Aave")).toBeVisible();
-    fixture.appTag = { app: "research", applicationId: 43 };
+    expect(screen.getByLabelText("Selected agent: Aave")).toBeVisible();
+    fixture.agentTag = { agent: "aomi/research" };
     view.rerender(<Harness />);
-    expect(screen.getByLabelText("Selected app: Research App")).toBeVisible();
-    expect(screen.queryByLabelText("Selected app: Aave")).toBeNull();
-    fixture.appTag = undefined;
+    expect(
+      screen.getByLabelText("Selected agent: Research Agent"),
+    ).toBeVisible();
+    expect(screen.queryByLabelText("Selected agent: Aave")).toBeNull();
+    fixture.agentTag = undefined;
     view.rerender(<Harness />);
-    expect(screen.queryByTestId(testIds.composerSelectedApp)).toBeNull();
+    expect(screen.queryByTestId(testIds.composerSelectedAgent)).toBeNull();
   });
 
   it("gives the explicit host tag precedence over a Direct target", () => {
     fixture.defaultMode = "direct";
-    fixture.appTag = { app: "research", applicationId: 43 };
+    fixture.agentTag = { agent: "aomi/research" };
     render(<Harness />);
-    expect(screen.getByLabelText("Selected app: Research App")).toBeVisible();
-    expect(screen.queryByLabelText("Selected app: Basic")).toBeNull();
+    expect(
+      screen.getByLabelText("Selected agent: Research Agent"),
+    ).toBeVisible();
+    expect(screen.queryByLabelText("Selected agent: Basic")).toBeNull();
   });
 });

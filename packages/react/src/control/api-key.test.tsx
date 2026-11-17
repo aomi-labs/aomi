@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, expect, it } from "vitest";
 import { createScopedStorage } from "@aomi-labs/client";
 import { useApiKeyImpl } from "./api-key";
-const scope = { backendUrl: "https://api.example", appId: "one" };
+const scope = { backendUrl: "https://api.example", agentScope: "one" };
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();

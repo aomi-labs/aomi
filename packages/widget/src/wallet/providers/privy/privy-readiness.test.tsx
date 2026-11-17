@@ -1,7 +1,7 @@
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AomiWalletKitComposerProps } from "@/wallet/composer/types";
-import { AomiPrivyPluginProvider } from "./privy-plugin-provider";
+import { AomiPrivyAdapterProvider } from "./privy-adapter-provider";
 import { WalletAuthPublisherContext } from "@/wallet/providers/auth-store";
 import { createInitialState } from "@/wallet/registry/reducer";
 import type { AomiWalletKit } from "@/wallet/types";
@@ -161,9 +161,9 @@ afterEach(() => {
 });
 function mount(execution?: import("@/wallet/config/types").ExecutionConfig) {
   render(
-    <AomiPrivyPluginProvider supportedChains={[]} execution={execution}>
+    <AomiPrivyAdapterProvider supportedChains={[]} execution={execution}>
       wallets
-    </AomiPrivyPluginProvider>,
+    </AomiPrivyAdapterProvider>,
   );
   return fixture.props!.execution;
 }
@@ -259,14 +259,14 @@ describe("Privy signer readiness", () => {
     ];
     fixture.svmSignHook = () => ({ signTransaction: vi.fn() });
     const view = render(
-      <AomiPrivyPluginProvider supportedChains={[]}>
+      <AomiPrivyAdapterProvider supportedChains={[]}>
         wallets
-      </AomiPrivyPluginProvider>,
+      </AomiPrivyAdapterProvider>,
     );
     view.rerender(
-      <AomiPrivyPluginProvider supportedChains={[]}>
+      <AomiPrivyAdapterProvider supportedChains={[]}>
         wallets
-      </AomiPrivyPluginProvider>,
+      </AomiPrivyAdapterProvider>,
     );
     const [first, ...rest] = fixture.embeddedSvm;
     expect(rest.length).toBeGreaterThan(0);

@@ -61,7 +61,7 @@ export function SessionHistory({
       <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
         {sessions.length === 0 ? (
           <p className="text-dim px-1 py-3 text-[11px] leading-4">
-            No builds yet. Describe an app to start.
+            No builds yet. Describe a package to start.
           </p>
         ) : null}
         {visible.map((session) => (
@@ -71,8 +71,7 @@ export function SessionHistory({
             onClick={() => onSelect(session.id)}
             className={cn(
               "panel-row w-full text-left",
-              activeSessionId === session.id &&
-                "border-border-hover bg-accent",
+              activeSessionId === session.id && "border-border-hover bg-accent",
             )}
           >
             <div className="flex items-center justify-between gap-2">

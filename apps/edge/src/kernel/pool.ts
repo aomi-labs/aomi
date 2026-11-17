@@ -3,16 +3,14 @@ import { config } from "./config";
 
 // The whole backend fleet, in BACKEND_ORIGINS order: the Terraform backend
 // inventory, injected by scripts/deploy.mjs. Routing never narrows this
-// statically: a hosted-app request (one carrying application_id) is probed
-// against every origin and sent only to one that holds the app's artifact
-// right now (constrainRouteToAvailableApp). Static home-set placement stays a
-// backend prefetch concern, so an app that is ready on a non-home host is never
+// statically: a hosted-agent request (one carrying agent_id) is probed
+// against every origin and sent only to one that holds the agent's artifact
+// right now (constrainRouteToAvailableAgent). Static home-set placement stays a
+// backend prefetch concern, so an agent that is ready on a non-home host is never
 // made unreachable by placement.
 //
-// Clients must send application_id on EVERY session-scoped request of a
-// hosted-app thread (discovery, chat, and state polls alike); a request
-// without it falls back to rendezvous-by-session and can land on a host that
-// does not hold the app.
+// Internal placement requests may carry agent_id. Public session requests
+// use their thread binding and rendezvous routing.
 export function resolvePool(env: EdgeEnv): readonly string[] {
   return config(env).pool;
 }
@@ -73,5 +71,8 @@ export function routingKeyFor(request: Request, url: URL): string | null {
 
 /** The pool ranked for this request: index 0 owns its thread, the rest are failover. */
 export function rankedPool(request: Request, env: EdgeEnv): string[] {
-  return rankOrigins(routingKeyFor(request, new URL(request.url)), resolvePool(env));
+  return rankOrigins(
+    routingKeyFor(request, new URL(request.url)),
+    resolvePool(env),
+  );
 }

@@ -4,7 +4,7 @@ import { readAgentFile } from "./assets";
 const SKILL_FILES = [
   "skills/aomi-transact/SKILL.md",
   "skills/aomi-transact/references/account-abstraction.md",
-  "skills/aomi-transact/references/apps.md",
+  "skills/aomi-transact/references/agents.md",
   "skills/aomi-transact/references/examples.md",
   "skills/aomi-transact/references/session.md",
   "skills/aomi-transact/references/troubleshooting.md",

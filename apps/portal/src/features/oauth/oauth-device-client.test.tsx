@@ -107,7 +107,7 @@ describe("device code sheet", () => {
     ).toBeTruthy();
     const list = screen.getByRole("list", { name: "What it can do" });
     expect(list.textContent).toContain("Propose trades");
-    expect(list.textContent).toContain("Save and remove app keys");
+    expect(list.textContent).toContain("Save and remove package keys");
     expect(screen.queryByText(/isn’t the Aomi CLI/)).toBeNull();
   });
 

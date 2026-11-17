@@ -8,7 +8,7 @@ export { CapabilityMentionInput } from "@/composer/capability-composer/input";
 export { SupportedChainStack } from "@/composer/capability-composer/picker";
 export {
   requestCapabilityMention,
-  type AppTagRequest,
+  type AgentTagRequest,
   type ExecutionPolicy,
   type CapabilityKind,
   type CapabilityMention,

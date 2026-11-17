@@ -300,7 +300,7 @@ function parseAccountWallet(value: unknown): AomiAccountWallet {
     provider: stringValue(record.provider) ?? null,
     created_at: numberOrNull(record.created_at) ?? 0,
     agent_wallet_id: stringValue(record.agent_wallet_id) ?? null,
-    maker_app: stringValue(record.maker_app) ?? null,
+    maker_agent: stringValue(record.maker_agent) ?? null,
     ...(record.lane === undefined ? {} : { lane: laneOf(record.lane) }),
   };
 }

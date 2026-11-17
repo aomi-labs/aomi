@@ -2,7 +2,7 @@
  * The portal's runtime fetch stack, extracted from the frame shell so the
  * component file stays presentational.
  *
- * The routed fetch handles debug logging and locked-app query scoping. The
+ * The routed fetch handles debug logging and locked-agent query scoping. The
  * x402 signer is passed separately so the shared client owns payment retries.
  * Requests are same-origin: the Edge attaches the account credential.
  */
@@ -14,49 +14,24 @@ import {
   useAomiWalletKit,
 } from "@aomi-labs/widget/host-composition";
 
-export type RequestedAppConfig = {
-  app: string | null;
-  applicationId: string | null;
-  locked: boolean;
-};
+export type RequestedAgentConfig = { agent: string | null; locked: boolean };
 
-export function getRequestedAppConfig(search: string): RequestedAppConfig {
+export function getRequestedAgentConfig(search: string): RequestedAgentConfig {
   const params = new URLSearchParams(search);
-  let app: string | null = null;
-
-  for (const key of ["aomi_app", "app"] as const) {
-    const value = params.get(key)?.trim();
-    if (value) {
-      app = value;
-      break;
-    }
-  }
-
   return {
-    app,
-    applicationId:
-      params.get("application_id")?.trim() ||
-      params.get("applicationId")?.trim() ||
-      null,
-    locked:
-      params.get("lock_app") === "1" ||
-      params.get("lock_app") === "true" ||
-      params.get("app_locked") === "1" ||
-      params.get("app_locked") === "true",
+    agent: params.get("agent")?.trim() || null,
+    locked: params.get("lock_agent") === "1",
   };
 }
 
-export function useRequestedAppConfig(): RequestedAppConfig {
-  const [config, setConfig] = useState<RequestedAppConfig>({
-    app: null,
-    applicationId: null,
+export function useRequestedAgentConfig(): RequestedAgentConfig {
+  const [config, setConfig] = useState<RequestedAgentConfig>({
+    agent: null,
     locked: false,
   });
-
   useEffect(() => {
-    setConfig(getRequestedAppConfig(window.location.search));
+    setConfig(getRequestedAgentConfig(window.location.search));
   }, []);
-
   return config;
 }
 
@@ -138,66 +113,9 @@ export function withDebugLogging(
   };
 }
 
-function parseUrl(input: RequestInfo | URL): URL | null {
-  try {
-    if (typeof input === "string") {
-      return new URL(input, window.location.href);
-    }
-    if (input instanceof URL) {
-      return input;
-    }
-    return new URL(input.url, window.location.href);
-  } catch {
-    return null;
-  }
-}
-
-/** Pin `?app=` / `?application_id=` on the send-path routes of a locked app. */
-export async function applyLockedAppScope(
-  input: RequestInfo | URL,
-  lockedApp: string | null,
-  lockedApplicationId: string | null,
-): Promise<RequestInfo | URL> {
-  if (!lockedApp) {
-    return input;
-  }
-  const url = parseUrl(input);
-  if (!url || !["/v1/agent/chat", "/api/thread/model"].includes(url.pathname)) {
-    return input;
-  }
-  url.searchParams.set("app", lockedApp);
-  if (lockedApplicationId) {
-    url.searchParams.set("application_id", lockedApplicationId);
-  }
-  if (typeof input === "string") {
-    return url.toString();
-  }
-  if (input instanceof URL) {
-    return url;
-  }
-  // Rebuild the Request on the pinned URL field by field: `new Request(url,
-  // request)` would treat the Request as a RequestInit and turn its buffered
-  // body into a ReadableStream (see the normalizedInput note above).
-  return new Request(url, {
-    method: input.method,
-    headers: input.headers,
-    body: input.body ? await input.clone().arrayBuffer() : undefined,
-    mode: input.mode === "navigate" ? undefined : input.mode,
-    credentials: input.credentials,
-    cache: input.cache,
-    redirect: input.redirect,
-    referrer: input.referrer,
-    referrerPolicy: input.referrerPolicy,
-    integrity: input.integrity,
-    keepalive: input.keepalive,
-    signal: input.signal,
-  });
-}
-
-export function usePortalClientOptions(
-  lockedApp: string | null,
-  lockedApplicationId: string | null,
-): Omit<AomiClientOptions, "baseUrl"> | undefined {
+export function usePortalClientOptions():
+  | Omit<AomiClientOptions, "baseUrl">
+  | undefined {
   const nativeFetch = useMemo(() => globalThis.fetch.bind(globalThis), []);
   const {
     identity,
@@ -217,16 +135,9 @@ export function usePortalClientOptions(
 
   return useMemo(() => {
     const rawFetch = withDebugLogging("native.fetch", nativeFetch);
-    const routedFetch: typeof fetch = async (input, init) => {
-      return rawFetch(
-        await applyLockedAppScope(input, lockedApp, lockedApplicationId),
-        init,
-      );
-    };
-
     return {
-      fetch: routedFetch,
+      fetch: rawFetch,
       x402: paymentClient,
     };
-  }, [lockedApp, lockedApplicationId, nativeFetch, paymentClient]);
+  }, [nativeFetch, paymentClient]);
 }

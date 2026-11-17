@@ -43,14 +43,12 @@ const frameScope = vi.hoisted(() => ({
 const backendUrlState = vi.hoisted(() => ({
   current: "https://api.example.test",
 }));
-const requestedAppState = vi.hoisted(() => ({
+const requestedAgentState = vi.hoisted(() => ({
   current: {
-    app: null,
-    applicationId: null,
+    agent: null,
     locked: false,
   } as {
-    app: string | null;
-    applicationId: string | null;
+    agent: string | null;
     locked: boolean;
   },
 }));
@@ -73,7 +71,7 @@ const settingsOpenRequest = vi.hoisted(() => ({
   current: undefined as undefined | ((tab: string) => void),
 }));
 const accountOverviewState = vi.hoisted(() => ({
-  current: null as null | { user: { user_id: string; apps?: string[] } },
+  current: null as null | { user: { user_id: string; agents?: string[] } },
 }));
 
 vi.mock("@aomi-labs/react", () => ({
@@ -93,7 +91,7 @@ vi.mock("@aomi-labs/widget/frame", async () => {
     AomiFrame: {
       Root: ({
         accountSessionAvailable,
-        applicationId,
+        agent,
         agentTarget,
         children,
         showSidebar,
@@ -101,7 +99,7 @@ vi.mock("@aomi-labs/widget/frame", async () => {
         displayPersistence,
       }: {
         accountSessionAvailable: boolean;
-        applicationId?: string | null;
+        agent?: string | null;
         agentTarget?: unknown;
         children?: React.ReactNode;
         showSidebar?: boolean;
@@ -115,7 +113,7 @@ vi.mock("@aomi-labs/widget/frame", async () => {
           <Scope.Provider value={true}>
             <div
               data-account-session-available={String(accountSessionAvailable)}
-              data-application-id={applicationId ?? ""}
+              data-agent={agent ?? ""}
               data-agent-target={agentTarget ? JSON.stringify(agentTarget) : ""}
               data-instance={instance}
               data-display-persistence={displayPersistence ?? ""}
@@ -137,16 +135,18 @@ vi.mock("@aomi-labs/widget/frame", async () => {
       }: {
         controlBarProps?: {
           routing?: unknown;
-          initialAppTag?: unknown;
-          enabledAppIds?: readonly string[];
+          initialAgentTag?: unknown;
+          enabledAgentIds?: readonly string[];
         };
         sendDisabled?: boolean;
       }) => (
         <div
           data-send-disabled={String(Boolean(sendDisabled))}
           data-routing={JSON.stringify(controlBarProps?.routing)}
-          data-app-tag={JSON.stringify(controlBarProps?.initialAppTag ?? null)}
-          data-enabled-apps={JSON.stringify(controlBarProps?.enabledAppIds)}
+          data-agent-tag={JSON.stringify(
+            controlBarProps?.initialAgentTag ?? null,
+          )}
+          data-enabled-agents={JSON.stringify(controlBarProps?.enabledAgentIds)}
           data-testid="composer"
         />
       ),
@@ -156,7 +156,7 @@ vi.mock("@aomi-labs/widget/frame", async () => {
 
 vi.mock("@/lib/portal-client-options", () => ({
   usePortalClientOptions: () => ({}),
-  useRequestedAppConfig: () => requestedAppState.current,
+  useRequestedAgentConfig: () => requestedAgentState.current,
 }));
 
 vi.mock("@aomi-labs/widget/host-composition", async () => {
@@ -247,9 +247,8 @@ describe("PortalAomiFrame account bootstrap", () => {
       accountStatus: "loading",
       accountUser: undefined,
     };
-    requestedAppState.current = {
-      app: null,
-      applicationId: null,
+    requestedAgentState.current = {
+      agent: null,
       locked: false,
     };
     accountOverviewState.current = null;
@@ -273,18 +272,18 @@ describe("PortalAomiFrame account bootstrap", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("reads installed apps from the frame's account display cache", () => {
+  it("reads installed packages from the frame's account display cache", () => {
     walletKitState.current = {
       accountStatus: "ready",
       accountUser: { id: "acct-a" },
     };
     accountOverviewState.current = {
-      user: { user_id: "acct-a", apps: ["default", "uniswap"] },
+      user: { user_id: "acct-a", agents: ["aomi/main", "aomi/uniswap"] },
     };
     render(<PortalAomiFrame />);
     expect(screen.getByTestId("composer")).toHaveAttribute(
-      "data-enabled-apps",
-      '["default","uniswap"]',
+      "data-enabled-agents",
+      '["aomi/main","aomi/uniswap"]',
     );
   });
 
@@ -487,13 +486,16 @@ describe("PortalAomiFrame account bootstrap", () => {
     );
   });
 
-  it("runs Auto only, with no Direct targets, even with installed apps", () => {
+  it("runs Auto only, with no Direct targets, even with installed packages", () => {
     walletKitState.current = {
       accountStatus: "ready",
       accountUser: { id: "acct-a" },
     };
     accountOverviewState.current = {
-      user: { user_id: "acct-a", apps: ["default", "credential-demo"] },
+      user: {
+        user_id: "acct-a",
+        agents: ["aomi/main", "aomi/credential-demo"],
+      },
     };
 
     render(<PortalAomiFrame />);
@@ -503,14 +505,13 @@ describe("PortalAomiFrame account bootstrap", () => {
     );
   });
 
-  it("pre-tags an unlocked ?app= link instead of routing it Direct", () => {
+  it("pre-tags an unlocked ?agent= link instead of routing it Direct", () => {
     walletKitState.current = {
       accountStatus: "ready",
       accountUser: { id: "acct-a" },
     };
-    requestedAppState.current = {
-      app: "credential-demo",
-      applicationId: "16",
+    requestedAgentState.current = {
+      agent: "aomi/credential-demo",
       locked: false,
     };
 
@@ -520,9 +521,8 @@ describe("PortalAomiFrame account bootstrap", () => {
     expect(JSON.parse(composer.dataset.routing!)).toEqual({
       targets: [{ mode: "auto" }],
     });
-    expect(JSON.parse(composer.dataset.appTag!)).toEqual({
-      app: "credential-demo",
-      applicationId: 16,
+    expect(JSON.parse(composer.dataset.agentTag!)).toEqual({
+      agent: "aomi/credential-demo",
     });
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-agent-target",
@@ -627,7 +627,7 @@ describe("PortalAomiFrame account bootstrap", () => {
   });
 
   it("opens a credit top-up handoff and retains it through sign-in", () => {
-    window.history.replaceState({}, "", "/?topup=credits&app=demo");
+    window.history.replaceState({}, "", "/?topup=credits&agent=demo");
     const view = render(<PortalAomiFrame />);
     expect(screen.getByTestId("settings-modal")).toHaveAttribute(
       "data-tab",
@@ -637,7 +637,7 @@ describe("PortalAomiFrame account bootstrap", () => {
       "data-topup",
       "true",
     );
-    expect(window.location.search).toBe("?app=demo");
+    expect(window.location.search).toBe("?agent=demo");
     walletKitState.current = {
       accountStatus: "ready",
       accountUser: { id: "acct-a" },
@@ -765,7 +765,7 @@ describe("PortalAomiFrame account bootstrap", () => {
     runtimeState.current.threadMetadata = new Map([
       ["owned-chat", { title: "Hello", status: "regular" }],
     ]);
-    window.history.replaceState({}, "", "/?thread=owned-chat&app=search");
+    window.history.replaceState({}, "", "/?thread=owned-chat&agent=search");
     const view = render(<PortalAomiFrame />);
     runtimeState.current.showNotification.mockClear();
     runtimeState.current.selectThread.mockClear();
@@ -776,28 +776,27 @@ describe("PortalAomiFrame account bootstrap", () => {
     runtimeState.current.threadMetadata = new Map();
     await act(async () => view.rerender(<PortalAomiFrame />));
 
-    expect(window.location.search).toBe("?app=search");
+    expect(window.location.search).toBe("?agent=search");
     expect(runtimeState.current.showNotification).not.toHaveBeenCalled();
     expect(runtimeState.current.selectThread).not.toHaveBeenCalled();
     expect(runtimeState.current.createThread).not.toHaveBeenCalled();
   });
 
-  it("isolates a locked project chat to its application", () => {
+  it("isolates a locked project chat to its agent", () => {
     walletKitState.current = {
       accountStatus: "ready",
       accountUser: { id: "acct-a" },
     };
-    requestedAppState.current = {
-      app: "goal-digger",
-      applicationId: "2936682",
+    requestedAgentState.current = {
+      agent: "aomi/goal-digger",
       locked: true,
     };
 
     render(<PortalAomiFrame />);
 
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
-      "data-application-id",
-      "2936682",
+      "data-agent",
+      "aomi/goal-digger",
     );
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-show-sidebar",
@@ -807,8 +806,7 @@ describe("PortalAomiFrame account bootstrap", () => {
       "data-agent-target",
       JSON.stringify({
         mode: "direct",
-        app: "goal-digger",
-        applicationId: 2936682,
+        agent: "aomi/goal-digger",
       }),
     );
     expect(JSON.parse(screen.getByTestId("composer").dataset.routing!)).toEqual(
@@ -816,13 +814,13 @@ describe("PortalAomiFrame account bootstrap", () => {
         targets: [
           {
             mode: "direct",
-            apps: [{ app: "goal-digger", applicationId: 2936682 }],
+            agents: [{ agent: "aomi/goal-digger" }],
           },
         ],
         defaultMode: "direct",
       },
     );
-    expect(JSON.parse(screen.getByTestId("composer").dataset.appTag!)).toBe(
+    expect(JSON.parse(screen.getByTestId("composer").dataset.agentTag!)).toBe(
       null,
     );
   });
@@ -958,12 +956,12 @@ describe("ThreadUrlBootstrap", () => {
   });
 
   it("clears the saved URL on real New chat and restores messages through browser back and forward", async () => {
-    window.history.replaceState({}, "", "/?app=default&thread=saved");
+    window.history.replaceState({}, "", "/?agent=default&thread=saved");
     const push = vi.spyOn(window.history, "pushState");
     render(<RuntimeUrlHarness />);
     expect(screen.getByText("saved-message")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "New chat" }));
-    await waitFor(() => expect(window.location.search).toBe("?app=default"));
+    await waitFor(() => expect(window.location.search).toBe("?agent=default"));
     expect(screen.queryByText("saved-message")).not.toBeInTheDocument();
 
     await act(async () => {
@@ -972,7 +970,7 @@ describe("ThreadUrlBootstrap", () => {
     await waitFor(() =>
       expect(screen.getByText("saved-message")).toBeVisible(),
     );
-    expect(window.location.search).toBe("?app=default&thread=saved");
+    expect(window.location.search).toBe("?agent=default&thread=saved");
 
     await act(async () => {
       window.history.forward();
@@ -980,7 +978,7 @@ describe("ThreadUrlBootstrap", () => {
     await waitFor(() =>
       expect(screen.queryByText("saved-message")).not.toBeInTheDocument(),
     );
-    expect(window.location.search).toBe("?app=default");
+    expect(window.location.search).toBe("?agent=default");
     expect(push).toHaveBeenCalledTimes(1);
     push.mockRestore();
   });
@@ -1049,7 +1047,7 @@ describe("ThreadUrlBootstrap", () => {
   });
 
   it("does not replace browser navigation when a router render precedes popstate", async () => {
-    window.history.replaceState({}, "", "/?app=hoodit&thread=saved");
+    window.history.replaceState({}, "", "/?agent=hoodit&thread=saved");
     runtimeState.current = {
       ...runtimeState.current,
       currentThreadId: "saved",
@@ -1060,12 +1058,12 @@ describe("ThreadUrlBootstrap", () => {
     };
     const view = render(<ThreadUrlBootstrap />);
     const push = vi.spyOn(window.history, "pushState");
-    window.history.replaceState({}, "", "/?app=hoodit");
+    window.history.replaceState({}, "", "/?agent=hoodit");
     runtimeState.current.threadMetadata = new Map(
       runtimeState.current.threadMetadata,
     );
     view.rerender(<ThreadUrlBootstrap />);
-    expect(window.location.search).toBe("?app=hoodit");
+    expect(window.location.search).toBe("?agent=hoodit");
     expect(runtimeState.current.createThread).toHaveBeenCalledOnce();
     expect(push).not.toHaveBeenCalled();
     push.mockRestore();
@@ -1074,7 +1072,7 @@ describe("ThreadUrlBootstrap", () => {
   it.each(["missing", "archived"])(
     "settles an unavailable %s URL on a new chat",
     async (kind) => {
-      window.history.replaceState({}, "", "/?app=default&thread=unavailable");
+      window.history.replaceState({}, "", "/?agent=default&thread=unavailable");
       if (kind === "archived")
         runtimeState.current.threadMetadata = new Map([
           ["unavailable", { status: "archived", title: "Old chat" }],
@@ -1083,7 +1081,7 @@ describe("ThreadUrlBootstrap", () => {
       expect(runtimeState.current.selectThread).not.toHaveBeenCalled();
       expect(runtimeState.current.createThread).toHaveBeenCalledOnce();
       expect(runtimeState.current.showNotification).toHaveBeenCalledOnce();
-      expect(window.location.search).toBe("?app=default");
+      expect(window.location.search).toBe("?agent=default");
     },
   );
 

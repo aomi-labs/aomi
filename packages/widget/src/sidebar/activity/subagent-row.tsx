@@ -17,7 +17,7 @@ export function SubagentRow({
 }) {
   const [open, setOpen] = useState(false);
   const hasMessage = Boolean(agent.message?.trim());
-  const label = agent.label || agent.app || "Subagent";
+  const label = agent.label || agent.toolset || "Subagent";
   const status =
     agent.status === "completed"
       ? "Completed"

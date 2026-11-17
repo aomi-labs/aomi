@@ -239,7 +239,7 @@ export function selectActivity(
     }
     // The family comes from the payload: prepared records name it, Solana
     // records carry a cluster, EVM ones a chain id. A tool's name says
-    // nothing (a "jupiter" app may stage on EVM).
+    // nothing (a "jupiter" agent may stage on EVM).
     const familyOf = (
       value: Record<string, unknown>,
       fallback: "svm" | "evm",

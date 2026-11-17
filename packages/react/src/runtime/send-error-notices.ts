@@ -1,38 +1,38 @@
 import {
   AgentApiError,
   isAomiError,
-  type AgentAppAccessErrorCode,
+  type AgentAccessErrorCode,
 } from "@aomi-labs/client";
 import type { NotificationData } from "../contexts/notification-context";
 import { getHttpStatus } from "./http-status";
 
 /**
- * Copy for App access failures. These say nothing about the conversation, so
- * the persisted thread stays pinned; changing the App or its key fixes them.
+ * Copy for Agent access failures. These say nothing about the conversation, so
+ * the persisted thread stays pinned; changing the Agent or its key fixes them.
  */
-const APP_ACCESS_NOTICES: Record<
-  AgentAppAccessErrorCode,
+const AGENT_ACCESS_NOTICES: Record<
+  AgentAccessErrorCode,
   { title: string; message: string }
 > = {
-  app_not_found: {
-    title: "App not found",
+  agent_not_found: {
+    title: "Agent not found",
     message:
-      "This App doesn't exist or is no longer available. Check the App name or ID configured for this chat.",
+      "This Agent doesn't exist or is no longer available. Check the Agent name or ID configured for this chat.",
   },
-  app_inactive: {
-    title: "App not active",
+  agent_inactive: {
+    title: "Agent not active",
     message:
-      "This App isn't active yet. Its owner needs to deploy and activate it before it can answer messages.",
+      "This Agent isn't active yet. Its owner needs to deploy and activate it before it can answer messages.",
   },
-  app_key_required: {
-    title: "App key required",
+  agent_key_required: {
+    title: "Agent key required",
     message:
-      "This App is private — it needs an App key. Enter the key its builder shared with you, then send your message again.",
+      "This Agent is private — it needs an Agent key. Enter the key its builder shared with you, then send your message again.",
   },
-  app_key_not_scoped: {
-    title: "App key not valid for this App",
+  agent_key_not_scoped: {
+    title: "Agent key not valid for this Agent",
     message:
-      "The configured App key doesn't grant access to this App. Its builder may have regenerated it; ask them for the current key.",
+      "The configured Agent key doesn't grant access to this Agent. Its builder may have regenerated it; ask them for the current key.",
   },
 };
 
@@ -44,13 +44,13 @@ export type SendFailure = {
 };
 
 /**
- * What to tell the user when a message could not be sent. `directApp` says
- * the chat names one App, so a refusal there is about that App.
+ * What to tell the user when a message could not be sent. `directAgent` says
+ * the chat names one Agent, so a refusal there is about that Agent.
  */
 export function describeSendFailure(
   error: unknown,
   startUncertain: boolean,
-  directApp = false,
+  directAgent = false,
 ): SendFailure {
   const apiError = error instanceof AgentApiError ? error : undefined;
   const status = getHttpStatus(error);
@@ -60,9 +60,9 @@ export function describeSendFailure(
     return {
       notice: {
         type: "error",
-        title: "App paused",
+        title: "Agent paused",
         message:
-          "This App is temporarily unavailable because its builder needs to add funds. Your own balance isn't affected.",
+          "This Agent is temporarily unavailable because its builder needs to add funds. Your own balance isn't affected.",
       },
     };
   // Too many guest sign-ins from this network; the message was never sent.
@@ -113,9 +113,9 @@ export function describeSendFailure(
     return {
       notice: {
         type: "error",
-        title: "App unavailable",
+        title: "Agent unavailable",
         message:
-          "This App can't answer messages right now. Your own balance isn't affected.",
+          "This Agent can't answer messages right now. Your own balance isn't affected.",
       },
     };
   }
@@ -129,22 +129,25 @@ export function describeSendFailure(
           "This conversation belongs to a different agent, so it can't continue here. Start a new conversation to talk to this one.",
       },
     };
-  if (apiError?.appAccessCode)
-    return {
-      notice: { type: "error", ...APP_ACCESS_NOTICES[apiError.appAccessCode] },
-    };
-  if (apiError?.code === "app_loading")
+  if (apiError?.agentAccessCode)
     return {
       notice: {
         type: "error",
-        title: "App starting",
-        message:
-          "This App is still loading on the server. Send your message again in a few seconds.",
+        ...AGENT_ACCESS_NOTICES[apiError.agentAccessCode],
       },
     };
-  // A wrong App ID reaches the backend as a generic refusal.
+  if (apiError?.code === "agent_loading")
+    return {
+      notice: {
+        type: "error",
+        title: "Agent starting",
+        message:
+          "This Agent is still loading on the server. Send your message again in a few seconds.",
+      },
+    };
+  // A wrong Agent ID reaches the backend as a generic refusal.
   if (
-    directApp &&
+    directAgent &&
     apiError &&
     (status === 403 ||
       (status === 404 && apiError.code !== "session_not_found"))
@@ -152,9 +155,9 @@ export function describeSendFailure(
     return {
       notice: {
         type: "error",
-        title: "App not available",
+        title: "Agent not available",
         message:
-          "This App ID isn't available. Check the applicationId configured for this chat.",
+          "This Agent ID isn't available. Check the agentId configured for this chat.",
       },
     };
   if (apiError?.code === "session_not_found")

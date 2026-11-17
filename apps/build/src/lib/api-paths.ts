@@ -38,20 +38,20 @@ export const API_PATHS = {
       `${BUILD_API}/packages/${encodeURIComponent(name)}/secrets/${encodeURIComponent(slot)}`,
     keys: `${BUILD_API}/keys`,
     operate: {
-      bots: `${BUILD_API}/operate/bots`,
-      botCommandSecret: (botId: string) =>
-        `${BUILD_API}/operate/bots/${encodeURIComponent(botId)}/command-secret`,
-      botWebhook: (botId: string) =>
-        `${BUILD_API}/operate/bots/${encodeURIComponent(botId)}/webhook`,
+      channels: `${BUILD_API}/operate/channels`,
+      channelCommandSecret: (channelId: string) =>
+        `${BUILD_API}/operate/channels/${encodeURIComponent(channelId)}/command-secret`,
+      channelWebhook: (channelId: string) =>
+        `${BUILD_API}/operate/channels/${encodeURIComponent(channelId)}/webhook`,
       modelKeys: `${BUILD_API}/operate/model-keys`,
       transactions: `${BUILD_API}/operate/transactions`,
       usage: `${BUILD_API}/operate/usage`,
       logs: `${BUILD_API}/operate/logs`,
       observability: `${BUILD_API}/operate/observability`,
       payments: `${BUILD_API}/operate/payments`,
-      observabilityDetail: (applicationId: number) => {
+      observabilityDetail: (agentId: number) => {
         const params = new URLSearchParams({
-          applicationId: String(applicationId),
+          agentId: String(agentId),
         });
         return `${BUILD_API}/operate/observability/detail?${params}`;
       },

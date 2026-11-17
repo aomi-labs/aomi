@@ -19,7 +19,7 @@ export type WalletBrandDescriptor = {
 const providerBrandRegistry: WalletBrandDescriptor[] = [];
 
 /**
- * Let a provider plugin contribute its own canonical brand key (e.g. Para)
+ * Let a provider adapter contribute its own canonical brand key (e.g. Para)
  * without the generic resolver hardcoding the provider name.
  */
 export function registerWalletBrand(descriptor: WalletBrandDescriptor): void {

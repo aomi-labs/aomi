@@ -3,7 +3,7 @@ import { API_PATHS } from "@/lib/api-paths";
 import { HttpRequestError, readJsonResponse } from "@/lib/request-retry";
 
 export type OperateKind =
-  | "bots"
+  | "channels"
   | "transactions"
   | "usage"
   | "logs"
@@ -72,12 +72,12 @@ export async function operatePaymentsFetch<T>(
 
 export type ObservabilityWindow = "1h" | "24h" | "7d" | "30d";
 
-export async function operateAppDetailFetch<T>(
-  applicationId: number,
+export async function operateAgentDetailFetch<T>(
+  agentId: number,
   window: ObservabilityWindow = "24h",
 ): Promise<T> {
   return operateJson<T>(
-    `${API_PATHS.build.operate.observabilityDetail(applicationId)}&window=${window}`,
+    `${API_PATHS.build.operate.observabilityDetail(agentId)}&window=${window}`,
     "observability detail",
   );
 }

@@ -75,7 +75,7 @@ test("Frontend CI Passed fails closed when selected widget coverage is missing",
   };
   for (const prefix of [
     "PACKAGES",
-    "APPS",
+    "AGENTS",
     "JOURNEYS",
     "BROWSER",
     "CONSUMER",

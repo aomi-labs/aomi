@@ -5,7 +5,7 @@ const DEFAULT_SCOPE = "default";
 
 type ThreadPersistenceKeyOptions = {
   backendUrl: string;
-  applicationId?: number | string | null;
+  agent?: number | string | null;
   scope?: string | null;
 };
 
@@ -17,13 +17,13 @@ const normalizeKeyPart = (value: unknown): string => {
 
 export function buildThreadPersistenceKey({
   backendUrl,
-  applicationId,
+  agent,
   scope,
 }: ThreadPersistenceKeyOptions): string {
   return [
     THREAD_PERSISTENCE_KEY_PREFIX,
     normalizeKeyPart(backendUrl),
-    normalizeKeyPart(applicationId),
+    normalizeKeyPart(agent),
     normalizeKeyPart(scope),
   ].join(":");
 }

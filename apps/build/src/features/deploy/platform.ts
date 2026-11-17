@@ -7,9 +7,6 @@
  * partner developer to Community. The selection is therefore also persisted
  * here and re-attached to the routes that understand it.
  *
- * This is deliberately not `LaunchState.platform` — that one records which
- * platform the wizard's in-flight progress belongs to, and restarting a wizard
- * should not change which platform you are browsing.
  */
 const STORAGE_KEY = "aomi_build_platform";
 

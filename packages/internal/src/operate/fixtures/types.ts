@@ -1,6 +1,6 @@
-// Fixture shapes for the Operate design mocks. One AppFixture hydrates every
+// Fixture shapes for the Operate design mocks. One AgentFixture hydrates every
 // page (observability card, drill-down, transactions, logs, usage) for one
-// app, as if it were real backend data. Privacy ruling is enforced at the
+// agent, as if it were real backend data. Privacy ruling is enforced at the
 // data level: no user intents/messages exist anywhere in these shapes.
 
 export type ChainFamily = "evm" | "svm";
@@ -10,10 +10,10 @@ export type TxStatus = "confirmed" | "submitted" | "failed" | "created";
 export type TxRecord = {
   id: string;
   family: ChainFamily;
-  /** epoch seconds, for cross-app merge ordering */
+  /** epoch seconds, for cross-agent merge ordering */
   ts: number;
   time: string;
-  app: string;
+  agent: string;
   status: TxStatus;
   chain: string;
   from: string;
@@ -51,11 +51,11 @@ export type TxRecord = {
 };
 
 export type LogRecord = {
-  /** epoch seconds, for cross-app merge ordering */
+  /** epoch seconds, for cross-agent merge ordering */
   ts: number;
   day: string;
   at: string;
-  app: string;
+  agent: string;
   kind: "invocation" | "event";
   status: "ok" | "error" | "info";
   /** one-line scan summary (stands in for the SDK per-tool summarize hint) */
@@ -79,8 +79,8 @@ export type ToolStat = {
   bad?: boolean;
 };
 
-/** Mirrors the extended OperateAppMetrics trend contract. */
-export type AppCard = {
+/** Mirrors the extended OperateAgentMetrics trend contract. */
+export type AgentCard = {
   requestsPerMinute: number | null;
   errorRate: number | null;
   p95LatencyMs: number | null;
@@ -97,7 +97,7 @@ export type AppCard = {
   dylibBytes: number | null;
 };
 
-export type AppDetail = {
+export type AgentDetail = {
   funnel: Array<{ label: string; value: number | null }>;
   funnelNote: string[];
   kpis: Array<{
@@ -146,18 +146,18 @@ export type StatementRows = {
   }>;
 };
 
-export type AppFixture = {
+export type AgentFixture = {
   meta: {
     name: string;
-    applicationId: number;
+    agentId: number;
     families: ChainFamily[];
     releaseTag: string | null;
     sdkVersion: string | null;
     status: "healthy" | "not_loaded" | "inactive";
     repo: string;
   };
-  card: AppCard;
-  detail: AppDetail;
+  card: AgentCard;
+  detail: AgentDetail;
   transactions: TxRecord[];
   logs: LogRecord[];
   statement: StatementRows;

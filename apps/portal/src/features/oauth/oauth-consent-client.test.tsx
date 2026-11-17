@@ -16,7 +16,7 @@ vi.mock("@aomi-labs/widget/host-composition", async (original) => ({
 
 import {
   ConsentSheet,
-  consentApp,
+  consentAgent,
   oauthConsentRedirect,
 } from "./oauth-consent-client";
 
@@ -82,17 +82,21 @@ describe("OAuthConsentClient", () => {
     ).toBeInTheDocument();
   });
 
-  it("reads the app an app-locked resource names", () => {
-    expect(consentApp("https://aomi.chat/v1/apps/world/mcp")).toBe("world");
-    expect(consentApp("https://aomi.chat/v1/agent/mcp")).toBeUndefined();
-    expect(consentApp("https://aomi.chat/v1/apps/World/mcp")).toBeUndefined();
-    expect(consentApp(null)).toBeUndefined();
+  it("reads the agent an agent-locked resource names", () => {
+    expect(consentAgent("https://aomi.chat/v1/agents/aomi%2Fworld/mcp")).toBe(
+      "aomi/world",
+    );
+    expect(consentAgent("https://aomi.chat/v1/agent/mcp")).toBeUndefined();
+    expect(
+      consentAgent("https://aomi.chat/v1/agents/World/mcp"),
+    ).toBeUndefined();
+    expect(consentAgent(null)).toBeUndefined();
   });
 
-  it("locks an app's client to its wallet on an Ask-only link, then writes the pairs after the grant", async () => {
+  it("locks an agent's client to its wallet on an Ask-only link, then writes the pairs after the grant", async () => {
     mocks.search = SEARCH.replace(
       "%2Fv1%2Fagent%2Fmcp",
-      "%2Fv1%2Fapps%2Fworld%2Fmcp",
+      "%2Fv1%2Fagents%2Faomi%252Fworld%2Fmcp",
     ).concat("&mode=ask");
     const writes: { url: string; body: unknown }[] = [];
     vi.stubGlobal(
@@ -133,7 +137,7 @@ describe("OAuthConsentClient", () => {
           ),
           body: {
             wallets: [],
-            application: "world",
+            agent: "aomi/world",
             new_app_wallet: { lane: "ask_aomi" },
             ask_only: true,
           },
@@ -149,7 +153,7 @@ describe("OAuthConsentClient", () => {
       name: "Trading",
       paused: false,
       archived_at: null,
-      app: null,
+      toolset: null,
       last_used_at: null,
       created_at: 1,
       addresses: [],
@@ -190,7 +194,7 @@ describe("OAuthConsentClient", () => {
   it("never shows success when the wallet settings fail to save, and retries the same write", async () => {
     mocks.search = SEARCH.replace(
       "%2Fv1%2Fagent%2Fmcp",
-      "%2Fv1%2Fapps%2Fworld%2Fmcp",
+      "%2Fv1%2Fagents%2Faomi%252Fworld%2Fmcp",
     );
     let puts = 0;
     vi.stubGlobal(

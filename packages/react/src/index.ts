@@ -90,7 +90,7 @@ export {
 } from "./contexts/notification-context";
 
 // =============================================================================
-// Control Context (model/app/api-key state)
+// Control Context (model/agent/api-key state)
 // =============================================================================
 export {
   useControl,
@@ -120,4 +120,4 @@ export type {
 export type { DisplayPersistence } from "./query/display-persistence";
 export { displayQueries } from "./query/queries";
 
-export { usePrivateApps } from "./control/private-apps";
+export { usePrivateAgents } from "./control/private-agents";

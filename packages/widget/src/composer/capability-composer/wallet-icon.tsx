@@ -11,11 +11,11 @@ const icons = new Map<string, PickerIcon>();
 /**
  * A wallet app's own logo in the text color, like the other picker icons, so
  * a tagged wallet takes the tag's color: the agent wallet is the Aomi mark and
- * an unknown app is the generic wallet. One component per app, so rows keep
+ * an unknown agent is the generic wallet. One component per agent, so rows keep
  * their identity.
  */
-export function walletPickerIcon(app: string): PickerIcon {
-  const brand = app === AGENT_WALLET ? "agent" : resolveWalletBrandKey(app);
+export function walletPickerIcon(agent: string): PickerIcon {
+  const brand = agent === AGENT_WALLET ? "agent" : resolveWalletBrandKey(agent);
   const key = brand ?? "wallet";
   let Icon = icons.get(key);
   if (!Icon) {

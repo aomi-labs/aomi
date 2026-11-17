@@ -470,10 +470,77 @@ export type ActionResultFor<Type extends ActionType> = Type extends "sign" ? Ext
 export type ActionType = ActionRequest["type"];
 
 // @public (undocumented)
+export const AGENT_CATEGORIES: {
+    default: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    modes: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    cex: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    dex: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    analytics: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    perps: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    social: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    prediction: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    yield: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    gaming: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    wallets: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    custom: {
+        id: string;
+        label: string;
+        order: number;
+    };
+};
+
+// @public
+export type AgentAccessErrorCode = "agent_not_found" | "agent_inactive" | "agent_key_required" | "agent_key_not_scoped";
+
+// @public (undocumented)
 export class AgentApiError extends AomiApiError {
     // (undocumented)
-    static readonly APP_ACCESS_CODES: readonly AgentAppAccessErrorCode[];
-    get appAccessCode(): AgentAppAccessErrorCode | undefined;
+    static readonly AGENT_ACCESS_CODES: readonly AgentAccessErrorCode[];
+    get agentAccessCode(): AgentAccessErrorCode | undefined;
     static guestIdentityChanged(): AgentApiError;
     // (undocumented)
     get isGuestIdentityChanged(): boolean;
@@ -482,7 +549,36 @@ export class AgentApiError extends AomiApiError {
 }
 
 // @public
-export type AgentAppAccessErrorCode = "app_not_found" | "app_inactive" | "app_key_required" | "app_key_not_scoped";
+export interface AgentCard {
+    // (undocumented)
+    agent: string;
+    // (undocumented)
+    agent_id: number;
+    // (undocumented)
+    display_name: string;
+    // (undocumented)
+    metadata: Record<string, unknown>;
+}
+
+// @public (undocumented)
+export type AgentCategoryInfo = {
+    id: string;
+    label: string;
+    order: number;
+};
+
+// @public (undocumented)
+export function agentIdentityKey(card: AgentCard): string;
+
+// @public (undocumented)
+export type AgentInfo = {
+    id: string;
+    brandId: string;
+    agentId?: AgentCard["agent_id"];
+    displayName: string;
+    abbr: string;
+    category: AgentCategoryInfo;
+};
 
 // @public (undocumented)
 export type AgentMode = "auto" | "direct";
@@ -544,12 +640,10 @@ export type AgentSession = Schemas$3["Session"];
 // @public (undocumented)
 export type AgentTarget = {
     mode?: "auto";
-    app?: never;
-    applicationId?: never;
+    agent?: string;
 } | {
     mode: "direct";
-    applicationId?: number;
-    app?: string;
+    agent?: string;
 };
 
 // @public (undocumented)
@@ -611,8 +705,6 @@ export class Aomi {
 export class AomiAccount extends AccountTransport {
     constructor(requestResponse: RequestResponse_2);
     // (undocumented)
-    readonly apps: AomiAccountApps;
-    // (undocumented)
     readonly guard: AomiGuard;
     readonly logins: {
         list(): Promise<AccountGraphLinkedAccount[]>;
@@ -629,6 +721,8 @@ export class AomiAccount extends AccountTransport {
         account: AccountGraphResponse;
     }>;
     // (undocumented)
+    readonly packages: AomiAccountPackages;
+    // (undocumented)
     statement(input?: {
         limit?: number;
         cursor?: string;
@@ -641,36 +735,6 @@ export class AomiAccount extends AccountTransport {
     readonly wallets: AomiAccountWallets;
 }
 
-// @public
-export interface AomiAccountAppMutationResponse {
-    // (undocumented)
-    app: string;
-    // (undocumented)
-    application_id: number;
-    apps: string[];
-    // (undocumented)
-    installed: boolean;
-}
-
-// @public
-export class AomiAccountApps {
-    constructor(request: AccountRequest_2);
-    credentials(app: AppRef): {
-        list: () => Promise<AomiUserAppSecrets>;
-        set: (key: string, value: string) => Promise<AomiUserAppSecrets>;
-        save: (values: Record<string, string>) => Promise<AomiUserAppSecrets>;
-        remove: (key: string) => Promise<AomiDeleteSecretResponse>;
-        clear: () => Promise<AomiClearAppSecretsResponse>;
-    };
-    // (undocumented)
-    install(app: AppRef): Promise<AomiAccountAppMutationResponse>;
-    list(options?: {
-        signal?: AbortSignal;
-    }): Promise<AomiAppDescriptor[]>;
-    // (undocumented)
-    uninstall(app: AppRef): Promise<AomiAccountAppMutationResponse>;
-}
-
 // @public (undocumented)
 export type AomiAccountConnection = {
     key: string;
@@ -678,7 +742,7 @@ export type AomiAccountConnection = {
     name: string;
     detail: string | null;
     telegram: AomiConnectionTelegram | null;
-    application: AomiConnectionApp | null;
+    agent: AomiConnectionAgent | null;
     ask_only: boolean;
     wallets: AomiConnectionWallet[];
     last_used_at: number | null;
@@ -690,6 +754,21 @@ export type AomiAccountConnection = {
 export type AomiAccountConnections = {
     connections: AomiAccountConnection[];
 };
+
+// @public
+export class AomiAccountPackages {
+    constructor(request: AccountRequest_2);
+    activate(code: string): Promise<AomiPackage>;
+    clearChoice(packageId: number): Promise<AomiPackage>;
+    // (undocumented)
+    clearSecret(packageId: number, slot: string): Promise<AomiPackageSecretStatus>;
+    list(options?: {
+        threadId?: string;
+        signal?: AbortSignal;
+    }): Promise<AomiPackageCatalog>;
+    setChoice(packageId: number, enabled: boolean): Promise<AomiPackage>;
+    setSecret(packageId: number, slot: string, value: string): Promise<AomiPackageSecretStatus>;
+}
 
 // @public (undocumented)
 export interface AomiAccountProfile {
@@ -769,7 +848,7 @@ export type AomiAgentWallet = {
     name: string;
     paused: boolean;
     archived_at: number | null;
-    app: AomiAgentWalletApp | null;
+    toolset: AomiAgentWalletToolset | null;
     last_used_at: number | null;
     created_at: number;
     addresses: AomiAgentWalletAddress[];
@@ -782,13 +861,6 @@ export type AomiAgentWalletAddress = {
     address: string;
     wallet_id: string;
     operating_address?: string;
-};
-
-// @public
-export type AomiAgentWalletApp = {
-    id: number;
-    name: string;
-    label: string;
 };
 
 // @public (undocumented)
@@ -834,6 +906,13 @@ export type AomiAgentWallets = {
 };
 
 // @public
+export type AomiAgentWalletToolset = {
+    id: number;
+    name: string;
+    label: string;
+};
+
+// @public
 export type AomiAgentWalletUpdate = {
     name?: string;
     paused?: boolean;
@@ -865,41 +944,6 @@ export class AomiApiError extends AomiError {
     // (undocumented)
     readonly status: number;
 }
-
-// @public
-export interface AomiAppDescriptor {
-    // (undocumented)
-    applicationId?: number | string | null;
-    // (undocumented)
-    appReleaseTag?: string | null;
-    // (undocumented)
-    artifactReady?: boolean | null;
-    // (undocumented)
-    artifactStatus?: AomiArtifactStatus | null;
-    chainIds?: number[];
-    featureCatalog?: AomiFeatureCategory[];
-    // (undocumented)
-    isActive?: boolean | null;
-    isInstalled?: boolean | null;
-    // (undocumented)
-    isPublic?: boolean | null;
-    // (undocumented)
-    label?: string | null;
-    metadata?: {
-        [key: string]: unknown;
-        fundedModelOnly?: boolean;
-        sponsoredModelIds?: string[];
-    } | null;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    platform?: string | null;
-    // (undocumented)
-    secrets?: AomiSecretSlot[];
-}
-
-// @public
-export type AomiArtifactStatus = "ready" | "pending" | "fetch_backoff";
 
 // @public (undocumented)
 export type AomiAuthController = {
@@ -1028,14 +1072,6 @@ export type AomiCardFundingMethod = {
 export type AomiChainKind = "evm" | "svm";
 
 // @public
-export interface AomiClearAppSecretsResponse {
-    // (undocumented)
-    cleared: boolean;
-    // (undocumented)
-    removed: number;
-}
-
-// @public
 export interface AomiClearSecretsResponse {
     // (undocumented)
     cleared: boolean;
@@ -1046,55 +1082,38 @@ export class AomiClient {
     constructor(options: AomiClientOptions);
     // (undocumented)
     readonly account: AccountTransport;
-    addAccountApp(sessionId: string, applicationId: ApplicationId, options?: {
-        apiKey?: string;
-    }): Promise<AomiAccountAppMutationResponse>;
     // (undocumented)
     readonly agent: AgentTransport;
-    clearAppSecrets(sessionId: string, applicationId: ApplicationId): Promise<AomiClearAppSecretsResponse>;
     clearSecrets(sessionId: string, clientId: string): Promise<AomiClearSecretsResponse>;
-    deleteAppSecret(sessionId: string, applicationId: ApplicationId, name: string): Promise<AomiDeleteSecretResponse>;
     deleteSecret(sessionId: string, clientId: string, name: string): Promise<AomiDeleteSecretResponse>;
     fetchAccountProfile(sessionId: string): Promise<AomiAccountProfile | null>;
     getAccount(sessionId: string): Promise<AomiAccountResponse>;
-    getAppCredentialsStatus(sessionId: string, applicationId: ApplicationId): Promise<AomiUserAppSecrets>;
-    getApps(sessionId: string, options?: {
-        signal?: AbortSignal;
-        apiKey?: string;
-        platforms?: AomiPlatformFilter;
-        applicationId?: ApplicationId;
-    }): Promise<AomiAppDescriptor[]>;
     getModels(sessionId: string, options?: {
         signal?: AbortSignal;
         apiKey?: string;
-        applicationId?: ApplicationId;
     }): Promise<string[]>;
-    getPublicCatalog<T = unknown>(kind: "models" | "apps" | "skills", options?: {
+    getPublicCatalog<T = unknown>(kind: "models" | "toolsets" | "skills", options?: {
         signal?: AbortSignal;
         platforms?: AomiPlatformFilter;
     }): Promise<T>;
     guestIdentity(): string | null;
     ingestSecrets(sessionId: string, clientId: string, secrets: Record<string, string>): Promise<AomiIngestSecretsResponse>;
-    listAccountApps(sessionId: string): Promise<AomiAppDescriptor[]>;
-    listAppSecrets(sessionId: string, applicationId: ApplicationId): Promise<AomiUserAppSecrets>;
+    listCatalog(sessionId: string, options?: {
+        signal?: AbortSignal;
+        apiKey?: string;
+    }): Promise<ThreadCatalog>;
     listSecrets(sessionId: string, clientId?: string): Promise<AomiListSecretsResponse>;
     // (undocumented)
     readonly pipeline: PipelineTransport;
     prepareGuestSession(): Promise<void>;
     prepareUserState(sessionId: string, state: UserState): Promise<UserState>;
-    removeAccountApp(sessionId: string, applicationId: ApplicationId): Promise<AomiAccountAppMutationResponse>;
-    removeAppCredential(sessionId: string, applicationId: ApplicationId, name: string): Promise<AomiDeleteSecretResponse>;
-    replaceAppCredential(sessionId: string, applicationId: ApplicationId, name: string, value: string): Promise<AomiUserAppSecrets>;
     request<T = unknown>(method: AomiHttpMethod, path: string, options?: AomiRequestOptions): Promise<T>;
     requestResponse(method: AomiHttpMethod, path: string, options?: AomiRequestOptions): Promise<Response>;
-    resolveAppKey(appKey: string, options?: {
+    resolveAgentKey(agentKey: string, options?: {
         signal?: AbortSignal;
-    }): Promise<AomiAppDescriptor[]>;
-    saveAppSecrets(sessionId: string, applicationId: ApplicationId, secrets: Record<string, string>): Promise<AomiUserAppSecrets>;
-    setAppCredential(sessionId: string, applicationId: ApplicationId, name: string, value: string): Promise<AomiUserAppSecrets>;
+    }): Promise<AgentCard>;
     setModel(sessionId: string, rig: string, options?: {
-        app?: string;
-        applicationId?: ApplicationId;
+        toolset?: string;
         apiKey?: string;
         clientId?: string;
     }): Promise<{
@@ -1142,7 +1161,7 @@ export class AomiCommits {
 }
 
 // @public (undocumented)
-export type AomiConnectionApp = {
+export type AomiConnectionAgent = {
     id: number;
     name: string;
     label: string;
@@ -1181,7 +1200,7 @@ export type AomiConnectionWalletsUpdate = {
         id: string;
         lane: AomiLane;
     }[];
-    application?: string;
+    agent?: string;
     new_app_wallet?: {
         lane: AomiLane;
     };
@@ -1368,7 +1387,6 @@ export type AomiLane = "ask_aomi" | "ask_client" | "instant";
 
 // @public
 export interface AomiListSecretsResponse {
-    by_app?: Record<string, string[]>;
     names?: string[];
 }
 
@@ -1535,22 +1553,121 @@ export type AomiOptions = (AomiManagedAuthOptions | (AomiConnectionOptions & {
     auth?: never;
 })) & AomiExecutionOptions;
 
+// @public
+export interface AomiPackage {
+    agent_listed: boolean;
+    choice: boolean | null;
+    // (undocumented)
+    description: string;
+    // (undocumented)
+    display_name: string;
+    enabled: boolean;
+    // (undocumented)
+    envelope: AomiPackageEnvelope;
+    // (undocumented)
+    families: AomiPackageFamily[];
+    // (undocumented)
+    icon_url: string | null;
+    id: string;
+    // (undocumented)
+    listed: boolean;
+    // (undocumented)
+    live: {
+        release: number;
+        digest: string;
+    };
+    // (undocumented)
+    package_id: number;
+    // (undocumented)
+    reason: AomiPackageReason;
+    // (undocumented)
+    skills: {
+        id: string;
+        description: string;
+    }[];
+    // (undocumented)
+    slots: AomiPackageSlot[];
+    // (undocumented)
+    tool_count: number;
+    verified: boolean;
+}
+
+// @public
+export interface AomiPackageCatalog {
+    // (undocumented)
+    agent: {
+        id: string;
+        display_name: string;
+    };
+    // (undocumented)
+    packages: AomiPackage[];
+}
+
+// @public
+export interface AomiPackageEnvelope {
+    // (undocumented)
+    hash: string;
+    // (undocumented)
+    hosts: string[];
+    // (undocumented)
+    signatures: AomiPackageSignature[];
+    transactions: AomiPackageFamily[];
+}
+
+// @public
+export type AomiPackageFamily = "evm" | "svm";
+
+// @public
+export type AomiPackageReason = "agent_listed" | "verified_default" | "chosen_on" | "chosen_off" | "off_by_default";
+
+// @public
+export interface AomiPackageSecretStatus {
+    // (undocumented)
+    slot?: string;
+    // (undocumented)
+    status: "ready" | "missing";
+}
+
+// @public
+export interface AomiPackageSignature {
+    // (undocumented)
+    domains: {
+        chain_id: number;
+        verifying_contract: string;
+    }[];
+    // (undocumented)
+    kind: "evm-typed-data" | "evm-message" | "svm-message";
+    // (undocumented)
+    primary_types: string[];
+}
+
+// @public
+export interface AomiPackageSlot {
+    // (undocumented)
+    description: string;
+    // (undocumented)
+    name: string;
+    owner: "person" | "builder";
+    // (undocumented)
+    required: boolean;
+    // (undocumented)
+    status: "ready" | "missing";
+}
+
 // @public (undocumented)
 export class AomiPipeline {
     constructor(raw: PipelineTransport, client?: AomiClient, capabilities?: CommitCapabilities);
-    // (undocumented)
-    app(name: string): AomiPipelineOperationScope;
     build(name: string, args: Record<string, unknown>, options?: AomiOperationBuildOptions & {
-        app?: string;
+        toolset?: string;
     }): Promise<Build>;
     // (undocumented)
     readonly evm: AomiEvmPipeline;
     // (undocumented)
     invoke<T = unknown>(name: string, args: Record<string, unknown>, options?: PipelineInvokeOptions & {
-        app?: string;
+        toolset?: string;
     }): Promise<T>;
     operations(options?: {
-        app?: string;
+        toolset?: string;
     }): Promise<PipelineDirectory>;
     // (undocumented)
     readonly raw: PipelineTransport;
@@ -1561,6 +1678,8 @@ export class AomiPipeline {
     };
     // (undocumented)
     readonly svm: AomiSvmPipeline;
+    // (undocumented)
+    toolset(name: string): AomiPipelineOperationScope;
 }
 
 // @public (undocumented)
@@ -1679,12 +1798,12 @@ export type AomiRulesAdminWallet = {
 
 // @public
 export type AomiRulesCatalog = {
-    apps: AomiRulesCatalogApp[];
+    protocols: AomiRulesCatalogProtocol[];
     tokens: AomiRulesCatalogToken[];
 };
 
 // @public (undocumented)
-export type AomiRulesCatalogApp = {
+export type AomiRulesCatalogProtocol = {
     id: string;
     label: string;
     chains: string[];
@@ -1713,7 +1832,7 @@ export type AomiRulesChangeResult = {
 
 // @public
 export type AomiRulesCovers = {
-    apps: string[];
+    protocols: string[];
     limits: string[];
     not_after: boolean;
     owner_only: boolean;
@@ -1745,7 +1864,7 @@ export type AomiRulesEnforceRequest = {
 
 // @public
 export type AomiRuleSet = {
-    apps: string[] | null;
+    protocols: string[] | null;
     limits: AomiRuleLimit[];
     not_after: number | null;
     owner_only: boolean;
@@ -1759,17 +1878,6 @@ export type AomiRuleUsage = {
     symbol: string | null;
     decimals: number | null;
 };
-
-// @public
-export interface AomiSecretSlot {
-    // (undocumented)
-    description: string;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    required: boolean;
-    user_own?: boolean;
-}
 
 // @public (undocumented)
 export interface AomiSigningPolicy {
@@ -1823,9 +1931,9 @@ export type AomiThreadWallet = {
 
 // @public
 export interface AomiUser {
-    application_ids?: number[];
+    agent_ids?: number[];
     // (undocumented)
-    apps: string[];
+    agents: string[];
     // (undocumented)
     created_at: number;
     // (undocumented)
@@ -1854,31 +1962,6 @@ export interface AomiUserAccount {
     is_primary: boolean;
     // (undocumented)
     provider_managed: boolean;
-}
-
-// @public
-export interface AomiUserAppSecrets {
-    // (undocumented)
-    app: string;
-    // (undocumented)
-    application_id: number;
-    missing_required: string[];
-    ready: boolean;
-    // (undocumented)
-    slots: AomiUserAppSecretSlot[];
-}
-
-// @public
-export interface AomiUserAppSecretSlot {
-    app_provided: boolean;
-    configured: boolean;
-    // (undocumented)
-    description: string;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    required: boolean;
-    user_own: boolean;
 }
 
 // @public
@@ -1954,77 +2037,6 @@ export function apiErrorFields(body: unknown): ApiErrorFields;
 // @public
 export function apiResource(resource: AomiOAuthResource): AomiOAuthResource;
 
-// @public (undocumented)
-export const APP_CATEGORIES: {
-    default: {
-        id: string;
-        label: string;
-        order: number;
-    };
-    modes: {
-        id: string;
-        label: string;
-        order: number;
-    };
-    cex: {
-        id: string;
-        label: string;
-        order: number;
-    };
-    dex: {
-        id: string;
-        label: string;
-        order: number;
-    };
-    analytics: {
-        id: string;
-        label: string;
-        order: number;
-    };
-    perps: {
-        id: string;
-        label: string;
-        order: number;
-    };
-    social: {
-        id: string;
-        label: string;
-        order: number;
-    };
-    prediction: {
-        id: string;
-        label: string;
-        order: number;
-    };
-    yield: {
-        id: string;
-        label: string;
-        order: number;
-    };
-    gaming: {
-        id: string;
-        label: string;
-        order: number;
-    };
-    wallets: {
-        id: string;
-        label: string;
-        order: number;
-    };
-    custom: {
-        id: string;
-        label: string;
-        order: number;
-    };
-};
-
-// @public (undocumented)
-export type AppCategoryInfo = {
-    id: string;
-    label: string;
-    order: number;
-};
-
 // @public
 export function appendCapabilityHints(text: string, raw: unknown): string;
 
@@ -2033,22 +2045,6 @@ export function appendFeeCallToPayload(payload: WalletTxPayload, fee: AomiSimula
     forceAaPreference?: WalletTxAaPreference;
     strictAa?: boolean;
 }): WalletTxPayload;
-
-// @public
-export function appIdentityKey(descriptor: AomiAppDescriptor): string;
-
-// @public (undocumented)
-export type AppInfo = {
-    id: string;
-    brandId: string;
-    applicationId?: AomiAppDescriptor["applicationId"];
-    displayName: string;
-    abbr: string;
-    category: AppCategoryInfo;
-};
-
-// @public
-export type ApplicationId = number | string | null;
 
 // @public (undocumented)
 export const arc: {
@@ -2301,31 +2297,31 @@ export type CallVerificationField = "request" | "simulation" | "count" | "chainI
 export type CallVerificationSubject = Action | ActionRequest | SignableCommit | null | undefined;
 
 // @public
-export function canonicalAppId(appId: string | null | undefined): string;
+export function canonicalAgentId(appId: string | null | undefined): string;
 
 // @public (undocumented)
 export type CapabilityHint = {
     kind: CapabilityKind;
     id: string;
     label?: string;
-    appName?: string;
+    agentName?: string;
 };
 
 // @public
-export function capabilityHintPayload(selections: readonly CapabilitySelection[], removedApps?: readonly CapabilitySelection[]): {
+export function capabilityHintPayload(selections: readonly CapabilitySelection[], removedAgents?: readonly CapabilitySelection[]): {
     capabilities: CapabilityHint[];
-    removedApps?: CapabilityHint[];
+    removedAgents?: CapabilityHint[];
 } | undefined;
 
 // @public (undocumented)
-export type CapabilityKind = "app" | "skill" | "chain" | "wallet";
+export type CapabilityKind = "agent" | "skill" | "chain" | "wallet";
 
 // @public
 export type CapabilitySelection = {
     kind: CapabilityKind;
     id: string;
     label?: string;
-    appName?: string;
+    agentName?: string;
     walletIds?: readonly string[];
 };
 
@@ -2724,7 +2720,7 @@ export type CreditLedger = components["schemas"]["CreditLedger"];
 export type CreditLedgerEntry = CreditLedger["entries"][number];
 
 // @public (undocumented)
-export const CURATED_APP_IDS: readonly (keyof typeof CURATED_APP_INFO)[];
+export const CURATED_AGENT_IDS: readonly (keyof typeof CURATED_AGENT_INFO)[];
 
 // @public (undocumented)
 export function discoverAomiAuthorizationServer(input: {
@@ -3162,9 +3158,6 @@ export function isMessageCommit(view: CommitView): boolean;
 // @public
 export function isMessageReview(review: ActionRequest | undefined): review is MessageCommitReview;
 
-// @public
-export function isOfficialAppDescriptor(app: AomiAppDescriptor): boolean;
-
 // @public (undocumented)
 export const isTerminalCommit: (view: CommitView) => boolean;
 
@@ -3304,7 +3297,7 @@ export type MentionItem = {
     label: string;
     description?: string;
     searchText: string;
-    appName?: string;
+    agentName?: string;
     walletIds?: readonly string[];
     testnet?: boolean;
     disabled?: boolean;
@@ -3315,7 +3308,7 @@ export type MessageCommitReview = SignCommitReview & {
     executionKind: "evm_message" | "svm_message";
 };
 
-// @public
+// @public (undocumented)
 type MessageEvent_2 = Schemas$3["MessageEvent"];
 export { MessageEvent_2 as MessageEvent }
 
@@ -3489,7 +3482,7 @@ export type NativeWalletSponsorship = {
 };
 
 // @public
-export function normalizeAppDescriptor(item: unknown): AomiAppDescriptor | null;
+export function normalizeAgentCard(value: unknown): AgentCard | null;
 
 // @public (undocumented)
 export type NormalizedSimulatedFee = {
@@ -3575,15 +3568,6 @@ export type PipelineApprovalChange = Schemas["PipelineApprovalChange"];
 export type PipelineApprovalKind = PipelineApprovalChange["kind"];
 
 // @public (undocumented)
-export class PipelineAppsTransport {
-    constructor(requestResponse: RequestResponse$4);
-    // (undocumented)
-    get(app: string): PipelineOperationTransport;
-    // (undocumented)
-    list(): Promise<PipelineDirectory>;
-}
-
-// @public (undocumented)
 export type PipelineAssetStandard = NonNullable<PipelineBalanceChange["standard"]>;
 
 // @public (undocumented)
@@ -3592,11 +3576,11 @@ export type PipelineBalanceChange = Schemas["PipelineBalanceChange"];
 // @public (undocumented)
 export interface PipelineBuildOrigin {
     // (undocumented)
-    app: string;
-    // (undocumented)
     operations: PipelineOperationInvocation[];
     // (undocumented)
     skills?: string[];
+    // (undocumented)
+    toolset: string;
 }
 
 // @public @deprecated (undocumented)
@@ -3635,9 +3619,9 @@ export type PipelineDirectoryEntryKind = "directory" | "operation" | "document";
 // @public (undocumented)
 export interface PipelineExecutionScope {
     // (undocumented)
-    app?: string;
-    // (undocumented)
     skills?: string[];
+    // (undocumented)
+    toolset?: string;
     transactionSafetyMode?: TransactionSafetyMode;
 }
 
@@ -3708,7 +3692,7 @@ export interface PipelineOperationInvocation<Arguments extends Record<string, un
 
 // @public (undocumented)
 export class PipelineOperationTransport {
-    constructor(requestResponse: RequestResponse$4, scope: "apps" | "skills", owner: string);
+    constructor(requestResponse: RequestResponse$4, scope: "toolsets" | "skills", owner: string);
     // (undocumented)
     directory(): Promise<PipelineDirectory>;
     // (undocumented)
@@ -3752,13 +3736,18 @@ export class PipelineSkillTransport extends PipelineOperationTransport {
     instructions(): Promise<string>;
 }
 
+// @public (undocumented)
+export class PipelineToolsetsTransport {
+    constructor(requestResponse: RequestResponse$4);
+    // (undocumented)
+    get(toolset: string): PipelineOperationTransport;
+    // (undocumented)
+    list(): Promise<PipelineDirectory>;
+}
+
 // @public
 export class PipelineTransport {
     constructor(requestResponse: RequestResponse$4);
-    // (undocumented)
-    app(name: string): PipelineOperationTransport;
-    // (undocumented)
-    readonly apps: PipelineAppsTransport;
     // (undocumented)
     readonly evm: EvmPipelineTransport;
     // (undocumented)
@@ -3773,6 +3762,10 @@ export class PipelineTransport {
     readonly skills: PipelineSkillsTransport;
     // (undocumented)
     readonly svm: SvmPipelineTransport;
+    // (undocumented)
+    toolset(name: string): PipelineOperationTransport;
+    // (undocumented)
+    readonly toolsets: PipelineToolsetsTransport;
 }
 
 // @public (undocumented)
@@ -3806,7 +3799,7 @@ export function refreshAomiOAuthGrant(input: {
 export function requiresSignatureAdmission(request: ActionRequest): boolean;
 
 // @public
-export function resolveAppIdentity(app: string | AomiAppDescriptor): AppInfo;
+export function resolveAgentIdentity(value: string | AgentCard): AgentInfo;
 
 // @public (undocumented)
 export type ResolvedAccountLink = {
@@ -3886,7 +3879,7 @@ export const robinhood: {
 
 // @public (undocumented)
 export const RULES_ERROR_CODES: {
-    readonly appUnknown: "rules_app_unknown";
+    readonly protocolUnknown: "rules_protocol_unknown";
     readonly assetInvalid: "rules_asset_invalid";
     readonly amountInvalid: "rules_amount_invalid";
     readonly duplicate: "rules_duplicate";
@@ -3981,9 +3974,7 @@ export type SessionOptions = {
     commits?: CommitCapabilities;
     sessionId?: string;
     target?: AgentTarget;
-    app?: string;
     model?: string | null;
-    applicationId?: number | string | null;
     getUserState?: () => UserState | undefined;
     clientId?: string;
     logger?: {
@@ -3999,9 +3990,7 @@ export type SessionPage = Schemas$3["SessionPage"];
 export type SessionRuntimeOptions = {
     commits?: CommitCapabilities;
     target?: AgentTarget;
-    app?: string;
     model?: string | null;
-    applicationId?: number | string | null;
     clientId?: string;
     getUserState?: () => UserState | undefined;
     actions?: ActionCapabilities;
@@ -4208,7 +4197,7 @@ export type StepDecoder<T> = (input: ToolStepInput) => T;
 // @public
 export type StorageScope = {
     backendUrl: string;
-    appId?: string | number | null;
+    agentScope?: string | number | null;
     principal?: string | null;
 };
 
@@ -4607,6 +4596,14 @@ export class Thread {
 }
 
 // @public
+export interface ThreadCatalog {
+    // (undocumented)
+    packages: AomiPackage[];
+    // (undocumented)
+    toolsets: ToolsetCard[];
+}
+
+// @public
 export type ThreadHistory<S = ToolStep> = {
     messages: {
         sender: "user" | "agent";
@@ -4644,6 +4641,14 @@ export type ToolCompleteEvent = Schemas$3["ToolCompleteEvent"];
 
 // @public (undocumented)
 export type ToolOutputTrimmedEvent = Schemas$3["ToolOutputTrimmedEvent"];
+
+// @public
+export interface ToolsetCard {
+    // (undocumented)
+    display_name: string;
+    // (undocumented)
+    name: string;
+}
 
 // @public
 export type ToolStep = {
@@ -4742,7 +4747,7 @@ export class TypedEventEmitter<EventMap extends Record<string, unknown> = Record
 }
 
 // @public
-export const UNTAGGABLE_APPS: ReadonlySet<string>;
+export const UNTAGGABLE_AGENTS: ReadonlySet<string>;
 
 // @public (undocumented)
 export type UserState = Schemas$4["UserState"];

@@ -5,16 +5,16 @@
  *
  * API-server statement rows are immutable raw usage joined to one pricing
  * result. This adapter validates the current contract and builds the shared
- * month/app view while amounts are still integer micro-USD.
+ * month/agent view while amounts are still integer micro-USD.
  */
 
-import type { AomiAccount, AomiPackageCatalog } from "@aomi-labs/client";
-import type { AppUsageEntry, MonthlyStatement } from "./types";
+import type { AomiAccount } from "@aomi-labs/client";
+import type { AgentUsageEntry, MonthlyStatement } from "./types";
 
 type FundingKind = "platform" | "user_key" | "builder_key";
 
 export type UsageCharge = {
-  applicationId: number | null;
+  agentId: number | null;
   provider: string;
   model: string;
   inputTokens: number;
@@ -25,8 +25,8 @@ export type UsageCharge = {
   creditsMicrousd: number;
 };
 
-type AppAccumulator = {
-  usage: AppUsageEntry;
+type AgentAccumulator = {
+  usage: AgentUsageEntry;
   funding: Set<FundingKind>;
 };
 
@@ -95,50 +95,34 @@ export async function fetchMonthlyStatement(
   account: AomiAccount,
 ): Promise<MonthlyStatement> {
   const rows = await fetchStatementCharges(monthKey, account);
-  const names = rows.some((row) => row.applicationId !== null)
-    ? await account.packages
-        .list()
-        .then(applicationNamesFrom)
-        .catch(() => new Map<number, string>())
-    : new Map<number, string>();
-  return buildMonthlyStatement(monthKey, rows, names);
+  return buildMonthlyStatement(monthKey, rows);
 }
 
-/** Charge ids → display names, from the Library's package rows. */
-export function applicationNamesFrom(
-  catalog: AomiPackageCatalog,
-): Map<number, string> {
-  return new Map(
-    catalog.packages.map((row) => [row.package_id, row.display_name]),
-  );
-}
-
-/** The month/app view of parsed charges. Unnamed apps fall back to their id. */
+/** The month/agent view of parsed charges. Unnamed agents fall back to their id. */
 export function buildMonthlyStatement(
   monthKey: string,
   rows: readonly UsageCharge[],
-  applicationNames: ReadonlyMap<number, string> = new Map(),
+  agentNames: ReadonlyMap<number, string> = new Map(),
 ): MonthlyStatement {
   const { from, to } = monthRange(monthKey);
-  const apps = new Map<string, AppAccumulator>();
+  const agents = new Map<string, AgentAccumulator>();
   let allowanceAppliedMicrousd = 0;
   let creditBankAppliedMicrousd = 0;
 
   for (const row of rows) {
     const usd = row.grossMicrousd / 1_000_000;
-    const application =
-      row.applicationId === null
+    const label =
+      row.agentId === null
         ? "default"
-        : (applicationNames.get(row.applicationId) ??
-          `Application ${row.applicationId}`);
-    const app = apps.get(application) ?? createAppAccumulator(application);
-    app.funding.add(row.funding);
-    app.usage.model.turns += 1;
-    app.usage.model.baseUsd += usd;
-    app.usage.model.chargedUsd += usd;
-    app.usage.appTotalUsd += usd;
+        : (agentNames.get(row.agentId) ?? `Agent ${row.agentId}`);
+    const agent = agents.get(label) ?? createAgentAccumulator(label);
+    agent.funding.add(row.funding);
+    agent.usage.model.turns += 1;
+    agent.usage.model.baseUsd += usd;
+    agent.usage.model.chargedUsd += usd;
+    agent.usage.agentTotalUsd += usd;
 
-    let model = app.usage.model.byModel.find(
+    let model = agent.usage.model.byModel.find(
       (line) =>
         line.provider === row.provider &&
         line.model === row.model &&
@@ -158,22 +142,22 @@ export function buildMonthlyStatement(
           ? { note: "paid by your own key" }
           : {}),
       };
-      app.usage.model.byModel.push(model);
+      agent.usage.model.byModel.push(model);
     }
     model.turns += 1;
     model.inputTokens += row.inputTokens;
     model.outputTokens += row.outputTokens;
     model.baseUsd += usd;
     model.chargedUsd += usd;
-    apps.set(application, app);
+    agents.set(label, agent);
     allowanceAppliedMicrousd += row.includedMicrousd;
     creditBankAppliedMicrousd += row.creditsMicrousd;
   }
 
-  const appUsage = [...apps.values()].map(({ usage, funding }) => {
+  const agentUsage = [...agents.values()].map(({ usage, funding }) => {
     const ownKeyOnly = [...funding].every(isOwnKeyFunding);
     usage.settings.modelKey = ownKeyOnly ? "byok" : "managed";
-    usage.settings.appByok = ownKeyOnly;
+    usage.settings.agentByok = ownKeyOnly;
     usage.model.billed = !ownKeyOnly;
     return usage;
   });
@@ -208,13 +192,13 @@ export function buildMonthlyStatement(
       onchainUsd: 0,
       onchainNote: "",
     },
-    apps: appUsage,
-    byApp: appUsage.map((app) => ({
-      app: app.id,
-      modelUsd: app.model.chargedUsd,
+    agents: agentUsage,
+    byAgent: agentUsage.map((agent) => ({
+      agent: agent.id,
+      modelUsd: agent.model.chargedUsd,
       toolUsd: null,
       outcomeUsd: null,
-      totalUsd: app.appTotalUsd,
+      totalUsd: agent.agentTotalUsd,
     })),
     columnTotals: {
       modelUsd: totalUsd,
@@ -225,7 +209,7 @@ export function buildMonthlyStatement(
   };
 }
 
-function createAppAccumulator(name: string): AppAccumulator {
+function createAgentAccumulator(name: string): AgentAccumulator {
   return {
     funding: new Set(),
     usage: {
@@ -234,7 +218,7 @@ function createAppAccumulator(name: string): AppAccumulator {
       native: name === "default",
       settings: {
         modelKey: "managed",
-        appByok: false,
+        agentByok: false,
         managedMarkupPct: 0,
         note: "",
       },
@@ -249,7 +233,7 @@ function createAppAccumulator(name: string): AppAccumulator {
       },
       tool: null,
       outcome: null,
-      appTotalUsd: 0,
+      agentTotalUsd: 0,
     },
   };
 }
@@ -260,10 +244,7 @@ function parseUsageCharge(value: unknown): UsageCharge {
   const fundingKind = parseFundingKind(funding.kind);
 
   return {
-    applicationId: statementNullableNumber(
-      row.application_id,
-      "application_id",
-    ),
+    agentId: statementNullableNumber(row.agent_id, "agent_id"),
     provider: statementString(row.provider, "provider"),
     model: statementString(row.model, "model"),
     inputTokens: statementNumber(row.input_tokens, "input_tokens"),
@@ -276,7 +257,7 @@ function parseUsageCharge(value: unknown): UsageCharge {
 }
 
 function parseFundingKind(value: unknown): FundingKind {
-  if (value === "application_key" || value === "builder_key") {
+  if (value === "builder_key") {
     return "builder_key";
   }
   if (value === "platform" || value === "user_key") return value;

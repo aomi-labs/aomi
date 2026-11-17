@@ -117,7 +117,7 @@ function requestPaths(calls: FetchCall[]): string[] {
 
 const ACCOUNT_OVERVIEW = {
   user: {
-    apps: ["default"],
+    agents: ["default"],
     created_at: 1_700_000_000,
     public_key: "0xabc",
     status: "active",

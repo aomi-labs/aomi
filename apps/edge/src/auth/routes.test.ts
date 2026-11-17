@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 // One table of credentials stands in for Better Auth and widget sessions;
 // everything above them (the edge's resolver, capabilities, error mapping,
 // CORS) is the real pipeline. The proxy families (/api, /v1/agent,
-// /v1/pipeline, credits, statement, apps, transaction safety, MCP) are covered
+// /v1/pipeline, credits, statement, packages, transaction safety, MCP) are covered
 // by apps/edge/src/portal/portal.test.ts.
 var SESSIONS: Record<
   string,

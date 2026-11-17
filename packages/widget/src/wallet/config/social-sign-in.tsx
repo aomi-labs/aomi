@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { WalletAuthStore } from "@/wallet/providers/auth-store";
-import { getWalletProvider } from "@/wallet/providers/plugin-registry";
+import { getWalletProvider } from "@/wallet/providers/provider-registry";
 import { WalletSignInOptionsContext } from "@/wallet/picker/wallet-picker-context";
 import { formatWalletProvider } from "@/wallet/identity";
 import { useAomiWalletKit } from "@/wallet/context";

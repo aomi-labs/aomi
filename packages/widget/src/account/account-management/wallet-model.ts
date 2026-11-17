@@ -26,21 +26,21 @@ export const familyTag = (family: WalletFamily) =>
 export const AGENT_WALLET = "Agent wallet";
 
 /** The wallet app, e.g. "Rabby" or "Privy"; "Agent wallet" for an agent wallet. */
-export const appName = (row: WalletRow) => {
+export const walletName = (row: WalletRow) => {
   if (row.kind === "agent") return AGENT_WALLET;
   const provider = loginProvider(row.provider);
   return row.brand ?? (provider ? providerName(provider) : "Wallet");
 };
 
 /**
- * The row title: the user's own name for the address (with the app name
+ * The row title: the user's own name for the address (with the wallet name
  * muted beside it), else the wallet app ("Rabby", "Privy"). An agent
  * address carries its agent wallet's name alone.
  */
-export function rowTitle(row: WalletRow): { title: string; app?: string } {
+export function rowTitle(row: WalletRow): { title: string; brand?: string } {
   if (row.label && row.kind === "agent") return { title: row.label };
-  if (row.label) return { title: row.label, app: appName(row) };
-  return { title: appName(row) };
+  if (row.label) return { title: row.label, brand: walletName(row) };
+  return { title: walletName(row) };
 }
 
 /** The login's email beside an embedded wallet's address. */
@@ -62,11 +62,11 @@ export const familyList = (families: readonly WalletFamily[]) =>
 
 /** What clicking a row that needs a step will do, shown on hover. */
 export function pendingHint(row: WalletRow): string | null {
-  if (row.pendingStep === "switch") return `Switch in ${appName(row)}`;
+  if (row.pendingStep === "switch") return `Switch in ${walletName(row)}`;
   if (row.pendingStep === "connect")
     return loginProvider(row.provider)
-      ? `Sign in with ${appName(row)}`
-      : `Connect ${appName(row)}`;
+      ? `Sign in with ${walletName(row)}`
+      : `Connect ${walletName(row)}`;
   return null;
 }
 
@@ -161,7 +161,7 @@ export function walletGroups(rows: readonly WalletRow[]): WalletGroup[] {
       row.kind === "agent" ? undefined : loginProvider(row.provider);
     const key = provider
       ? `login:${provider}`
-      : `${row.kind}:${row.kind === "agent" ? "" : appName(row)}:${row.label ?? ""}`;
+      : `${row.kind}:${row.kind === "agent" ? "" : walletName(row)}:${row.label ?? ""}`;
     const group = groups.find(
       (candidate) =>
         candidate.key === key &&

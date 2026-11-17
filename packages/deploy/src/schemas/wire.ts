@@ -24,54 +24,81 @@ function spellings(key: string): string[] {
 
 /** A wire object whose keys are read by their snake_case spelling; unknown keys are dropped. An
  *  alias may name a nested field (`ci.status`). */
-export function wire<S extends z.ZodRawShape>(shape: S, aliases: { [K in keyof S]?: string[] } = {}) {
+export function wire<S extends z.ZodRawShape>(
+  shape: S,
+  aliases: { [K in keyof S]?: string[] } = {},
+) {
   return z.preprocess((raw) => {
     const row = isRecord(raw) ? raw : {};
     return Object.fromEntries(
       Object.keys(shape).map((key) => {
         const names = [...spellings(key), ...(aliases[key] ?? [])];
-        return [key, names.map((name) => field(row, name)).find((value) => value != null)];
+        return [
+          key,
+          names.map((name) => field(row, name)).find((value) => value != null),
+        ];
       }),
     );
   }, z.object(shape));
 }
 
 function field(row: Raw, name: string): unknown {
-  return name.split(".").reduce<unknown>((value, part) => (isRecord(value) ? value[part] : undefined), row);
+  return name
+    .split(".")
+    .reduce<unknown>(
+      (value, part) => (isRecord(value) ? value[part] : undefined),
+      row,
+    );
 }
 
 const leaf = <T>(read: (value: unknown) => T) => z.unknown().transform(read);
 
 /** A string; absent reads `fallback`. */
-export const text = (fallback = "") => leaf((value) => (value == null ? fallback : String(value)));
+export const text = (fallback = "") =>
+  leaf((value) => (value == null ? fallback : String(value)));
 
 /** A string, or null. */
-export const maybeText = leaf((value) => (value == null ? null : String(value)));
+export const maybeText = leaf((value) =>
+  value == null ? null : String(value),
+);
 
 /** A number; absent reads `fallback` (NaN when there is none). */
-export const num = (fallback?: number) => leaf((value) => Number(value ?? fallback));
+export const num = (fallback?: number) =>
+  leaf((value) => Number(value ?? fallback));
 
 /** A number, or null. */
 export const maybeNum = leaf((value) => (value == null ? null : Number(value)));
 
 /** A positive integer, or null. */
-export const positive = leaf((value) => (typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null));
+export const positive = leaf((value) =>
+  typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : null,
+);
 
 export const flag = leaf((value) => Boolean(value));
 
 /** A flag the manager may not have checked yet: absent reads undefined, "unknown". */
-export const probe = leaf((value) => (value == null ? undefined : Boolean(value)));
+export const probe = leaf((value) =>
+  value == null ? undefined : Boolean(value),
+);
 
 /** True only when the manager says exactly `true`. */
 export const confirmed = leaf((value) => value === true);
 
 /** One of `values`, else `fallback`. */
-export const oneOf = <const V extends string, F extends string | null>(values: readonly V[], fallback: F) =>
-  leaf((value): V | F => (values.includes(value as V) ? (value as V) : fallback));
+export const oneOf = <const V extends string, F extends string | null>(
+  values: readonly V[],
+  fallback: F,
+) =>
+  leaf((value): V | F =>
+    values.includes(value as V) ? (value as V) : fallback,
+  );
 
 /** Unix seconds from seconds, milliseconds, a numeric string or an ISO date; 0 when unreadable. */
 export function timestampSeconds(value: unknown): number {
-  const numeric = typeof value === "string" && value.trim() ? Number(value.trim()) : value;
+  const numeric =
+    typeof value === "string" && value.trim() ? Number(value.trim()) : value;
   if (typeof numeric === "number" && Number.isFinite(numeric)) {
     return numeric > 100_000_000_000 ? Math.floor(numeric / 1000) : numeric;
   }
@@ -86,19 +113,31 @@ export const seconds = leaf(timestampSeconds);
 export const opaque = <T>() => leaf((value) => (value ?? null) as T | null);
 
 /** A list; anything else reads empty. */
-export const list = <S extends z.ZodType>(item: S) => z.preprocess((value) => (Array.isArray(value) ? value : []), z.array(item));
+export const list = <S extends z.ZodType>(item: S) =>
+  z.preprocess((value) => (Array.isArray(value) ? value : []), z.array(item));
 
 /** A list, or null when the wire sends none. */
 export const maybeList = <S extends z.ZodType>(item: S) =>
-  z.preprocess((value) => (Array.isArray(value) ? value : null), z.array(item).nullable());
+  z.preprocess(
+    (value) => (Array.isArray(value) ? value : null),
+    z.array(item).nullable(),
+  );
 
 /** The strings of a list, others dropped. */
 export const strings = leaf((value) =>
-  Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string" && entry !== "") : [],
+  Array.isArray(value)
+    ? value.filter(
+        (entry): entry is string => typeof entry === "string" && entry !== "",
+      )
+    : [],
 );
 
-/** An object keyed by the manager's own names (apps, files), which are never renamed. */
-export const dict = <S extends z.ZodType>(item: S) => z.preprocess((value) => (isRecord(value) ? value : {}), z.record(z.string(), item));
+/** An object keyed by the manager's own names (agents, files), which are never renamed. */
+export const dict = <S extends z.ZodType>(item: S) =>
+  z.preprocess(
+    (value) => (isRecord(value) ? value : {}),
+    z.record(z.string(), item),
+  );
 
 /** An object, or null when the wire sends none. */
 export const maybe = <S extends z.ZodType>(schema: S) =>

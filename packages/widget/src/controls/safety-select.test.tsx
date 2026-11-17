@@ -216,7 +216,7 @@ describe("SafetySelect", () => {
     state.thread = policy("yolo", 4, "thread");
     const first = render(
       <WidgetStorageProvider
-        scope={{ backendUrl: "https://a.test", appId: "1" }}
+        scope={{ backendUrl: "https://a.test", agentScope: "1" }}
       >
         <SafetySelect />
       </WidgetStorageProvider>,
@@ -230,7 +230,7 @@ describe("SafetySelect", () => {
     );
     render(
       <WidgetStorageProvider
-        scope={{ backendUrl: "https://b.test", appId: "2" }}
+        scope={{ backendUrl: "https://b.test", agentScope: "2" }}
       >
         <SafetySelect />
       </WidgetStorageProvider>,

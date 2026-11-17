@@ -16,7 +16,7 @@ import type { IntentTurn } from "./prompts";
 export type IntakePhase = "intake" | "preview" | "building";
 
 export type IntakeState = {
-  app: string;
+  packageName: string;
   phase: IntakePhase;
   /** True while a distill call is in flight; drives the thinking indicator. */
   thinking: boolean;
@@ -56,7 +56,7 @@ function probePort(host: string, port: number): Promise<boolean> {
  * in-flight plan and conversation, so it must never bind a routable interface.
  */
 export async function startIntakeServer(options: {
-  app: string;
+  packageName: string;
   host?: string;
   port?: number;
   maxPortTries?: number;
@@ -66,7 +66,7 @@ export async function startIntakeServer(options: {
   const tries = Math.max(1, options.maxPortTries ?? 10);
 
   let state: IntakeState = {
-    app: options.app,
+    packageName: options.packageName,
     phase: "intake",
     thinking: false,
     thinkingSince: null,
@@ -168,7 +168,7 @@ body { margin: 0; background: var(--aomi-bg); color: var(--aomi-ink); font-famil
 .dot-live { background: var(--aomi-info); box-shadow: 0 0 0 3px rgba(65,108,172,0.16); animation: pulse 1.1s ease-in-out infinite; }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 .eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; color: var(--aomi-muted); }
-.app-title { font-family: var(--aomi-font-display); font-size: 36px; line-height: 1.1; margin: 4px 0 20px; font-weight: 700; }
+.package-title { font-family: var(--aomi-font-display); font-size: 36px; line-height: 1.1; margin: 4px 0 20px; font-weight: 700; }
 .card { background: var(--aomi-surface); border: 1px solid var(--aomi-border); border-radius: 16px; padding: 18px 20px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(26,22,20,0.04); }
 .card-title { font-size: 13px; font-weight: 500; color: var(--aomi-muted); margin-bottom: 12px; }
 .turns { display: flex; flex-direction: column; gap: 10px; }
@@ -199,7 +199,7 @@ body { margin: 0; background: var(--aomi-bg); color: var(--aomi-ink); font-famil
     <div class="status"><span id="status-dot" class="dot"></span><span id="status-text">connecting…</span></div>
   </div>
   <div class="eyebrow">composing workflow</div>
-  <h1 class="app-title" id="app-title">…</h1>
+  <h1 class="package-title" id="package-title">…</h1>
   <div id="banner"></div>
   <div class="card">
     <div class="card-title">Intake conversation</div>
@@ -217,7 +217,7 @@ body { margin: 0; background: var(--aomi-bg); color: var(--aomi-ink); font-famil
   <div class="footnote">aomi smither · intake — this view follows into the live build console when the run starts</div>
 </div>
 <script>
-const PLAN_KEYS = ["app","source","openApiUrl","userStory","builder","review","reviewer","smoke","deploy"];
+const PLAN_KEYS = ["package","source","openApiUrl","userStory","builder","review","reviewer","smoke","deploy"];
 function esc(s){ return String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
 function renderTurns(turns){
   const el = document.getElementById("turns");
@@ -252,7 +252,7 @@ async function tick(){
   try {
     const res = await fetch("/intake", { cache: "no-store" });
     const state = await res.json();
-    document.getElementById("app-title").textContent = state.app || "…";
+    document.getElementById("package-title").textContent = state.package || "…";
     document.getElementById("status-dot").className = "dot " + (state.thinking ? "dot-live" : "");
     document.getElementById("status-text").textContent =
       state.phase === "building" ? "build started" : state.thinking ? "composing" : state.phase;

@@ -1,20 +1,20 @@
-import type { AppFixture } from "../types";
+import type { AgentFixture } from "../types";
 import { transactions } from "./transactions";
 import { logs } from "./logs";
 import { statement } from "./statement";
 
-// geckoterminal — EVM market-data app, read-only archetype: healthy tool
+// geckoterminal — EVM market-data agent, read-only archetype: healthy tool
 // traffic, zero transactions, BYOK model keys, unpriced tools.
 
-export const geckoterminal: AppFixture = {
+export const geckoterminal: AgentFixture = {
   meta: {
     name: "geckoterminal",
-    applicationId: 78,
+    agentId: 78,
     families: ["evm"],
-    releaseTag: "apps-141779906-r229e1090c5-geckoterminal",
+    releaseTag: "agents-141779906-r229e1090c5-geckoterminal",
     sdkVersion: "3.0.2",
     status: "healthy",
-    repo: "aomi-labs/apps",
+    repo: "aomi-labs/agents",
   },
   card: {
     requestsPerMinute: 0.1,
@@ -46,7 +46,7 @@ export const geckoterminal: AppFixture = {
       { label: "Tx submitted", value: 0 },
       { label: "Tx confirmed", value: 0 },
     ],
-    funnelNote: ["read-only app · no transactions"],
+    funnelNote: ["read-only agent · no transactions"],
     kpis: [
       { label: "Chat errors", value: "0.0%" },
       { label: "Tool errors", value: "1.9%" },

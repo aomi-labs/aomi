@@ -18,7 +18,7 @@ export type ChatFlags = ConnectFlags & {
   prompt?: string;
   thread?: string;
   new?: boolean;
-  app?: string;
+  agent?: string;
   model?: string;
   json?: boolean;
 };

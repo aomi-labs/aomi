@@ -135,10 +135,10 @@ describe("activity projection", () => {
   });
 
   it("takes the family from the staged record, not the tool name", () => {
-    const evmApp = tool(1, "stage_jupiter_perps_order", {
+    const evmAgent = tool(1, "stage_jupiter_perps_order", {
       staged: [{ ...tx, pending_tx_id: 1, current_lifecycle: "queued" }],
     });
-    const solApp = tool(2, "stage_kamino_lend", {
+    const solAgent = tool(2, "stage_kamino_lend", {
       staged: [
         {
           payer: "So1",
@@ -150,7 +150,7 @@ describe("activity projection", () => {
         },
       ],
     });
-    const result = selectActivity([evmApp, solApp], [], []);
+    const result = selectActivity([evmAgent, solAgent], [], []);
     expect(result.transactions.map((item) => item.family)).toEqual([
       "evm",
       "svm",
@@ -617,12 +617,12 @@ describe("thread-wide activity", () => {
     const events: Event[] = [
       tool(1, "activate_skill", { activated: ["aave", "common_erc20"] }),
       {
+        agent: "aomi/swap",
         ...meta(2),
         type: "task_started",
         call_id: "call",
         agent_id: "agent",
         label: "Find route",
-        app: "swap",
         resumed: false,
       } as Event,
       {
@@ -694,12 +694,12 @@ describe("thread-wide activity", () => {
     });
     const subagent = (sequence: number, turn: string, agent: string): Event =>
       ({
+        agent: "aomi/swap",
         ...meta(sequence, turn),
         type: "task_started",
         call_id: agent,
         agent_id: agent,
         label: agent,
-        app: "swap",
         resumed: false,
       }) as Event;
     const replaced: Event[] = [

@@ -2,8 +2,6 @@ import type { components } from "../generated/agent-v1/types";
 
 type Schemas = components["schemas"];
 
-/** Selects user-owned BYOK credentials for inference. */
-
 export type MessageEvent = Schemas["MessageEvent"];
 export type Event = Schemas["ConcreteEvent"];
 export type EventPage = Schemas["EventPage"];
@@ -26,25 +24,8 @@ export type UserState = Schemas["UserState"];
 export type StartTurnIntent = Schemas["StartTurnIntent"];
 export type AgentMode = "auto" | "direct";
 export type AgentTarget =
-  | {
-      mode?: "auto";
-      app?: never;
-      applicationId?: never;
-      agent?: never;
-    }
-  | {
-      mode: "direct";
-      /** Omit both identities to use the builtin default runtime. */
-      applicationId?: number;
-      /** Builtin name, or an exact-name consistency check for a hosted app. */
-      app?: string;
-      /**
-       * The agent this thread belongs to, `publisher/name`. A thread keeps the
-       * agent it was created with; another one is refused with
-       * `thread_agent_mismatch`.
-       */
-      agent?: string;
-    };
+  | { mode?: "auto"; agent?: string }
+  | { mode: "direct"; agent?: string };
 export type InterruptIntent = Schemas["InterruptIntent"];
 export type RespondToActionIntent = Schemas["RespondToActionIntent"];
 export type Session = Schemas["Session"];

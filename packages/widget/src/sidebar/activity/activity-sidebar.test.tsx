@@ -462,7 +462,7 @@ describe("active transaction presentation", () => {
     expect(screen.getByText("Aave")).toBeInTheDocument();
   });
 
-  it("matches the trace's app/skill label, icon and slash in the activity sidebar", () => {
+  it("matches the trace's agent/skill label, icon and slash in the activity sidebar", () => {
     const result = { activated: ["hoodit/portfolio", "lifi_swap"] };
     runtime.events = [
       {
@@ -477,10 +477,11 @@ describe("active transaction presentation", () => {
       },
     ];
     const attribution = {
-      apps: [
+      agents: [
         {
-          name: "hoodit",
-          applicationId: 2937810,
+          agent_id: 2937810,
+          agent: "aomi/hoodit",
+          display_name: "Hoodit",
           metadata: { registered_via: "activate_apps" },
         },
       ],
@@ -507,13 +508,18 @@ describe("active transaction presentation", () => {
         />
       </TraceAttributionContext.Provider>,
     );
-    for (const title of ["App: Hoodit / Skill: Portfolio", "Skill: LI.FI"]) {
+    for (const title of [
+      "Toolset: Hoodit / Skill: Portfolio",
+      "Skill: LI.FI",
+    ]) {
       const badges = screen.getAllByTitle(title);
       expect(badges).toHaveLength(2);
-      expect(badges[0].outerHTML).toBe(badges[1].outerHTML);
+      const stableMarkup = (badge: Element) =>
+        badge.outerHTML.replace(/id="[^"]+"|url\(#[^)]+\)/g, "icon-id");
+      expect(stableMarkup(badges[0])).toBe(stableMarkup(badges[1]));
     }
     const sidebarBadge = container.querySelector(
-      '[data-activity-group-content="Skills"] [title="App: Hoodit / Skill: Portfolio"]',
+      '[data-activity-group-content="Skills"] [title="Toolset: Hoodit / Skill: Portfolio"]',
     );
     expect(sidebarBadge).toHaveTextContent("Hoodit / Portfolio");
     expect(
@@ -525,6 +531,7 @@ describe("active transaction presentation", () => {
     runtime.pendingActions = [];
     runtime.events = [
       {
+        agent: "aomi/research",
         type: "task_started",
         event_id: "task-started",
         sequence: 1,
@@ -533,10 +540,10 @@ describe("active transaction presentation", () => {
         call_id: "call-1",
         agent_id: "agent-1",
         label: "ETH price",
-        app: "research",
         resumed: false,
       },
       {
+        agent: "aomi/research",
         type: "task_phase",
         event_id: "task-phase",
         sequence: 2,
@@ -544,7 +551,6 @@ describe("active transaction presentation", () => {
         occurred_at: 2,
         call_id: "call-1",
         agent_id: "agent-1",
-        app: "research",
         phase: "task_completed",
         elapsed_ms: 100,
         observed_at_ms: 2,
@@ -605,6 +611,7 @@ describe("active transaction presentation", () => {
     runtime.pendingActions = [];
     runtime.events = [
       {
+        agent: "aomi/research",
         type: "task_started",
         event_id: "task-started",
         sequence: 1,
@@ -613,7 +620,6 @@ describe("active transaction presentation", () => {
         call_id: "call-1",
         agent_id: "agent-1",
         label: "ETH price",
-        app: "research",
         resumed: false,
       },
     ] as Event[];

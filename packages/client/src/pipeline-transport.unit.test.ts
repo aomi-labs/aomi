@@ -16,20 +16,20 @@ describe("PipelineTransport", () => {
     }).pipeline;
 
     await pipeline.root();
-    await pipeline.apps.list();
-    await pipeline.app("svm reads").directory();
-    await pipeline.app("svm reads").operations();
-    await pipeline.app("svm reads").operation("get balance");
+    await pipeline.toolsets.list();
+    await pipeline.toolset("svm reads").directory();
+    await pipeline.toolset("svm reads").operations();
+    await pipeline.toolset("svm reads").operation("get balance");
     await pipeline.skills.list();
     await pipeline.skill("safe reads").directory();
     await pipeline.skill("safe reads").instructions();
 
     expect(fetch.mock.calls.map(([url]) => url)).toEqual([
       "https://portal.example/v1/pipeline",
-      "https://portal.example/v1/pipeline/apps",
-      "https://portal.example/v1/pipeline/apps/svm%20reads",
-      "https://portal.example/v1/pipeline/apps/svm%20reads/operations",
-      "https://portal.example/v1/pipeline/apps/svm%20reads/operations/get%20balance",
+      "https://portal.example/v1/pipeline/toolsets",
+      "https://portal.example/v1/pipeline/toolsets/svm%20reads",
+      "https://portal.example/v1/pipeline/toolsets/svm%20reads/operations",
+      "https://portal.example/v1/pipeline/toolsets/svm%20reads/operations/get%20balance",
       "https://portal.example/v1/pipeline/skills",
       "https://portal.example/v1/pipeline/skills/safe%20reads",
       "https://portal.example/v1/pipeline/skills/safe%20reads/SKILL.md",
@@ -57,7 +57,7 @@ describe("PipelineTransport", () => {
 
     await expect(
       pipeline.invoke(
-        "/apps/public-swap/operations/write_tool",
+        "/toolsets/public-swap/operations/write_tool",
         { value: 1 },
         { idempotencyKey: "pipeline-write-1", validate: false },
       ),
@@ -84,7 +84,7 @@ describe("PipelineTransport", () => {
           kind: "operation",
           name: "balance",
           method: "POST",
-          href: "/v1/pipeline/apps/portfolio/operations/balance",
+          href: "/v1/pipeline/toolsets/portfolio/operations/balance",
           inputSchema: {
             type: "object",
             required: ["owner"],
@@ -100,12 +100,12 @@ describe("PipelineTransport", () => {
     }).pipeline;
 
     await expect(
-      pipeline.app("portfolio").invoke("balance", { owner: "wallet" }),
+      pipeline.toolset("portfolio").invoke("balance", { owner: "wallet" }),
     ).resolves.toEqual({ balance: 1 });
 
     expect(fetch.mock.calls.map(([url]) => url)).toEqual([
-      "https://portal.example/v1/pipeline/apps/portfolio/operations/balance",
-      "https://portal.example/v1/pipeline/apps/portfolio/operations/balance",
+      "https://portal.example/v1/pipeline/toolsets/portfolio/operations/balance",
+      "https://portal.example/v1/pipeline/toolsets/portfolio/operations/balance",
     ]);
     expect(fetch.mock.calls[1]?.[1]?.method).toBe("POST");
   });
@@ -119,7 +119,7 @@ describe("PipelineTransport", () => {
 
     await expect(
       pipeline.invoke(
-        "/apps/default/operations/tool",
+        "/toolsets/default/operations/tool",
         {},
         { idempotencyKey: " ", validate: false },
       ),
@@ -182,7 +182,7 @@ describe("EVM request transaction safety", () => {
       version: 2,
       status: "staged",
       actions: [],
-      origin: { app: "test", operations: [] },
+      origin: { toolset: "test", operations: [] },
       expiresAt: 1,
       digest: "digest",
       attestation: "sealed",

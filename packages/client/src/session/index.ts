@@ -56,9 +56,7 @@ export class ClientSession {
   readonly commits: CommitController;
 
   private target?: AgentTarget;
-  private app?: string;
   private model?: string | null;
-  private applicationId?: number | string | null;
   private getUserState?: SessionOptions["getUserState"];
   private clientId: string;
   private logger?: { debug: (...args: unknown[]) => void };
@@ -153,14 +151,7 @@ export class ClientSession {
         : new AomiClient(clientOrOptions);
     this.sessionId = sessionOptions?.sessionId ?? crypto.randomUUID();
     this.target = normalizeTarget(sessionOptions?.target);
-    this.app = normalizeOptionalString(sessionOptions?.app);
     this.model = sessionOptions?.model;
-    this.applicationId = sessionOptions?.applicationId;
-    assertTargetCompatibility({
-      target: this.target,
-      app: this.app,
-      applicationId: this.applicationId,
-    });
     this.getUserState = sessionOptions?.getUserState;
     this.clientId = sessionOptions?.clientId ?? crypto.randomUUID();
     this.logger = sessionOptions?.logger;
@@ -462,16 +453,8 @@ export class ClientSession {
 
   syncRuntimeOptions(options: SessionRuntimeOptions): void {
     const target = normalizeTarget(options.target);
-    const app = normalizeOptionalString(options.app);
-    assertTargetCompatibility({
-      target,
-      app,
-      applicationId: options.applicationId,
-    });
     this.target = target;
-    this.app = app;
     this.model = options.model;
-    this.applicationId = options.applicationId;
     this.clientId = options.clientId ?? this.clientId;
     this.getUserState = options.getUserState;
     if (options.actions) this.actions.setCapabilities(options.actions);
@@ -623,8 +606,6 @@ export class ClientSession {
         const state = this.getUserState?.();
         const target = startTargetFields({
           target: this.target,
-          app: this.app,
-          applicationId: this.applicationId,
         });
         // An uncertain start must replay exactly the same intent and key.
         // Fresh operations refresh policy; the backend still checks permissions when it runs them.
@@ -1518,92 +1499,20 @@ function normalizeTarget(
   target: AgentTarget | undefined,
 ): AgentTarget | undefined {
   if (!target) return undefined;
-  if (target.mode !== "direct") return { mode: "auto" };
-  const app = normalizeOptionalString(target.app);
   const agent = normalizeOptionalString(target.agent);
-  if ("applicationId" in target && target.applicationId !== undefined) {
-    if (
-      !Number.isSafeInteger(target.applicationId) ||
-      target.applicationId <= 0
-    ) {
-      throw new TypeError("Direct applicationId must be a positive integer");
-    }
-    return {
-      mode: "direct",
-      applicationId: target.applicationId,
-      ...(app ? { app } : {}),
-      ...(agent ? { agent } : {}),
-    };
-  }
-  return {
-    mode: "direct",
-    ...(app ? { app } : {}),
-    ...(agent ? { agent } : {}),
-  };
-}
-
-function assertTargetCompatibility(options: {
-  target?: AgentTarget;
-  app?: string;
-  applicationId?: number | string | null;
-}): void {
-  if (
-    options.target &&
-    (normalizeOptionalString(options.app) ||
-      normalizeApplicationId(options.applicationId) !== undefined)
-  ) {
-    throw new TypeError(
-      "target cannot be combined with legacy app or applicationId options",
-    );
-  }
-}
-
-function normalizeApplicationId(
-  value: number | string | null | undefined,
-): number | undefined {
-  if (value === null || value === undefined || value === "") return undefined;
-  const parsed = typeof value === "number" ? value : Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-    throw new TypeError("applicationId must be a positive integer");
-  }
-  return parsed;
+  return { mode: target.mode ?? "auto", ...(agent ? { agent } : {}) };
 }
 
 function startTargetFields(options: {
   target?: AgentTarget;
-  app?: string;
-  applicationId?: number | string | null;
-}): Pick<StartTurnIntent, "mode" | "app" | "applicationId"> & {
-  agent?: string;
-} {
-  if (options.target?.mode === "direct") {
-    const { app, agent } = options.target;
-    return {
-      mode: "direct",
-      ...("applicationId" in options.target &&
-      options.target.applicationId !== undefined
-        ? { applicationId: options.target.applicationId }
-        : {}),
-      ...(app ? { app } : {}),
-      ...(agent ? { agent } : {}),
-    };
-  }
-  if (options.target) return { mode: "auto" };
-
-  const applicationId = normalizeApplicationId(options.applicationId);
-  if (applicationId !== undefined) {
-    return {
-      applicationId,
-      ...(options.app ? { app: options.app } : {}),
-    };
-  }
-  return options.app ? { app: options.app } : {};
+}): Pick<StartTurnIntent, "mode" | "agent"> {
+  return options.target ?? {};
 }
 
 function isDefinitiveStartRejection(error: unknown): boolean {
-  // Guest sign-in failed before the start was sent, and the App gate refuses
-  // a loading App before it accepts a turn. Neither left work to stop.
-  if (error instanceof GuestSignInError || isAomiError(error, "app_loading"))
+  // Guest sign-in failed before the start was sent, and the Agent gate refuses
+  // a loading Agent before it accepts a turn. Neither left work to stop.
+  if (error instanceof GuestSignInError || isAomiError(error, "agent_loading"))
     return true;
   // A retryable admission limit still refused this attempt; it did not start
   // a turn. Edge refusals can use the generic API error transport.

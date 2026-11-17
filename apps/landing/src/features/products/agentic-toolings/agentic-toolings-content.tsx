@@ -32,7 +32,7 @@ const surfaces = [
     index: "01",
     title: "Agent Skills",
     body: "Teach Codex, Claude Code, or Cursor the correct Aomi workflow before the agent touches a transaction.",
-    bestFor: "Guided trading and App-building workflows",
+    bestFor: "Guided trading and Agent-building workflows",
     action: "Install Skills",
     href: "#setup",
   },
@@ -97,7 +97,12 @@ export function AgentToolingsPageContent({
                 Three surfaces, one account-owned execution lifecycle.
               </p>
               <div className={styles.heroActions}>
-                <Link to="." search={true} hash="surfaces" className={styles.primaryButton}>
+                <Link
+                  to="."
+                  search={true}
+                  hash="surfaces"
+                  className={styles.primaryButton}
+                >
                   Choose a surface
                   <ArrowRight aria-hidden />
                 </Link>
@@ -145,7 +150,9 @@ export function AgentToolingsPageContent({
               <span>safety pauses correctly taken</span>
             </div>
           </div>
-          <Link to="/research/$slug" params={{slug: "aomibench-v0-1"}}>Read the research</Link>
+          <Link to="/research/$slug" params={{ slug: "aomibench-v0-1" }}>
+            Read the research
+          </Link>
         </div>
       </section>
 

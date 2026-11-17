@@ -20,93 +20,36 @@ function recordingClient(platform?: string) {
   return { client, calls };
 }
 
-describe("createLaunchClient — bound platform", () => {
-  it("carries the bound platform only into platform bootstrap calls", async () => {
+describe("project client", () => {
+  it("narrows lists with the bound platform", async () => {
     const { client, calls } = recordingClient("somm.finance");
-
-    await client.status({ deploymentId: "d-1" });
-    await client.preflight({ repo: "alice/demo" });
-    await client.createRepo({ installationId: "55" });
-
-    expect(calls[0]?.url).toContain("platform=somm.finance");
-    expect(calls[1]?.body).not.toHaveProperty("platform");
-    expect(calls[2]?.body).toMatchObject({ platform: "somm.finance" });
+    await client.deployments.projects();
+    expect(calls[0]?.url).toBe(
+      "/api/build/deployments/projects?platform=somm.finance",
+    );
   });
-
-  it("never sends a platform on project-scoped calls, bound or not", async () => {
+  it("lets a per-call platform narrow the list", async () => {
     const { client, calls } = recordingClient("somm.finance");
-
-    await client.deployments.history({ projectId: 7 });
-    await client.deployments.secrets({ projectId: 7 });
-    await client.deployments.requiredSecrets({ projectId: 7 });
-    await client.deploy({ projectId: 7, sourceRef: "abc123" });
-    await client.redeploy({ projectId: 7 });
-    await client.activate({ projectId: 7, releaseTags: ["t1"] });
-    await client.deployments.promote({ deploymentId: "d-1", projectId: 7 });
-    await client.deployments.deactivate({ projectId: 7, apps: ["demo"] });
-    await client.deployments.records({ app: "demo", projectId: 7 });
-
-    for (const { url, body } of calls) {
-      expect(url).not.toContain("platform=");
-      if (body) expect(body).not.toHaveProperty("platform");
-    }
-  });
-
-  it("keeps platform addressing for records without a project", async () => {
-    const { client, calls } = recordingClient("somm.finance");
-
-    await client.deployments.records({ app: "demo" });
-
-    expect(calls[0]?.url).toContain("platform=somm.finance");
-  });
-
-  it("lets an explicit per-call platform win on pre-project reads", async () => {
-    const { client, calls } = recordingClient("somm.finance");
-
-    await client.status({ deploymentId: "d-1", platform: "community" });
-
+    await client.deployments.projects({ platform: "community" });
     expect(calls[0]?.url).toContain("platform=community");
-    expect(calls[0]?.url).not.toContain("somm.finance");
   });
-
-  it("omits platform entirely when none is bound", async () => {
-    const { client, calls } = recordingClient();
-
-    await client.status({ deploymentId: "d-1" });
-    await client.deploy({ projectId: 7, sourceRef: "abc123" });
-
-    expect(calls[0]?.url).not.toContain("platform=");
-    expect(calls[1]?.body).not.toHaveProperty("platform");
-  });
-
-  it("derives a differently-scoped client without mutating the original", async () => {
-    const { client, calls } = recordingClient("somm.finance");
-    const other = client.forPlatform("community");
-
-    await other.status({ deploymentId: "d-1" });
-    await client.status({ deploymentId: "d-2" });
-
-    expect(client.platform).toBe("somm.finance");
-    expect(other.platform).toBe("community");
-    expect(calls[0]?.url).toContain("platform=community");
-    expect(calls[1]?.url).toContain("platform=somm.finance");
-  });
-
-  it("routes the two mounts to their own paths", async () => {
-    const { client, calls } = recordingClient();
-
-    await client.status({ deploymentId: "d-1" });
-    await client.deployments.status({ deploymentId: "d-1" });
-
-    expect(calls[0]?.url).toContain("/api/build/deployments/status");
-    expect(calls[1]?.url).toContain("/api/build/deployments/status");
-  });
-
-  it("reads all runtime statuses through the project-scoped batch route", async () => {
+  it("reads agent status through its owned project", async () => {
     const { client, calls } = recordingClient("community");
-
-    await client.appStatuses({ projectId: 1578 });
-
-    expect(calls[0]?.url).toBe("/api/build/deployments/apps?projectId=1578");
+    await client.agentStatuses({ projectId: 1578 });
+    expect(calls[0]?.url).toBe("/api/build/deployments/agents?projectId=1578");
+  });
+  it("keeps a derived client's platform independent", async () => {
+    const { client, calls } = recordingClient("somm.finance");
+    await client.forPlatform("community").deployments.projects();
+    await client.deployments.projects();
+    expect(calls.map(({ url }) => url)).toEqual([
+      "/api/build/deployments/projects?platform=community",
+      "/api/build/deployments/projects?platform=somm.finance",
+    ]);
+  });
+  it("does not expose removed native lifecycle methods", () => {
+    const { client } = recordingClient();
+    expect(client).not.toHaveProperty("deploy");
+    expect(client.deployments).not.toHaveProperty("promote");
   });
 });

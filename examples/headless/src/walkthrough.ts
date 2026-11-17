@@ -22,7 +22,7 @@ console.log("1. Client created");
 console.log(`   API: ${baseUrl}`);
 console.log("   Auth: automatic guest");
 
-// 2. Pick a session ID in your application and persist it with the chat.
+// 2. Pick a session ID in your agent and persist it with the chat.
 // Passing the same ID to later runs gives the Agent the same conversation.
 const sessionId = crypto.randomUUID();
 
@@ -72,17 +72,17 @@ console.log(
 );
 
 // 5. Pipeline is a catalog + deterministic Build lifecycle on the same facade.
-// Listing the app and skill directories is read-only and lets an integrator
+// Listing the toolset and skill directories is read-only and lets an integrator
 // discover the live catalog instead of hard-coding a second registry.
 console.log("\n6. Pipeline catalog");
 let pipelineAvailable = true;
 try {
-  const [apps, skills] = await Promise.all([
-    aomi.raw.pipeline.apps.list(),
+  const [toolsets, skills] = await Promise.all([
+    aomi.raw.pipeline.toolsets.list(),
     aomi.raw.pipeline.skills.list(),
   ]);
-  for (const entry of apps.entries.slice(0, 4)) {
-    console.log(`   app       ${entry.name}`);
+  for (const entry of toolsets.entries.slice(0, 4)) {
+    console.log(`   toolset       ${entry.name}`);
   }
   for (const entry of skills.entries.slice(0, 4)) {
     console.log(`   skill     ${entry.name}`);
@@ -111,20 +111,20 @@ try {
 //
 // It does NOT commit. `await build.commit()` is always a separate explicit
 // boundary and is deliberately absent from this walkthrough.
-const pipelineApp = process.env.AOMI_PIPELINE_APP?.trim();
+const pipelineToolset = process.env.AOMI_PIPELINE_TOOLSET?.trim();
 const pipelineOperation = process.env.AOMI_PIPELINE_OPERATION?.trim();
 const pipelineArgs = process.env.AOMI_PIPELINE_ARGS?.trim();
 
-if (pipelineAvailable && pipelineApp && pipelineOperation && pipelineArgs) {
+if (pipelineAvailable && pipelineToolset && pipelineOperation && pipelineArgs) {
   const args = parseArguments(pipelineArgs);
   const operation = await aomi.pipeline
-    .app(pipelineApp)
+    .toolset(pipelineToolset)
     .operation(pipelineOperation);
   console.log(`\n7. Pipeline operation: ${operation.name}`);
   console.log(`   ${operation.description}`);
 
   const build = await aomi.pipeline
-    .app(pipelineApp)
+    .toolset(pipelineToolset)
     .build(pipelineOperation, args);
   console.log(`   status: ${build.status}`);
   console.log(`   simulation: ${build.simulation.status}`);
@@ -134,7 +134,7 @@ if (pipelineAvailable && pipelineApp && pipelineOperation && pipelineArgs) {
   console.log("\n7. Pipeline build skipped");
   console.log(
     pipelineAvailable
-      ? "   Set AOMI_PIPELINE_APP, AOMI_PIPELINE_OPERATION, and AOMI_PIPELINE_ARGS to run it."
+      ? "   Set AOMI_PIPELINE_TOOLSET, AOMI_PIPELINE_OPERATION, and AOMI_PIPELINE_ARGS to run it."
       : "   Guest Pipeline access is disabled on this deployment.",
   );
 }

@@ -45,7 +45,7 @@ const docsPages: Record<string, string> = {
   introduction: "",
   "start-here": "",
   "about-aomi": "/build",
-  "agentic-application": "/build",
+  "agentic-agent": "/build",
   "non-custodial-wallet": "/concepts/non-custodial-wallets:md",
   changelog: "/resources/changelog:md",
   troubleshooting: "/guides/troubleshooting:md",

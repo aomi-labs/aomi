@@ -38,9 +38,9 @@ describe("settingsApiFetch", () => {
 
     try {
       const { sessionScopedFetch } = await import("@/account/settings-api");
-      await sessionScopedFetch("/api/account/apps");
+      await sessionScopedFetch("/api/account/agents");
 
-      expect(calls[0]?.url).toBe("/api/account/apps");
+      expect(calls[0]?.url).toBe("/api/account/agents");
       expect(calls[0]?.headers.get("X-Thread-Id") ?? "").toMatch(
         /^(settings-|[0-9a-f-]{36})/,
       );

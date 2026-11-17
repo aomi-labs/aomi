@@ -27,7 +27,7 @@ const accountSlot = JSON.stringify(["display-v3", "/backend", "8", "account"]);
 const user = { kind: "user", id: "a" } as const;
 const scope: DisplayScope = {
   backendUrl: "/backend",
-  appId: "8",
+  agentScope: "8",
   account: user,
 };
 const accountPrefix = displayKeyPrefix(scope, user);
@@ -42,7 +42,7 @@ describe("what the display cache saves", () => {
         tier: "pro",
         credential: "secret",
         private_key: "key",
-        apps: ["private"],
+        agents: ["private"],
       },
       pendingActions: ["sign"],
       signing_policies: ["allow"],

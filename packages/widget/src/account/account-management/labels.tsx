@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { LayoutGrid, Pause } from "lucide-react";
 import type { WalletFamily } from "@/wallet/types";
-import { getAppIcon } from "@/icons/app-map";
+import { getAgentIcon } from "@/icons/agent-map";
 import { familyList, plural } from "./wallet-model";
 
 /**
  * The labels every wallet and connection row shares (Settings, sheets and
- * pickers alike): families in the mono face, an app as its logo and name in
+ * pickers alike): families in the mono face, an agent as its logo and name in
  * the grey line, and Paused as a word at the row's end.
  */
 
@@ -36,11 +36,15 @@ export function AddressSummary({
 }
 
 /**
- * The app a wallet is used by, or a connection is locked to: its own logo
- * (the Library's artwork) and name, else the generic app grid.
+ * The agent a wallet is used by, or a connection is locked to: its own logo
+ * (the Library's artwork) and name, else the generic agent grid.
  */
-export function AppLabel({ app }: { app: { name: string; label: string } }) {
-  const Icon = getAppIcon(app.name);
+export function AgentLabel({
+  agent,
+}: {
+  agent: { name: string; label: string };
+}) {
+  const Icon = getAgentIcon(agent.name);
   return (
     <span className="inline-flex items-center gap-1 whitespace-nowrap align-[-2px] font-sans">
       {Icon ? (
@@ -48,17 +52,17 @@ export function AppLabel({ app }: { app: { name: string; label: string } }) {
       ) : (
         <LayoutGrid aria-hidden className="size-3 shrink-0" />
       )}
-      {app.label}
+      {agent.label}
     </span>
   );
 }
 
-/** ` · <AppLabel>` when there is an app, for the end of a grey line. */
-export const withApp = (app: { name: string; label: string } | null) =>
-  app ? (
+/** ` · <AgentLabel>` when there is an agent, for the end of a grey line. */
+export const withAgent = (agent: { name: string; label: string } | null) =>
+  agent ? (
     <>
       {" · "}
-      <AppLabel app={app} />
+      <AgentLabel agent={agent} />
     </>
   ) : null;
 

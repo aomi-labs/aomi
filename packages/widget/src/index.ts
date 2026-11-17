@@ -15,9 +15,8 @@ export {
 export type {
   AomiRoutingConfig,
   AomiRoutingTarget,
-  DirectRoutingApp,
+  DirectRoutingAgent,
 } from "./controls/routing";
-export { preloadWalletProvider } from "./wallet/providers/plugin-registry";
+export { preloadWalletProvider } from "./wallet/providers/provider-registry";
 /** Merge Tailwind classes, aware of the Aomi theme's names. */
 export { cn } from "./lib/cn";
-

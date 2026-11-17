@@ -20,7 +20,7 @@ export function WidgetStorageProvider({
 }) {
   const storage = useMemo(
     () => createScopedStorage(scope),
-    [scope.backendUrl, scope.appId, scope.principal],
+    [scope.backendUrl, scope.agentScope, scope.principal],
   );
   return (
     <StorageContext.Provider value={storage}>

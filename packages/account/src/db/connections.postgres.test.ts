@@ -50,7 +50,9 @@ describe.skipIf(!enabled)("account connections", () => {
       ),
     );
     const { createAuth } = await import("../better-auth/auth");
-    await (await getMigrations(createAuth(process.env).options)).runMigrations();
+    await (
+      await getMigrations(createAuth(process.env).options)
+    ).runMigrations();
     connections = await import("../service/connections");
     await seed();
   }, 30_000);
@@ -191,7 +193,7 @@ describe.skipIf(!enabled)("account connections", () => {
     kind: "portal",
     name: "Aomi",
     detail: null,
-    application: null,
+    agent: null,
     ask_only: false,
     wallets: [],
     last_used_at: null,
@@ -210,7 +212,7 @@ describe.skipIf(!enabled)("account connections", () => {
     kind,
     name,
     detail: null,
-    application: null,
+    agent: null,
     ask_only: false,
     wallets: [],
     last_used_at: null,
@@ -228,7 +230,7 @@ describe.skipIf(!enabled)("account connections", () => {
     kind: "telegram",
     name,
     detail: "Telegram @arixon",
-    application: null,
+    agent: null,
     ask_only: false,
     wallets: [],
     last_used_at: null,
@@ -252,7 +254,7 @@ describe.skipIf(!enabled)("account connections", () => {
           last_used_at: 1760409000,
         }),
         bot("88", "Side bot", {
-          application: { id: 86, name: "hoodit", label: "Hoodit" },
+          agent: { id: 86, name: "hoodit", label: "Hoodit" },
           ask_only: true,
           wallets: [
             { id: HOODIT, name: "Hoodit", lane: "ask_aomi", archived: false },

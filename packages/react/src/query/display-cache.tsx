@@ -21,10 +21,10 @@ export type RuntimeAccount = { kind: "guest" | "user"; id: string };
 
 export type DisplayResource =
   | "models"
-  | "app-catalog"
+  | "agent-catalog"
   | "skills"
   | "authorized-models"
-  | "authorized-apps"
+  | "authorized-agents"
   | "threads"
   | "profile"
   | "credits"
@@ -38,7 +38,7 @@ export type DisplayResource =
 /** The same for every caller: keyed without the account and cached at the edge. */
 const PUBLIC_CATALOGS: ReadonlySet<DisplayResource> = new Set([
   "models",
-  "app-catalog",
+  "agent-catalog",
   "skills",
 ]);
 export const isPublicCatalog = (resource: DisplayResource) =>
@@ -47,7 +47,7 @@ export const isPublicCatalog = (resource: DisplayResource) =>
 const MINUTE = 60_000;
 const STALE_TIME: Partial<Record<DisplayResource, number>> = {
   models: 30 * MINUTE,
-  "app-catalog": 30 * MINUTE,
+  "agent-catalog": 30 * MINUTE,
   skills: 30 * MINUTE,
   credits: MINUTE,
   "transaction-safety": 10 * MINUTE,
@@ -66,7 +66,7 @@ const REFRESH_ON_FOCUS: ReadonlySet<DisplayResource> = new Set([
  */
 export type DisplayScope = {
   backendUrl: string;
-  appId: string;
+  agentScope: string;
   account: RuntimeAccount | null | undefined;
 };
 
@@ -107,7 +107,7 @@ export function displayKeyPrefix(
   scope: DisplayScope,
   owner: "public" | RuntimeAccount | null,
 ): QueryKey {
-  return ["aomi", scope.backendUrl, scope.appId, owner];
+  return ["aomi", scope.backendUrl, scope.agentScope, owner];
 }
 
 export function displayKey(
@@ -144,14 +144,14 @@ export const useAomiDisplayCache = () => useContext(DisplayCacheContext);
 
 export function DisplayCacheProvider({
   backendUrl,
-  applicationId,
+  agent,
   account,
   persistence = "public",
   aomi,
   children,
 }: {
   backendUrl: string;
-  applicationId?: number | string | null;
+  agent?: number | string | null;
   account?: RuntimeAccount | null;
   persistence?: DisplayPersistence;
   aomi?: Aomi;
@@ -159,21 +159,21 @@ export function DisplayCacheProvider({
 }) {
   const [client] = useState(createDisplayQueryClient);
   const normalizedBackend = backendUrl.replace(/\/+$/, "");
-  const appId = String(applicationId ?? "");
+  const agentScope = String(agent ?? "");
   const accountKind = account?.kind;
   const accountId = account?.id;
   const accountKnown = account !== undefined;
   const scope = useMemo<DisplayScope>(
     () => ({
       backendUrl: normalizedBackend,
-      appId,
+      agentScope,
       account: !accountKnown
         ? undefined
         : accountKind && accountId
           ? { kind: accountKind, id: accountId }
           : null,
     }),
-    [normalizedBackend, appId, accountKnown, accountKind, accountId],
+    [normalizedBackend, agentScope, accountKnown, accountKind, accountId],
   );
   const [restored, setRestored] = useState<{
     scope: DisplayScope;

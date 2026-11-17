@@ -1,79 +1,22 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-import { EdgeError } from "../../kernel/errors";
-const mocks = vi.hoisted(() => ({
-  authorize: vi.fn(),
-  start: vi.fn(),
-  list: vi.fn(),
-  cancel: vi.fn(),
-}));
-vi.mock("../auth", () => ({ authorize: mocks.authorize }));
-vi.mock("../manager-client", async (original) => ({
-  ...(await original<typeof import("../manager-client")>()),
-  managerClient: async () => ({
-    startProjectDeploymentAttempt: mocks.start,
-    projectDeploymentAttempts: mocks.list,
-    cancelProjectDeploymentAttempt: mocks.cancel,
-  }),
-}));
-
+// @vitest-environment node
+import { expect, it, vi } from "vitest";
 import { deploymentAttemptsRoute } from "./routes";
-const post = (body: unknown) =>
-  new Request("https://build.test/api/build/deployments/attempts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-beforeEach(() => {
-  vi.clearAllMocks();
-  mocks.authorize.mockResolvedValue({ session: { githubUserId: "owner" } });
-  mocks.start.mockResolvedValue({ attempt: { id: 1 } });
-  mocks.cancel.mockResolvedValue({ ok: true });
-});
-describe("attempt BFF authorization", () => {
-  it("takes ownership identity only from the authenticated session", async () => {
-    const response = await deploymentAttemptsRoute(
-      post({
-        action: "start",
-        projectId: 7,
-        branch: "fix",
-        githubUserId: "attacker",
-      }),
-    );
-    expect(response.status).toBe(200);
-    expect(mocks.start).toHaveBeenCalledWith({
-      projectId: 7,
-      githubUserId: "owner",
-      branch: "fix",
-    });
-    expect(mocks.authorize).toHaveBeenCalledWith(expect.any(Request), expect.anything(), {
-      write: true,
-      cliScope: "deploy",
-    });
-  });
-  it("rejects unauthenticated requests before any backend operation", async () => {
-    mocks.authorize.mockRejectedValue(new EdgeError(401, "unauthenticated"));
-    expect(
-      (await deploymentAttemptsRoute(post({ action: "start", projectId: 7 })))
-        .status,
-    ).toBe(401);
-    expect(mocks.start).not.toHaveBeenCalled();
-  });
-  it("carries the project and run together when cancelling", async () => {
-    await deploymentAttemptsRoute(
-      post({ action: "cancel", projectId: 7, runId: 33 }),
-    );
-    expect(mocks.cancel).toHaveBeenCalledWith({
-      projectId: 7,
-      runId: 33,
-      githubUserId: "owner",
-    });
-    expect(
-      (
-        await deploymentAttemptsRoute(
-          post({ action: "cancel", projectId: 7, runId: -1 }),
-        )
-      ).status,
-    ).toBe(400);
-  });
+import { getGitHubSession } from "./harness";
+it("leaves retired deployment attempt paths unhandled", async () => {
+  getGitHubSession.mockResolvedValue({ githubUserId: "42" });
+  const upstream = vi
+    .spyOn(globalThis, "fetch")
+    .mockResolvedValue(new Response(null, { status: 404 }));
+  const response = await deploymentAttemptsRoute(
+    new Request(
+      "http://localhost:3000/api/build/deployments/attempts?projectId=7",
+    ),
+  );
+  expect(response.status).toBe(404);
+  expect(
+    upstream.mock.calls.every(([url]) =>
+      String(url).startsWith("http://build-vercel.invalid/"),
+    ),
+  ).toBe(true);
+  upstream.mockRestore();
 });

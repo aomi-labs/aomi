@@ -157,7 +157,7 @@ export function SettingsGitHubAppPanel() {
       {state.status === "ready" && state.report.repositories.length === 0 && (
         <p className="text-dim text-sm">
           No repositories are connected yet. Access is requested when you create
-          or import an app.
+          or import an agent.
         </p>
       )}
       {state.status === "ready" && state.report.repositories.length > 0 && (

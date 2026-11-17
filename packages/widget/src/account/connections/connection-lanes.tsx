@@ -141,8 +141,8 @@ export function ConnectionLanes({
         </ListGroup>
       ) : (
         <p className="type-meta text-aomi-muted">
-          Only you, here in Aomi. Apps, bots and your terminal show up here once
-          they connect.
+          Only you, here in Aomi. Agents, bots and your terminal show up here
+          once they connect.
         </p>
       )}
       {dialog}

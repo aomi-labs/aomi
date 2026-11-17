@@ -44,7 +44,7 @@ import {
 import { BUILD_TEMPLATES } from "@/features/build/templates";
 
 const actionPills = [
-  { label: "Arb bot", action: "tpl_arbitrage_bot" },
+  { label: "Arb agent", action: "tpl_arbitrage_agent" },
   { label: "OpenAPI agent", action: "tpl_openapi_agent" },
   { label: "Plan from idea", hint: "⇧Tab", action: "plan" },
 ];
@@ -183,7 +183,7 @@ export function BuildView() {
     ],
   );
 
-  const scrollToBottom = useCallback(() => {
+  const scrollToChanneltom = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     requestAnimationFrame(() => {
@@ -192,7 +192,7 @@ export function BuildView() {
   }, []);
 
   useEffect(() => {
-    scrollToBottom();
+    scrollToChanneltom();
   }, [
     messages,
     streamingMessageId,
@@ -201,7 +201,7 @@ export function BuildView() {
     awaitingVerify,
     shipReady,
     fileTree,
-    scrollToBottom,
+    scrollToChanneltom,
   ]);
 
   useEffect(() => {
@@ -269,7 +269,7 @@ export function BuildView() {
       );
       toast({
         title: "Downloading crate",
-        description: "Generated app source as .tar.gz.",
+        description: "Generated package source as .tar.gz.",
         tone: "success",
       });
       return;
@@ -478,7 +478,7 @@ export function BuildView() {
                       isLoading={isGenerating}
                       actionPills={actionPills}
                       onActionPillClick={handleActionPill}
-                      placeholder="Describe an agent — e.g. hyperliquid & binance arb bot"
+                      placeholder="Describe an agent — e.g. hyperliquid & binance arb agent"
                       autoFocus
                     />
                     <TemplateGallery

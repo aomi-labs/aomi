@@ -1,12 +1,25 @@
 /**
  * The Operate surface: transactions, usage, statements, partner payments, logs, observability
- * and an app's detail. Each one-project read has an account-wide batch twin whose rows also
+ * and an agent's detail. Each one-project read has an account-wide batch twin whose rows also
  * name their project.
  */
 import { z } from "zod";
 
-import { AppPricingSnapshot, Project } from "./deploy";
-import { flag, isRecord, list, maybe, maybeList, maybeNum, maybeText, num, oneOf, seconds, text, wire } from "./wire";
+import { AgentPricingSnapshot, Project } from "./deploy";
+import {
+  flag,
+  isRecord,
+  list,
+  maybe,
+  maybeList,
+  maybeNum,
+  maybeText,
+  num,
+  oneOf,
+  seconds,
+  text,
+  wire,
+} from "./wire";
 
 /** A row tagged with the project and platform it came from, as the batch reads send it. */
 const tagged = { projectId: maybeNum, platform: maybeText };
@@ -16,8 +29,8 @@ const tagged = { projectId: maybeNum, platform: maybeText };
 const transaction = {
   id: text(),
   externalTxId: text(),
-  application: text(),
-  applicationId: maybeNum,
+  agent: text(),
+  agentId: maybeNum,
   status: text(),
   /** EVM tx hash or SVM signature. */
   txHash: maybeText,
@@ -30,7 +43,9 @@ const transaction = {
   description: maybeText,
   createdAt: seconds,
   updatedAt: seconds,
-  submittedAt: z.unknown().transform((value) => (value == null ? null : seconds.parse(value))),
+  submittedAt: z
+    .unknown()
+    .transform((value) => (value == null ? null : seconds.parse(value))),
   // The receipt contract, null until the confirmation watcher lands.
   family: oneOf(["evm", "svm"], null),
   chainName: maybeText,
@@ -59,10 +74,12 @@ export const OperateTransaction = wire(transaction);
 export type OperateTransaction = z.output<typeof OperateTransaction>;
 
 /** The next page, or null when the manager sends no complete cursor. */
-export const OperateTransactionCursor = maybe(wire({ createdAt: seconds, id: text() })).transform((cursor) =>
-  cursor?.createdAt && cursor.id ? cursor : null,
-);
-export type OperateTransactionCursor = NonNullable<z.output<typeof OperateTransactionCursor>>;
+export const OperateTransactionCursor = maybe(
+  wire({ createdAt: seconds, id: text() }),
+).transform((cursor) => (cursor?.createdAt && cursor.id ? cursor : null));
+export type OperateTransactionCursor = NonNullable<
+  z.output<typeof OperateTransactionCursor>
+>;
 
 export const OperateTransactionsResult = wire({
   project: Project,
@@ -70,7 +87,9 @@ export const OperateTransactionsResult = wire({
   transactions: list(OperateTransaction),
   nextCursor: OperateTransactionCursor,
 });
-export type OperateTransactionsResult = z.output<typeof OperateTransactionsResult>;
+export type OperateTransactionsResult = z.output<
+  typeof OperateTransactionsResult
+>;
 
 /** One owned project and the platform it resolves under, from a batch read. */
 export const UserProjectRef = wire({ project: Project, platform: text() });
@@ -87,14 +106,28 @@ export type UserTransactionRow = UserTransactionsResult["transactions"][number];
 
 // ── Usage and the statement ───────────────────────────────────────────────
 
-const tokens = { inputTokens: num(0), outputTokens: num(0), creditsUsed: num(0) };
+const tokens = {
+  inputTokens: num(0),
+  outputTokens: num(0),
+  creditsUsed: num(0),
+};
 
 export const OperateUsageResult = wire({
   project: Project,
   platform: text(),
   range: wire({ fromDate: text(), toDate: text(), maxDays: num(90) }),
-  daily: list(wire({ periodUtcDay: text(), application: text(), applicationId: num(0), ...tokens })),
-  breakdown: list(wire({ provider: text(), model: text(), paymentMethod: text(), ...tokens, events: num(0) })),
+  daily: list(
+    wire({ periodUtcDay: text(), agent: text(), agentId: num(0), ...tokens }),
+  ),
+  breakdown: list(
+    wire({
+      provider: text(),
+      model: text(),
+      paymentMethod: text(),
+      ...tokens,
+      events: num(0),
+    }),
+  ),
 });
 export type OperateUsageResult = z.output<typeof OperateUsageResult>;
 
@@ -113,8 +146,8 @@ export const OperatePartnerPayments = wire({
   }),
   resources: list(
     wire({
-      application: text(),
-      applicationId: maybeNum,
+      agent: text(),
+      agentId: maybeNum,
       tool: text(),
       flatCredits: num(0),
       flatUsd: num(0),
@@ -125,14 +158,21 @@ export const OperatePartnerPayments = wire({
       observedCalls: num(0),
     }),
   ),
-  buckets: list(wire({ id: text(), recipient: text(), outstandingCredits: num(0), outstandingUsd: num(0) })),
+  buckets: list(
+    wire({
+      id: text(),
+      recipient: text(),
+      outstandingCredits: num(0),
+      outstandingUsd: num(0),
+    }),
+  ),
   events: list(
     wire({
       id: text(),
       kind: text(),
       occurredAt: seconds,
-      application: maybeText,
-      applicationId: maybeNum,
+      agent: maybeText,
+      agentId: maybeNum,
       tools: list(z.unknown().transform(String)),
       credits: num(0),
       usd: num(0),
@@ -148,7 +188,12 @@ export const OperatePartnerPayments = wire({
 });
 export type OperatePartnerPayments = z.output<typeof OperatePartnerPayments>;
 
-const money = { events: num(0), gross: num(0), platformFee: num(0), net: num(0) };
+const money = {
+  events: num(0),
+  gross: num(0),
+  platformFee: num(0),
+  net: num(0),
+};
 
 /**
  * Aomi's statement to the builder: one document with entries of both signs. Charges (the
@@ -161,10 +206,27 @@ export const OperateStatementResult = wire({
   range: wire({ fromDate: text(), toDate: text() }),
   /** False before the statement table exists; the UI falls back to the meter. */
   available: flag,
-  summary: wire({ grossRevenue: num(0), platformFees: num(0), serviceCharges: num(0), net: num(0) }),
-  revenue: list(wire({ subject: text(), application: text(), applicationId: maybeNum, ...money })),
-  charges: list(wire({ item: text(), application: text(), applicationId: maybeNum, events: num(0), amount: num(0) })),
-  entries: list(wire({ day: text(), application: text(), subject: text(), ...money })),
+  summary: wire({
+    grossRevenue: num(0),
+    platformFees: num(0),
+    serviceCharges: num(0),
+    net: num(0),
+  }),
+  revenue: list(
+    wire({ subject: text(), agent: text(), agentId: maybeNum, ...money }),
+  ),
+  charges: list(
+    wire({
+      item: text(),
+      agent: text(),
+      agentId: maybeNum,
+      events: num(0),
+      amount: num(0),
+    }),
+  ),
+  entries: list(
+    wire({ day: text(), agent: text(), subject: text(), ...money }),
+  ),
   payments: OperatePartnerPayments,
 });
 export type OperateStatementResult = z.output<typeof OperateStatementResult>;
@@ -172,16 +234,20 @@ export type OperateStatementResult = z.output<typeof OperateStatementResult>;
 // ── Logs ──────────────────────────────────────────────────────────────────
 
 /** The builder-owned key that funded a usage event, from its details; null for other events. */
-const ModelKey = maybe(wire({ id: maybeNum, label: maybeText, prefix: maybeText })).transform((key) =>
-  key && key.id !== null && Number.isFinite(key.id) ? { ...key, id: key.id } : null,
+const ModelKey = maybe(
+  wire({ id: maybeNum, label: maybeText, prefix: maybeText }),
+).transform((key) =>
+  key && key.id !== null && Number.isFinite(key.id)
+    ? { ...key, id: key.id }
+    : null,
 );
 
 const log = {
   occurredAt: seconds,
   eventType: text(),
   id: text(),
-  application: text(),
-  applicationId: maybeNum,
+  agent: text(),
+  agentId: maybeNum,
   summary: text(),
   /** The event's own fields, as the manager sent them. */
   details: z.unknown().transform((value) => (isRecord(value) ? value : {})),
@@ -202,7 +268,9 @@ const logAliases = { modelKey: ["details.model_key", "details.modelKey"] };
 export const OperateLogEntry = wire(log, logAliases);
 export type OperateLogEntry = z.output<typeof OperateLogEntry>;
 
-export const OperateLogCursor = maybe(wire({ occurredAt: seconds, eventType: text(), id: text() })).transform((cursor) =>
+export const OperateLogCursor = maybe(
+  wire({ occurredAt: seconds, eventType: text(), id: text() }),
+).transform((cursor) =>
   cursor?.occurredAt && cursor.eventType && cursor.id ? cursor : null,
 );
 export type OperateLogCursor = NonNullable<z.output<typeof OperateLogCursor>>;
@@ -229,7 +297,7 @@ export type UserLogRow = UserLogsResult["logs"][number];
 
 const series = maybeList(z.unknown().transform(Number));
 
-export const OperateAppMetrics = wire({
+export const OperateAgentMetrics = wire({
   provider: text(),
   windowSeconds: num(0),
   available: flag,
@@ -252,27 +320,29 @@ export const OperateAppMetrics = wire({
   coldStartMs: maybeNum,
   dylibBytes: maybeNum,
 });
-export type OperateAppMetrics = z.output<typeof OperateAppMetrics>;
+export type OperateAgentMetrics = z.output<typeof OperateAgentMetrics>;
 
-export const OperateAppHealth = wire({
-  applicationId: num(0),
-  application: text(),
+export const OperateAgentHealth = wire({
+  agentId: num(0),
+  agent: text(),
   active: flag,
   loaded: flag,
   releaseTag: maybeText,
   sdkVersion: maybeText,
   status: text(),
-  metrics: maybe(OperateAppMetrics),
-  pricing: maybe(AppPricingSnapshot),
+  metrics: maybe(OperateAgentMetrics),
+  pricing: maybe(AgentPricingSnapshot),
 });
-export type OperateAppHealth = z.output<typeof OperateAppHealth>;
+export type OperateAgentHealth = z.output<typeof OperateAgentHealth>;
 
 const observability = {
   project: Project,
   platform: text(),
-  scope: text("owned_applications"),
-  monitoring: maybe(wire({ provider: text(), status: text(), windowSeconds: num(0) })),
-  apps: list(OperateAppHealth),
+  scope: text("owned_agents"),
+  monitoring: maybe(
+    wire({ provider: text(), status: text(), windowSeconds: num(0) }),
+  ),
+  agents: list(OperateAgentHealth),
   dashboardLinks: list(wire({ label: text(), url: text(), scope: text() })),
   platformMetrics: list(
     wire({
@@ -280,22 +350,36 @@ const observability = {
       value: maybeNum,
       unit: text(),
       scope: text(),
-      description: z.unknown().transform((value) => (typeof value === "string" ? value : undefined)),
+      description: z
+        .unknown()
+        .transform((value) => (typeof value === "string" ? value : undefined)),
     }),
   ),
 };
 
-export const OperateObservabilityResult = wire({ ...observability, payments: OperatePartnerPayments });
-export type OperateObservabilityResult = z.output<typeof OperateObservabilityResult>;
+export const OperateObservabilityResult = wire({
+  ...observability,
+  payments: OperatePartnerPayments,
+});
+export type OperateObservabilityResult = z.output<
+  typeof OperateObservabilityResult
+>;
 
 /** An account-wide snapshot: the same read without the payment ledger. */
 export const OperateObservabilitySnapshot = wire(observability);
-export type OperateObservabilitySnapshot = z.output<typeof OperateObservabilitySnapshot>;
+export type OperateObservabilitySnapshot = z.output<
+  typeof OperateObservabilitySnapshot
+>;
 
-export const OperatePaymentProjectResult = wire({ project: Project, payments: OperatePartnerPayments });
-export type OperatePaymentProjectResult = z.output<typeof OperatePaymentProjectResult>;
+export const OperatePaymentProjectResult = wire({
+  project: Project,
+  payments: OperatePartnerPayments,
+});
+export type OperatePaymentProjectResult = z.output<
+  typeof OperatePaymentProjectResult
+>;
 
-// ── One app's detail ──────────────────────────────────────────────────────
+// ── One agent's detail ──────────────────────────────────────────────────────
 
 /** Per-hour values where an hour without samples reads null. */
 const sparseSeries = maybeList(
@@ -305,12 +389,12 @@ const sparseSeries = maybeList(
   }),
 );
 
-export const OperateAppDetailResult = wire({
+export const OperateAgentDetailResult = wire({
   project: Project,
   platform: text(),
   windowSeconds: num(0),
-  app: wire({
-    applicationId: num(0),
+  agent: wire({
+    agentId: num(0),
     name: text(),
     releaseTag: maybeText,
     sdkVersion: maybeText,
@@ -342,7 +426,12 @@ export const OperateAppDetailResult = wire({
       lastError: maybe(wire({ message: maybeText, occurredAt: num(0) })),
     }),
   ),
-  lifecycle: wire({ coldStartMs: maybeNum, dylibBytes: maybeNum, loads24h: maybeNum, evictions24h: maybeNum }),
+  lifecycle: wire({
+    coldStartMs: maybeNum,
+    dylibBytes: maybeNum,
+    loads24h: maybeNum,
+    evictions24h: maybeNum,
+  }),
   hourly: wire({
     chats: series,
     toolCalls: series,
@@ -351,4 +440,6 @@ export const OperateAppDetailResult = wire({
     transactions: series,
   }),
 });
-export type OperateAppDetailResult = z.output<typeof OperateAppDetailResult>;
+export type OperateAgentDetailResult = z.output<
+  typeof OperateAgentDetailResult
+>;

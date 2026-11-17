@@ -572,7 +572,7 @@ function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
   const { account, setAccount } = useGitHubSession();
   const queryClient = useQueryClient();
   // A negative builder balance blocks deploys and activations, and pauses
-  // paid chats on every live app, so it is surfaced on every page.
+  // paid chats on every live agent, so it is surfaced on every page.
   const builderDebt = useQuery({
     queryKey: ["builder-credits"],
     enabled: account.signedIn,
@@ -733,8 +733,8 @@ function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
                 style: "currency",
                 currency: "USD",
               }).format(-builderDebt / 1_000_000)}
-              . Deploys are blocked and your live apps can’t answer chats until
-              you add credits.
+              . Deploys are blocked and your live agents can’t answer chats
+              until you add credits.
             </p>
             {pathname !== "/settings/billing" ? (
               <Link

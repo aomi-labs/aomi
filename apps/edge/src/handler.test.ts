@@ -47,7 +47,8 @@ beforeEach(() => {
 
 /** Payment's public Task terms, as the staging Payment service publishes them. */
 function paymentTerms(request: Request): Response | null {
-  return new URL(request.url).href === "https://payment-staging.aomi.dev/v1/payment/task/terms"
+  return new URL(request.url).href ===
+    "https://payment-staging.aomi.dev/v1/payment/task/terms"
     ? Response.json(taskTerms(false))
     : null;
 }
@@ -55,13 +56,17 @@ function paymentTerms(request: Request): Response | null {
 describe("route resolution", () => {
   it("redirects an exact legacy portal host before pages, auth or API dispatch", async () => {
     const response = await handleRequest(
-      new Request("https://legacy-portal.aomi.dev/api/auth/oauth2/authorize?client_id=one&state=two", {
-        method: "POST",
-      }),
+      new Request(
+        "https://legacy-portal.aomi.dev/api/auth/oauth2/authorize?client_id=one&state=two",
+        {
+          method: "POST",
+        },
+      ),
       {
         ...env,
         PORTAL_HOSTS: "portal.aomi.chat",
-        PORTAL_HOST_REDIRECTS: "legacy-portal.aomi.dev=https://portal.aomi.chat",
+        PORTAL_HOST_REDIRECTS:
+          "legacy-portal.aomi.dev=https://portal.aomi.chat",
       },
       never,
     );
@@ -75,9 +80,12 @@ describe("route resolution", () => {
 
   it("rejects unsafe or cross-host portal redirects", () => {
     const canonical = new Set(["portal.aomi.chat"]);
-    expect([...portalHostRedirects("legacy-portal.aomi.dev=https://portal.aomi.chat", canonical)]).toEqual([
-      ["legacy-portal.aomi.dev", "https://portal.aomi.chat"],
-    ]);
+    expect([
+      ...portalHostRedirects(
+        "legacy-portal.aomi.dev=https://portal.aomi.chat",
+        canonical,
+      ),
+    ]).toEqual([["legacy-portal.aomi.dev", "https://portal.aomi.chat"]]);
     for (const value of [
       "legacy-portal.aomi.dev=http://portal.aomi.chat",
       "legacy-portal.aomi.dev=https://evil.example",
@@ -85,7 +93,8 @@ describe("route resolution", () => {
       "portal.aomi.chat=https://portal.aomi.chat",
       "legacy-portal.aomi.dev=https://portal.aomi.chat?query=1",
       "legacy-portal.aomi.dev=https://portal.aomi.chat,legacy-portal.aomi.dev=https://portal.aomi.chat",
-    ]) expect(() => portalHostRedirects(value, canonical)).toThrow();
+    ])
+      expect(() => portalHostRedirects(value, canonical)).toThrow();
   });
 
   it("does not redirect the canonical portal host", async () => {
@@ -95,7 +104,8 @@ describe("route resolution", () => {
         ...env,
         PORTAL_HOSTS: "portal.aomi.chat",
         PORTAL_UPSTREAM_ORIGIN: "https://portal-pages.example",
-        PORTAL_HOST_REDIRECTS: "legacy-portal.aomi.dev=https://portal.aomi.chat",
+        PORTAL_HOST_REDIRECTS:
+          "legacy-portal.aomi.dev=https://portal.aomi.chat",
       },
       async () => new Response("canonical", { status: 200 }),
     );
@@ -103,7 +113,10 @@ describe("route resolution", () => {
   });
 
   it("keeps /api paths intact for backend", () => {
-    const route = resolveRoute(new URL("https://api-staging.aomi.dev/api/chat"), env);
+    const route = resolveRoute(
+      new URL("https://api-staging.aomi.dev/api/chat"),
+      env,
+    );
     expect(route?.targets[0].toString()).toBe(
       "https://backend-staging-tunnel.aomi.dev/api/chat",
     );
@@ -120,9 +133,14 @@ describe("route resolution", () => {
     );
     expect(route?.name).toBe("task");
     expect(route?.targets.slice(1)).toEqual([]);
-    expect(resolveRoute(new URL("https://api-staging.aomi.dev/v1/task/other"), env)).toBeNull();
     expect(
-      resolveRoute(new URL("https://api.aomi.dev/v1/task/build"), productionEnv)?.targets[0].toString(),
+      resolveRoute(new URL("https://api-staging.aomi.dev/v1/task/other"), env),
+    ).toBeNull();
+    expect(
+      resolveRoute(
+        new URL("https://api.aomi.dev/v1/task/build"),
+        productionEnv,
+      )?.targets[0].toString(),
     ).toBe("https://agent-2.aomi.dev/v1/task/build");
     expect(
       resolveRoute(new URL("https://api.aomi.dev/v1/task/build"), {
@@ -130,17 +148,30 @@ describe("route resolution", () => {
         API_SERVER_ORIGIN: "",
       }),
     ).toBeNull();
-    const jwks = resolveRoute(new URL("https://api.aomi.dev/.well-known/jwks.json"), productionEnv);
-    expect(jwks?.targets[0].toString()).toBe("https://agent-2.aomi.dev/.well-known/jwks.json");
+    const jwks = resolveRoute(
+      new URL("https://api.aomi.dev/.well-known/jwks.json"),
+      productionEnv,
+    );
+    expect(jwks?.targets[0].toString()).toBe(
+      "https://agent-2.aomi.dev/.well-known/jwks.json",
+    );
     expect(jwks?.name).toBe("jwks");
     expect(
-      resolveRoute(new URL("https://api.aomi.dev/.well-known/other.json"), productionEnv),
+      resolveRoute(
+        new URL("https://api.aomi.dev/.well-known/other.json"),
+        productionEnv,
+      ),
     ).toBeNull();
   });
 
   it("forwards /metrics to backend", () => {
-    const route = resolveRoute(new URL("https://api-staging.aomi.dev/metrics"), env);
-    expect(route?.targets[0].toString()).toBe("https://backend-staging-tunnel.aomi.dev/metrics");
+    const route = resolveRoute(
+      new URL("https://api-staging.aomi.dev/metrics"),
+      env,
+    );
+    expect(route?.targets[0].toString()).toBe(
+      "https://backend-staging-tunnel.aomi.dev/metrics",
+    );
     expect(route?.name).toBe("health");
   });
 
@@ -159,10 +190,25 @@ describe("route resolution", () => {
     const jobEnv = { API_SERVER_ORIGIN: "https://api-server.example" };
     const id = "00000000-0000-0000-0000-000000000001";
     for (const operation of ["status", "result"]) {
-      expect(resolveRoute(new URL(`https://api.example/v1/task/${id}/${operation}`), jobEnv)).not.toBeNull();
-      expect(resolveRoute(new URL(`https://api.example/v1/task/not-a-uuid/${operation}`), jobEnv)).toBeNull();
+      expect(
+        resolveRoute(
+          new URL(`https://api.example/v1/task/${id}/${operation}`),
+          jobEnv,
+        ),
+      ).not.toBeNull();
+      expect(
+        resolveRoute(
+          new URL(`https://api.example/v1/task/not-a-uuid/${operation}`),
+          jobEnv,
+        ),
+      ).toBeNull();
     }
-    expect(resolveRoute(new URL(`https://api.example/v1/task/${id}/execute`), jobEnv)).toBeNull();
+    expect(
+      resolveRoute(
+        new URL(`https://api.example/v1/task/${id}/execute`),
+        jobEnv,
+      ),
+    ).toBeNull();
   });
 });
 
@@ -204,8 +250,12 @@ describe("CORS", () => {
     );
     expect(fetchCalls).toBe(0);
     expect(response.status).toBe(204);
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://app.staging.aomi.dev");
-    expect(response.headers.get("Access-Control-Allow-Credentials")).toBe("true");
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+      "https://app.staging.aomi.dev",
+    );
+    expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
+      "true",
+    );
   });
 
   it("Task preflight permits the separate Gateway payment signature", async () => {
@@ -222,32 +272,49 @@ describe("CORS", () => {
       unexpected,
     );
     expect(response.status).toBe(204);
-    expect(response.headers.get("Access-Control-Allow-Headers")).toMatch(/Payment-Signature/);
-    expect(response.headers.get("Access-Control-Allow-Headers")).not.toMatch(/Authorization/);
+    expect(response.headers.get("Access-Control-Allow-Headers")).toMatch(
+      /Payment-Signature/,
+    );
+    expect(response.headers.get("Access-Control-Allow-Headers")).not.toMatch(
+      /Authorization/,
+    );
   });
 
   it("a bot's Mini App can ask for its user's wallet from any site, without credentials", async () => {
     let forwarded: string | null = null;
     const response = await handleRequest(
-      new Request("https://api.aomi.dev/api/bots/telegram/mini-app/7202441045/wallet", {
-        method: "POST",
-        headers: { Origin: "https://mini.partner.example", "Content-Type": "application/json" },
-        body: JSON.stringify({ init_data: "auth_date=1&hash=00" }),
-      }),
+      new Request(
+        "https://api.aomi.dev/api/bots/telegram/mini-app/7202441045/wallet",
+        {
+          method: "POST",
+          headers: {
+            Origin: "https://mini.partner.example",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ init_data: "auth_date=1&hash=00" }),
+        },
+      ),
       productionEnv,
       async (request) => {
         forwarded = request.url;
         return new Response(JSON.stringify({ wallet: null }), { status: 200 });
       },
     );
-    expect(new URL(forwarded ?? "").pathname).toBe("/api/bots/telegram/mini-app/7202441045/wallet");
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://mini.partner.example");
+    expect(new URL(forwarded ?? "").pathname).toBe(
+      "/api/bots/telegram/mini-app/7202441045/wallet",
+    );
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+      "https://mini.partner.example",
+    );
     expect(response.headers.get("Access-Control-Allow-Credentials")).toBeNull();
     // Every other bot route keeps the allowlist.
     const webhook = await handleRequest(
       new Request("https://api.aomi.dev/api/bots/telegram/secret/wallet", {
         method: "POST",
-        headers: { Origin: "https://mini.partner.example", "Content-Type": "application/json" },
+        headers: {
+          Origin: "https://mini.partner.example",
+          "Content-Type": "application/json",
+        },
         body: "{}",
       }),
       productionEnv,
@@ -266,7 +333,9 @@ describe("CORS", () => {
     );
     expect(response.status).toBe(200);
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    expect(response.headers.get("Access-Control-Allow-Methods")).toBe("GET, OPTIONS");
+    expect(response.headers.get("Access-Control-Allow-Methods")).toBe(
+      "GET, OPTIONS",
+    );
     expect(response.headers.get("Access-Control-Allow-Credentials")).toBeNull();
   });
 });
@@ -276,29 +345,44 @@ describe("proxying", () => {
     let upstream: Request | null = null;
     const response = await handleRequest(
       new Request("https://api-staging.aomi.dev/health", {
-        headers: { Origin: "https://app.staging.aomi.dev", "CF-Connecting-IP": "203.0.113.10" },
+        headers: {
+          Origin: "https://app.staging.aomi.dev",
+          "CF-Connecting-IP": "203.0.113.10",
+        },
       }),
       env,
       async (request) => {
         upstream = request;
-        return new Response("ok", { status: 200, headers: { "Content-Type": "text/plain" } });
+        return new Response("ok", {
+          status: 200,
+          headers: { "Content-Type": "text/plain" },
+        });
       },
     );
     const forwarded = upstream as Request | null;
-    expect(forwarded?.url).toBe("https://backend-staging-tunnel.aomi.dev/health");
+    expect(forwarded?.url).toBe(
+      "https://backend-staging-tunnel.aomi.dev/health",
+    );
     expect(forwarded?.headers.get("X-Real-IP")).toBe("203.0.113.10");
     expect(forwarded?.headers.get("X-Forwarded-For")).toBe("203.0.113.10");
     expect(forwarded?.headers.get("X-Forwarded-Proto")).toBe("https");
     expect(response.status).toBe(200);
-    expect(response.headers.get("Strict-Transport-Security")).toBe("max-age=31536000");
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://app.staging.aomi.dev");
+    expect(response.headers.get("Strict-Transport-Security")).toBe(
+      "max-age=31536000",
+    );
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+      "https://app.staging.aomi.dev",
+    );
   });
 
   it("proxies /metrics with the caller's authorization header", async () => {
     let authorization: string | null = null;
     const response = await handleRequest(
       new Request("https://api-staging.aomi.dev/metrics", {
-        headers: { Authorization: "Bearer test-token", Origin: "https://app.staging.aomi.dev" },
+        headers: {
+          Authorization: "Bearer test-token",
+          Origin: "https://app.staging.aomi.dev",
+        },
       }),
       env,
       async (request) => {
@@ -319,10 +403,14 @@ describe("proxying", () => {
       ["https://api-staging.aomi.dev/nope", env],
     ] as const) {
       let fetchCalls = 0;
-      const response = await handleRequest(new Request(url), routeEnv, async () => {
-        fetchCalls += 1;
-        return new Response("unexpected");
-      });
+      const response = await handleRequest(
+        new Request(url),
+        routeEnv,
+        async () => {
+          fetchCalls += 1;
+          return new Response("unexpected");
+        },
+      );
       expect(response.status, url).toBe(404);
       expect(fetchCalls, url).toBe(0);
     }
@@ -342,25 +430,29 @@ const multiEnv: EdgeEnv = {
 describe("multi-origin load balancing", () => {
   it("parses BACKEND_ORIGINS and has no single-origin fallback", () => {
     expect(resolvePool(multiEnv)).toEqual(ORIGINS);
-    expect(resolvePool(env)).toEqual(["https://backend-staging-tunnel.aomi.dev"]);
+    expect(resolvePool(env)).toEqual([
+      "https://backend-staging-tunnel.aomi.dev",
+    ]);
     expect(resolvePool({})).toEqual([]);
   });
 
-  it("only routes a hosted app to origins whose availability probe succeeds", async () => {
+  it("only routes a hosted agent to origins whose availability probe succeeds", async () => {
     const origins: string[] = [];
     const probes: string[] = [];
     const staticHome = rankOrigins("42", ORIGINS)[0];
     const onlyAvailableHere = ORIGINS.find((origin) => origin !== staticHome);
     const response = await handleRequest(
-      new Request("https://api.aomi.dev/api/thread/state?application_id=42", {
-        headers: { "X-Thread-Id": "app-thread" },
+      new Request("https://api.aomi.dev/api/thread/state?agent_id=42", {
+        headers: { "X-Thread-Id": "agent-thread" },
       }),
       multiEnv,
       async (request) => {
         const target = new URL(request.url);
         if (target.pathname === "/availability") {
           probes.push(target.origin);
-          return new Response("OK", { status: target.origin === onlyAvailableHere ? 200 : 404 });
+          return new Response("OK", {
+            status: target.origin === onlyAvailableHere ? 200 : 404,
+          });
         }
         origins.push(target.origin);
         return new Response("ok");
@@ -378,18 +470,25 @@ describe("multi-origin load balancing", () => {
       const forwarded: string[] = [];
       let aborted = false;
       const pending = handleRequest(
-        new Request("https://api.aomi.dev/api/thread/state?application_id=42"),
+        new Request("https://api.aomi.dev/api/thread/state?agent_id=42"),
         multiEnv,
         async (request) => {
           const url = new URL(request.url);
           if (url.pathname === "/availability") {
-            if (url.origin === ORIGINS[0]) return new Promise<Response>((_resolve, reject) => {
-              request.signal.addEventListener("abort", () => {
-                aborted = true;
-                reject(new Error("probe aborted"));
-              }, { once: true });
+            if (url.origin === ORIGINS[0])
+              return new Promise<Response>((_resolve, reject) => {
+                request.signal.addEventListener(
+                  "abort",
+                  () => {
+                    aborted = true;
+                    reject(new Error("probe aborted"));
+                  },
+                  { once: true },
+                );
+              });
+            return new Response(null, {
+              status: url.origin === ORIGINS[1] ? 200 : 404,
             });
-            return new Response(null, { status: url.origin === ORIGINS[1] ? 200 : 404 });
           }
           forwarded.push(url.origin);
           return new Response("healthy");
@@ -406,12 +505,12 @@ describe("multi-origin load balancing", () => {
     }
   });
 
-  it("waits for a cold hosted app to materialize", async () => {
+  it("waits for a cold hosted agent to materialize", async () => {
     const waits: number[] = [];
     const origins: string[] = [];
     let probes = 0;
     const response = await handleRequest(
-      new Request("https://api.aomi.dev/api/thread/chat?application_id=42", {
+      new Request("https://api.aomi.dev/api/thread/chat?agent_id=42", {
         method: "POST",
         body: "{}",
       }),
@@ -420,7 +519,9 @@ describe("multi-origin load balancing", () => {
         const target = new URL(request.url);
         if (target.pathname === "/availability") {
           probes += 1;
-          return new Response("OK", { status: probes > ORIGINS.length ? 200 : 404 });
+          return new Response("OK", {
+            status: probes > ORIGINS.length ? 200 : 404,
+          });
         }
         origins.push(target.origin);
         return new Response("ok");
@@ -435,11 +536,11 @@ describe("multi-origin load balancing", () => {
     expect(origins.length).toBe(1);
   });
 
-  it("returns 503 instead of sending a hosted app to an unavailable origin", async () => {
+  it("returns 503 instead of sending a hosted agent to an unavailable origin", async () => {
     const waits: number[] = [];
     let appRequests = 0;
     const response = await handleRequest(
-      new Request("https://api.aomi.dev/api/thread/chat?application_id=42", {
+      new Request("https://api.aomi.dev/api/thread/chat?agent_id=42", {
         method: "POST",
         body: "{}",
       }),
@@ -463,7 +564,7 @@ describe("multi-origin load balancing", () => {
 
   it("keeps the availability probe origin-direct and unrouted at the edge", async () => {
     const response = await handleRequest(
-      new Request("https://api.aomi.dev/availability?application_id=42"),
+      new Request("https://api.aomi.dev/availability?agent_id=42"),
       multiEnv,
       unexpected,
     );
@@ -471,7 +572,10 @@ describe("multi-origin load balancing", () => {
   });
 
   it("never availability-constrains /health or /api/_internal reads", async () => {
-    for (const path of ["/health?application_id=42", "/api/_internal/secrets?application_id=42"]) {
+    for (const path of [
+      "/health?agent_id=42",
+      "/api/_internal/secrets?agent_id=42",
+    ]) {
       const paths: string[] = [];
       const response = await handleRequest(
         new Request(`https://api.aomi.dev${path}`, {
@@ -481,12 +585,15 @@ describe("multi-origin load balancing", () => {
         async (request) => {
           const pathname = new URL(request.url).pathname;
           paths.push(pathname);
-          if (pathname === "/availability") return new Response("missing", { status: 404 });
+          if (pathname === "/availability")
+            return new Response("missing", { status: 404 });
           return new Response("{}", { status: 200 });
         },
       );
       expect(response.status, path).toBe(200);
-      expect(paths, path).toEqual([new URL(`https://api.aomi.dev${path}`).pathname]);
+      expect(paths, path).toEqual([
+        new URL(`https://api.aomi.dev${path}`).pathname,
+      ]);
     }
   });
 
@@ -495,7 +602,8 @@ describe("multi-origin load balancing", () => {
     expect(rankOrigins("session-abc", ORIGINS)).toEqual(first);
     expect([...first].sort()).toEqual([...ORIGINS].sort());
     const primaries = new Set<string>();
-    for (let i = 0; i < 60; i += 1) primaries.add(rankOrigins(`session-${i}`, ORIGINS)[0]);
+    for (let i = 0; i < 60; i += 1)
+      primaries.add(rankOrigins(`session-${i}`, ORIGINS)[0]);
     expect(primaries.size).toBe(ORIGINS.length);
     expect(rankOrigins(null, ORIGINS)).toEqual(ORIGINS);
   });
@@ -508,16 +616,48 @@ describe("multi-origin load balancing", () => {
       "/v1/agent/chat/target-thread/interrupt",
     ]) {
       const url = new URL(`https://api.aomi.dev${path}`);
-      const request = new Request(url, { method: "DELETE", headers: { "X-Session-Id": "caller-thread" } });
+      const request = new Request(url, {
+        method: "DELETE",
+        headers: { "X-Session-Id": "caller-thread" },
+      });
       expect(routingKeyFor(request, url)).toBe("target-thread");
     }
     const url = new URL("https://api.aomi.dev/api/chat");
-    expect(routingKeyFor(new Request(url, { headers: { "X-Thread-Id": "t-1", "X-Session-Id": "s-1" } }), url)).toBe("t-1");
-    expect(routingKeyFor(new Request(url, { headers: { "X-Session-Id": "s-1", "CF-Connecting-IP": "203.0.113.10" } }), url)).toBe("s-1");
-    expect(routingKeyFor(new Request(url, { headers: { "CF-Connecting-IP": "203.0.113.10" } }), url)).toBe("203.0.113.10");
+    expect(
+      routingKeyFor(
+        new Request(url, {
+          headers: { "X-Thread-Id": "t-1", "X-Session-Id": "s-1" },
+        }),
+        url,
+      ),
+    ).toBe("t-1");
+    expect(
+      routingKeyFor(
+        new Request(url, {
+          headers: {
+            "X-Session-Id": "s-1",
+            "CF-Connecting-IP": "203.0.113.10",
+          },
+        }),
+        url,
+      ),
+    ).toBe("s-1");
+    expect(
+      routingKeyFor(
+        new Request(url, { headers: { "CF-Connecting-IP": "203.0.113.10" } }),
+        url,
+      ),
+    ).toBe("203.0.113.10");
     expect(routingKeyFor(new Request(url), url)).toBeNull();
     const webhook = new URL("https://api.aomi.dev/api/bots/telegram/a-secret");
-    expect(routingKeyFor(new Request(webhook, { headers: { "CF-Connecting-IP": "203.0.113.10" } }), webhook)).toBe("a-secret");
+    expect(
+      routingKeyFor(
+        new Request(webhook, {
+          headers: { "CF-Connecting-IP": "203.0.113.10" },
+        }),
+        webhook,
+      ),
+    ).toBe("a-secret");
   });
 
   it("pins a session to its rendezvous owner and fails over only idempotent requests", async () => {
@@ -525,7 +665,9 @@ describe("multi-origin load balancing", () => {
     const hosts: string[] = [];
     for (let i = 0; i < 2; i += 1) {
       const response = await handleRequest(
-        new Request("https://api.aomi.dev/api/state", { headers: { "X-Session-Id": "session-abc" } }),
+        new Request("https://api.aomi.dev/api/state", {
+          headers: { "X-Session-Id": "session-abc" },
+        }),
         multiEnv,
         async (request) => {
           hosts.push(new URL(request.url).origin);
@@ -544,7 +686,9 @@ describe("multi-origin load balancing", () => {
     ]) {
       const attempts: string[] = [];
       const response = await handleRequest(
-        new Request("https://api.aomi.dev/api/state", { headers: { "X-Session-Id": "session-abc" } }),
+        new Request("https://api.aomi.dev/api/state", {
+          headers: { "X-Session-Id": "session-abc" },
+        }),
         multiEnv,
         async (request) => {
           const origin = new URL(request.url).origin;
@@ -574,14 +718,20 @@ describe("multi-origin load balancing", () => {
     expect(postAttempts).toEqual([ranked[0]]);
 
     const tunnelDown = await handleRequest(
-      new Request("https://api.aomi.dev/api/chat", { method: "POST", headers: { "X-Session-Id": "session-abc" }, body: "{}" }),
+      new Request("https://api.aomi.dev/api/chat", {
+        method: "POST",
+        headers: { "X-Session-Id": "session-abc" },
+        body: "{}",
+      }),
       multiEnv,
       async () => new Response("bad gateway", { status: 502 }),
     );
     expect(tunnelDown.status).toBe(502);
 
     const serverError = await handleRequest(
-      new Request("https://api.aomi.dev/api/state", { headers: { "X-Session-Id": "session-abc" } }),
+      new Request("https://api.aomi.dev/api/state", {
+        headers: { "X-Session-Id": "session-abc" },
+      }),
       multiEnv,
       async () => new Response("boom", { status: 500 }),
     );
@@ -590,10 +740,16 @@ describe("multi-origin load balancing", () => {
 });
 
 describe("manager cutover routing", () => {
-  const managerEnv: EdgeEnv = { ...env, MANAGER_ORIGIN: "https://manager-staging-tunnel.aomi.dev" };
+  const managerEnv: EdgeEnv = {
+    ...env,
+    MANAGER_ORIGIN: "https://manager-staging-tunnel.aomi.dev",
+  };
 
   it("is inert while MANAGER_ORIGIN is unset", () => {
-    const route = resolveRoute(new URL("https://api-staging.aomi.dev/api/platforms/community/deploy"), env);
+    const route = resolveRoute(
+      new URL("https://api-staging.aomi.dev/api/platforms/community/deploy"),
+      env,
+    );
     expect(route?.targets[0].toString()).toBe(
       "https://backend-staging-tunnel.aomi.dev/api/platforms/community/deploy",
     );
@@ -602,29 +758,25 @@ describe("manager cutover routing", () => {
   it("moves manager-owned routes to MANAGER_ORIGIN when set", () => {
     for (const path of [
       "/api/platforms",
-      "/api/platforms/server-tags",
       "/api/platforms/community/activate",
-      "/api/platforms/community/apps/activate",
-      "/api/platforms/community/applications/77/deactivate",
-      "/api/platforms/community/deployments/dep_1_2_3/status",
-      "/api/platforms/community/apps/geckoterminal/records",
-      "/api/platforms/community/tokens/42",
-      "/api/projects/42/deploy",
+      "/api/packages/demo/releases",
+      "/api/agents/demo/configs",
       "/api/integrations/github-app/webhook",
       "/api/integrations/github-app/oauth/claim",
-      "/api/integrations/github-app/builder/applications/77/tools/swap_quote/trace",
-      "/api/integrations/github-app/user/projects/42/attempts/7/cancel",
-      "/api/integrations/github-app/user/bots/bot-42/command-secret",
+      "/api/integrations/github-app/builder/agents/77/tools/swap_quote/trace",
+      "/api/integrations/github-app/user/channels/channel-42/command-secret",
       "/api/integrations/github-app/user/model-keys/42/grants",
-      "/api/integrations/github-app/user/projects/42/deployments/dep_1_2_3/promote",
-      "/api/integrations/github-app/user/projects/42/releases/activate",
-      "/api/integrations/github-app/platforms/community/projects/create-from-template",
       "/api/manager/openapi.json",
-      "/api/account/bots/bot-42",
-      "/api/integrations/github-app/builder/applications/42/app-key",
+      "/api/account/channels/channel-42",
+      "/api/integrations/github-app/builder/agents/42/agent-key",
     ]) {
-      const route = resolveRoute(new URL(`https://api-staging.aomi.dev${path}`), managerEnv);
-      expect(route?.targets[0].toString(), path).toBe(`https://manager-staging-tunnel.aomi.dev${path}`);
+      const route = resolveRoute(
+        new URL(`https://api-staging.aomi.dev${path}`),
+        managerEnv,
+      );
+      expect(route?.targets[0].toString(), path).toBe(
+        `https://manager-staging-tunnel.aomi.dev${path}`,
+      );
       expect(route?.name).toBe("api");
       expect(route?.targets.slice(1)).toEqual([]);
     }
@@ -632,17 +784,22 @@ describe("manager cutover routing", () => {
 
   it("keeps non-manager routes on the backend", () => {
     for (const path of [
-      "/api/integrations/github-app/user/projects/42/apps/77/detail",
+      "/api/not-manager/42/detail",
       "/api/platforms/community/deploy",
-      "/api/platforms/community/apps",
+      "/api/platforms/community/unknown",
       "/api/account",
       "/api/account/grants",
       "/api/account/packages",
-      "/api/account/bots/bot_1/extra",
+      "/api/account/channels/channel_1/extra",
       "/api/account/providers/para/agent-wallet",
     ]) {
-      const route = resolveRoute(new URL(`https://api-staging.aomi.dev${path}`), managerEnv);
-      expect(route?.targets[0].toString(), path).toBe(`https://backend-staging-tunnel.aomi.dev${path}`);
+      const route = resolveRoute(
+        new URL(`https://api-staging.aomi.dev${path}`),
+        managerEnv,
+      );
+      expect(route?.targets[0].toString(), path).toBe(
+        `https://backend-staging-tunnel.aomi.dev${path}`,
+      );
     }
   });
 });
@@ -656,58 +813,96 @@ describe("Task discovery documents", () => {
     "/openapi.json": openapiTestnet,
   };
   // Payment's terms and the API Server's canonical contract are the only inputs.
-  const upstream = (log: string[] = []): FetchLike => async (request) => {
-    log.push(request.url);
-    return (
-      paymentTerms(request) ??
-      (request.url === "https://agent-staging-2.aomi.dev/openapi.json"
-        ? new Response(canonicalOpenapi, { headers: { "Content-Type": "application/json" } })
-        : new Response("not a document input", { status: 404 }))
-    );
-  };
+  const upstream =
+    (log: string[] = []): FetchLike =>
+    async (request) => {
+      log.push(request.url);
+      return (
+        paymentTerms(request) ??
+        (request.url === "https://agent-staging-2.aomi.dev/openapi.json"
+          ? new Response(canonicalOpenapi, {
+              headers: { "Content-Type": "application/json" },
+            })
+          : new Response("not a document input", { status: 404 }))
+      );
+    };
 
   it("serves each document from the edge, byte for byte, with read-only public CORS", async () => {
     for (const [path, expected] of Object.entries(documents)) {
       const url = new URL(`https://api-staging.aomi.dev${path}?source=crawler`);
       expect(resolveRoute(url, env)?.document).toBeDefined();
-      expect(resolveRoute(url, { ...productionEnv, API_SERVER_ORIGIN: "" })).toBeNull();
+      expect(
+        resolveRoute(url, { ...productionEnv, API_SERVER_ORIGIN: "" }),
+      ).toBeNull();
       const preflight = await handleRequest(
-        new Request(url, { method: "OPTIONS", headers: { Origin: "https://directory.example" } }),
+        new Request(url, {
+          method: "OPTIONS",
+          headers: { Origin: "https://directory.example" },
+        }),
         env,
         unexpected,
       );
       expect(preflight.status).toBe(204);
       expect(preflight.headers.get("Access-Control-Allow-Origin")).toBe("*");
-      expect(preflight.headers.get("Access-Control-Allow-Methods")).toBe("GET, HEAD, OPTIONS");
-      expect(preflight.headers.get("Access-Control-Allow-Credentials")).toBeNull();
+      expect(preflight.headers.get("Access-Control-Allow-Methods")).toBe(
+        "GET, HEAD, OPTIONS",
+      );
+      expect(
+        preflight.headers.get("Access-Control-Allow-Credentials"),
+      ).toBeNull();
       const document = await handleRequest(new Request(url), env, upstream());
       expect(document.status).toBe(200);
       expect(document.headers.get("Content-Type")).toBe("application/json");
       expect(document.headers.get("Access-Control-Allow-Origin")).toBe("*");
       expect(await document.text(), path).toBe(expected);
-      const head = await handleRequest(new Request(url, { method: "HEAD" }), env, upstream());
+      const head = await handleRequest(
+        new Request(url, { method: "HEAD" }),
+        env,
+        upstream(),
+      );
       expect(head.status).toBe(200);
       expect(await head.text()).toBe("");
-      const post = await handleRequest(new Request(url, { method: "POST" }), env, never);
+      const post = await handleRequest(
+        new Request(url, { method: "POST" }),
+        env,
+        never,
+      );
       expect(post.status).toBe(405);
     }
-    for (const path of ["/.well-known/api-catalog", "/.well-known/keys", "/v1/payment/task/terms", "/openapi.json/extra", "/openapi.yaml"]) {
-      expect(resolveRoute(new URL(`https://api-staging.aomi.dev${path}`), env)).toBeNull();
+    for (const path of [
+      "/.well-known/api-catalog",
+      "/.well-known/keys",
+      "/v1/payment/task/terms",
+      "/openapi.json/extra",
+      "/openapi.yaml",
+    ]) {
+      expect(
+        resolveRoute(new URL(`https://api-staging.aomi.dev${path}`), env),
+      ).toBeNull();
     }
   });
 
   it("reads terms and the canonical contract once, then serves from cache", async () => {
     const log: string[] = [];
     for (let i = 0; i < 3; i += 1) {
-      const response = await handleRequest(new Request("https://api-staging.aomi.dev/v1/task/openapi.json"), env, upstream(log));
+      const response = await handleRequest(
+        new Request("https://api-staging.aomi.dev/v1/task/openapi.json"),
+        env,
+        upstream(log),
+      );
       expect(await response.text()).toBe(openapiTestnet);
     }
-    expect(log).toEqual(["https://payment-staging.aomi.dev/v1/payment/task/terms", "https://agent-staging-2.aomi.dev/openapi.json"]);
+    expect(log).toEqual([
+      "https://payment-staging.aomi.dev/v1/payment/task/terms",
+      "https://agent-staging-2.aomi.dev/openapi.json",
+    ]);
   });
 
   it("fails closed when Payment cannot publish terms", async () => {
     const response = await handleRequest(
-      new Request("https://api-staging.aomi.dev/.well-known/x402", { headers: { Origin: "https://directory.example" } }),
+      new Request("https://api-staging.aomi.dev/.well-known/x402", {
+        headers: { Origin: "https://directory.example" },
+      }),
       env,
       async () => new Response("down", { status: 503 }),
     );
@@ -719,7 +914,8 @@ describe("Task discovery documents", () => {
 // The API Server's real behaviour, as the venue adapters see it: a valid POST
 // without a signature is a body-bound 402. GET is the edge's business.
 const EXAMPLE = {
-  intent: "Simulate a no-op on Arc Testnet. Do not sign or broadcast any transaction.",
+  intent:
+    "Simulate a no-op on Arc Testnet. Do not sign or broadcast any transaction.",
   chainId: 5042002,
   sender: "0x000000000000000000000000000000000000dEaD",
 };
@@ -744,16 +940,26 @@ function apiServer(log: Request[] = []): FetchLike {
       bodyOf.set(request, await request.text());
     }
     const url = new URL(request.url);
-    if (url.pathname !== "/v1/task/build") return new Response("nope", { status: 404 });
-    if (request.method === "GET") return new Response("the API Server no longer serves GET", { status: 405 });
-    if (request.headers.get("authorization")) return new Response("{}", { status: 401 });
-    if (request.headers.get("content-type")?.split(";")[0] !== "application/json") {
+    if (url.pathname !== "/v1/task/build")
+      return new Response("nope", { status: 404 });
+    if (request.method === "GET")
+      return new Response("the API Server no longer serves GET", {
+        status: 405,
+      });
+    if (request.headers.get("authorization"))
+      return new Response("{}", { status: 401 });
+    if (
+      request.headers.get("content-type")?.split(";")[0] !== "application/json"
+    ) {
       return new Response("{}", { status: 415 });
     }
     const text = bodyOf.get(request) ?? "";
     if (!text) return new Response("{}", { status: 422 });
     if (request.headers.get("payment-signature")) {
-      return Response.json({ quoteId: "job", status: "queued" }, { status: 202 });
+      return Response.json(
+        { quoteId: "job", status: "queued" },
+        { status: 202 },
+      );
     }
     return Response.json(CHALLENGE_BODY, {
       status: 402,
@@ -794,11 +1000,17 @@ describe("Task venue adapters", () => {
 
     const jobLog: Request[] = [];
     await handleRequest(
-      new Request("https://api-staging.aomi.dev/v1/task/00000000-0000-0000-0000-000000000001/status", {
-        method: "POST",
-        headers: { Authorization: "Bearer venue-token", "Content-Type": "application/json" },
-        body: JSON.stringify({ retrievalToken: "t" }),
-      }),
+      new Request(
+        "https://api-staging.aomi.dev/v1/task/00000000-0000-0000-0000-000000000001/status",
+        {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer venue-token",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ retrievalToken: "t" }),
+        },
+      ),
       env,
       async (request) => {
         jobLog.push(request);
@@ -811,23 +1023,37 @@ describe("Task venue adapters", () => {
   it("answers GET and HEAD with the cached body-bound 402, probing the upstream once", async () => {
     const log: Request[] = [];
     const first = await handleRequest(
-      new Request(url, { headers: { Origin: "https://external-client.example" } }),
+      new Request(url, {
+        headers: { Origin: "https://external-client.example" },
+      }),
       env,
       apiServer(log),
     );
     expect(first.status).toBe(402);
-    expect(first.headers.get("Payment-Required")).toBe(CHALLENGE_BODY.paymentRequired);
+    expect(first.headers.get("Payment-Required")).toBe(
+      CHALLENGE_BODY.paymentRequired,
+    );
     expect(first.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    expect(first.headers.get("Access-Control-Expose-Headers")).toBe("Payment-Required");
+    expect(first.headers.get("Access-Control-Expose-Headers")).toBe(
+      "Payment-Required",
+    );
     expect(first.headers.get("Access-Control-Allow-Credentials")).toBeNull();
     // The edge's own build metadata, then the upstream 402 body over it.
-    expect(await first.text()).toBe(JSON.stringify({ ...JSON.parse(metadataTestnet), ...CHALLENGE_BODY }));
+    expect(await first.text()).toBe(
+      JSON.stringify({ ...JSON.parse(metadataTestnet), ...CHALLENGE_BODY }),
+    );
     expect(log.map((request) => request.method)).toEqual(["POST"]);
     expect(JSON.parse(bodyOf.get(log[0]) ?? "")).toEqual(EXAMPLE);
 
-    const head = await handleRequest(new Request(url, { method: "HEAD" }), env, apiServer(log));
+    const head = await handleRequest(
+      new Request(url, { method: "HEAD" }),
+      env,
+      apiServer(log),
+    );
     expect(head.status).toBe(402);
-    expect(head.headers.get("Payment-Required")).toBe(CHALLENGE_BODY.paymentRequired);
+    expect(head.headers.get("Payment-Required")).toBe(
+      CHALLENGE_BODY.paymentRequired,
+    );
     expect(await head.text()).toBe("");
     const second = await handleRequest(new Request(url), env, apiServer(log));
     expect(second.status).toBe(402);
@@ -837,14 +1063,23 @@ describe("Task venue adapters", () => {
   it("answers an empty POST with the cached 402 instead of the upstream 422", async () => {
     const log: Request[] = [];
     const response = await handleRequest(
-      new Request(url, { method: "POST", headers: { Origin: "https://builder.staging.aomi.dev" } }),
+      new Request(url, {
+        method: "POST",
+        headers: { Origin: "https://builder.staging.aomi.dev" },
+      }),
       env,
       apiServer(log),
     );
     expect(response.status).toBe(402);
-    expect(response.headers.get("Payment-Required")).toBe(CHALLENGE_BODY.paymentRequired);
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://builder.staging.aomi.dev");
-    expect(response.headers.get("Access-Control-Expose-Headers")).toBe("Payment-Required, Payment-Response");
+    expect(response.headers.get("Payment-Required")).toBe(
+      CHALLENGE_BODY.paymentRequired,
+    );
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+      "https://builder.staging.aomi.dev",
+    );
+    expect(response.headers.get("Access-Control-Expose-Headers")).toBe(
+      "Payment-Required, Payment-Response",
+    );
     // Only the probe reached the upstream; the empty venue POST never did.
     expect(log.map((request) => request.method)).toEqual(["POST"]);
     expect(bodyOf.get(log[0])).toBe(JSON.stringify(EXAMPLE));
@@ -852,39 +1087,71 @@ describe("Task venue adapters", () => {
 
   it("lists a preparation 402 on Bazaar in the header and the body's copy", async () => {
     // Payment once it no longer lists itself: the same challenge minus `bazaar`.
-    const decoded = JSON.parse(atob(preparationTestnet)) as { extensions: Record<string, unknown> };
+    const decoded = JSON.parse(atob(preparationTestnet)) as {
+      extensions: Record<string, unknown>;
+    };
     delete decoded.extensions.bazaar;
     const unlisted = btoa(sortedJson(decoded));
     const body = { ...CHALLENGE_BODY, paymentRequired: unlisted };
     const upstream: FetchLike = async (request) =>
-      paymentTerms(request) ?? Response.json(body, { status: 402, headers: { "Payment-Required": unlisted } });
+      paymentTerms(request) ??
+      Response.json(body, {
+        status: 402,
+        headers: { "Payment-Required": unlisted },
+      });
     const paid = await handleRequest(
-      new Request(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(EXAMPLE) }),
+      new Request(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(EXAMPLE),
+      }),
       env,
       upstream,
     );
     expect(paid.status).toBe(402);
     expect(paid.headers.get("Payment-Required")).toBe(preparationTestnet);
-    expect(await paid.text()).toBe(JSON.stringify({ ...CHALLENGE_BODY, paymentRequired: preparationTestnet }));
+    expect(await paid.text()).toBe(
+      JSON.stringify({
+        ...CHALLENGE_BODY,
+        paymentRequired: preparationTestnet,
+      }),
+    );
 
     const probe = await handleRequest(new Request(url), env, upstream);
     expect(probe.headers.get("Payment-Required")).toBe(preparationTestnet);
-    expect(((await probe.json()) as Record<string, unknown>).paymentRequired).toBe(preparationTestnet);
+    expect(
+      ((await probe.json()) as Record<string, unknown>).paymentRequired,
+    ).toBe(preparationTestnet);
   });
 
   it("answers an unlabelled empty POST with the API Server's 422 when no challenge can be had", async () => {
-    const failing: FetchLike = async (request) => paymentTerms(request) ?? new Response("{}", { status: 500 });
-    const response = await handleRequest(new Request(url, { method: "POST" }), env, failing);
+    const failing: FetchLike = async (request) =>
+      paymentTerms(request) ?? new Response("{}", { status: 500 });
+    const response = await handleRequest(
+      new Request(url, { method: "POST" }),
+      env,
+      failing,
+    );
     expect(response.status).toBe(422);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(await response.text()).toBe('{"error":{"code":"invalid_request","message":"request body is required"}}');
+    expect(await response.text()).toBe(
+      '{"error":{"code":"invalid_request","message":"request body is required"}}',
+    );
     const log: Request[] = [];
     const labelled = await handleRequest(
-      new Request(url, { method: "POST", headers: { "Content-Type": "application/json" } }),
+      new Request(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      }),
       env,
-      async (request) => paymentTerms(request) ?? (log.push(request), new Response("{}", { status: 500 })),
+      async (request) =>
+        paymentTerms(request) ??
+        (log.push(request), new Response("{}", { status: 500 })),
     );
-    expect(labelled.status, "a labelled empty POST is the upstream's to answer").toBe(500);
+    expect(
+      labelled.status,
+      "a labelled empty POST is the upstream's to answer",
+    ).toBe(500);
     expect(log.at(-1)?.method).toBe("POST");
   });
 
@@ -892,7 +1159,11 @@ describe("Task venue adapters", () => {
     const log: Request[] = [];
     const bytes = JSON.stringify(EXAMPLE, null, 2);
     const response = await handleRequest(
-      new Request(url, { method: "POST", headers: { "Content-Type": "text/plain" }, body: bytes }),
+      new Request(url, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: bytes,
+      }),
       env,
       apiServer(log),
     );
@@ -905,7 +1176,11 @@ describe("Task venue adapters", () => {
   it("leaves a body that is not JSON for the upstream's own 415", async () => {
     const log: Request[] = [];
     const response = await handleRequest(
-      new Request(url, { method: "POST", headers: { "Content-Type": "text/plain" }, body: "hello" }),
+      new Request(url, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: "hello",
+      }),
       env,
       apiServer(log),
     );
@@ -914,13 +1189,24 @@ describe("Task venue adapters", () => {
   });
 
   it("answers with the edge's metadata, byte for byte, when the upstream yields no challenge", async () => {
-    const failing: FetchLike = async (request) => paymentTerms(request) ?? new Response("{}", { status: 500 });
-    const response = await handleRequest(new Request(url, { headers: { Origin: "https://external-client.example" } }), env, failing);
+    const failing: FetchLike = async (request) =>
+      paymentTerms(request) ?? new Response("{}", { status: 500 });
+    const response = await handleRequest(
+      new Request(url, {
+        headers: { Origin: "https://external-client.example" },
+      }),
+      env,
+      failing,
+    );
     expect(response.status).toBe(200);
     expect(response.headers.get("Payment-Required")).toBeNull();
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(await response.text()).toBe(metadataTestnet);
-    const head = await handleRequest(new Request(url, { method: "HEAD" }), env, failing);
+    const head = await handleRequest(
+      new Request(url, { method: "HEAD" }),
+      env,
+      failing,
+    );
     expect(head.status).toBe(200);
     expect(await head.text()).toBe("");
   });
@@ -936,27 +1222,45 @@ describe("Task venue adapters", () => {
       },
     };
     const log: Request[] = [];
-    await handleRequest(new Request(url), { ...env, EDGE_CACHE: cache }, apiServer(log));
+    await handleRequest(
+      new Request(url),
+      { ...env, EDGE_CACHE: cache },
+      apiServer(log),
+    );
     expect(puts).toEqual([
       { key: "task:terms:v1:payment-staging.aomi.dev", ttl: 60 },
       { key: "task:discovery:v1:agent-staging-2.aomi.dev", ttl: 240 },
     ]);
-    const warm = await handleRequest(new Request(url), { ...env, EDGE_CACHE: cache }, never);
+    const warm = await handleRequest(
+      new Request(url),
+      { ...env, EDGE_CACHE: cache },
+      never,
+    );
     expect(warm.status).toBe(402);
-    expect(warm.headers.get("Payment-Required")).toBe(CHALLENGE_BODY.paymentRequired);
+    expect(warm.headers.get("Payment-Required")).toBe(
+      CHALLENGE_BODY.paymentRequired,
+    );
   });
 
   it("keeps paid POST origin-restricted while GET discovery is public", async () => {
     const origin = "https://external-client.example";
     const getPreflight = await handleRequest(
-      new Request(url, { method: "OPTIONS", headers: { Origin: origin, "Access-Control-Request-Method": "GET" } }),
+      new Request(url, {
+        method: "OPTIONS",
+        headers: { Origin: origin, "Access-Control-Request-Method": "GET" },
+      }),
       env,
       unexpected,
     );
     expect(getPreflight.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    expect(getPreflight.headers.get("Access-Control-Allow-Methods")).toBe("GET, HEAD, OPTIONS");
+    expect(getPreflight.headers.get("Access-Control-Allow-Methods")).toBe(
+      "GET, HEAD, OPTIONS",
+    );
     const postPreflight = await handleRequest(
-      new Request(url, { method: "OPTIONS", headers: { Origin: origin, "Access-Control-Request-Method": "POST" } }),
+      new Request(url, {
+        method: "OPTIONS",
+        headers: { Origin: origin, "Access-Control-Request-Method": "POST" },
+      }),
       env,
       unexpected,
     );
@@ -979,33 +1283,52 @@ describe("Task venue adapters", () => {
       const response = await handleRequest(
         new Request(url, {
           method: "POST",
-          headers: { Origin: "https://builder.staging.aomi.dev", "Content-Type": "application/json" },
+          headers: {
+            Origin: "https://builder.staging.aomi.dev",
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(EXAMPLE),
         }),
         env,
         async () =>
           new Response("{}", {
             status,
-            headers: { "Payment-Required": "challenge", "Payment-Response": "receipt" },
+            headers: {
+              "Payment-Required": "challenge",
+              "Payment-Response": "receipt",
+            },
           }),
       );
       expect(response.status).toBe(status);
-      expect(response.headers.get("Access-Control-Expose-Headers")).toBe("Payment-Required, Payment-Response");
+      expect(response.headers.get("Access-Control-Expose-Headers")).toBe(
+        "Payment-Required, Payment-Response",
+      );
       expect(response.headers.get("Payment-Required")).toBe("challenge");
       expect(response.headers.get("Payment-Response")).toBe("receipt");
     }
   });
 
   it("lets StableOps inspect a staging 402 without credentialed API access", async () => {
-    const stagingEnv = { ...env, TASK_CORS_PUBLIC_ORIGINS: "https://stableops.dev" };
+    const stagingEnv = {
+      ...env,
+      TASK_CORS_PUBLIC_ORIGINS: "https://stableops.dev",
+    };
     const headers = {
       Origin: "https://stableops.dev",
       "Access-Control-Request-Method": "POST",
       "Access-Control-Request-Headers": "content-type,payment-signature",
     };
-    const preflight = await handleRequest(new Request(url, { method: "OPTIONS", headers }), stagingEnv, unexpected);
-    expect(preflight.headers.get("Access-Control-Allow-Origin")).toBe(headers.Origin);
-    expect(preflight.headers.get("Access-Control-Allow-Credentials")).toBeNull();
+    const preflight = await handleRequest(
+      new Request(url, { method: "OPTIONS", headers }),
+      stagingEnv,
+      unexpected,
+    );
+    expect(preflight.headers.get("Access-Control-Allow-Origin")).toBe(
+      headers.Origin,
+    );
+    expect(
+      preflight.headers.get("Access-Control-Allow-Credentials"),
+    ).toBeNull();
     const challenge = await handleRequest(
       new Request(url, {
         method: "POST",
@@ -1016,19 +1339,32 @@ describe("Task venue adapters", () => {
       async () =>
         new Response("{}", {
           status: 402,
-          headers: { "Payment-Required": "challenge", "Access-Control-Allow-Credentials": "true" },
+          headers: {
+            "Payment-Required": "challenge",
+            "Access-Control-Allow-Credentials": "true",
+          },
         }),
     );
-    expect(challenge.headers.get("Access-Control-Allow-Origin")).toBe(headers.Origin);
-    expect(challenge.headers.get("Access-Control-Allow-Credentials")).toBeNull();
+    expect(challenge.headers.get("Access-Control-Allow-Origin")).toBe(
+      headers.Origin,
+    );
+    expect(
+      challenge.headers.get("Access-Control-Allow-Credentials"),
+    ).toBeNull();
     const otherApi = await handleRequest(
-      new Request("https://api-staging.aomi.dev/api/chat", { method: "OPTIONS", headers }),
+      new Request("https://api-staging.aomi.dev/api/chat", {
+        method: "OPTIONS",
+        headers,
+      }),
       stagingEnv,
       unexpected,
     );
     expect(otherApi.headers.get("Access-Control-Allow-Origin")).toBeNull();
     const lookalike = await handleRequest(
-      new Request(url, { method: "OPTIONS", headers: { ...headers, Origin: "https://stableops.dev.evil.example" } }),
+      new Request(url, {
+        method: "OPTIONS",
+        headers: { ...headers, Origin: "https://stableops.dev.evil.example" },
+      }),
       stagingEnv,
       unexpected,
     );
@@ -1037,7 +1373,10 @@ describe("Task venue adapters", () => {
 });
 
 describe("payment edge", () => {
-  const paymentEnv: EdgeEnv = { ...env, PAYMENT_ORIGIN: "https://payment.example" };
+  const paymentEnv: EdgeEnv = {
+    ...env,
+    PAYMENT_ORIGIN: "https://payment.example",
+  };
 
   it("preserves challenge, signature, idempotency and body", async () => {
     let calls = 0;
@@ -1056,14 +1395,19 @@ describe("payment edge", () => {
       paymentEnv,
       async (request) => {
         calls += 1;
-        expect(request.url).toBe("https://payment.example/v1/account/credits/funding-events");
+        expect(request.url).toBe(
+          "https://payment.example/v1/account/credits/funding-events",
+        );
         expect(request.headers.get("authorization")).toBe("Bearer delegated");
         expect(request.headers.get("idempotency-key")).toBe("one");
         expect(request.headers.get("payment-signature")).toBe("proof");
         expect(await request.text()).toBe(body);
         return new Response('{"code":"payment_required"}', {
           status: 402,
-          headers: { "Payment-Required": "challenge", "Payment-Response": "receipt" },
+          headers: {
+            "Payment-Required": "challenge",
+            "Payment-Response": "receipt",
+          },
         });
       },
     );
@@ -1076,7 +1420,9 @@ describe("payment edge", () => {
   it("rejects wrong methods before forwarding and keeps funding routes exact", async () => {
     for (const method of ["DELETE", "GET"]) {
       const response = await handleRequest(
-        new Request("https://api.aomi.dev/v1/account/credits/funding-events", { method }),
+        new Request("https://api.aomi.dev/v1/account/credits/funding-events", {
+          method,
+        }),
         paymentEnv,
         never,
       );
@@ -1116,8 +1462,14 @@ describe("payment edge", () => {
       },
     );
     expect(webhook.status).toBe(204);
-    for (const path of ["/v1/payment/admit", "/v1/payment/webhooks/other", `/v1/account/credits/funding-events/${id}/fulfill`]) {
-      expect(resolveRoute(new URL(`https://api.aomi.dev${path}`), paymentEnv)).toBeNull();
+    for (const path of [
+      "/v1/payment/admit",
+      "/v1/payment/webhooks/other",
+      `/v1/account/credits/funding-events/${id}/fulfill`,
+    ]) {
+      expect(
+        resolveRoute(new URL(`https://api.aomi.dev${path}`), paymentEnv),
+      ).toBeNull();
     }
   });
 });

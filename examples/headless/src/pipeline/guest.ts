@@ -5,11 +5,11 @@ const baseUrl = process.env.AOMI_BASE_URL?.trim() || "https://aomi.chat";
 // Guest Pipeline availability is a deployment policy. Payments and delegated
 // custody still require an authenticated account grant where guests are on.
 const aomi = new Aomi({ baseUrl });
-let apps;
+let toolsets;
 let skills;
 try {
-  [apps, skills] = await Promise.all([
-    aomi.raw.pipeline.apps.list(),
+  [toolsets, skills] = await Promise.all([
+    aomi.raw.pipeline.toolsets.list(),
     aomi.raw.pipeline.skills.list(),
   ]);
 } catch (error) {
@@ -26,5 +26,5 @@ try {
   throw error;
 }
 
-console.log(`Guest-visible Pipeline apps: ${apps.entries.length}`);
+console.log(`Guest-visible Pipeline toolsets: ${toolsets.entries.length}`);
 console.log(`Guest-visible Pipeline skills: ${skills.entries.length}`);

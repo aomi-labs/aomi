@@ -62,10 +62,10 @@
 
 ### Patch Changes
 
-- Only a `payment_required` 402 opens the out-of-funds modal. A `builder_debt` 402 says the App is temporarily unavailable until its builder adds funds, and other 402 codes show "App unavailable". A rate-limited guest sign-in (429) throws `GuestSignInError` with `retryAfterSeconds`, ends the pending send instead of leaving the thinking indicator running, and shows "Too many requests" with the wait. The Coinbase Wallet and Base Account connectors pass `preference.telemetry: false`, so the SDKs no longer load Coinbase's analytics script from cca-lite.coinbase.com.
-- b08e7a9: Out of funds, the widget opens Add funds checkout in place instead of linking to Chat on another origin, so embedded hosts' visitors top up without leaving the page. A `builder_debt` refusal shows "App paused" instead of asking the user to pay, since their own balance can't fix it.
+- Only a `payment_required` 402 opens the out-of-funds modal. A `builder_debt` 402 says the Agent is temporarily unavailable until its builder adds funds, and other 402 codes show "Agent unavailable". A rate-limited guest sign-in (429) throws `GuestSignInError` with `retryAfterSeconds`, ends the pending send instead of leaving the thinking indicator running, and shows "Too many requests" with the wait. The Coinbase Wallet and Base Account connectors pass `preference.telemetry: false`, so the SDKs no longer load Coinbase's analytics script from cca-lite.coinbase.com.
+- b08e7a9: Out of funds, the widget opens Add funds checkout in place instead of linking to Chat on another origin, so embedded hosts' visitors top up without leaving the page. A `builder_debt` refusal shows "Agent paused" instead of asking the user to pay, since their own balance can't fix it.
 - Expose explicit live and Stripe sandbox credit funding, show the Base Sepolia payment option, and warn that test payments add spendable credits to the current account balance.
-- A send that never started now ends at once. A 503 `app_loading` and a failed guest session check no longer leave the thinking indicator and Stop running. The composer gets the message back and a notice says what happened. A failed guest session check is a `GuestSignInError`. The new notices read "App starting" and "App not available" for a 403 or 404 on a Direct App. In a Direct-only widget the composer keeps a failed message's text: its editor no longer clears the restored draft when it remounts. A finished working trace with a failed step shows a warning and the failed count in its header.
+- A send that never started now ends at once. A 503 `agent_loading` and a failed guest session check no longer leave the thinking indicator and Stop running. The composer gets the message back and a notice says what happened. A failed guest session check is a `GuestSignInError`. The new notices read "Agent starting" and "Agent not available" for a 403 or 404 on a Direct Agent. In a Direct-only widget the composer keeps a failed message's text: its editor no longer clears the restored draft when it remounts. A finished working trace with a failed step shows a warning and the failed count in its header.
 - Updated dependencies
 - Updated dependencies [b08e7a9]
 - Updated dependencies
@@ -101,7 +101,7 @@
 
 - 665e1dc: Cut over to owner-scoped funding events and one Card / USDC checkout for account and builder credits. Remove top-up and purchase APIs, end-user BYOK options and funding headers. Consumers must upgrade with the backend; no compatibility adapters are provided.
 
-  Builder grants specify canonical model coverage. App metadata carries fundedModelOnly and sponsoredModelIds inline. Hosting charges debit builder credits, separately from personal Chat credits.
+  Builder grants specify canonical model coverage. Agent metadata carries fundedModelOnly and sponsoredModelIds inline. Hosting charges debit builder credits, separately from personal Chat credits.
 
   Use the generated CreditBalance and CreditLedger contracts. credits.get() returns only the balance; load history with credits.ledger(). Remove AomiCreditPosition/AomiCreditActivity and export CreditBalance, CreditLedger and CreditLedgerEntry. The shared checkout component is CreditCheckoutDialog.
 
@@ -124,7 +124,7 @@
 - 87fccb6: `TRANSACTION_SAFETY_NAMES` gives the guard modes their shared names (Strict, Balanced, Yolo); the widget uses them. The CLI chat screen gains `/guard` and drops `/mode`; chat routes Auto unless `--app` pins an app for a run (`aomi apps use` is gone). `aomi guard` takes strict, balanced or yolo. Concurrent calls that need a wider sign-in share one device approval, and the `/v1` sign-in asks for all the client's scopes.
 - b32a534: `modelLabel` moves from the widget into @aomi-labs/client (the widget re-exports it). The CLI chat screen shows model names as the web app does, picks the model and routing from a list, and shows the credits left.
 - 391ac57: Allow browser OAuth sessions to retain non-exportable DPoP keys in IndexedDB and restore without interactive authorization. Export the shared account menu, avatar, checkout and widget scope for host composition; support menus below a header control.
-- ea42447: Builders manage a private App's key from Build: `BackendClient.getBuilderAppKey` shows the current key and `regenerateBuilderAppKey` issues a new one, revoking the old. The App key input and the "App key required" notice now point people to the key the App's builder shared.
+- ea42447: Builders manage a private Agent's key from Build: `BackendClient.getBuilderAgentKey` shows the current key and `regenerateBuilderAgentKey` issues a new one, revoking the old. The Agent key input and the "Agent key required" notice now point people to the key the Agent's builder shared.
 - b35b714: Prefer GPT-6.1 Sol for new and Auto threads when the backend offers it, preserving manual model selections and existing fallbacks.
 - 665e1dc: Offer Aomi credit top-ups as the primary out-of-credit recovery action, with BYOK as an alternative. Allow hosts to open the existing top-up dialog after sign-in.
 - 48f464b: The model picker groups routed and dated DeepSeek ids under DeepSeek and hides snapshot suffixes in their labels.
@@ -182,15 +182,15 @@
 
 ## 3.1.0
 
-- Publish the canonical compiled widget with one required applicationId prop and browser wallets by default.
+- Publish the canonical compiled widget with one required agentId prop and browser wallets by default.
 - Pin package-controlled pre-1 dependencies to the tested wallet adapter, class utility and icon versions.
 - Isolate styles, themes, overlays and notifications per instance; load Para or Privy only through the selected provider island.
 - Preserve chat, thread drafts, controlled selection and account state through provider initialization and thread switches.
 - Retain the reader's expanded trace on revisits and keep account-menu updates stable when credits resolve.
 - Prepare guest auth on composer interaction, share the first send's pending preparation, and keep private profile reads behind a confirmed account.
-- Scope browser preferences by backend, App and account; keep API keys out of plaintext local storage.
+- Scope browser preferences by backend, Agent and account; keep API keys out of plaintext local storage.
 - Include Solana recovery and the default payment signer, and leave backend AA provisioning to explicit hosts.
 - `auth={privyAuth(…)}` and `auth={paraAuth(…)}` load their SDK on demand from the main entry; no provider import is needed, and a missing SDK package shows a message inside the widget. Para defaults to PROD.
-- Add `theme` and `baseUrl` (`apiUrl` stays as a deprecated alias); accept a numeric `applicationId`; show invalid props as a message inside the widget; keep the host's `style.transform`.
+- Add `theme` and `baseUrl` (`apiUrl` stays as a deprecated alias); accept a numeric `agentId`; show invalid props as a message inside the widget; keep the host's `style.transform`.
 - The main entry exports the widget, its types, the auth helpers and `preloadWalletProvider`. Other names stay as deprecated aliases until 4.0; host APIs move to `./host-composition`.
 - Deprecate `./aomi-widget`, `./aomi-frame`, `./hooks/*`, `./components/*` and the raw `./themes/*.css` source until 4.0.

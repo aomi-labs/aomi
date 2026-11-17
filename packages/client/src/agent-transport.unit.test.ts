@@ -19,7 +19,7 @@ describe("AgentTransport", () => {
     }).agent;
 
     await agent.start(
-      { sessionId: "session-1", message: "hello", app: "default" },
+      { sessionId: "session-1", message: "hello", agent: "aomi/main" },
       {
         idempotencyKey: "idem-fixed",
         paymentSignature: "payment",
@@ -41,7 +41,6 @@ describe("AgentTransport", () => {
     expect(pollHeaders.get("x-session-id")).toBe("session-1");
     expect(pollHeaders.get("x-thread-id")).toBe("session-1");
   });
-
 
   it("parses stable public errors and retry classification", async () => {
     const client = new AomiClient({
@@ -69,12 +68,12 @@ describe("AgentTransport", () => {
   });
 
   it.each([
-    [404, "app_not_found"],
-    [409, "app_inactive"],
-    [401, "app_key_required"],
-    [403, "app_key_not_scoped"],
+    [404, "agent_not_found"],
+    [409, "agent_inactive"],
+    [401, "agent_key_required"],
+    [403, "agent_key_not_scoped"],
   ])(
-    "classifies %s %s as an App access failure with the server message",
+    "classifies %s %s as an Agent access failure with the server message",
     async (status, code) => {
       const client = new AomiClient({
         baseUrl: "https://portal.example",
@@ -99,16 +98,16 @@ describe("AgentTransport", () => {
       expect(error).toMatchObject({
         status,
         code,
-        appAccessCode: code,
+        agentAccessCode: code,
         message: "Readable explanation from the server",
         retryable: false,
       });
     },
   );
 
-  it("does not treat other failures as App access failures", () => {
+  it("does not treat other failures as Agent access failures", () => {
     const error = new AgentApiError(404, "session_not_found", "gone", false);
-    expect(error.appAccessCode).toBeUndefined();
+    expect(error.agentAccessCode).toBeUndefined();
     expect(error.message).toBe("gone");
   });
 

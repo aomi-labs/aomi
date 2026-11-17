@@ -43,7 +43,7 @@ export type ConfirmDialogProps = ConfirmDialogOptions & {
 };
 
 /**
- * The in-app replacement for `window.confirm`: a small modal alert with a
+ * The in-agent replacement for `window.confirm`: a small modal alert with a
  * title, optional description/body, Cancel and a confirm action. Cancel holds
  * initial focus so Enter never commits a destructive action by accident.
  * For the one-line `if (!confirm(…)) return` shape, use `useConfirmDialog`.

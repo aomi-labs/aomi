@@ -76,7 +76,7 @@ it("lists the publisher's agents and packages apart", async () => {
   expect(screen.queryByText("Hoodit")).not.toBeInTheDocument();
 });
 
-it("tells the builder an agent carried over from an app needs a rebuild", async () => {
+it("tells the builder an agent carried over from an earlier deployment needs a rebuild", async () => {
   renderWithQueries(<AgentDetailView name="dottie" />);
   expect(
     await screen.findByText(/Needs a rebuild: this agent was carried over/),

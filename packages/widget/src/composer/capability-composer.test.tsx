@@ -1,6 +1,11 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { clearEmptyEditorStructure, matchCapabilityMentionTrigger, removeCapabilityMentionBeforeCaret, textFromEditor } from "@/composer/capability-composer/editor-dom";
+import {
+  clearEmptyEditorStructure,
+  matchCapabilityMentionTrigger,
+  removeCapabilityMentionBeforeCaret,
+  textFromEditor,
+} from "@/composer/capability-composer/editor-dom";
 import { SupportedChainStack } from "@/composer/capability-composer/picker";
 
 afterEach(cleanup);
@@ -48,7 +53,7 @@ describe("removeCapabilityMentionBeforeCaret", () => {
   it("removes an adjacent mention and its separator as one unit", () => {
     const editor = document.createElement("div");
     const mention = document.createElement("span");
-    mention.dataset.capabilityKey = "app:name:default";
+    mention.dataset.capabilityKey = "agent:agent:aomi/default";
     mention.textContent = "Basic";
     const trailingText = document.createTextNode(" continue");
     editor.append(mention, trailingText);
@@ -88,7 +93,7 @@ describe("textFromEditor", () => {
   it("serializes a visual logo mention as the stable routed token", () => {
     const editor = document.createElement("div");
     const mention = document.createElement("span");
-    mention.dataset.capabilityKey = "app:name:default";
+    mention.dataset.capabilityKey = "agent:agent:aomi/default";
     mention.dataset.capabilityToken = "▦ Basic";
     mention.innerHTML = '<span aria-hidden="true"></span><span>Basic</span>';
     editor.append("Ask ", mention, " to help");

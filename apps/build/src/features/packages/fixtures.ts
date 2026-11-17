@@ -49,7 +49,7 @@ export const agentFixture: Agent = {
   live: {
     number: 3,
     digest: "sha256:7be02d1c4f0e9a8b",
-    source_repo: "arixoneth/hoodit-apps",
+    source_repo: "arixoneth/hoodit-agents",
     commit: "7be02d1a9c",
     created_at: "2026-11-12T14:02:00Z",
     config: {
@@ -91,7 +91,7 @@ export const agentFixture: Agent = {
   ],
 };
 
-/** Carried over from an app: its packages have no release yet. */
+/** Carried over from an earlier deployment: its packages have no release yet. */
 export const needsRebuildAgentFixture: Agent = {
   agent: {
     id: "arixoneth/dottie",
@@ -113,7 +113,7 @@ export const packageFixture: Package = {
   live: {
     release: 5,
     digest: "sha256:a3f9c1e07b52",
-    source_repo: "arixoneth/hoodit-apps",
+    source_repo: "arixoneth/hoodit-agents",
     commit: "bf1cb17e2d",
     created_at: "2026-11-13T20:54:00Z",
     tools: [

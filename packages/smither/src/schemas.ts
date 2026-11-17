@@ -10,7 +10,6 @@ export const smitherSchemas = {
   input: buildPlanSchema,
   binaries: z.object({
     aomiBuild: z.string(),
-    aomiRun: z.string(),
     sdkRoot: z.string(),
     source: z.string(),
     headSha: z.string(),
@@ -37,10 +36,6 @@ export const smitherSchemas = {
   fix: z.object({
     summary: z.string(),
   }),
-  smoke: z.object({
-    ok: z.boolean(),
-    log: z.string(),
-  }),
   /** Deploy approval decision — field names must match Smithers'
    *  approvalDecisionSchema so the engine can persist the decision. */
   gate: z.object({
@@ -48,10 +43,6 @@ export const smitherSchemas = {
     note: z.string().nullable(),
     decidedBy: z.string().nullable(),
     decidedAt: z.string().nullable(),
-  }),
-  deployment: z.object({
-    ok: z.boolean(),
-    log: z.string(),
   }),
   /** Clarify decision — a select-mode approval's `{selected, notes}` plus the
    *  engine's decidedBy/decidedAt stamps (mirrors how `gate` maps
@@ -71,13 +62,6 @@ export const smitherSchemas = {
   }),
   /** Behavioral eval result: the judge's score (0..1), pass/fail against the
    *  phase threshold, the judge's notes, and the run transcript it scored. */
-  evaluation: z.object({
-    score: z.number(),
-    pass: z.boolean(),
-    threshold: z.number(),
-    notes: z.string().default(""),
-    transcript: z.string().default(""),
-  }),
   /** Payload of an external signal that resolves a wait-external pause. The
    *  Signal validates the incoming payload against this schema, so it doubles
    *  as the wait-external output row. `ready:false` lets an outside system
@@ -88,7 +72,7 @@ export const smitherSchemas = {
     receivedBy: z.string().default(""),
   }),
   result: z.object({
-    status: z.enum(["complete", "deploy-denied", "blocked"]),
+    status: z.enum(["complete", "blocked"]),
     summary: z.string(),
     /** Crate artifact (artifacts.ts): display tree + embedded tarball so
      *  surfaces without this run's filesystem (web BFF observing a sandbox
@@ -104,11 +88,8 @@ export type SmitherSchemas = typeof smitherSchemas;
 export type BinariesRow = z.infer<SmitherSchemas["binaries"]>;
 export type CodegenRow = z.infer<SmitherSchemas["codegen"]>;
 export type ValidationRow = z.infer<SmitherSchemas["validation"]>;
-export type SmokeRow = z.infer<SmitherSchemas["smoke"]>;
 export type GateRow = z.infer<SmitherSchemas["gate"]>;
 export type ClarifyRow = z.infer<SmitherSchemas["clarify"]>;
-export type EvaluationRow = z.infer<SmitherSchemas["evaluation"]>;
-export type DeploymentRow = z.infer<SmitherSchemas["deployment"]>;
 export type ResultRow = z.infer<SmitherSchemas["result"]>;
 
 export function boundedLog(log: string, max = 4000): string {

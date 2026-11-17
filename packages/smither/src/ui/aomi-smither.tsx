@@ -2,7 +2,7 @@
  * Aomi-branded workflow console — the custom Gateway UI entry.
  *
  * Bundled at request time by the gateway (`Bun.build`, browser target) and
- * served at `/workflows/<app>`. It renders the run's *named plan stages*
+ * served at `/workflows/<package>`. It renders the run's *named plan stages*
  * (passed as `props.stages`) coloured by the live event stream, plus a
  * first-class approvals panel — a friendlier lens on the same run the built-in
  * operator console shows. All data comes from the stable `gateway-react` hooks;
@@ -34,7 +34,7 @@ import {
 // --- boot config -----------------------------------------------------------
 
 type BootProps = {
-  app?: string;
+  packageName?: string;
   stages?: UiStage[];
   deploy?: boolean;
   smoke?: boolean;
@@ -44,12 +44,20 @@ type BootProps = {
   decideUrl?: string;
 };
 
-const boot = (globalThis as { __SMITHERS_GATEWAY_UI__?: { workflowKey?: string | null; props?: BootProps } })
-  .__SMITHERS_GATEWAY_UI__;
+const boot = (
+  globalThis as {
+    __SMITHERS_GATEWAY_UI__?: {
+      workflowKey?: string | null;
+      props?: BootProps;
+    };
+  }
+).__SMITHERS_GATEWAY_UI__;
 const workflowKey = boot?.workflowKey ?? "";
 const bootProps: BootProps = boot?.props ?? {};
-const appName = bootProps.app ?? workflowKey ?? "app";
-const planStages: UiStage[] = Array.isArray(bootProps.stages) ? bootProps.stages : [];
+const appName = bootProps.packageName ?? workflowKey ?? "package";
+const planStages: UiStage[] = Array.isArray(bootProps.stages)
+  ? bootProps.stages
+  : [];
 
 // --- loose row views over the gateway payloads -----------------------------
 
@@ -100,13 +108,14 @@ function StatusDot({ status }: { status: StageStatus }) {
 
 function StatusPill({ status }: { status: string }) {
   const normalized = status.toLowerCase();
-  const color = normalized.includes("fail") || normalized.includes("error")
-    ? "var(--aomi-danger)"
-    : normalized.includes("wait")
-      ? "var(--aomi-warning)"
-      : normalized.includes("finish") || normalized.includes("complete")
-        ? "var(--aomi-success)"
-        : "var(--aomi-info)";
+  const color =
+    normalized.includes("fail") || normalized.includes("error")
+      ? "var(--aomi-danger)"
+      : normalized.includes("wait")
+        ? "var(--aomi-warning)"
+        : normalized.includes("finish") || normalized.includes("complete")
+          ? "var(--aomi-success)"
+          : "var(--aomi-info)";
   return (
     <span className="pill" style={{ color, borderColor: color }}>
       {status}
@@ -114,14 +123,17 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-// --- app -------------------------------------------------------------------
+// --- package -------------------------------------------------------------------
 
 function App() {
   const runsState = useGatewayRuns();
   const [selectedRunId, setSelectedRunId] = useState<string>(
-    () => new URLSearchParams(globalThis.location?.search ?? "").get("runId") ?? "",
+    () =>
+      new URLSearchParams(globalThis.location?.search ?? "").get("runId") ?? "",
   );
-  const [selectedNode, setSelectedNode] = useState<string | undefined>(undefined);
+  const [selectedNode, setSelectedNode] = useState<string | undefined>(
+    undefined,
+  );
 
   const runs = useMemo<RunRow[]>(() => {
     const rows = (runsState.data as RunRow[] | undefined) ?? [];
@@ -140,10 +152,13 @@ function App() {
   // afterSeq: 0 replays the run's whole persisted history, then tails live —
   // so a completed or already-running run (observer mode) lights up its rail,
   // not just runs we watch from their first event.
-  const { events, streaming } = useGatewayRunEvents(selectedRunId || undefined, {
-    afterSeq: 0,
-    maxEvents: 500,
-  });
+  const { events, streaming } = useGatewayRunEvents(
+    selectedRunId || undefined,
+    {
+      afterSeq: 0,
+      maxEvents: 500,
+    },
+  );
   // Unwrap the transport envelope (run.event → engine event) and drop frames
   // that carry no engine event (heartbeats, gap resyncs).
   const frames = useMemo<EventFrameLike[]>(
@@ -165,16 +180,24 @@ function App() {
   // `getDevToolsSnapshot` is an HTTP-only route (not in the typed RPC union, so
   // called via the client's rpcRaw escape hatch).
   const gateway = useSmithersGateway();
-  const [snapshotRoot, setSnapshotRoot] = useState<SnapshotNode | undefined>(undefined);
+  const [snapshotRoot, setSnapshotRoot] = useState<SnapshotNode | undefined>(
+    undefined,
+  );
   useEffect(() => {
     setSnapshotRoot(undefined);
     if (!selectedRunId) return;
     let cancelled = false;
-    void (gateway as unknown as { rpcRaw: (m: string, p?: unknown) => Promise<unknown> })
+    void (
+      gateway as unknown as {
+        rpcRaw: (m: string, p?: unknown) => Promise<unknown>;
+      }
+    )
       .rpcRaw("getDevToolsSnapshot", { runId: selectedRunId })
       .then((payload) => {
         if (!cancelled) {
-          setSnapshotRoot((payload as { root?: SnapshotNode } | undefined)?.root);
+          setSnapshotRoot(
+            (payload as { root?: SnapshotNode } | undefined)?.root,
+          );
         }
       })
       .catch(() => {
@@ -191,7 +214,11 @@ function App() {
     runStatusLower.includes("succeed") ||
     runStatusLower.includes("complete");
   const executedStages = useMemo(
-    () => collectExecutedStageIds(snapshotRoot, new Set(planStages.map((stage) => stage.id))),
+    () =>
+      collectExecutedStageIds(
+        snapshotRoot,
+        new Set(planStages.map((stage) => stage.id)),
+      ),
     [snapshotRoot],
   );
 
@@ -253,12 +280,14 @@ function App() {
     nodeId: selectedNode,
   });
 
-  const runStatus = run?.status ?? runs.find((r) => r.runId === selectedRunId)?.status ?? "";
-  const summaryText = run?.summary && typeof run.summary === "object"
-    ? (run.summary as { summary?: string }).summary
-    : typeof run?.summary === "string"
-      ? run.summary
-      : undefined;
+  const runStatus =
+    run?.status ?? runs.find((r) => r.runId === selectedRunId)?.status ?? "";
+  const summaryText =
+    run?.summary && typeof run.summary === "object"
+      ? (run.summary as { summary?: string }).summary
+      : typeof run?.summary === "string"
+        ? run.summary
+        : undefined;
 
   return (
     <div className="page">
@@ -276,7 +305,7 @@ function App() {
       <section className="hero">
         <div>
           <div className="eyebrow">workflow</div>
-          <h1 className="app-title">{appName}</h1>
+          <h1 className="package-title">{appName}</h1>
         </div>
         <div className="hero-right">
           {runStatus ? <StatusPill status={runStatus} /> : null}
@@ -291,7 +320,8 @@ function App() {
             >
               {runs.map((row) => (
                 <option key={row.runId} value={row.runId}>
-                  {new Date(row.createdAtMs ?? 0).toLocaleString()} · {row.status ?? "?"}
+                  {new Date(row.createdAtMs ?? 0).toLocaleString()} ·{" "}
+                  {row.status ?? "?"}
                 </option>
               ))}
             </select>
@@ -312,9 +342,13 @@ function App() {
                   key={`${approval.nodeId}:${approval.iteration}`}
                 >
                   <div className="approval-body">
-                    <div className="approval-title">{stage.clarify.question}</div>
+                    <div className="approval-title">
+                      {stage.clarify.question}
+                    </div>
                     {stage.clarify.summary ? (
-                      <div className="approval-summary">{stage.clarify.summary}</div>
+                      <div className="approval-summary">
+                        {stage.clarify.summary}
+                      </div>
                     ) : null}
                     <div className="clarify-options">
                       {stage.clarify.options.map((option, index) => (
@@ -333,20 +367,31 @@ function App() {
               );
             }
             return (
-              <div className="approval-card" key={`${approval.nodeId}:${approval.iteration}`}>
+              <div
+                className="approval-card"
+                key={`${approval.nodeId}:${approval.iteration}`}
+              >
                 <div className="approval-body">
                   <div className="approval-title">
                     {approval.requestTitle ?? `Approve ${approval.nodeId}?`}
                   </div>
                   {approval.requestSummary ? (
-                    <div className="approval-summary">{approval.requestSummary}</div>
+                    <div className="approval-summary">
+                      {approval.requestSummary}
+                    </div>
                   ) : null}
                 </div>
                 <div className="approval-actions">
-                  <button className="btn btn-primary" onClick={() => decide(approval, true)}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => decide(approval, true)}
+                  >
                     Approve
                   </button>
-                  <button className="btn btn-ghost" onClick={() => decide(approval, false)}>
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => decide(approval, false)}
+                  >
                     Deny
                   </button>
                 </div>
@@ -370,12 +415,17 @@ function App() {
                   <button
                     className={`stage-row ${active ? "stage-active" : ""}`}
                     onClick={() =>
-                      setSelectedNode((prev) => (prev === stage.id ? undefined : stage.id))
+                      setSelectedNode((prev) =>
+                        prev === stage.id ? undefined : stage.id,
+                      )
                     }
                   >
                     <StatusDot status={status} />
                     <span className="stage-label">{stage.label}</span>
-                    <span className="stage-status" style={{ color: STATUS_COLOR[status] }}>
+                    <span
+                      className="stage-status"
+                      style={{ color: STATUS_COLOR[status] }}
+                    >
                       {STATUS_LABEL[status]}
                     </span>
                   </button>
@@ -390,10 +440,14 @@ function App() {
         <section className="card">
           <div className="card-title">
             Output · <span className="mono">{selectedNode}</span>
-            {nodeOutputState.loading ? <span className="muted"> (loading)</span> : null}
+            {nodeOutputState.loading ? (
+              <span className="muted"> (loading)</span>
+            ) : null}
           </div>
           {nodeOutputState.data ? (
-            <pre className="code">{JSON.stringify(nodeOutputState.data, null, 2)}</pre>
+            <pre className="code">
+              {JSON.stringify(nodeOutputState.data, null, 2)}
+            </pre>
           ) : (
             <div className="empty">No output recorded for this stage yet.</div>
           )}
@@ -412,7 +466,10 @@ function App() {
               .sort((a, b) => b.seq - a.seq)
               .slice(0, 24)
               .map((frame) => (
-                <li key={frame.seq} className={`feed-row feed-${frameTone(frame)}`}>
+                <li
+                  key={frame.seq}
+                  className={`feed-row feed-${frameTone(frame)}`}
+                >
                   <span className="feed-event">{frame.event}</span>
                   <span className="feed-summary">{summarizeFrame(frame)}</span>
                   <span className="feed-seq">#{frame.seq}</span>
@@ -423,7 +480,8 @@ function App() {
       </section>
 
       <footer className="footnote">
-        aomi smither · {runs.length} run{runs.length === 1 ? "" : "s"} · gateway {workflowKey}
+        aomi smither · {runs.length} run{runs.length === 1 ? "" : "s"} · gateway{" "}
+        {workflowKey}
       </footer>
     </div>
   );
@@ -460,7 +518,7 @@ body { margin: 0; background: var(--aomi-bg); color: var(--aomi-ink); font-famil
 .live-on { background: var(--aomi-success); box-shadow: 0 0 0 3px rgba(46,158,107,0.16); }
 .hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 8px 0 20px; }
 .eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; color: var(--aomi-muted); }
-.app-title { font-family: var(--aomi-font-display); font-size: 40px; line-height: 1.1; margin: 4px 0 0; font-weight: 700; }
+.package-title { font-family: var(--aomi-font-display); font-size: 40px; line-height: 1.1; margin: 4px 0 0; font-weight: 700; }
 .hero-right { display: flex; align-items: center; gap: 10px; }
 .pill { border: 1px solid; border-radius: 9999px; padding: 4px 12px; font-size: 12px; font-weight: 500; text-transform: lowercase; }
 .run-select { font-family: var(--aomi-font-body); font-size: 13px; padding: 7px 12px; border-radius: 9999px; border: 1px solid var(--aomi-border); background: var(--aomi-surface); color: var(--aomi-ink); }

@@ -19,14 +19,14 @@ const cluster = normalizeSolanaCluster(
 );
 if (!cluster)
   throw new Error("AOMI_SOLANA_CLUSTER must be mainnet, devnet or testnet");
-const [app, operation, args] = [
-  process.env.AOMI_PIPELINE_APP?.trim(),
+const [toolset, operation, args] = [
+  process.env.AOMI_PIPELINE_TOOLSET?.trim(),
   process.env.AOMI_PIPELINE_OPERATION?.trim(),
   process.env.AOMI_PIPELINE_ARGS?.trim(),
 ];
-if (!app || !operation || !args)
+if (!toolset || !operation || !args)
   throw new Error(
-    "Set AOMI_PIPELINE_APP, AOMI_PIPELINE_OPERATION and AOMI_PIPELINE_ARGS (JSON) for the Build",
+    "Set AOMI_PIPELINE_TOOLSET, AOMI_PIPELINE_OPERATION and AOMI_PIPELINE_ARGS (JSON) for the Build",
   );
 
 // The same key signs in (SIWS) and signs the Commit. `cluster` tells the
@@ -54,7 +54,7 @@ console.log(`2. aomi> ${turn.reply}`);
 const build = await aomi.pipeline.build(
   operation,
   JSON.parse(args) as Record<string, unknown>,
-  { app },
+  { toolset },
 );
 console.log(`3. Built ${build.chainFamily} ${operation}`);
 console.log(`   simulation: ${build.simulation.status}`);

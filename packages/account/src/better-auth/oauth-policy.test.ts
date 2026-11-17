@@ -7,8 +7,8 @@ import {
   aomiOAuthResourcePolicies,
   aomiOAuthResourcePolicy,
   aomiOAuthResources,
-  appMcpName,
-  appMcpResource,
+  agentMcpName,
+  agentMcpResource,
   guestScopesForAomiResource,
   validateAomiResourceScopes,
 } from "./oauth-policy";
@@ -26,7 +26,9 @@ describe("Aomi OAuth resource policy", () => {
     expect(resources.authorizationServerIssuer).toBe(
       "https://portal.example/api/auth",
     );
-    expect(resources.agentMcp).toBe("https://portal.example/v1/agent/mcp");
+    expect(resources.agentGatewayMcp).toBe(
+      "https://portal.example/v1/agent/mcp",
+    );
     expect(resources.pipelineMcp).toBe(
       "https://portal.example/v1/pipeline/mcp",
     );
@@ -123,7 +125,7 @@ describe("Aomi OAuth resource policy", () => {
   it("registers MCP clients with a scope set one resource can satisfy", () => {
     const resources = aomiOAuthResources(env);
     const result = validateAomiResourceScopes(
-      resources.agentMcp,
+      resources.agentGatewayMcp,
       [...MCP_CLIENT_REGISTRATION_SCOPES],
       env,
     );
@@ -139,7 +141,7 @@ describe("Aomi OAuth resource policy", () => {
     const resources = aomiOAuthResources(env);
     // The full advertised set, which is what a client actually asks for.
     const requested = [...AOMI_SCOPES];
-    for (const resource of [resources.agentMcp, resources.pipelineMcp]) {
+    for (const resource of [resources.agentGatewayMcp, resources.pipelineMcp]) {
       const narrowed = narrowScopesForAomiResource(resource, requested, env);
       expect(narrowed.length).toBeGreaterThan(0);
       expect(validateAomiResourceScopes(resource, narrowed, env).ok).toBe(true);
@@ -154,7 +156,10 @@ describe("Aomi OAuth resource policy", () => {
     const resources = aomiOAuthResources(env);
     for (const identity of ["openid", "profile", "email"]) {
       expect([...AOMI_SCOPES]).toContain(identity);
-      for (const resource of [resources.agentMcp, resources.pipelineMcp]) {
+      for (const resource of [
+        resources.agentGatewayMcp,
+        resources.pipelineMcp,
+      ]) {
         expect(
           narrowScopesForAomiResource(resource, [...AOMI_SCOPES], env),
         ).not.toContain(identity);
@@ -166,14 +171,14 @@ describe("Aomi OAuth resource policy", () => {
     const resources = aomiOAuthResources(env);
     expect(
       narrowScopesForAomiResource(
-        resources.agentMcp,
+        resources.agentGatewayMcp,
         ["pipeline:execute"],
         env,
       ),
     ).toEqual([]);
-    expect(narrowScopesForAomiResource(resources.agentMcp, [], env)).toEqual(
-      [],
-    );
+    expect(
+      narrowScopesForAomiResource(resources.agentGatewayMcp, [], env),
+    ).toEqual([]);
   });
 
   // Regression: the protected-resource metadata and the WWW-Authenticate
@@ -214,7 +219,7 @@ describe("Aomi OAuth resource policy", () => {
   it("refuses the union of every scope against one MCP resource", () => {
     const resources = aomiOAuthResources(env);
     const result = validateAomiResourceScopes(
-      resources.agentMcp,
+      resources.agentGatewayMcp,
       [...AOMI_SCOPES],
       env,
     );
@@ -241,25 +246,25 @@ describe("Aomi OAuth resource policy", () => {
 
   it("accepts an app-locked MCP resource with the agent MCP's scopes", () => {
     const resources = aomiOAuthResources(env);
-    const world = appMcpResource("world", env);
-    expect(world).toBe("https://portal.example/v1/apps/world/mcp");
-    expect(appMcpName(world, env)).toBe("world");
+    const world = agentMcpResource("aomi/world", env);
+    expect(world).toBe("https://portal.example/v1/agents/aomi%2Fworld/mcp");
+    expect(agentMcpName(world, env)).toBe("aomi/world");
     const policy = aomiOAuthResourcePolicy(world, env);
-    expect(policy).toMatchObject({ kind: "appMcp", identifier: world });
+    expect(policy).toMatchObject({ kind: "agentMcp", identifier: world });
     expect(policy?.grantableScopes).toEqual(
-      aomiOAuthResourcePolicy(resources.agentMcp, env)?.grantableScopes,
+      aomiOAuthResourcePolicy(resources.agentGatewayMcp, env)?.grantableScopes,
     );
     expect(
       validateAomiResourceScopes(world, ["mcp:agent", "agent:write"], env),
     ).toMatchObject({ ok: true });
     for (const resource of [
-      "https://portal.example/v1/apps/World/mcp",
-      "https://portal.example/v1/apps/-x/mcp",
-      "https://portal.example/v1/apps/a/b/mcp",
-      "https://other.example/v1/apps/world/mcp",
-      "https://portal.example/v1/apps/world/mcp/extra",
+      "https://portal.example/v1/agents/World/mcp",
+      "https://portal.example/v1/agents/aomi%2F-x/mcp",
+      "https://portal.example/v1/agents/a/b/mcp",
+      "https://other.example/v1/agents/aomi%2Fworld/mcp",
+      "https://portal.example/v1/agents/aomi%2Fworld/mcp/extra",
     ]) {
-      expect(appMcpName(resource, env)).toBeUndefined();
+      expect(agentMcpName(resource, env)).toBeUndefined();
       expect(aomiOAuthResourcePolicy(resource, env)).toBeNull();
     }
   });

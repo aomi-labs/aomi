@@ -1,8 +1,8 @@
 import {
   acceptsApiToken,
   AGENT_SCOPES,
-  appMcpName as appMcpNameOn,
-  appMcpResource as appMcpResourceOn,
+  agentMcpName as agentMcpNameOn,
+  agentMcpResource as agentMcpResourceOn,
   MCP_DPOP_REQUIRED,
   OFFLINE_ACCESS_SCOPE,
   resourcePolicies,
@@ -79,7 +79,7 @@ export function aomiOAuthResourcePolicies(
   return resourcePolicies(aomiOAuthResources(env), MCP_DPOP_REQUIRED);
 }
 
-/** The fixed resources, and every app-locked MCP path (`/v1/apps/<app>/mcp`). */
+/** The fixed resources, and every agent-locked MCP path (`/v1/agents/<agent>/mcp`). */
 export function aomiOAuthResourcePolicy(
   resource: string,
   env: Record<string, string | undefined> = process.env,
@@ -99,20 +99,20 @@ export function acceptsAomiApiToken(
   return policy !== null && acceptsApiToken(policy);
 }
 
-/** The MCP resource locked to one app: the agent MCP with that app forced. */
-export function appMcpResource(
+/** The MCP resource locked to one agent: the agent MCP with that agent forced. */
+export function agentMcpResource(
   name: string,
   env: Record<string, string | undefined> = process.env,
 ): string {
-  return appMcpResourceOn(aomiOAuthResources(env), name);
+  return agentMcpResourceOn(aomiOAuthResources(env), name);
 }
 
-/** The app an app-locked MCP resource names; undefined for any other resource. */
-export function appMcpName(
+/** The agent an agent-locked MCP resource names; undefined for any other resource. */
+export function agentMcpName(
   resource: string,
   env: Record<string, string | undefined> = process.env,
 ): string | undefined {
-  return appMcpNameOn(aomiOAuthResources(env), resource);
+  return agentMcpNameOn(aomiOAuthResources(env), resource);
 }
 
 export function guestScopesForAomiResource(

@@ -51,7 +51,7 @@ describe("SettingsGitHubAppPanel", () => {
 
     expect(useGitHubAppMock).toHaveBeenCalledWith();
     expect(screen.getByText("builder/repo-x")).toBeTruthy();
-    expect(screen.queryByText("aomi-labs/community-apps")).toBeNull();
+    expect(screen.queryByText("aomi-labs/community-agents")).toBeNull();
     expect(screen.getByText("Access OK")).toBeTruthy();
     expect(screen.getByRole("link", { name: /Manage/ })).toHaveAttribute(
       "href",

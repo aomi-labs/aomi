@@ -80,7 +80,7 @@ const COMMANDS: CommandItem[] = [
   {
     id: "integrations",
     label: "Integrations",
-    hint: "Bots and channels",
+    hint: "Channels",
     href: "/integrations",
     icon: Plug,
   },

@@ -89,11 +89,11 @@ describe("dispatchSandboxRun", () => {
         return sandbox;
       },
     };
-    const plan = JSON.stringify({ app: "my-app" });
+    const plan = JSON.stringify({ packageName: "my-package" });
     await dispatchSandboxRun({
       planJson: plan,
-      app: "my-app",
-      runId: "smither-my-app-0000",
+      packageName: "my-package",
+      runId: "smither-my-package-0000",
       config: CONFIG,
       client,
       sidecarPublicKeyPem:
@@ -115,9 +115,9 @@ describe("dispatchSandboxRun", () => {
     // never a secret; bearers are minted per request by the Build server.
     const createdEnv = (created[0] as { env: Record<string, string> }).env;
     expect(createdEnv.AOMI_SIDECAR_PUBKEY).toContain("BEGIN PUBLIC KEY");
-    expect(createdEnv.AOMI_SIDECAR_RUN_ID).toBe("smither-my-app-0000");
+    expect(createdEnv.AOMI_SIDECAR_RUN_ID).toBe("smither-my-package-0000");
     expect(createdEnv.AOMI_SIDECAR_TOKEN).toBeUndefined();
-    expect(createdEnv.AOMI_SIDECAR_APP).toBe("my-app");
+    expect(createdEnv.AOMI_SIDECAR_APP).toBe("my-package");
     expect((created[0] as { ports?: number[] }).ports).toEqual([8722]);
 
     // First command boots the live-files sidecar, second the runner.
@@ -137,7 +137,7 @@ describe("dispatchSandboxRun", () => {
     const b64 = cmd.args[cmd.args.indexOf("--plan-b64") + 1];
     expect(Buffer.from(b64, "base64").toString("utf8")).toBe(plan);
     expect(cmd.args[cmd.args.indexOf("--run-id") + 1]).toBe(
-      "smither-my-app-0000",
+      "smither-my-package-0000",
     );
   });
 });

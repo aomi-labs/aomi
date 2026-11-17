@@ -114,8 +114,8 @@ describe("loading the chat list once access arrives", () => {
         awaitingApproval: ["5f0c2a1e-8d4b-4c3a-9e7f-1b2c3d4e5f60"],
       },
       {
-        id: "app-chat",
-        title: "App",
+        id: "agent-chat",
+        title: "Agent",
         archived: false,
         updatedAt: 2,
         origin: "portal",
@@ -148,8 +148,8 @@ describe("loading the chat list once access arrives", () => {
       origin: "mcp",
       awaitingApproval: ["5f0c2a1e-8d4b-4c3a-9e7f-1b2c3d4e5f60"],
     });
-    expect(metadata("app-chat")?.awaitingApproval).toBeUndefined();
-    expect(metadata("app-chat")?.origin).toBe("portal");
+    expect(metadata("agent-chat")?.awaitingApproval).toBeUndefined();
+    expect(metadata("agent-chat")?.origin).toBe("portal");
     expect(metadata("old-server")?.origin).toBeUndefined();
     expect(metadata("telegram:bot:1:dm:2")).toBeUndefined();
     expect(options.remoteThreadIdsRef.current.has("telegram:bot:1:dm:2")).toBe(
@@ -308,7 +308,7 @@ describe("saved thread summaries", () => {
   ) {
     const scope = {
       backendUrl: "/backend",
-      appId: "8",
+      agentScope: "publisher/eight",
       account: { kind: "user", id: "a" } as const,
     };
     const original = createDisplayQueryClient();
@@ -316,7 +316,7 @@ describe("saved thread summaries", () => {
     const accountSlot = JSON.stringify([
       "display-v3",
       "/backend",
-      "8",
+      "publisher/eight",
       "account",
     ]);
     const saved = new Map<string, unknown>([
@@ -349,7 +349,7 @@ describe("saved thread summaries", () => {
       return (
         <DisplayCacheProvider
           backendUrl="/backend"
-          applicationId={8}
+          agent="publisher/eight"
           account={state.account}
           persistence="account"
         >

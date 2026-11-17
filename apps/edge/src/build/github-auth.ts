@@ -34,7 +34,10 @@ export function signerFor(ctx: BuildContext): GitHubSessionSigner {
   return new GitHubSessionSigner(ctx.env.BUILD_SESSION_SECRET, ctx.now);
 }
 
-export function githubSessionOf(request: Request, ctx: BuildContext): Promise<GitHubSession | null> {
+export function githubSessionOf(
+  request: Request,
+  ctx: BuildContext,
+): Promise<GitHubSession | null> {
   return signerFor(ctx).readSession(readCookie(request, GITHUB_SESSION_COOKIE));
 }
 
@@ -42,18 +45,38 @@ export function visibilityGrantOf(request: Request): string | null {
   return readCookie(request, GITHUB_VISIBILITY_GRANT_COOKIE)?.trim() || null;
 }
 
-function setSessionCookie(response: Response, ctx: BuildContext, token: string): void {
+function setSessionCookie(
+  response: Response,
+  ctx: BuildContext,
+  token: string,
+): void {
   appendCookie(
     response,
-    serializeCookie(GITHUB_SESSION_COOKIE, token, { secure: ctx.secureCookies, maxAge: SESSION_TTL_SECONDS }),
+    serializeCookie(GITHUB_SESSION_COOKIE, token, {
+      secure: ctx.secureCookies,
+      maxAge: SESSION_TTL_SECONDS,
+    }),
   );
 }
 
-export function clearSessionCookie(response: Response, ctx: BuildContext): void {
-  appendCookie(response, serializeCookie(GITHUB_SESSION_COOKIE, "", { secure: ctx.secureCookies, maxAge: 0 }));
+export function clearSessionCookie(
+  response: Response,
+  ctx: BuildContext,
+): void {
+  appendCookie(
+    response,
+    serializeCookie(GITHUB_SESSION_COOKIE, "", {
+      secure: ctx.secureCookies,
+      maxAge: 0,
+    }),
+  );
 }
 
-function setVisibilityGrantCookie(response: Response, ctx: BuildContext, grant: string | null): void {
+function setVisibilityGrantCookie(
+  response: Response,
+  ctx: BuildContext,
+  grant: string | null,
+): void {
   const value = grant?.trim() ?? "";
   appendCookie(
     response,
@@ -67,14 +90,19 @@ function setVisibilityGrantCookie(response: Response, ctx: BuildContext, grant: 
 function clearOAuthRequestCookie(response: Response, ctx: BuildContext): void {
   appendCookie(
     response,
-    serializeCookie(GITHUB_OAUTH_REQUEST_COOKIE, "", { secure: ctx.secureCookies, maxAge: 0 }),
+    serializeCookie(GITHUB_OAUTH_REQUEST_COOKIE, "", {
+      secure: ctx.secureCookies,
+      maxAge: 0,
+    }),
   );
 }
 
 function redirect(location: URL): Response {
-  return new Response(null, { status: 302, headers: { location: location.toString() } });
+  return new Response(null, {
+    status: 302,
+    headers: { location: location.toString() },
+  });
 }
-
 
 function validLoopbackRedirect(value: string | null): URL | null {
   if (!value) return null;
@@ -95,15 +123,28 @@ function validLoopbackRedirect(value: string | null): URL | null {
   }
 }
 
-function validOpaque(value: string | null, min: number, max: number): value is string {
-  return Boolean(value && value.length >= min && value.length <= max && /^[A-Za-z0-9_-]+$/.test(value));
+function validOpaque(
+  value: string | null,
+  min: number,
+  max: number,
+): value is string {
+  return Boolean(
+    value &&
+    value.length >= min &&
+    value.length <= max &&
+    /^[A-Za-z0-9_-]+$/.test(value),
+  );
 }
 
 export function parseCliLoginRequest(url: URL): GitHubCliLoginRequest | null {
-  const redirectUri = validLoopbackRedirect(url.searchParams.get("redirect_uri"));
+  const redirectUri = validLoopbackRedirect(
+    url.searchParams.get("redirect_uri"),
+  );
   const state = url.searchParams.get("state");
   const codeChallenge = url.searchParams.get("code_challenge");
-  return redirectUri && validOpaque(state, 32, 128) && validOpaque(codeChallenge, 43, 128)
+  return redirectUri &&
+    validOpaque(state, 32, 128) &&
+    validOpaque(codeChallenge, 43, 128)
     ? { redirectUri: redirectUri.toString(), state, codeChallenge }
     : null;
 }
@@ -117,11 +158,14 @@ async function startGitHubOAuth(
   const authorize = new URL("https://github.com/login/oauth/authorize");
   authorize.searchParams.set(
     "client_id",
-    // The one-shot App OAuth client ids (app index 2). Their secrets stay in
+    // The one-shot Agent OAuth client ids (package index 2). Their secrets stay in
     // Manager's index-2 config; the ids are public.
     ctx.production ? "Iv23li4wPpAfoGOJ6v0Q" : "Iv23lilgvJz13pJekLSZ",
   );
-  authorize.searchParams.set("redirect_uri", new URL(GITHUB_CALLBACK_PATH, ctx.buildOrigin).toString());
+  authorize.searchParams.set(
+    "redirect_uri",
+    new URL(GITHUB_CALLBACK_PATH, ctx.buildOrigin).toString(),
+  );
   authorize.searchParams.set("state", oauthState);
   const response = redirect(authorize);
   appendCookie(
@@ -142,7 +186,10 @@ async function finishCliAuthorization(
   login: GitHubCliLoginRequest,
 ): Promise<Response> {
   const target = new URL(login.redirectUri);
-  target.searchParams.set("code", await signerFor(ctx).issueCliExchange(session, login.codeChallenge));
+  target.searchParams.set(
+    "code",
+    await signerFor(ctx).issueCliExchange(session, login.codeChallenge),
+  );
   target.searchParams.set("state", login.state);
   return redirect(target);
 }
@@ -150,7 +197,10 @@ async function finishCliAuthorization(
 // ── /api/build/auth/github/* ───────────────────────────────────────────────────
 
 /** GET /api/build/auth/github/login — the single entrypoint for GitHub OAuth. */
-export async function login(request: Request, ctx: BuildContext): Promise<Response> {
+export async function login(
+  request: Request,
+  ctx: BuildContext,
+): Promise<Response> {
   const params = new URL(request.url).searchParams;
   if (params.get("resume") === "template") {
     const platform = params.get("platform");
@@ -165,16 +215,26 @@ export async function login(request: Request, ctx: BuildContext): Promise<Respon
  * GET /api/build/auth/github/claim?projectId — the project viewer is the entry
  * point for Claim. GitHub OAuth only starts after this explicit click.
  */
-export async function claim(request: Request, ctx: BuildContext): Promise<Response> {
+export async function claim(
+  request: Request,
+  ctx: BuildContext,
+): Promise<Response> {
   const session = await githubSessionOf(request, ctx);
-  if (!session) return Response.json({ error: "not signed in with GitHub" }, { status: 401 });
+  if (!session)
+    return Response.json(
+      { error: "not signed in with GitHub" },
+      { status: 401 },
+    );
   const projectId = Number(new URL(request.url).searchParams.get("projectId"));
   if (!Number.isSafeInteger(projectId) || projectId <= 0)
     return Response.json({ error: "invalid projectId" }, { status: 400 });
   return startGitHubOAuth(request, ctx, { kind: "claim", projectId });
 }
 
-function browserReturnUrl(ctx: BuildContext, continuation: GitHubOAuthContinuation | undefined): URL {
+function browserReturnUrl(
+  ctx: BuildContext,
+  continuation: GitHubOAuthContinuation | undefined,
+): URL {
   if (continuation?.kind === "template") {
     const url = new URL("/operate/deployments/new", ctx.buildOrigin);
     url.searchParams.set("platform", continuation.platform);
@@ -192,19 +252,26 @@ function oauthError(
   error: string,
 ): Response {
   const cli = continuation?.kind === "cli";
-  const target = cli ? new URL(continuation.redirectUri) : browserReturnUrl(ctx, continuation);
+  const target = cli
+    ? new URL(continuation.redirectUri)
+    : browserReturnUrl(ctx, continuation);
   target.searchParams.set(cli ? "error" : "github_error", error);
   if (cli) target.searchParams.set("state", continuation.state);
   return redirect(target);
 }
 
 /** GET /api/build/auth/github/callback — the only GitHub OAuth callback. */
-export async function callback(request: Request, ctx: BuildContext): Promise<Response> {
+export async function callback(
+  request: Request,
+  ctx: BuildContext,
+): Promise<Response> {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const signer = signerFor(ctx);
-  const oauthRequest = await signer.readOAuthRequest(readCookie(request, GITHUB_OAUTH_REQUEST_COOKIE));
+  const oauthRequest = await signer.readOAuthRequest(
+    readCookie(request, GITHUB_OAUTH_REQUEST_COOKIE),
+  );
   if (!code || !state || !oauthRequest || state !== oauthRequest.oauthState)
     return oauthError(ctx, oauthRequest?.continuation, "invalid_oauth_state");
   const { continuation } = oauthRequest;
@@ -214,23 +281,33 @@ export async function callback(request: Request, ctx: BuildContext): Promise<Res
     if (continuation.kind === "claim") {
       const existing = await githubSessionOf(request, ctx);
       if (!existing) return oauthError(ctx, continuation, "not_signed_in");
-      const claimed = await (await managerClient(request, ctx)).claimGitHubProject({
+      const claimed = await (
+        await managerClient(request, ctx)
+      ).claimGitHubProject({
         code,
         projectId: continuation.projectId,
         redirectUri,
       });
       if (claimed.githubUserId !== existing.githubUserId)
         return oauthError(ctx, continuation, "github_account_changed");
-      const response = redirect(new URL(`/projects/${continuation.projectId}?claim=success`, ctx.buildOrigin));
+      const response = redirect(
+        new URL(
+          `/projects/${continuation.projectId}?claim=success`,
+          ctx.buildOrigin,
+        ),
+      );
       clearOAuthRequestCookie(response, ctx);
       return response;
     }
-    const identity = await (await managerClient(request, ctx)).exchangeGitHubCode({
+    const identity = await (
+      await managerClient(request, ctx)
+    ).exchangeGitHubCode({
       code,
       app: GITHUB_LOGIN_APP_INDEX,
       redirectUri,
     });
-    if (!identity.githubUserId) throw new Error("GitHub identity could not be resolved");
+    if (!identity.githubUserId)
+      throw new Error("GitHub identity could not be resolved");
     const session: GitHubSession = {
       githubUserId: identity.githubUserId,
       githubLogin: identity.githubLogin,
@@ -248,18 +325,26 @@ export async function callback(request: Request, ctx: BuildContext): Promise<Res
     console.error("edge.build.github_oauth_exchange_failed", {
       operation: "github.oauth_exchange",
       continuation: continuation.kind,
-      error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+      error:
+        error instanceof Error
+          ? `${error.name}: ${error.message}`
+          : String(error),
     });
     return oauthError(
       ctx,
       continuation,
-      error instanceof BackendError && error.status === 403 ? "service_auth_forbidden" : "exchange_failed",
+      error instanceof BackendError && error.status === 403
+        ? "service_auth_forbidden"
+        : "exchange_failed",
     );
   }
 }
 
 /** GET /api/build/auth/github/status — what the client needs to gate the UI. */
-export async function status(request: Request, ctx: BuildContext): Promise<Response> {
+export async function status(
+  request: Request,
+  ctx: BuildContext,
+): Promise<Response> {
   const session = await githubSessionOf(request, ctx);
   return Response.json({
     signedIn: Boolean(session),
@@ -267,7 +352,7 @@ export async function status(request: Request, ctx: BuildContext): Promise<Respo
     githubAvatarUrl: session
       ? `https://avatars.githubusercontent.com/u/${encodeURIComponent(session.githubUserId)}?s=96&v=4`
       : null,
-    // Present when the one-shot App is already installed → the wizard skips the
+    // Present when the one-shot Agent is already installed → the wizard skips the
     // install step. The github_user_id stays server-side.
     installationId: session?.installationId ?? null,
   });
@@ -283,9 +368,16 @@ export function signout(_request: Request, ctx: BuildContext): Response {
 // ── /api/build/cli/* ───────────────────────────────────────────────────────────
 
 /** GET /api/build/cli/login — authorize the CLI from the existing browser session. */
-export async function cliLogin(request: Request, ctx: BuildContext): Promise<Response> {
+export async function cliLogin(
+  request: Request,
+  ctx: BuildContext,
+): Promise<Response> {
   const login = parseCliLoginRequest(new URL(request.url));
-  if (!login) return Response.json({ error: "invalid CLI login request" }, { status: 400 });
+  if (!login)
+    return Response.json(
+      { error: "invalid CLI login request" },
+      { status: 400 },
+    );
   const session = await githubSessionOf(request, ctx);
   return session
     ? finishCliAuthorization(ctx, session, login)
@@ -293,7 +385,10 @@ export async function cliLogin(request: Request, ctx: BuildContext): Promise<Res
 }
 
 async function pkceChallenge(verifier: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(verifier),
+  );
   return btoa(String.fromCharCode(...new Uint8Array(digest)))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
@@ -301,18 +396,33 @@ async function pkceChallenge(verifier: string): Promise<string> {
 }
 
 /** POST /api/build/cli/exchange { code, codeVerifier } — loopback code → CLI bearer. */
-export async function cliExchange(request: Request, ctx: BuildContext): Promise<Response> {
-  const body = (await request.json().catch(() => ({}))) as { code?: unknown; codeVerifier?: unknown };
+export async function cliExchange(
+  request: Request,
+  ctx: BuildContext,
+): Promise<Response> {
+  const body = (await request.json().catch(() => ({}))) as {
+    code?: unknown;
+    codeVerifier?: unknown;
+  };
   if (
     typeof body.code !== "string" ||
     typeof body.codeVerifier !== "string" ||
     body.codeVerifier.length < 43 ||
     body.codeVerifier.length > 128
   )
-    return Response.json({ error: "invalid CLI exchange request" }, { status: 400 });
+    return Response.json(
+      { error: "invalid CLI exchange request" },
+      { status: 400 },
+    );
   const exchange = await signerFor(ctx).readCliExchange(body.code);
-  if (!exchange || (await pkceChallenge(body.codeVerifier)) !== exchange.codeChallenge)
-    return Response.json({ error: "CLI login code was rejected" }, { status: 401 });
+  if (
+    !exchange ||
+    (await pkceChallenge(body.codeVerifier)) !== exchange.codeChallenge
+  )
+    return Response.json(
+      { error: "CLI login code was rejected" },
+      { status: 401 },
+    );
   return Response.json({
     accessToken: exchange.accessToken,
     tokenType: "Bearer",
@@ -323,8 +433,15 @@ export async function cliExchange(request: Request, ctx: BuildContext): Promise<
 }
 
 /** GET /api/build/cli/status — validate a saved CLI bearer without exposing it. */
-export async function cliStatus(request: Request, ctx: BuildContext): Promise<Response> {
+export async function cliStatus(
+  request: Request,
+  ctx: BuildContext,
+): Promise<Response> {
   const session = await signerFor(ctx).readCliSession(bearerOf(request));
   if (!session) return Response.json({ signedIn: false }, { status: 401 });
-  return Response.json({ signedIn: true, githubLogin: session.githubLogin, githubUserId: session.githubUserId });
+  return Response.json({
+    signedIn: true,
+    githubLogin: session.githubLogin,
+    githubUserId: session.githubUserId,
+  });
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AppWindowIcon, PuzzleIcon } from "lucide-react";
-import { getAppIcon } from "@/icons/app-map";
+import { getAgentIcon } from "@/icons/agent-map";
 import { getSkillIcon } from "@/icons/skills/skill-icons";
 import type { ToolChip } from "@aomi-labs/client/trace";
 import { interpretToolStep, type TraceAttribution } from "./attribution";
@@ -14,9 +14,19 @@ const drawn = (chip: ToolChip | undefined) =>
   chip?.icon ? { ...chip, icon: traceIcon(chip.icon) } : chip;
 
 const attribution: TraceAttribution = {
-  apps: [
-    { name: "hoodit", metadata: { tool_names: ["hoodit_search_tokens"] } },
-    { name: "hyperliquid", metadata: { tool_names: ["hyperliquid_orders"] } },
+  agents: [
+    {
+      agent_id: 7,
+      agent: "aomi/hoodit",
+      display_name: "Hoodit",
+      metadata: { tool_names: ["hoodit_search_tokens"] },
+    },
+    {
+      agent_id: 7,
+      agent: "aomi/hyperliquid",
+      display_name: "Hyperliquid",
+      metadata: { tool_names: ["hyperliquid_orders"] },
+    },
   ],
   skills: [
     {
@@ -34,20 +44,20 @@ const attribution: TraceAttribution = {
       ],
     },
     {
-      id: "hoodit/markets",
-      name: "hoodit/markets",
+      id: "aomi/hoodit/markets",
+      name: "aomi/hoodit/markets",
       injectedTools: ["hoodit_search_tokens"],
     },
   ],
 };
 
 describe("trace attribution", () => {
-  it("shows app artwork and readable skill names without changing the raw identifier", () => {
+  it("shows agent artwork and readable skill names without changing the raw identifier", () => {
     const result = {
       activated: [
-        "hoodit/markets",
-        "hyperliquid/portfolio",
-        "hoodit/coin-scanner",
+        "aomi/hoodit/markets",
+        "aomi/hyperliquid/portfolio",
+        "aomi/hoodit/coin-scanner",
       ],
     };
     const step = interpretToolStep({
@@ -60,9 +70,9 @@ describe("trace attribution", () => {
       "Hyperliquid / Portfolio",
       "Hoodit / Coin Scanner",
     ]);
-    expect(drawn(step.chips[0])?.icon).toBe(getAppIcon("hoodit"));
-    expect(drawn(step.chips[1])?.icon).toBe(getAppIcon("hyperliquid"));
-    expect(result.activated[0]).toBe("hoodit/markets");
+    expect(drawn(step.chips[0])?.icon).toBe(getAgentIcon("hoodit"));
+    expect(drawn(step.chips[1])?.icon).toBe(getAgentIcon("hyperliquid"));
+    expect(result.activated[0]).toBe("aomi/hoodit/markets");
   });
 
   it("attributes pending, completed and failed injected calls", () => {
@@ -132,7 +142,7 @@ describe("trace attribution", () => {
     });
   });
 
-  it("shows a single combined app/skill badge for an owned tool", () => {
+  it("shows a single combined agent/skill badge for an owned tool", () => {
     const step = interpretToolStep({
       toolName: "hoodit_search_tokens",
       attribution,
@@ -140,34 +150,34 @@ describe("trace attribution", () => {
     expect(step.chips.map((chip) => chip.label)).toEqual(["Hoodit / Markets"]);
   });
 
-  it("uses app metadata when a skill owner is not available", () => {
+  it("uses agent metadata when a skill owner is not available", () => {
     const step = interpretToolStep({
       toolName: "hyperliquid_orders",
       attribution,
     });
     expect(drawn(step.chips[0])).toMatchObject({
       label: "Hyperliquid",
-      icon: getAppIcon("hyperliquid"),
+      icon: getAgentIcon("hyperliquid"),
     });
   });
 
-  it("attributes arbitrary app and skill names using declarations, regardless of tool spelling", () => {
+  it("attributes arbitrary agent and skill names using declarations, regardless of tool spelling", () => {
     for (const name of ["atlas", "weather-service", "community_42"]) {
       const catalog: TraceAttribution = {
-        apps: [
+        agents: [
           {
-            name,
-            label: "Custom App",
-            applicationId: 42,
+            agent_id: 42,
+            agent: `publisher/${name}`,
+            display_name: "Custom Agent",
             metadata: {
-              registered_via: "activate_apps",
+              registered_via: "activate_toolsets",
               tool_names: ["fetch_record"],
             },
           },
         ],
         skills: [
           {
-            id: `${name}/research`,
+            id: `publisher/${name}/research`,
             name: "Research",
             injectedTools: ["read_data"],
           },
@@ -179,16 +189,16 @@ describe("trace attribution", () => {
             .chips[0],
         ),
       ).toMatchObject({
-        id: `app:${name}`,
-        label: "Custom App",
+        id: `agent:publisher/${name}`,
+        label: "Custom Agent",
         icon: AppWindowIcon,
       });
       expect(
         interpretToolStep({ toolName: "read_data", attribution: catalog })
           .chips[0],
       ).toMatchObject({
-        skillId: `${name}/research`,
-        label: "Custom App / Research",
+        skillId: `publisher/${name}/research`,
+        label: "Custom Agent / Research",
       });
       expect(
         interpretToolStep({ toolName: `${name}_unknown`, attribution: catalog })
@@ -197,11 +207,12 @@ describe("trace attribution", () => {
     }
   });
 
-  it("does not infer app ownership from prefixes, even for registered hosted apps", () => {
-    const apps = ["hoodit", "hyperliquid", "atlas"].map((name) => ({
-      name,
-      applicationId: 42,
-      metadata: { registered_via: "activate_apps" },
+  it("does not infer agent ownership from prefixes, even for registered hosted agents", () => {
+    const agents = ["hoodit", "hyperliquid", "atlas"].map((name) => ({
+      agent_id: 42,
+      agent: `publisher/${name}`,
+      display_name: name,
+      metadata: {},
     }));
     for (const toolName of [
       "hoodit_get_portfolio",
@@ -210,19 +221,26 @@ describe("trace attribution", () => {
       "atlas/lookup",
     ]) {
       expect(
-        interpretToolStep({ toolName, attribution: { apps } }).chips,
+        interpretToolStep({ toolName, attribution: { agents } }).chips,
       ).toEqual([]);
     }
   });
 
-  it("uses the declared owner even when a tool is named after another app", () => {
+  it("uses the declared owner even when a tool is named after another agent", () => {
     const step = interpretToolStep({
       toolName: "hoodit_get_portfolio",
       attribution: {
-        apps: [
-          { name: "hoodit" },
+        agents: [
           {
-            name: "analytics",
+            agent_id: 7,
+            agent: "aomi/hoodit",
+            display_name: "Hoodit",
+            metadata: {},
+          },
+          {
+            agent_id: 7,
+            agent: "aomi/analytics",
+            display_name: "Analytics",
             metadata: { tool_names: ["hoodit_get_portfolio"] },
           },
         ],
@@ -265,7 +283,7 @@ describe("trace attribution", () => {
       expect(
         step.chips.some(
           (chip) =>
-            chip.id?.startsWith("skill:") || chip.id?.startsWith("app:"),
+            chip.id?.startsWith("skill:") || chip.id?.startsWith("agent:"),
         ),
       ).toBe(false);
     }
@@ -276,7 +294,7 @@ describe("trace attribution", () => {
       toolName: "activate_skills",
       result: JSON.stringify({
         __aomi_tool_return: true,
-        __aomi_tool_value: { activated: ["hoodit/markets"] },
+        __aomi_tool_value: { activated: ["aomi/hoodit/markets"] },
       }),
       attribution,
     });
@@ -286,7 +304,9 @@ describe("trace attribution", () => {
   it("shows requested skills while pending and only accepted skills after completion", () => {
     const input = {
       toolName: "activate_skills",
-      argsText: JSON.stringify({ skill_ids: ["hoodit/markets", "lifi_swap"] }),
+      argsText: JSON.stringify({
+        skill_ids: ["aomi/hoodit/markets", "lifi_swap"],
+      }),
       attribution,
     };
     expect(interpretToolStep(input).chips).toHaveLength(2);
@@ -295,33 +315,37 @@ describe("trace attribution", () => {
         ...input,
         result: {
           activated: ["lifi_swap"],
-          rejected: [["hoodit/markets", "unavailable"]],
+          rejected: [["aomi/hoodit/markets", "unavailable"]],
         },
       }).chips.map((chip) => chip.label),
     ).toEqual(["LI.FI"]);
   });
 
-  it("keeps same-named skills from different apps distinct", () => {
+  it("keeps same-named skills from different agents distinct", () => {
     const step = interpretToolStep({
       toolName: "activate_skills",
-      result: { activated: ["hoodit/portfolio", "hyperliquid/portfolio"] },
+      result: {
+        activated: ["aomi/hoodit/portfolio", "aomi/hyperliquid/portfolio"],
+      },
       attribution,
     });
     expect(step.chips).toHaveLength(2);
     expect(new Set(step.chips.map((chip) => chip.id)).size).toBe(2);
   });
 
-  it("uses a generic app icon for unknown and community publisher identities", () => {
+  it("uses a generic agent icon for unknown and community publisher identities", () => {
     const step = interpretToolStep({
       toolName: "activate_skills",
-      result: { activated: ["unknown/portfolio", "hyperliquid/trading"] },
+      result: {
+        activated: ["unknown/portfolio", "publisher/hyperliquid/trading"],
+      },
       attribution: {
-        apps: [
+        agents: [
           {
-            name: "hyperliquid",
-            applicationId: 77,
-            label: "Community Exchange",
-            metadata: { registered_via: "activate_apps" },
+            agent_id: 77,
+            agent: "publisher/hyperliquid",
+            display_name: "Community Exchange",
+            metadata: { registered_via: "activate_toolsets" },
           },
         ],
       },
@@ -339,7 +363,7 @@ describe("trace attribution", () => {
   it("does not borrow official artwork for an unverified skill namespace", () => {
     const step = interpretToolStep({
       toolName: "activate_skills",
-      result: { activated: ["hyperliquid/portfolio"] },
+      result: { activated: ["aomi/hyperliquid/portfolio"] },
       attribution: { skills: [] },
     });
     expect(drawn(step.chips[0])).toMatchObject({
@@ -348,12 +372,14 @@ describe("trace attribution", () => {
     });
   });
 
-  it("does not guess when multiple apps or skills declare the same bare tool", () => {
+  it("does not guess when multiple agents or skills declare the same bare tool", () => {
     const step = interpretToolStep({
       toolName: "lookup",
       attribution: {
-        apps: ["one", "two"].map((name) => ({
-          name,
+        agents: ["one", "two"].map((name) => ({
+          agent_id: 1,
+          agent: `publisher/${name}`,
+          display_name: name,
           metadata: { tool_names: ["lookup"] },
         })),
         skills: ["one/read", "two/read"].map((id) => ({

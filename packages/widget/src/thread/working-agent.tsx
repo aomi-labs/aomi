@@ -119,7 +119,7 @@ const completionSummary = (value: unknown): string | undefined => {
 };
 
 /**
- * The `ChildTaskRequest` the mother sent for *this* child: `{label, app,
+ * The `ChildTaskRequest` the mother sent for *this* child: `{label, agent,
  * prompt}`.
  *
  * A `task` call carries a batch — `{ tasks: [ChildTaskRequest, …] }` — so the

@@ -35,7 +35,7 @@ type Step =
 const RESOURCES: Record<string, string> = {
   "/v1": "your Aomi account",
   "/v1/agent": "Aomi chat on your account",
-  "/v1/pipeline": "Aomi apps and tools on your account",
+  "/v1/pipeline": "Aomi toolsets and tools on your account",
   "/v1/account": "your account settings",
 };
 

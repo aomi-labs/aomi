@@ -72,7 +72,7 @@ export type BuildSession = {
   /** Engine-mode linkage: the durable run behind this session. Lets a reload
    *  reattach to a live run and keep Download working after settle. */
   runId?: string;
-  app?: string;
+  packageName?: string;
   model: string;
   updatedAt: string;
   runtime: string;
@@ -193,8 +193,7 @@ export const defaultStreamTemplate: BuildStreamEvent[] = [
   },
 ];
 
-/** Mock tree mirrors a real generated crate: apps/<name>/{Cargo.toml,
- *  openapi.yaml, src/{lib.rs, client/, tool.rs}} → plugins/<name>.dylib. */
+/** Mock tree mirrors a generated package crate under packages/<name>. */
 export const generatedFileTree: BuildFileNode[] = [
   {
     path: "aomi-agent",
@@ -223,7 +222,7 @@ export const generatedFileTree: BuildFileNode[] = [
   },
 ];
 
-/** Prompt-aware mock file tree so arb bots look different from generic agents. */
+/** Prompt-aware mock file tree so arb agents look different from generic agents. */
 export function deriveGeneratedFileTree(prompt: string): BuildFileNode[] {
   const lower = prompt.toLowerCase();
   const isArb =
@@ -234,42 +233,46 @@ export function deriveGeneratedFileTree(prompt: string): BuildFileNode[] {
   if (!isArb) return generatedFileTree;
 
   const venues: BuildFileNode[] = [];
-  if (lower.includes("hyperliquid") || lower.includes("hype") || !lower.includes("binance")) {
+  if (
+    lower.includes("hyperliquid") ||
+    lower.includes("hype") ||
+    !lower.includes("binance")
+  ) {
     venues.push({
-      path: "arb-bot/src/client/hyperliquid.rs",
+      path: "arb-agent/src/client/hyperliquid.rs",
       type: "file",
     });
   }
   if (lower.includes("binance") || !lower.includes("hyperliquid")) {
     venues.push({
-      path: "arb-bot/src/client/binance.rs",
+      path: "arb-agent/src/client/binance.rs",
       type: "file",
     });
   }
 
   return [
     {
-      path: "arb-bot",
+      path: "arb-agent",
       type: "folder",
       children: [
         {
-          path: "arb-bot/src",
+          path: "arb-agent/src",
           type: "folder",
           children: [
             {
-              path: "arb-bot/src/client",
+              path: "arb-agent/src/client",
               type: "folder",
               children: [
                 ...venues,
-                { path: "arb-bot/src/client/mod.rs", type: "file" },
+                { path: "arb-agent/src/client/mod.rs", type: "file" },
               ],
             },
-            { path: "arb-bot/src/lib.rs", type: "file" },
-            { path: "arb-bot/src/tool.rs", type: "file" },
+            { path: "arb-agent/src/lib.rs", type: "file" },
+            { path: "arb-agent/src/tool.rs", type: "file" },
           ],
         },
-        { path: "arb-bot/Cargo.toml", type: "file" },
-        { path: "arb-bot/test.json", type: "file" },
+        { path: "arb-agent/Cargo.toml", type: "file" },
+        { path: "arb-agent/test.json", type: "file" },
       ],
     },
   ];
@@ -279,7 +282,7 @@ export const mockBuildResponse = `Tool layer is ready. Here's what was generated
 
 - \`src/tool.rs\` — Curated agent tools with typed args
 - \`src/client/\` — Typed API client from the spec
-- \`src/lib.rs\` — App manifest and preamble
+- \`src/lib.rs\` — Package manifest and preamble
 - \`test.json\` — Seed scenario for the smoke test
 
 Next: **Compile**, then run a **smoke test**, then ship to Projects.`;
@@ -343,7 +346,7 @@ export function deriveSmithersNodes(prompt: string): SmithersNode[] {
 export const seedBuildSessions: BuildSession[] = [
   {
     id: "run_1203_arb_bot",
-    title: "Hyperliquid and Binance arb bot",
+    title: "Hyperliquid and Binance arb agent",
     status: "healthy",
     model: "Aomi",
     updatedAt: "2m ago",
@@ -366,7 +369,7 @@ export const seedBuildSessions: BuildSession[] = [
 - \`src/tool.rs\` — Curated cross-venue tools: quotes, spreads, staged orders
 - \`src/client/hyperliquid.rs\` — Hyperliquid client
 - \`src/client/binance.rs\` — Binance client
-- \`src/lib.rs\` — App manifest and preamble with risk guardrails
+- \`src/lib.rs\` — Package manifest and preamble with risk guardrails
 - \`test.json\` — Seed scenario for the smoke test
 
 All checks passed. Ready to ship toward Projects.`,
@@ -402,28 +405,31 @@ All checks passed. Ready to ship toward Projects.`,
     ],
     fileTree: [
       {
-        path: "arb-bot",
+        path: "arb-agent",
         type: "folder",
         children: [
           {
-            path: "arb-bot/src",
+            path: "arb-agent/src",
             type: "folder",
             children: [
               {
-                path: "arb-bot/src/client",
+                path: "arb-agent/src/client",
                 type: "folder",
                 children: [
-                  { path: "arb-bot/src/client/hyperliquid.rs", type: "file" },
-                  { path: "arb-bot/src/client/binance.rs", type: "file" },
-                  { path: "arb-bot/src/client/mod.rs", type: "file" },
+                  {
+                    path: "arb-agent/src/client/hyperliquid.rs",
+                    type: "file",
+                  },
+                  { path: "arb-agent/src/client/binance.rs", type: "file" },
+                  { path: "arb-agent/src/client/mod.rs", type: "file" },
                 ],
               },
-              { path: "arb-bot/src/lib.rs", type: "file" },
-              { path: "arb-bot/src/tool.rs", type: "file" },
+              { path: "arb-agent/src/lib.rs", type: "file" },
+              { path: "arb-agent/src/tool.rs", type: "file" },
             ],
           },
-          { path: "arb-bot/Cargo.toml", type: "file" },
-          { path: "arb-bot/test.json", type: "file" },
+          { path: "arb-agent/Cargo.toml", type: "file" },
+          { path: "arb-agent/test.json", type: "file" },
         ],
       },
     ],

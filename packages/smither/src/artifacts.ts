@@ -1,11 +1,17 @@
 import { execFile } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { CommandRunner } from "./types";
 
 /**
- * Crate artifact packaging for the result phase. The generated app's file
+ * Crate artifact packaging for the result phase. The generated package's file
  * tree and a small tarball ride the durable result row, so surfaces that
  * cannot see the run's filesystem (the web BFF observing a sandbox run)
  * still serve real Files and Download.
@@ -19,9 +25,12 @@ export type CrateFileNode = {
 
 const TREE_SKIP = new Set(["target", "node_modules", ".git", "Cargo.lock"]);
 
-/** The generated crate as a display tree. Paths are prefixed with the app
- *  name ("<app>/src/tool.rs") — the shape the /build page renders. */
-export function crateFileTree(appDir: string, app: string): CrateFileNode[] {
+/** The generated crate as a display tree. Paths are prefixed with the package
+ *  name ("<package>/src/tool.rs") — the shape the /build page renders. */
+export function crateFileTree(
+  appDir: string,
+  packageName: string,
+): CrateFileNode[] {
   const walk = (dir: string, rel: string, depth: number): CrateFileNode[] => {
     if (depth > 4) return [];
     let entries;
@@ -51,7 +60,13 @@ export function crateFileTree(appDir: string, app: string): CrateFileNode[] {
       });
   };
   if (!existsSync(appDir)) return [];
-  return [{ path: app, type: "folder", children: walk(appDir, app, 0) }];
+  return [
+    {
+      path: packageName,
+      type: "folder",
+      children: walk(appDir, packageName, 0),
+    },
+  ];
 }
 
 /** Keep the embedded tarball comfortably under the run's maxOutputBytes
@@ -69,7 +84,7 @@ const localRunner: CommandRunner = (file, args, options) =>
       (error, stdout, stderr) => {
         const exitCode =
           error && typeof (error as { code?: unknown }).code === "number"
-            ? ((error as { code: number }).code)
+            ? (error as { code: number }).code
             : error
               ? 1
               : 0;
@@ -81,7 +96,7 @@ const localRunner: CommandRunner = (file, args, options) =>
 export type CrateArtifact = {
   /** JSON-encoded CrateFileNode[]; "" when the crate directory is absent. */
   fileTreeJson: string;
-  /** Base64 .tar.gz of apps/<app> (target/ and Cargo.lock excluded); "" when
+  /** Base64 .tar.gz of packages/<package> (target/ and Cargo.lock excluded); "" when
    *  packaging failed or the crate exceeds the embed cap. */
   crateTarB64: string;
   /** Human-readable reason whenever crateTarB64 is empty. */
@@ -90,22 +105,24 @@ export type CrateArtifact = {
 
 export async function packageCrate(options: {
   sdkRoot: string;
-  app: string;
+  packageName: string;
   runner?: CommandRunner;
 }): Promise<CrateArtifact> {
-  const appsDir = path.join(options.sdkRoot, "apps");
-  const appDir = path.join(appsDir, options.app);
+  const appsDir = path.join(options.sdkRoot, "packages");
+  const appDir = path.join(appsDir, options.packageName);
   if (!existsSync(appDir)) {
     return {
       fileTreeJson: "",
       crateTarB64: "",
-      warning: `no generated crate at apps/${options.app}`,
+      warning: `no generated crate at packages/${options.packageName}`,
     };
   }
-  const fileTreeJson = JSON.stringify(crateFileTree(appDir, options.app));
+  const fileTreeJson = JSON.stringify(
+    crateFileTree(appDir, options.packageName),
+  );
   const runner = options.runner ?? localRunner;
   const tmp = mkdtempSync(path.join(tmpdir(), "aomi-crate-"));
-  const tarPath = path.join(tmp, `${options.app}.tar.gz`);
+  const tarPath = path.join(tmp, `${options.packageName}.tar.gz`);
   try {
     const tar = await runner("tar", [
       "-czf",
@@ -116,7 +133,7 @@ export async function packageCrate(options: {
       "Cargo.lock",
       "-C",
       appsDir,
-      options.app,
+      options.packageName,
     ]);
     if (tar.exitCode !== 0) {
       return {

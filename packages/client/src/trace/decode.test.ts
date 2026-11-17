@@ -1051,7 +1051,11 @@ describe("tool interpreter", () => {
     expect(decode({ toolName: "stage_bridge" }).title).toBe("Stage bridge");
     const status = decode({
       toolName: "bridge_status",
-      result: { source_chain_id: 8453, destination_chain_id: 42161, state: "pending" },
+      result: {
+        source_chain_id: 8453,
+        destination_chain_id: 42161,
+        state: "pending",
+      },
     });
     expect(status.title).toBe("Check bridge");
     expect(status.icon).toBe("bridge");
@@ -2353,7 +2357,7 @@ describe("tool interpreter", () => {
       toolName: "task",
       argsText: JSON.stringify({
         label: "swap-worker",
-        app: "default",
+        agent: "default",
         prompt: "swap half my USDC",
       }),
       result: {

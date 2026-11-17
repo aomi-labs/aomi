@@ -127,12 +127,12 @@ const tradeMarkets = {
 
 const integrationPoints = [
   {
-    title: "Build the Aomi app",
+    title: "Build the Aomi agent",
     body: "Existing product endpoints are wrapped as a curated set of typed tools, governed by an operating mandate, and deployed to Aomi's hosted runtime. Exposure limits, venue allowlists, and authorization requirements are enforced as execution policy outside the model.",
   },
   {
     title: "Integrate any customer surface",
-    body: "The same hosted app is delivered through an embedded Widget, a registered Telegram bot, or Aomi Portal. One application, every channel, with no additional integration work per surface.",
+    body: "The same hosted agent is delivered through an embedded Widget, a registered Telegram bot, or Aomi Portal. One agent, every channel, with no additional integration work per surface.",
   },
   {
     title: "Retain the existing wallet infrastructure",
@@ -150,8 +150,7 @@ export function IntegrationInvariant({ flat = false }: { flat?: boolean }) {
           <div>
             <p className={styles.eyebrow}>INTEGRATION MODEL</p>
             <h3>
-              One application across every surface, under customized API
-              contracts
+              One agent across every surface, under customized API contracts
             </h3>
           </div>
           <div className={styles.invariantPoints}>
@@ -234,7 +233,7 @@ export function IntegrationShowcases({
                   label="Integration concept"
                   eyebrow="Trading · Telegram"
                   title="The same desk, from a Telegram chat."
-                  body="Register a bot token, attach the desk's plugin, and traders message it like a colleague. Aomi quotes the venues you expose, simulates the split route, checks your slippage and notional policy, and returns the order for the trader's own wallet—no custody, no new app."
+                  body="Register a bot token, attach the desk's package, and traders message it like a colleague. Aomi quotes the venues you expose, simulates the split route, checks your slippage and notional policy, and returns the order for the trader's own wallet—no custody, no new web app."
                   points={[
                     "Each trader chats on their own Aomi identity and wallet",
                     "Route, slippage, and notional policy checked before signing",
@@ -479,7 +478,7 @@ function SommDemo({
       </div>
       {showCaption ? (
         <figcaption>
-          Full-surface embed · application tools + mandate + existing signer
+          Full-surface embed · agent tools + mandate + existing signer
         </figcaption>
       ) : null}
     </figure>
@@ -579,7 +578,7 @@ function TradingDemo() {
         </div>
       </div>
       <figcaption>
-        Telegram bot · desk plugin + route policy + trader&apos;s own wallet
+        Telegram bot · desk package + route policy + trader&apos;s own wallet
       </figcaption>
     </figure>
   );

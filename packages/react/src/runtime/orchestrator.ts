@@ -31,7 +31,7 @@ type OrchestratorOptions = {
   getUserState: () => UserState;
   getTarget: () => AgentTarget;
   getModel?: () => string | null | undefined;
-  getAppKey?: (target: AgentTarget, text?: string) => string | undefined;
+  getAgentKey?: (target: AgentTarget, text?: string) => string | undefined;
   getClientId?: () => string | undefined;
   getActions?: () => ActionCapabilities | undefined;
   getCommits?: () => CommitCapabilities | undefined;
@@ -292,7 +292,7 @@ export function useRuntimeOrchestrator(
         return;
       const firstTurn = !session.getSnapshot().turnId;
       // Resolved per message: a mention's key never outlives the message.
-      const apiKey = optionsRef.current.getAppKey?.(
+      const apiKey = optionsRef.current.getAgentKey?.(
         optionsRef.current.getTarget(),
         text,
       );

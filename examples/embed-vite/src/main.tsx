@@ -1,5 +1,10 @@
 import { createRoot } from "react-dom/client";
-import { AomiWidget, paraAuth, privyAuth, type AomiWidgetAuth } from "@aomi-labs/widget";
+import {
+  AomiWidget,
+  paraAuth,
+  privyAuth,
+  type AomiWidgetAuth,
+} from "@aomi-labs/widget";
 import "@aomi-labs/widget/styles.css";
 import "./styles.css";
 
@@ -39,7 +44,7 @@ function providerHref(nextProvider: "browser" | "para" | "privy") {
   return `?${next.toString()}`;
 }
 
-function App() {
+function Agent() {
   if (!auth) {
     return (
       <main className="setup">
@@ -104,4 +109,4 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(<Agent />);

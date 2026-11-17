@@ -82,8 +82,8 @@ export interface EdgeEnv {
    * Deploy never passes it.
    */
   PORTAL_TRUSTED_ORIGINS?: string;
-  /** Platforms /api/thread/apps is filtered to when the caller names none. */
-  APP_CATALOG_PLATFORMS?: string;
+  /** Platforms /api/thread/catalog is filtered to when the caller names none. */
+  CATALOG_PLATFORMS?: string;
 
   // Landing surface: the edge is routed on these hosts' /api/* paths.
   /** Comma-separated public Landing hosts (for example aomi.dev). */

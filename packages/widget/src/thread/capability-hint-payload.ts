@@ -10,9 +10,9 @@ export type CapabilityHintSelection = CapabilitySelection;
 export function buildCapabilityHintPayload(
   mode: AgentMode,
   selections: readonly CapabilityHintSelection[],
-  removedApps: readonly CapabilityHintSelection[] = [],
+  removedAgents: readonly CapabilityHintSelection[] = [],
 ) {
   return mode === "auto"
-    ? capabilityHintPayload(selections, removedApps)
+    ? capabilityHintPayload(selections, removedAgents)
     : undefined;
 }

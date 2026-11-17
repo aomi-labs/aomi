@@ -10,7 +10,7 @@ Safety mantra: Read by default. Simulate before sign. Credentials never round-tr
 
 - [Agent onboarding](https://aomi.dev/agents.md): Routes user intent to one of three paths — transact via CLI, embed UI, or add a new tool. Read this first.
 - [FAQ](https://aomi.dev/faq.md): Four canonical questions and answers — how Aomi compares to personal agents (OpenClaw, Claude Code, Cursor), how to build on Aomi vs. raw SDKs, how simulation prevents bad transactions, how signing and wallet security work.
-- [Build an Aomi app](https://aomi.dev/agents/build): HTML agent landing page for app-building prompts.
+- [Build an Aomi package](https://aomi.dev/agents/build): HTML agent landing page for agent-building prompts.
 - [Transact with Aomi](https://aomi.dev/agents/transact): HTML agent landing page for transaction prompts.
 - [Build markdown mirror](https://aomi.dev/agents/build.md): Raw markdown mirror of the build guide.
 - [Transact markdown mirror](https://aomi.dev/agents/transact.md): Raw markdown mirror of the transact guide.
@@ -27,9 +27,9 @@ Use these when the user wants to read prices/balances or build/sign transactions
 
 ## For agents embedding Aomi UI
 
-Use these when the user wants to add an Aomi chat widget to their own app.
+Use these when the user wants to add an Aomi chat widget to their own agent.
 
-- [Quickstart](https://aomi.dev/docs/guides/frontend-setup.md): Install the widget into a Next.js app from npm. Start here.
+- [Quickstart](https://aomi.dev/docs/guides/frontend-setup.md): Install the widget into a Next.js agent from npm. Start here.
 - [Integration guide](https://aomi.dev/docs/guides/integration.md): Decide between the bundled widget and the headless React library.
 - [Headless library](https://aomi.dev/docs/guides/headless-library.md): Install `@aomi-labs/react`, wire up the runtime provider, and use the AomiClient.
 - [Headless: hooks](https://aomi.dev/docs/guides/headless/hooks.md): React hooks for chat, tools, sessions, control state.
@@ -41,27 +41,26 @@ Use these when the user wants to add an Aomi chat widget to their own app.
 
 Use these when the user wants to add their product or API as something Aomi can call.
 
-- [aomi-build skill](https://github.com/aomi-labs/skills/blob/main/aomi-build/SKILL.md): The canonical procedure for converting an OpenAPI/SDK/repo into an Aomi SDK app crate. Includes tool design rules and validation steps.
-- [Building apps](https://aomi.dev/docs/build/plugins/anatomy.md): Aomi App architecture — what an app is, how it's invoked, what it returns.
+- [aomi-build skill](https://github.com/aomi-labs/skills/blob/main/aomi-build/SKILL.md): The canonical procedure for converting an OpenAPI/SDK/repo into an Aomi SDK agent crate. Includes tool design rules and validation steps.
+- [Building agents](https://aomi.dev/docs/build/packages/anatomy.md): Aomi package architecture — what an agent is, how it's invoked, what it returns.
 - [API reference](https://aomi.dev/docs/reference/api-reference.md): The HTTP API the backend exposes.
 - [Sessions (backend)](https://aomi.dev/docs/reference/sessions.md): How conversation state, tool calls, and tx state persist across turns.
-- [SDK reference](https://aomi.dev/docs/build/plugins/sdk.md): The Rust plugin SDK — the `DynAomiTool` trait and the `dyn_aomi_app!` macro.
 
 ## Concepts and architecture
 
 Read for context, not as the entry point.
 
-- [Overview](https://aomi.dev/docs/build.md): What Aomi is, the plugin model, and how the parts fit together.
+- [Overview](https://aomi.dev/docs/build.md): What Aomi is, the package model, and how the parts fit together.
 - [How it works](https://aomi.dev/docs/concepts/how-it-works.md): The simulation-first transaction pipeline, end-to-end.
 - [Architecture](https://aomi.dev/docs/concepts/architecture.md): System diagram and component boundaries.
-- [Runtime](https://aomi.dev/docs/reference/runtime.md): The hosted backend that runs Aomi Apps.
+- [Runtime](https://aomi.dev/docs/reference/runtime.md): The hosted backend that runs Aomi packages.
 
 ## Channels (humans, not agents)
 
 Background context for understanding how end-users actually reach Aomi.
 
 - [Telegram bot](https://aomi.dev/docs/getting-started/telegram.md): Aomi as a Telegram trading bot.
-- [Web chat](https://aomi.dev/docs/getting-started/web-app.md): The hosted aomi.dev playground.
+- [Web chat](https://aomi.dev/docs/getting-started/web-agent.md): The hosted aomi.dev playground.
 - [FAQ](https://aomi.dev/docs/resources/faq.md): Common end-user questions.
 
 ## Source

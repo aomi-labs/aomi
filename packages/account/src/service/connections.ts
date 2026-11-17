@@ -1,4 +1,4 @@
-import { aomiOAuthResources, appMcpName } from "../better-auth/oauth-policy";
+import { aomiOAuthResources, agentMcpName } from "../better-auth/oauth-policy";
 import {
   deleteOAuthConnection,
   deleteTelegramConnectionSettings,
@@ -36,8 +36,8 @@ export type AccountConnection = {
   detail: string | null;
   /** A Telegram bot's handles: the linked user (`@user`) and the bot (`@bot`). */
   telegram: { user: string | null; bot: string } | null;
-  /** The app this connection is locked to; null when it is open. */
-  application: { id: number; name: string; label: string } | null;
+  /** The agent this connection is locked to; null when it is open. */
+  agent: { id: number; name: string; label: string } | null;
   /** Always `ask_aomi`, whatever its wallets say. */
   ask_only: boolean;
   /**
@@ -72,7 +72,10 @@ export async function listAccountConnections(
   userId: AomiUserId,
 ): Promise<AccountConnections> {
   const resources = aomiOAuthResources();
-  const mcp = new Set<string>([resources.agentMcp, resources.pipelineMcp]);
+  const mcp = new Set<string>([
+    resources.agentGatewayMcp,
+    resources.pipelineMcp,
+  ]);
   const [oauth, telegram, settings] = await Promise.all([
     listOAuthConnections(userId),
     findTelegramConnection(userId),
@@ -93,7 +96,7 @@ export async function listAccountConnections(
       key,
       kind,
       name: setting?.label ?? name,
-      application: setting?.application ?? null,
+      agent: setting?.agent ?? null,
       ask_only: setting?.askOnly ?? false,
       wallets: setting?.wallets ?? [],
       last_used_at: setting?.lastUsedAt ?? null,
@@ -108,7 +111,7 @@ export async function listAccountConnections(
       connection(
         `oauth:${client.clientId}`,
         client.resources.some(
-          (resource) => mcp.has(resource) || appMcpName(resource),
+          (resource) => mcp.has(resource) || agentMcpName(resource),
         )
           ? "ai"
           : isCliClient(client.name)
@@ -123,7 +126,8 @@ export async function listAccountConnections(
             ? "Pipeline MCP"
             : client.resources.some(
                   (resource) =>
-                    resource === resources.agentMcp || appMcpName(resource),
+                    resource === resources.agentGatewayMcp ||
+                    agentMcpName(resource),
                 )
               ? "Agent MCP"
               : null,

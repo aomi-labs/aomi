@@ -17,7 +17,7 @@ export const skillIconSources = {
   eigenlayer: "https://www.eigenlayer.xyz/",
   drift:
     "https://cdn.prod.website-files.com/6310e7dee49f0866da8eed4c/69b12f86f598d941e5937599_D-logo.svg",
-  defillama: "https://github.com/DefiLlama/defillama-app",
+  defillama: "https://github.com/DefiLlama/defillama-agent",
   debridge:
     "https://raw.githubusercontent.com/0xa3k5/web3icons/64e21e68cc6eaa36ff9d0a135ca2c809a759ccd6/raw-svgs/tokens/mono/DBR.svg",
   avantis: "https://www.avantisfi.com/images/avantis-logo.svg",
@@ -33,7 +33,7 @@ export const skillIconSources = {
   etherfi: "https://www.ether.fi/assets/etherfi-logo.svg",
   jupiter: "https://developers.jup.ag/docs/resources/brand-kit",
   jupiter_lend: "https://developers.jup.ag/docs/resources/brand-kit",
-  kamino: "https://kamino.com/assets/app-common.1788795681.js",
+  kamino: "https://kamino.com/assets/agent-common.1788795681.js",
   lifi_swap: "https://li.fi/brand-guidelines",
   morpho: "https://morpho.org/",
   oneinch: "https://1inch.com/press-room",

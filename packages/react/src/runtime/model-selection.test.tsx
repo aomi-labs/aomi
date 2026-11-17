@@ -28,7 +28,7 @@ describe("model selection on chat requests", () => {
         async (input: string | URL | Request, init?: RequestInit) => {
           const url = new URL(String(input));
           if (url.pathname.endsWith("/models")) return Response.json(catalog);
-          if (url.pathname.endsWith("/apps"))
+          if (url.pathname.endsWith("/agents"))
             return Response.json([
               {
                 name: "partner",
@@ -81,7 +81,7 @@ describe("model selection on chat requests", () => {
       expect(starts).toHaveLength(1);
       if (mode === "manual") expect(starts[0].model).toBe(model);
       else expect(starts[0]).not.toHaveProperty("model");
-      expect(starts[0]).not.toHaveProperty("applicationId");
+      expect(starts[0]).not.toHaveProperty("agentId");
       expect(starts[0]).not.toHaveProperty("provider");
     },
   );

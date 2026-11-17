@@ -205,8 +205,8 @@ describe("expired guest sessions", () => {
       const control = {
         model: "chosen-model",
         modelMode: "manual" as const,
-        app: null,
-        applicationId: null,
+        agent: null,
+        agentId: null,
         controlDirty: false,
       };
       act(() => threads.updateThreadMetadata("old-chat", { control }));

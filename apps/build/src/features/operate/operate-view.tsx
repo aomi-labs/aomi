@@ -43,12 +43,12 @@ import {
 } from "./log-rows";
 import { UsageRows } from "./usage-rows";
 
-// OperateView renders every operate surface except Bots, which has its own
-// dedicated BotsView (register form + table) instead of the generic
+// OperateView renders every operate surface except Channels, which has its own
+// dedicated ChannelsView (register form + table) instead of the generic
 // kind-indexed rows below.
-export type ViewKind = Exclude<OperateKind, "bots">;
+export type ViewKind = Exclude<OperateKind, "channels">;
 
-type Projectish = Project & { apps?: unknown[] };
+type Projectish = Project & { agents?: unknown[] };
 
 type OperatePayload = {
   /** True when the Build server filled gaps with example fixture data (BE not live yet). */
@@ -59,7 +59,7 @@ type OperatePayload = {
   breakdown?: Array<Record<string, any>>;
   statement?: Record<string, any> | null;
   logs?: Array<Record<string, any>>;
-  apps?: Array<Record<string, any>>;
+  agents?: Array<Record<string, any>>;
   dashboardLinks?: Array<Record<string, any>>;
   monitoring?: Record<string, any> | null;
   platformMetrics?: Array<Record<string, any>>;
@@ -136,12 +136,12 @@ function EmptyState({
   );
 }
 
-function appDetailHref(app: Record<string, any>): string | null {
-  const applicationId = Number(app.applicationId);
-  if (!Number.isSafeInteger(applicationId) || applicationId <= 0) {
+function agentDetailHref(agent: Record<string, any>): string | null {
+  const agentId = Number(agent.agentId);
+  if (!Number.isSafeInteger(agentId) || agentId <= 0) {
     return null;
   }
-  return `/operate/observability/${applicationId}`;
+  return `/operate/observability/${agentId}`;
 }
 
 const STATUS_DOT: Record<string, string> = {
@@ -198,8 +198,8 @@ function TrendTile({
 }
 
 type ViewState = {
-  txAppFilter: string | null;
-  setTxAppFilter: (app: string | null) => void;
+  txAgentFilter: string | null;
+  setTxAgentFilter: (agent: string | null) => void;
   txOpen: string | null;
   setTxOpen: (id: string | null) => void;
   logsFilter: LogsPageFilter;
@@ -226,20 +226,20 @@ function Rows({
       return (
         <EmptyState
           title="Transactions"
-          description="On-chain actions from your apps show up here after chat activity."
+          description="On-chain actions from your agents show up here after chat activity."
           actionHref="/agents"
           actionLabel="Open Agents"
         />
       );
-    const apps = [...new Set(rows.map((tx) => String(tx.application)))];
+    const agents = [...new Set(rows.map((tx) => String(tx.agent)))];
     return (
       <TransactionRows
         rows={rows}
-        apps={apps}
-        appFilter={view.txAppFilter}
-        onAppFilterChange={(app) => {
-          view.setTxAppFilter(app);
-          syncQuery(history, { app });
+        agents={agents}
+        agentFilter={view.txAgentFilter}
+        onAgentFilterChange={(agent) => {
+          view.setTxAgentFilter(agent);
+          syncQuery(history, { agent });
         }}
         openId={view.txOpen}
         onToggle={(id) => {
@@ -257,7 +257,7 @@ function Rows({
       return (
         <EmptyState
           title="Usage"
-          description="Credits and tokens appear after your apps run chat turns. This is a meter, not Billing."
+          description="Credits and tokens appear after your agents run chat turns. This is a meter, not Billing."
           actionHref="/agents"
           actionLabel="Open Agents"
         />
@@ -268,7 +268,7 @@ function Rows({
   if (kind === "logs") {
     const rows = payload.logs ?? [];
     if (!rows.length) return <EmptyState title="Logs" />;
-    const apps = [...new Set(rows.map((row) => String(row.application)))];
+    const agents = [...new Set(rows.map((row) => String(row.agent)))];
     const tools = [
       ...new Set(
         rows.filter((row) => row.tool != null).map((row) => String(row.tool)),
@@ -277,13 +277,13 @@ function Rows({
     return (
       <LogRows
         rows={rows}
-        apps={apps}
+        agents={agents}
         tools={tools}
         filter={view.logsFilter}
         onFilterChange={(filter) => {
           view.setLogsFilter(filter);
           syncQuery(history, {
-            app: filter.app,
+            agent: filter.agent,
             tool: filter.tool,
             errors: filter.errorsOnly ? "1" : null,
             payments: filter.paymentsOnly ? "1" : null,
@@ -295,8 +295,8 @@ function Rows({
     );
   }
 
-  const apps = payload.apps ?? [];
-  if (!apps.length) return <EmptyState title="Observability" />;
+  const agents = payload.agents ?? [];
+  if (!agents.length) return <EmptyState title="Observability" />;
   const monitoring = payload.monitoring;
   const platformMetrics = payload.platformMetrics ?? [];
   const dashboardLinks = payload.dashboardLinks ?? [];
@@ -402,8 +402,8 @@ function Rows({
       ) : null}
 
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-        {apps.map((app) => {
-          const metrics = app.metrics ?? {};
+        {agents.map((agent) => {
+          const metrics = agent.metrics ?? {};
           const hasTrend =
             metrics.chats24h != null ||
             metrics.toolCalls24h != null ||
@@ -411,32 +411,32 @@ function Rows({
           const hasErrorSplit =
             metrics.toolErrorRate != null || metrics.txErrorRate != null;
           const lifecycle = [
-            app.sdkVersion ? `SDK ${app.sdkVersion}` : null,
-            Object.keys(app.pricing?.config?.resources ?? {}).length
-              ? `${Object.keys(app.pricing.config.resources).length} priced tool${Object.keys(app.pricing.config.resources).length === 1 ? "" : "s"}`
+            agent.sdkVersion ? `SDK ${agent.sdkVersion}` : null,
+            Object.keys(agent.pricing?.config?.resources ?? {}).length
+              ? `${Object.keys(agent.pricing.config.resources).length} priced tool${Object.keys(agent.pricing.config.resources).length === 1 ? "" : "s"}`
               : null,
             metrics.coldStartMs != null
               ? `cold start ${unitLabel(metrics.coldStartMs, "ms", 0)}`
               : null,
             bytesLabel(metrics.dylibBytes),
           ].filter(Boolean);
-          const detailHref = appDetailHref(app);
+          const detailHref = agentDetailHref(agent);
           const card = (
             <>
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">
-                    {app.application}
+                    {agent.agent}
                   </div>
                   <div className="text-dim truncate text-xs">
-                    {app.releaseTag ?? "No release"}
+                    {agent.releaseTag ?? "No release"}
                   </div>
                 </div>
                 <span className="text-dim flex items-center gap-1.5 text-xs">
                   <span
-                    className={`size-2 rounded-full ${STATUS_DOT[String(app.status)] ?? "bg-zinc-400"}`}
+                    className={`size-2 rounded-full ${STATUS_DOT[String(agent.status)] ?? "bg-zinc-400"}`}
                   />
-                  {app.status}
+                  {agent.status}
                 </span>
               </div>
               {hasTrend ? (
@@ -511,14 +511,14 @@ function Rows({
               ) : null}
             </>
           );
-          const key = `${app.project?.id}-${app.applicationId}`;
+          const key = `${agent.project?.id}-${agent.agentId}`;
           const className =
             "border-border bg-surface rounded-md border px-3 py-3";
           return detailHref ? (
             <ControlPlaneLink
               key={key}
               href={detailHref}
-              aria-label={`Open ${app.application} observability details`}
+              aria-label={`Open ${agent.agent} observability details`}
               className={`${className} hover:bg-accent-hover focus-visible:ring-ring transition focus-visible:outline-none focus-visible:ring-1`}
             >
               {card}
@@ -578,18 +578,20 @@ export function OperateView({ kind }: { kind: ViewKind }) {
     useLocation({ select: (location) => location.searchStr }),
   );
   const projectFromUrl = projectIdFromSearch(searchParams.get("project"));
-  const appFromUrl = searchParams.get("app");
+  const agentFromUrl = searchParams.get("agent");
   const toolFromUrl = searchParams.get("tool");
   const errorsFromUrl = searchParams.get("errors") === "1";
   const paymentsFromUrl = searchParams.get("payments") === "1";
   const txFromUrl = searchParams.get("tx");
   const accountKey = githubAccountKey(account.githubLogin);
   const [projectId, setSourceId] = useState<number | null>(projectFromUrl);
-  const [txAppFilter, setTxAppFilter] = useState<string | null>(appFromUrl);
+  const [txAgentFilter, setTxAgentFilter] = useState<string | null>(
+    agentFromUrl,
+  );
   const [txOpen, setTxOpen] = useState<string | null>(txFromUrl);
   const [logsFilter, setLogsFilter] = useState<LogsPageFilter>({
     ...EMPTY_LOGS_PAGE_FILTER,
-    app: appFromUrl,
+    agent: agentFromUrl,
     tool: toolFromUrl,
     errorsOnly: errorsFromUrl,
     paymentsOnly: paymentsFromUrl,
@@ -658,14 +660,14 @@ export function OperateView({ kind }: { kind: ViewKind }) {
     if (projectFromUrl != null) setSourceId(projectFromUrl);
   }, [projectFromUrl]);
 
-  // Deep links (?app=&tool=&errors=&tx=) win over local filter state so a
+  // Deep links (?agent=&tool=&errors=&tx=) win over local filter state so a
   // pasted investigation URL always lands on what it pointed at.
   useEffect(() => {
-    if (appFromUrl != null) {
-      setTxAppFilter(appFromUrl);
-      setLogsFilter((current) => ({ ...current, app: appFromUrl }));
+    if (agentFromUrl != null) {
+      setTxAgentFilter(agentFromUrl);
+      setLogsFilter((current) => ({ ...current, agent: agentFromUrl }));
     }
-  }, [appFromUrl]);
+  }, [agentFromUrl]);
   useEffect(() => {
     if (toolFromUrl != null) {
       setLogsFilter((current) => ({ ...current, tool: toolFromUrl }));
@@ -736,8 +738,8 @@ export function OperateView({ kind }: { kind: ViewKind }) {
   }
 
   const view: ViewState = {
-    txAppFilter,
-    setTxAppFilter,
+    txAgentFilter,
+    setTxAgentFilter,
     txOpen,
     setTxOpen,
     logsFilter,

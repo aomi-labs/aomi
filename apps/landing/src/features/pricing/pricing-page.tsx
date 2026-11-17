@@ -24,12 +24,12 @@ const example = [
     amount: "$0.40",
   },
   {
-    step: "The app's tool fee",
-    detail: "A flat price the app set on its order tool",
+    step: "The agent's tool fee",
+    detail: "A flat price the agent set on its order tool",
     amount: "$0.01",
   },
   {
-    step: "The app's cut of the swap",
+    step: "The agent's cut of the swap",
     detail: "0.10% of the $1,000 moved, taken in the token",
     amount: "$1.00",
   },
@@ -50,11 +50,11 @@ const details = [
   },
   {
     q: "Who pays the network gas?",
-    a: "The wallet that signs, exactly as it would for any transaction. An app can choose to sponsor gas for its users instead.",
+    a: "The wallet that signs, exactly as it would for any transaction. An agent can choose to sponsor gas for its users instead.",
   },
   {
     q: "Do outcome fees apply to every transaction?",
-    a: "No. They exist only if the app declares one, they are capped by the app's own configuration, and they appear in the confirmation before signing.",
+    a: "No. They exist only if the agent declares one, they are capped by the agent's own configuration, and they appear in the confirmation before signing.",
   },
   {
     q: "Is there an enterprise agreement?",
@@ -71,8 +71,8 @@ export default function PricingPage() {
           <h1>Pay for what the agent does.</h1>
           <p className={styles.heroCopy}>
             No seats, no subscriptions, no minimums. You pay for the work a turn
-            actually performs — and, if an app charges one, a small fee on value
-            it moves for you.
+            actually performs — and, if an agent charges one, a small fee on
+            value it moves for you.
           </p>
           <PricingSwitch />
         </div>
@@ -86,7 +86,7 @@ export default function PricingPage() {
               <h2>One swap, priced end to end.</h2>
             </div>
             <p>
-              A real turn on a $1,000 swap through an app that charges a tool
+              A real turn on a $1,000 swap through an agent that charges a tool
               fee and takes 10 basis points of the amount moved.
             </p>
           </div>

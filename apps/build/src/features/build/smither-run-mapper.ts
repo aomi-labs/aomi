@@ -43,7 +43,8 @@ function roleFor(stage: BuildRunStage): string {
   ) {
     return "Tester";
   }
-  if (phase.startsWith("deploy") || phase.startsWith("result")) return "Shipper";
+  if (phase.startsWith("deploy") || phase.startsWith("result"))
+    return "Shipper";
   if (stage.kind === "agent") return "Reviewer";
   if (stage.kind === "clarify" || stage.kind === "approval") return "Decision";
   return "Planner";
@@ -82,7 +83,7 @@ function laneFor(stage: BuildRunStage): BuildStreamStage {
 const LANE_MESSAGES: Record<BuildStreamStage, string> = {
   plan: "Preparing toolchain and build plan.",
   generate: "Generating project files and tool wiring.",
-  validate: "Compiling and testing the generated app.",
+  validate: "Compiling and testing the generated package.",
   ready: "Finalizing — ship when green.",
 };
 
@@ -167,6 +168,8 @@ export function completionMessage(snapshot: BuildRunSnapshot): string {
       "Next: ship to Projects or download the files.",
     ].join("\n\n");
   }
-  const summary = snapshot.result?.summary ?? `\`${snapshot.app}\` built and validated.`;
+  const summary =
+    snapshot.result?.summary ??
+    `\`${snapshot.packageName}\` built and validated.`;
   return `${summary}\n\nNext: ship to Projects or download the files.`;
 }

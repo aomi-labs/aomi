@@ -4,18 +4,18 @@ import { Link } from "@tanstack/react-router";
 import styles from "@/features/marketing/longform.module.css";
 
 export const metadata: Metadata = {
-  title: "Build an Aomi App",
+  title: "Build an Aomi Agent",
   description:
-    "Turn your platform into an agentic application. Convert any API, SDK, or repo into an Aomi App hosted on our runtime — callable from any Aomi-compatible client.",
+    "Turn your platform into an agent. Convert any API, SDK, or repo into an Aomi Agent hosted on our runtime — callable from any Aomi-compatible client.",
   openGraph: {
-    title: "Build an Aomi App | Best Blockchain Harness for Agentic AI",
+    title: "Build an Aomi Agent | Best Blockchain Harness for Agentic AI",
     description:
-      "Turn your platform into an agentic application. Convert any API, SDK, or repo into an Aomi App hosted on our runtime — callable from any Aomi-compatible client.",
+      "Turn your platform into an agent. Convert any API, SDK, or repo into an Aomi Agent hosted on our runtime — callable from any Aomi-compatible client.",
   },
   twitter: {
-    title: "Build an Aomi App | Best Blockchain Harness for Agentic AI",
+    title: "Build an Aomi Agent | Best Blockchain Harness for Agentic AI",
     description:
-      "Turn your platform into an agentic application. Convert any API, SDK, or repo into an Aomi App hosted on our runtime — callable from any Aomi-compatible client.",
+      "Turn your platform into an agent. Convert any API, SDK, or repo into an Aomi Agent hosted on our runtime — callable from any Aomi-compatible client.",
   },
   alternates: {
     types: {
@@ -31,10 +31,10 @@ export default function AgentsBuildPage() {
         <p className={styles.eyebrow}>Build</p>
         <h1>Build on Aomi</h1>
         <p>
-          Turn your platform into an agentic application. Bring your APIs —
-          OpenAPI, REST, SDK — and Aomi converts them into intent-shaped tools,
-          deployed as an Aomi App hosted on our runtime, with built-in
-          scalability and on-chain harness.
+          Turn your platform into an agent. Bring your APIs — OpenAPI,
+          REST, SDK — and Aomi converts them into intent-shaped tools, deployed
+          as an Aomi Agent hosted on our runtime, with built-in scalability and
+          on-chain harness.
         </p>
         <div className={styles.heroActions}>
           <Link to="/agents/build.md" reloadDocument>
@@ -55,8 +55,8 @@ export default function AgentsBuildPage() {
           <h2>Tell your agent</h2>
           <blockquote>
             <p>
-              &quot;Read https://aomi.dev/agents/build.md and build an Aomi app
-              for our REST API at api.acme.com, with a ChatGPT-style
+              &quot;Read https://aomi.dev/agents/build.md and build an Aomi
+              package for our REST API at api.acme.com, with a ChatGPT-style
               frontend.&quot;
             </p>
           </blockquote>
@@ -65,7 +65,9 @@ export default function AgentsBuildPage() {
 
           <p className={styles.commandLabel}>Backend in Rust</p>
           <div className={styles.commandBlock}>
-            <code>cargo new my-aomi-app --lib &amp;&amp; cd my-aomi-app</code>
+            <code>
+              cargo new my-aomi-package --lib &amp;&amp; cd my-aomi-package
+            </code>
             <code>cargo add aomi-sdk</code>
           </div>
 
@@ -91,7 +93,10 @@ export default function AgentsBuildPage() {
           </p>
           <p>Use the canonical build workflow from the Aomi skills repo.</p>
           <p>
-            Reach for the <Link to="/agents/build.md" reloadDocument>markdown mirror</Link>{" "}
+            Reach for the{" "}
+            <Link to="/agents/build.md" reloadDocument>
+              markdown mirror
+            </Link>{" "}
             when you need raw agent-readable text, or browse{" "}
             <a
               href="https://github.com/aomi-labs/skills"

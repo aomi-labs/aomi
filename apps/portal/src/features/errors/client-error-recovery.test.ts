@@ -23,7 +23,7 @@ describe("client error recovery", () => {
     expect(isRecoverableClientError(error)).toBe(true);
   });
 
-  it("does not reload for an application exception", () => {
+  it("does not reload for an agent exception", () => {
     expect(isRecoverableClientError(new Error("Invalid wallet state"))).toBe(
       false,
     );

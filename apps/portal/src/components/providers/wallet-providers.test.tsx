@@ -119,7 +119,7 @@ describe("WalletProviders Privy configuration", () => {
     window.localStorage.removeItem("aomi:wallet-provider");
     createScopedStorage({
       backendUrl: window.location.origin,
-      appId: "portal",
+      agentScope: "portal",
     }).remove("walletProvider");
     vi.unstubAllEnvs();
     vi.resetModules();
@@ -219,7 +219,7 @@ describe("WalletProviders Privy configuration", () => {
     expect(
       createScopedStorage({
         backendUrl: window.location.origin,
-        appId: "portal",
+        agentScope: "portal",
       }).get("walletProvider"),
     ).toBe("para");
     expect(window.localStorage.getItem("aomi:wallet-provider")).toBeNull();
