@@ -6,6 +6,6 @@ export default defineConfig({
   test: {
     ...workspace.test,
     root: fileURLToPath(new URL("../../", import.meta.url)),
-    include: ["agents/build/src/**/*.{test,spec}.{ts,tsx}"],
+    include: ["apps/build/src/**/*.{test,spec}.{ts,tsx}"],
   },
 });
