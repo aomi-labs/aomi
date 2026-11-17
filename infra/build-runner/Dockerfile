@@ -6,7 +6,7 @@
 #
 # Everything slow is baked here so runs start in seconds: Rust toolchain,
 # Bun + Node, the claude CLI, a pinned aomi-sdk checkout with prebuilt
-# aomi-build/aomi-run release binaries and warm cargo caches, and the built
+# aomi-build release binary and warm cargo caches, and the built
 # @aomi-labs/smither package with its node_modules.
 #
 # Build (see README.md for the VCR push flow):
@@ -26,7 +26,7 @@ FROM debian:bookworm-slim
 ARG AOMI_SDK_REF=main
 ARG AOMI_REF=main
 # aomi-sdk's workspace pins rust-version 1.91; validate runs fmt+clippy.
-ARG RUST_VERSION=1.92.0
+ARG RUST_VERSION=1.98.0
 ARG NODE_VERSION=24
 ARG BUN_VERSION=1.3.5
 
@@ -53,7 +53,7 @@ RUN NODE_TAR=$(curl -fsSL "https://nodejs.org/dist/latest-v${NODE_VERSION}.x/" \
 # rustfmt and clippy by hand until the loop capped.
 RUN curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs \
       | sh -s -- -y --default-toolchain "${RUST_VERSION}" --profile minimal \
-           --component rustfmt --component clippy
+           --component rustfmt --component clippy --target wasm32-wasip2
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /workspace
@@ -61,22 +61,22 @@ WORKDIR /workspace
 # Pinned aomi-sdk checkout with prebuilt release binaries + warm caches.
 # The gh_token secret is only needed while the repos are private.
 # VCR rejects compressed layers over 500 MB, so the full target dir can't
-# ship: keep only the two release binaries (at their expected
+# ship: keep only the release binary (at their expected
 # target/release paths) plus the crate download cache, and drop the rest
 # of the build artifacts inside this same RUN so the layer stays small.
-# In-sandbox app compiles start colder for it — revisit if validate gets
+# In-sandbox package compiles start colder for it — revisit if validate gets
 # slow enough to matter.
 RUN --mount=type=secret,id=gh_token \
     GH_TOKEN=$(cat /run/secrets/gh_token 2>/dev/null || true); \
     git clone "https://${GH_TOKEN:+${GH_TOKEN}@}github.com/aomi-labs/aomi-sdk.git" aomi-sdk \
     && git -C aomi-sdk checkout "${AOMI_SDK_REF}" \
     && cargo build --release --manifest-path aomi-sdk/Cargo.toml \
-         -p aomi-sdk --features cli,dev-runtime --bin aomi-build --bin aomi-run \
+         -p aomi-sdk --features cli --bin aomi-build \
     && mkdir -p /tmp/bin-keep \
-    && cp aomi-sdk/target/release/aomi-build aomi-sdk/target/release/aomi-run /tmp/bin-keep/ \
+    && cp aomi-sdk/target/release/aomi-build /tmp/bin-keep/ \
     && rm -rf aomi-sdk/target /root/.cargo/registry/src /root/.cargo/git \
     && mkdir -p aomi-sdk/target/release \
-    && mv /tmp/bin-keep/aomi-build /tmp/bin-keep/aomi-run aomi-sdk/target/release/ \
+    && mv /tmp/bin-keep/aomi-build aomi-sdk/target/release/ \
     && rmdir /tmp/bin-keep
 
 # The aomi repo for @aomi-labs/smither (run-plan lives in its dist).
@@ -105,10 +105,9 @@ RUN --mount=type=secret,id=gh_token \
 # binaries exist.
 RUN bun /workspace/aomi/packages/smither/dist/cli.js --help >/dev/null \
     && grep -q "run-plan" /workspace/aomi/packages/smither/dist/cli.js \
-    && test -x /workspace/aomi-sdk/target/release/aomi-build \
-    && test -x /workspace/aomi-sdk/target/release/aomi-run
+    && test -x /workspace/aomi-sdk/target/release/aomi-build
 
-# Live-files sidecar: serves apps/<app> on the exposed sandbox port so the
+# Live-files sidecar: serves packages/<name> on the exposed sandbox port so the
 # BFF can show Files/file contents mid-run (dispatch launches it detached).
 COPY sidecar.ts /workspace/sidecar.ts
 

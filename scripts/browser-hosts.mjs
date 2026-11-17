@@ -141,7 +141,7 @@ export async function startPortalHosts(hosts, upstreamOptions = {}) {
     {
       ...env,
       VITE_AOMI_API_URL: origins.portal,
-      VITE_AOMI_APPLICATION_ID: "1",
+      VITE_AOMI_AGENT: "aomi/main",
     },
   );
   const consumer = JSON.parse(readFileSync(consumerRecord, "utf8"));
@@ -206,7 +206,7 @@ export async function startNextConsumer(hosts, portal) {
   const env = {
     ...portal.env,
     NEXT_PUBLIC_AOMI_API_URL: portal.origins.portal,
-    NEXT_PUBLIC_AOMI_APPLICATION_ID: "1",
+    NEXT_PUBLIC_AOMI_AGENT: "aomi/main",
   };
   const directory = install.nextConsumerDirectory;
   await hosts.run(

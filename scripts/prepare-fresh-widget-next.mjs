@@ -102,7 +102,7 @@ export async function prepareFreshNextConsumer({
       mkdirSync(join(consumerDirectory, "app"), { recursive: true });
       writeFileSync(
         join(consumerDirectory, "app/page.tsx"),
-        `"use client";import{AomiWidget}from${JSON.stringify(widget.name)};import${JSON.stringify(`${widget.name}/styles.css`)};export default function Page(){return <AomiWidget applicationId="1" baseUrl={process.env.NEXT_PUBLIC_AOMI_API_URL} height="100vh"/>}`,
+        `"use client";import{AomiWidget}from${JSON.stringify(widget.name)};import${JSON.stringify(`${widget.name}/styles.css`)};export default function Page(){return <AomiWidget agent="aomi/main" baseUrl={process.env.NEXT_PUBLIC_AOMI_API_URL} height="100vh"/>}`,
       );
       writeFileSync(
         join(consumerDirectory, "app/layout.tsx"),

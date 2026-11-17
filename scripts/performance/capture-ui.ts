@@ -265,7 +265,7 @@ async function libraryOpens(
     const catalogRequests = Object.fromEntries(
       Object.entries(requestsByPath)
         .filter(([path]) =>
-          /\/api\/(?:public\/catalog|thread|account)\/(?:apps|skills)$/.test(
+          /\/api\/(?:public\/catalog|thread|account)\/(?:catalog|toolsets|packages|skills)$/.test(
             path,
           ),
         )

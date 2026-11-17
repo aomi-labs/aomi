@@ -335,8 +335,8 @@ const packages = (await packagesResponse.json().catch(() => ({}))).packages;
 console.log(`account packages: ${Array.isArray(packages) ? packages.length : 0}`);
 
 const keyResponse = await check(
-  "portal proxy creates app key",
-  `${portalUrl}/api/account/app-keys`,
+  "portal proxy creates agent key",
+  `${portalUrl}/api/account/agent-keys`,
   {
     method: "POST",
     headers: portalHeaders({
@@ -344,16 +344,16 @@ const keyResponse = await check(
       "X-Thread-Id": sessionId,
     }),
     body: JSON.stringify({
-      apps: ["default"],
+      agents: ["aomi/main"],
       label: `local-smoke-${Date.now().toString(36)}`,
     }),
   },
 );
 const keyBody = await keyResponse.json().catch(() => null);
 console.log(
-  `created app key: ${
-    typeof keyBody?.app_key === "string"
-      ? `${keyBody.app_key.slice(0, 8)}...`
+  `created agent key: ${
+    typeof keyBody?.agent_key === "string"
+      ? `${keyBody.agent_key.slice(0, 8)}...`
       : "unknown"
   }`,
 );
@@ -361,7 +361,7 @@ console.log(
 if (createdSessionId) {
   await check(
     "portal proxy sends chat message",
-    `${portalUrl}/api/chat?app=default&message=${encodeURIComponent(
+    `${portalUrl}/api/chat?agent=aomi%2Fmain&message=${encodeURIComponent(
       "local auth stack smoke",
     )}`,
     {

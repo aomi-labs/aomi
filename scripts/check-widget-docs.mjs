@@ -102,7 +102,7 @@ for (const showSidebar of [false, true])
               radius: 12,
             },
           });
-          assert.ok(result.jsx.includes('applicationId="123"'));
+          assert.ok(result.jsx.includes('agent="aomi/main"'));
           assert.ok(
             result.jsx.includes(
               'import { AomiWidget } from "@aomi-labs/widget"',

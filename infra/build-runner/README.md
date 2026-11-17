@@ -30,7 +30,7 @@ Rebuild on aomi-sdk releases (pin `AOMI_SDK_REF` to the release sha — image
 releases are the freshness mechanism; runs execute with
 `AOMI_ALLOW_STALE_SDK=1` and never `git fetch`).
 
-## Wiring the web app (staging first)
+## Wiring the package (staging first)
 
 | Env | Value |
 | --- | --- |
@@ -51,7 +51,7 @@ needs `vercel link` + `vercel env pull` for a dev OIDC token.
 
 - Sandboxes are created at the 5-minute ceiling and extended lazily from the
   page's poll path. An abandoned run lets its sandbox lapse; re-creating the
-  same app resumes the run (same run id) in a fresh sandbox from store state.
+  same package resumes the run (same run id) in a fresh sandbox from store state.
 - Cancel = durable store write (the in-sandbox engine polls it); stopping the
   sandbox is best-effort cleanup.
 - Known gaps until Phase 4: the Files panel and crate download read the
