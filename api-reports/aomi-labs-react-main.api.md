@@ -14,7 +14,6 @@ import { AgentMode } from '@aomi-labs/client';
 import { AgentTarget } from '@aomi-labs/client';
 import { Aomi } from '@aomi-labs/client';
 import { AomiClientOptions } from '@aomi-labs/client';
-import { AomiPlatformFilter } from '@aomi-labs/client';
 import { AomiSimulateResponse } from '@aomi-labs/client';
 import { ChainInfo } from '@aomi-labs/client';
 import { CommitCapabilities } from '@aomi-labs/client';
@@ -120,7 +119,6 @@ export type AomiRuntimeProviderProps = {
     apiKeyPersistence?: "memory" | "session";
     agent?: string | null;
     agentTarget?: AgentTarget;
-    catalogPlatforms?: AomiPlatformFilter;
     clientOptions?: Omit<AomiClientOptions, "baseUrl">;
     actions?: ActionCapabilities;
     commits?: CommitCapabilities;
@@ -155,7 +153,6 @@ export type ControlContextProviderProps = {
     sessionId: string;
     getThreadMetadata: (threadId: string) => ThreadMetadata | undefined;
     updateThreadMetadata: (threadId: string, partial: Partial<ThreadMetadata>) => void;
-    catalogPlatforms?: AomiPlatformFilter;
     agent?: string | null;
     apiKeyPersistence?: "memory" | "session";
     backendUrl?: string;

@@ -336,7 +336,11 @@ export {
   type AccountSessionProvider,
   type AccountSessionSigner,
 } from "./widget-session";
-export { normalizeAgentCard, agentIdentityKey } from "./agent-card";
+export {
+  normalizeAgentCard,
+  agentIdentityKey,
+  isAgentSlug,
+} from "./agent-card";
 export {
   AGENT_CATEGORIES,
   CURATED_AGENT_IDS,

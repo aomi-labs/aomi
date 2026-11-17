@@ -317,8 +317,7 @@ async function readErrorDetail(response: Response): Promise<string | null> {
 }
 
 export function secretNamesFrom(response: AomiListSecretsResponse): string[] {
-  if (response.names) return response.names;
-  return [];
+  return response.names ?? [];
 }
 
 export class AomiClient {
@@ -686,7 +685,7 @@ export class AomiClient {
       apiKey?: string;
     },
   ): Promise<string[]> {
-    const url = buildApiUrl(this.baseUrl, "/api/thread/models", {});
+    const url = buildApiUrl(this.baseUrl, "/api/thread/models");
     const apiKey = options?.apiKey ?? this.apiKey;
     const headers = new Headers(withSessionHeader(sessionId));
     if (apiKey) {
@@ -713,7 +712,6 @@ export class AomiClient {
     rig: string,
     options?: {
       toolset?: string;
-
       apiKey?: string;
       clientId?: string;
     },
@@ -727,7 +725,6 @@ export class AomiClient {
     const url = buildApiUrl(this.baseUrl, "/api/thread/model", {
       rig,
       toolset: options?.toolset,
-
       client_id: options?.clientId,
     });
 

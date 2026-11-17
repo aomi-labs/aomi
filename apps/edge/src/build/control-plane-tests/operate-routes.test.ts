@@ -1053,7 +1053,7 @@ describe("operateObservabilityRoute live data", () => {
       },
       agents: [
         {
-          id: id,
+          id,
           agent,
           active: true,
           loaded: true,

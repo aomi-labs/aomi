@@ -1,5 +1,10 @@
 import type { AgentCard } from "./types";
 
+/** A canonical `publisher/name` agent slug. */
+export function isAgentSlug(value: string): boolean {
+  return /^[a-z0-9][a-z0-9_-]*\/[a-z0-9][a-z0-9_-]*$/.test(value);
+}
+
 /** Read the key-resolution response; never infer a hosted identity from a name. */
 export function normalizeAgentCard(value: unknown): AgentCard | null {
   if (!value || typeof value !== "object") return null;
@@ -7,7 +12,7 @@ export function normalizeAgentCard(value: unknown): AgentCard | null {
   if (
     !Number.isSafeInteger(row.agent_id) ||
     typeof row.agent !== "string" ||
-    !/^[a-z0-9][a-z0-9_-]*\/[a-z0-9][a-z0-9_-]*$/.test(row.agent) ||
+    !isAgentSlug(row.agent) ||
     typeof row.display_name !== "string"
   )
     return null;

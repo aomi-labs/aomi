@@ -1,6 +1,8 @@
 // "@" mentions: what the composer's picker offers, how it ranks, and the
 // model hint a send carries. The widget and the CLI share all of it.
 
+import { isAgentSlug } from "./agent-card";
+
 const HINTS_START = "<AOMI_UI_CAPABILITY_HINTS>";
 const HINTS_END = "</AOMI_UI_CAPABILITY_HINTS>";
 
@@ -121,13 +123,11 @@ export function appendCapabilityHints(text: string, raw: unknown): string {
   for (const hint of envelope.capabilities.filter(
     (hint) => hint.kind === "agent",
   )) {
-    const id = hint.id;
-    const slug = id.startsWith("agent:") ? id.slice(6) : "";
-    const target = /^[a-z0-9][a-z0-9_-]*\/[a-z0-9][a-z0-9_-]*$/.test(slug)
-      ? { agent: slug }
-      : null;
-    if (!target) continue;
-    lines.push(`Selected agent task target: ${JSON.stringify(target)}`);
+    const slug = hint.id.startsWith("agent:") ? hint.id.slice(6) : "";
+    if (!isAgentSlug(slug)) continue;
+    lines.push(
+      `Selected agent task target: ${JSON.stringify({ agent: slug })}`,
+    );
   }
   if (lines.some((line) => line.startsWith("Selected agent task target:"))) {
     lines.push(

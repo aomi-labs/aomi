@@ -604,9 +604,6 @@ export class ClientSession {
         // Sent as selected. The backend applies the account's signing route
         // (`UserState.route`) itself, so a Send needs no profile read first.
         const state = this.getUserState?.();
-        const target = startTargetFields({
-          target: this.target,
-        });
         // An uncertain start must replay exactly the same intent and key.
         // Fresh operations refresh policy; the backend still checks permissions when it runs them.
         operation.intent = {
@@ -615,7 +612,7 @@ export class ClientSession {
           message: text,
           ...(operation.regenerate ? { regenerate: operation.regenerate } : {}),
           ...(operation.edit ? { edit: operation.edit } : {}),
-          ...target,
+          ...this.target,
           ...(this.model ? { model: this.model } : {}),
           ...(state
             ? {
@@ -1501,12 +1498,6 @@ function normalizeTarget(
   if (!target) return undefined;
   const agent = normalizeOptionalString(target.agent);
   return { mode: target.mode ?? "auto", ...(agent ? { agent } : {}) };
-}
-
-function startTargetFields(options: {
-  target?: AgentTarget;
-}): Pick<StartTurnIntent, "mode" | "agent"> {
-  return options.target ?? {};
 }
 
 function isDefinitiveStartRejection(error: unknown): boolean {

@@ -5,7 +5,7 @@
 
 import { useCallback, useMemo } from "react";
 import type { MutableRefObject } from "react";
-import type { AgentCard, Aomi, AomiPlatformFilter } from "@aomi-labs/client";
+import type { AgentCard, Aomi } from "@aomi-labs/client";
 import { useAomiDisplayCache, useDisplayQuery } from "../query/display-cache";
 import { displayQueries } from "../query/queries";
 import { resolveAutoModel } from "./model-selection";
@@ -35,8 +35,6 @@ type UseAuthEndpointsOptions = {
   apiKey: string | null;
   /** Changes whenever the agent key does. */
   credentialRevision: number;
-  /** Optional backend platform filter for the agent catalog. */
-  catalogPlatforms?: AomiPlatformFilter;
   /** Hosted agent this runtime is scoped to; routed on by the edge. */
   agent?: string | null;
   accountSessionAvailable?: boolean;

@@ -9,7 +9,6 @@ import {
   type CommitCapabilities,
   type AgentTarget,
   type AomiClientOptions,
-  type AomiPlatformFilter,
 } from "@aomi-labs/client";
 import { ControlContextProvider } from "../contexts/control-context";
 import { NotificationContextProvider } from "../contexts/notification-context";
@@ -52,7 +51,6 @@ export type AomiRuntimeProviderProps = {
   agent?: string | null;
   /** Optional host-fixed target. Omit to use the per-thread Auto/Direct control. */
   agentTarget?: AgentTarget;
-  catalogPlatforms?: AomiPlatformFilter;
   clientOptions?: Omit<AomiClientOptions, "baseUrl">;
   actions?: ActionCapabilities;
   commits?: CommitCapabilities;
@@ -85,7 +83,6 @@ export function AomiRuntimeProvider({
   apiKeyPersistence,
   agent,
   agentTarget,
-  catalogPlatforms,
   clientOptions,
   actions,
   commits,
@@ -177,7 +174,6 @@ export function AomiRuntimeProvider({
               backendUrl={backendUrl}
               agent={agent}
               agentTarget={agentTarget}
-              catalogPlatforms={catalogPlatforms}
               accountSessionAvailable={accountSessionAvailable}
               actions={actions}
               commits={commits}
@@ -208,7 +204,6 @@ type AomiRuntimeInnerProps = {
   backendUrl: string;
   agent?: string | null;
   agentTarget?: AgentTarget;
-  catalogPlatforms?: AomiPlatformFilter;
   accountSessionAvailable: boolean;
   actions?: ActionCapabilities;
   commits?: CommitCapabilities;
@@ -227,7 +222,6 @@ function AomiRuntimeInner({
   backendUrl,
   agent,
   agentTarget,
-  catalogPlatforms,
   accountSessionAvailable,
   actions,
   commits,
@@ -248,7 +242,6 @@ function AomiRuntimeInner({
       sessionId={threadContext.currentThreadId}
       getThreadMetadata={threadContext.getThreadMetadata}
       updateThreadMetadata={threadContext.updateThreadMetadata}
-      catalogPlatforms={catalogPlatforms}
       agent={agent}
       accountSessionAvailable={accountSessionAvailable}
       account={account}

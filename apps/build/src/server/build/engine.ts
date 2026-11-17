@@ -186,7 +186,7 @@ function runsRoot(): string {
 }
 
 /** Package-name slug from a free-text prompt, e.g. "Hyperliquid & Binance
- *  arb agent" → "hyperliquid-binance-arb-agent". */
+ *  arb bot" → "hyperliquid-binance-arb-bot". */
 export function packageSlugFromPrompt(prompt: string): string {
   const slug = prompt
     .toLowerCase()
@@ -374,7 +374,7 @@ function composePlan(
     ? false
     : existsSync(path.join(root, "packages", packageName, "openapi.yaml"));
   const { plan, issues } = finalizePlan({
-    packageName: packageName,
+    packageName,
     sdkRoot: root,
     source: hasSpec ? "existing" : "discover",
     userStory,
@@ -402,8 +402,8 @@ export async function startBuildRun(options: {
   const packageName =
     options.packageName ?? packageSlugFromPrompt(options.prompt);
   const api = await apiFor(packageName);
-  // Identity lives in the registry: (owner, package) → run. Alice's arb-agent and
-  // Bob's arb-agent are distinct rows, distinct runs, distinct sandboxes.
+  // Identity lives in the registry: (owner, package) → run. Alice's arb-bot and
+  // Bob's arb-bot are distinct rows, distinct runs, distinct sandboxes.
   const record = await findRunByOwnerPackage(api, options.owner, packageName);
 
   const inMemory = record && registry().byRunId.get(record.runId);

@@ -101,7 +101,7 @@ export function ConsentWallets({
         wallets,
         ...(agent
           ? {
-              agent: agent,
+              agent,
               ...(pending
                 ? { new_agent_wallet: { lane: lanes[pending] ?? "ask_aomi" } }
                 : {}),

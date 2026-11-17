@@ -118,8 +118,8 @@ const AGENT_ALIASES: Readonly<Record<string, keyof typeof CURATED_AGENT_INFO>> =
     twitter: "x",
   };
 
-function normalizeAgentId(agentScope: string | null | undefined): string {
-  return (agentScope ?? "")
+function normalizeAgentId(name: string | null | undefined): string {
+  return (name ?? "")
     .trim()
     .toLowerCase()
     .replace(/[\s_]+/gu, "-")
@@ -127,18 +127,16 @@ function normalizeAgentId(agentScope: string | null | undefined): string {
 }
 
 /** Return the presentation key shared by agent text and artwork. */
-export function canonicalAgentId(
-  agentScope: string | null | undefined,
-): string {
-  const normalized = normalizeAgentId(agentScope);
+export function canonicalAgentId(name: string | null | undefined): string {
+  const normalized = normalizeAgentId(name);
   if (!normalized) return "unknown";
   return Object.prototype.hasOwnProperty.call(AGENT_ALIASES, normalized)
     ? AGENT_ALIASES[normalized]!
     : normalized;
 }
 
-function titleizeAgentId(agentScope: string): string {
-  return agentScope
+function titleizeAgentId(name: string): string {
+  return name
     .split(/[-_\s]+/gu)
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

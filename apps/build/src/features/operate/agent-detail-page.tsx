@@ -107,7 +107,7 @@ export function AgentDetailPage({ agentId }: { agentId: number }) {
       onOpenTrace={(tool) =>
         router.navigate({
           href: operateHref("/operate/logs", {
-            agent: agent,
+            agent,
             tool,
             project: projectValue,
           }),
@@ -116,7 +116,7 @@ export function AgentDetailPage({ agentId }: { agentId: number }) {
       onOpenTx={(tx) =>
         router.navigate({
           href: operateHref("/operate/transactions", {
-            agent: agent,
+            agent,
             tx,
             project: projectValue,
           }),

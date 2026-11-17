@@ -1,4 +1,8 @@
-import { type AgentMode, type AgentTarget } from "@aomi-labs/client";
+import {
+  isAgentSlug,
+  type AgentMode,
+  type AgentTarget,
+} from "@aomi-labs/client";
 
 export type DirectRoutingAgent = { agent: string };
 
@@ -72,8 +76,7 @@ export function normalizeAomiRouting(
     ).values(),
   ];
   const invalidDirectAgent = directAgents.some(
-    (target) =>
-      !/^[a-z0-9][a-z0-9_-]*\/[a-z0-9][a-z0-9_-]*$/.test(target.agent),
+    (target) => !isAgentSlug(target.agent),
   );
   if (invalidDirectAgent) {
     return {

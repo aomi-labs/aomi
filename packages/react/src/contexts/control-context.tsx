@@ -16,7 +16,7 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import type { Aomi, AomiPlatformFilter } from "@aomi-labs/client";
+import type { Aomi } from "@aomi-labs/client";
 import type { ThreadControlState, ThreadMetadata } from "../state/thread-store";
 import type { RuntimeAccount } from "../query/display-cache";
 import {
@@ -141,7 +141,6 @@ export type ControlContextProviderProps = {
     threadId: string,
     partial: Partial<ThreadMetadata>,
   ) => void;
-  catalogPlatforms?: AomiPlatformFilter;
   agent?: string | null;
   apiKeyPersistence?: "memory" | "session";
   backendUrl?: string;
@@ -156,7 +155,6 @@ export function ControlContextProvider({
   sessionId,
   getThreadMetadata,
   updateThreadMetadata,
-  catalogPlatforms,
   agent,
   apiKeyPersistence,
   backendUrl = "",
@@ -180,7 +178,7 @@ export function ControlContextProvider({
   updateThreadMetadataRef.current = updateThreadMetadata;
 
   const storageScope = useMemo(
-    () => ({ backendUrl: backendUrl, agentScope: agent }),
+    () => ({ backendUrl, agentScope: agent }),
     [backendUrl, agent],
   );
   const storage = useMemo(
@@ -221,7 +219,6 @@ export function ControlContextProvider({
     apiKey: apiKey.state.apiKey,
     credentialRevision: apiKey.revision,
     accountSessionAvailable,
-    catalogPlatforms,
     agent,
   });
 

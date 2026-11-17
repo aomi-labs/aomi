@@ -34,7 +34,6 @@ describe("deploymentLifecycleFromProject", () => {
             isActive: true,
             isPublic: true,
             projectId: 1,
-
             targetTags: [],
             loaded: true,
           },
@@ -58,7 +57,6 @@ describe("deploymentLifecycleFromProject", () => {
             isActive: true,
             isPublic: true,
             projectId: 1,
-
             targetTags: [],
             loaded: false,
           },
@@ -83,7 +81,6 @@ describe("deploymentLifecycleFromProject", () => {
             isActive: true,
             isPublic: true,
             projectId: 1,
-
             targetTags: [],
             loaded: true,
           },
@@ -159,7 +156,6 @@ describe("deploymentLifecycleFromProject", () => {
             isActive: true,
             isPublic: true,
             projectId: 1,
-
             targetTags: [],
             loaded: true,
           },

@@ -16,7 +16,6 @@ describe("manager projects", () => {
           is_active: true,
           is_public: true,
           project_id: 99,
-
           target_tags: ["staging"],
           loaded: true,
         },
@@ -40,7 +39,6 @@ describe("manager projects", () => {
       isActive: true,
       isPublic: true,
       projectId: 99,
-
       artifactReady: false,
       targetTags: ["staging"],
       loaded: true,

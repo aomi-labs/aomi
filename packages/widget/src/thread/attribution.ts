@@ -69,7 +69,7 @@ export function attributeToolStep(
   const ownedAgents = new Set(
     owners.flatMap((skill) =>
       skill.id.includes("/")
-        ? [skill.id.slice(0, skill.id.lastIndexOf("/"))!]
+        ? [skill.id.slice(0, skill.id.lastIndexOf("/"))]
         : [],
     ),
   );

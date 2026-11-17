@@ -2297,7 +2297,7 @@ export type CallVerificationField = "request" | "simulation" | "count" | "chainI
 export type CallVerificationSubject = Action | ActionRequest | SignableCommit | null | undefined;
 
 // @public
-export function canonicalAgentId(agentScope: string | null | undefined): string;
+export function canonicalAgentId(name: string | null | undefined): string;
 
 // @public (undocumented)
 export type CapabilityHint = {
@@ -3145,6 +3145,9 @@ export const hasRules: (rules: AomiRuleSet) => boolean;
 
 // @public (undocumented)
 export type InterruptIntent = Schemas$3["InterruptIntent"];
+
+// @public
+export function isAgentSlug(value: string): boolean;
 
 // @public
 export function isAomiError(error: unknown, code?: string): error is AomiError;

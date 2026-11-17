@@ -29,7 +29,7 @@ export class PrivateAgentStore {
       ...this.entries.filter(
         ({ agent: current }) => current.agent !== agent.agent,
       ),
-      { agent: agent, key: key.trim() },
+      { agent, key: key.trim() },
     ];
     this.storage?.setJson("privateAgents", this.entries);
     this.publish();
