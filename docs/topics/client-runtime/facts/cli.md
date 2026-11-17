@@ -24,7 +24,7 @@ code of its own.
 - `packages/cli/src/app.ts` is the Stricli route table. Root `--help` prints
   it in groups with aliases; flags are scoped to the commands that use them
   and internal ones show only under `--help-all`. Old paths (`session`,
-  `wallet`, `app`, `byok`, `account login`, `tx show`) are aliases.
+  `wallet`, `toolset`, `byok`, `account login`, `tx show`) are aliases.
 - `aomi` with no command, or root flags such as `-p`, runs `chat`.
 
 ## Sign-in

@@ -3,7 +3,7 @@
 The SVG files in this directory are the reviewed local artwork used by the
 Portal's Library, picker, mentions, trace, and activity rail. Exact retrieval
 URLs are in `sources.json`; the complete built-in catalog (including reused
-app/chain icons) is in `../source-manifest.ts`.
+agent/chain icons) is in `../source-manifest.ts`.
 
 Run `node scripts/generate-skill-marks.mjs` from the repository root after edits.
 The generated `../sourced-marks.ts` bundles the SVG geometry into the widget and

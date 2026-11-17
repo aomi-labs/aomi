@@ -102,8 +102,8 @@ Missing Auto capability blocks execution there; it never falls back to Manual.
 An uncertain start retries the same complete intent and idempotency key.
 
 `userState.evm.broadcaster` and `userState.svm.broadcaster` are optional values
-`wallet | hosted | venue`, not authorization. Backend app policy bounds them.
-Assembly freezes explicit selections and app defaults. Otherwise commit defaults
+`wallet | hosted | venue`, not authorization. Backend agent policy bounds them.
+Assembly freezes explicit selections and agent defaults. Otherwise commit defaults
 to Hosted for Auto or Wallet for Manual; it rejects Auto × Wallet and
 unsupported adapters without changing authorizer, submitter, or payer.
 
@@ -119,7 +119,7 @@ unsupported adapters without changing authorizer, submitter, or payer.
 | Venue × AA              | Unsupported adapter               | Unsupported adapter                   | Unsupported adapter       | Unsupported adapter       |
 
 SVM sealing is not AA. Supported no-AA adapters additionally allow Manual Hosted
-(supported app-bound instructions) and Manual/Auto Venue (with the venue adapter).
+(supported agent-bound instructions) and Manual/Auto Venue (with the venue adapter).
 Clients preserve explicit Hosted/Venue selections under Manual. Signed bytes return
 through the existing Action lifecycle, not Wallet submission.
 

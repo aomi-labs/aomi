@@ -22,12 +22,12 @@ wallet behavior comes from the surrounding Para + wagmi provider tree.
 
 ## Quick Start
 
-Wrap your app with `AomiRuntimeProvider`, then use `useAomiRuntime()` anywhere inside:
+Wrap your web app with `AomiRuntimeProvider`, then use `useAomiRuntime()` anywhere inside:
 
 ```tsx
 import { AomiRuntimeProvider, useAomiRuntime } from "@aomi-labs/react";
 
-function App() {
+function Agent() {
   return (
     <AomiRuntimeProvider backendUrl="https://api.aomi.dev">
       <Chat />
@@ -58,15 +58,15 @@ Root provider that composes thread selection, notifications, the client-owned
 `UserState` source, controls, and the runtime core. Each active thread owns one
 `ClientSession` external store; React only selects and projects its snapshot.
 
-| Prop            | Default                   | Description                                       |
-| --------------- | ------------------------- | ------------------------------------------------- |
-| `backendUrl`    | `"http://localhost:8080"` | Aomi backend URL                                  |
-| `agentTarget`   | Auto                      | Optional fixed Auto or Direct target              |
-| `applicationId` | —                         | Catalog/persistence scope; does not select Direct |
-| `children`      | —                         | React children                                    |
+| Prop          | Default                   | Description                                       |
+| ------------- | ------------------------- | ------------------------------------------------- |
+| `backendUrl`  | `"http://localhost:8080"` | Aomi backend URL                                  |
+| `agentTarget` | Auto                      | Optional fixed Auto or Direct target              |
+| `agentId`     | —                         | Catalog/persistence scope; does not select Direct |
+| `children`    | —                         | React children                                    |
 
 Omit `agentTarget` for Auto. A host that intentionally pins every turn can
-pass `{ mode: "direct", app: "uniswap" }` or a hosted `applicationId` target.
+pass `{ mode: "direct", agent: "aomi/uniswap" }`.
 
 ## Hooks
 

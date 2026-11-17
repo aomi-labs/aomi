@@ -4,11 +4,11 @@
 import { AomiWidget } from "@aomi-labs/widget";
 import "@aomi-labs/widget/styles.css";
 
-<AomiWidget applicationId="YOUR_HOSTED_APP_ID" />;
+<AomiWidget agentId="YOUR_HOSTED_APP_ID" />;
 ```
 
 The default API is `https://aomi.chat`. Set `baseUrl` explicitly for a local
-backend or another deployment. `applicationId` identifies the hosted app; the
+backend or another deployment. `agent` identifies the hosted agent by its `publisher/name` slug; the
 optional `routing` configuration separately selects Auto or Direct execution.
 The default auth mode is `browser_wallet`, so guest chat starts without an
 embedded wallet SDK. Embeds do not provision backend AA wallets.
@@ -22,7 +22,7 @@ nothing else needs importing:
 import { AomiWidget, privyAuth } from "@aomi-labs/widget";
 
 <AomiWidget
-  applicationId="YOUR_HOSTED_APP_ID"
+  agentId="YOUR_HOSTED_APP_ID"
   auth={privyAuth({ appId: "YOUR_PRIVY_APP_ID" })}
 />;
 ```
@@ -68,7 +68,7 @@ content to each `.aomi-widget` root. `theme="light" | "dark" | "system"`
 (default `"system"`) chooses a theme per instance; composed frames take
 `className="dark"` or `"light"`.
 
-Browser preferences are namespaced by backend and hosted app, with account
+Browser preferences are namespaced by backend and hosted agent, with account
 scope where available. Existing preference keys migrate once to the first
 scope that reads them and are then removed. API keys stay in memory by default;
 first-party hosts may explicitly select scoped session storage through

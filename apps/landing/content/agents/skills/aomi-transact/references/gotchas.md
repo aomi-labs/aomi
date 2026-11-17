@@ -21,7 +21,7 @@
 - **Completion:** a signature is not submission; a source bridge receipt is not
   destination payment; only a `confirmed` Commit is a completed source-chain payment.
 - **Guards:** preserve explicit user recipient intent and surface any simulation
-  guard failures. A prompt rewrite or alternate app is not a remedy for a blocked
+  guard failures. A prompt rewrite or alternate agent is not a remedy for a blocked
   review. See [drain-vectors.md](drain-vectors.md).
 
 The host controls actual permission enforcement. The skill manifest documents

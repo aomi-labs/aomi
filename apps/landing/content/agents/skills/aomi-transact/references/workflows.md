@@ -17,8 +17,20 @@ for every wallet listed in the file, each on its own RPC. File shape:
   "recipient": "0x2222222222222222222222222222222222222222",
   "amount": "1500",
   "wallets": [
-    { "address": "0x1111111111111111111111111111111111111111", "chainId": 1, "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "decimals": 6, "rpcUrl": "https://ethereum-rpc.publicnode.com" },
-    { "address": "0x1111111111111111111111111111111111111111", "chainId": 8453, "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "decimals": 6, "rpcUrl": "https://base-rpc.publicnode.com" }
+    {
+      "address": "0x1111111111111111111111111111111111111111",
+      "chainId": 1,
+      "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "decimals": 6,
+      "rpcUrl": "https://ethereum-rpc.publicnode.com"
+    },
+    {
+      "address": "0x1111111111111111111111111111111111111111",
+      "chainId": 8453,
+      "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "decimals": 6,
+      "rpcUrl": "https://base-rpc.publicnode.com"
+    }
   ]
 }
 ```
@@ -63,14 +75,14 @@ signature; a timeout does not mean failure. The backend observes the receipt
 and moves the Commit to `confirmed`; `aomi tx export <commit-id> --format commit`
 shows the current state. Keep all stages attached to that ID:
 
-| Evidence | Report |
-| --- | --- |
-| Prepared review, no valid simulation | Prepared; review incomplete |
-| Passed simulation, no signature | Simulated; awaiting authorized signature |
-| Signed, not submitted | Signed; awaiting submission |
-| Hash, Commit not yet confirmed | Submitted/pending; reconcile that hash |
-| Commit failed or receipt reverted | Failed on chain; preserve evidence |
-| Commit confirmed | Payment completed on the source chain |
+| Evidence                             | Report                                   |
+| ------------------------------------ | ---------------------------------------- |
+| Prepared review, no valid simulation | Prepared; review incomplete              |
+| Passed simulation, no signature      | Simulated; awaiting authorized signature |
+| Signed, not submitted                | Signed; awaiting submission              |
+| Hash, Commit not yet confirmed       | Submitted/pending; reconcile that hash   |
+| Commit failed or receipt reverted    | Failed on chain; preserve evidence       |
+| Commit confirmed                     | Payment completed on the source chain    |
 
 Do not infer a second payment is needed from a timeout or a stale listing.
 For bridges, a source receipt is only the source leg; verify the destination
@@ -80,7 +92,7 @@ receipt, output token and spendable balance separately.
 
 Use an existing authorized signer for execution. Changing credentials is a
 separate, explicitly requested setup action. CLI wallet setup persists local
-signing material in private state; secret ingestion transmits supplied app
+signing material in private state; secret ingestion transmits supplied package
 credentials to the backend and stores returned handles locally. Explain that
 storage/transmission boundary before setup. Keep values opaque: report only
 address, credential name/presence or handle name, never values or signed bytes.

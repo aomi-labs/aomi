@@ -10,23 +10,23 @@ uses it by default).
 Most integrations need nothing: start as a guest and add a credential only when
 a call asks for one.
 
-| Credential      | When you need it                                                | How to get it                                                                                                                      | How to pass it                                                |
-| --------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| None (guest)    | Default. Guest-safe Agent and Pipeline calls.                   | Nothing to do — the SDK creates an anonymous session on the first request.                                                         | Omit `auth`.                                                  |
-| OAuth client ID | A user signs in your CLI, bot, or server process (device flow). | Register a public device client once — see [Register an OAuth client](#register-an-oauth-client). No secret.                       | `auth: oauth({ clientId: process.env.AOMI_OAUTH_CLIENT_ID })` |
-| App key         | Only for **private** Apps. Public Apps never need one.          | Get it from the App's owner. The Aomi team issues the first key to the owner, who can rotate it with `POST /api/account/app-keys`. | `apiKey` option, CLI `--api-key`, or `AOMI_API_KEY`.          |
-| Account bearer  | Account-scoped calls (credits, App keys, linked identities).    | `aomi login`, or your own signed-in session.                                                                                       | `getAccountBearer`, CLI `--account-bearer`.                   |
+| Credential      | When you need it                                                | How to get it                                                                                                                          | How to pass it                                                |
+| --------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| None (guest)    | Default. Guest-safe Agent and Pipeline calls.                   | Nothing to do — the SDK creates an anonymous session on the first request.                                                             | Omit `auth`.                                                  |
+| OAuth client ID | A user signs in your CLI, agent, or server process (device flow). | Register a public device client once — see [Register an OAuth client](#register-an-oauth-client). No secret.                           | `auth: oauth({ clientId: process.env.AOMI_OAUTH_CLIENT_ID })` |
+| Agent key       | Only for **private** Agents. Public Agents never need one.      | Get it from the Agent's owner. The Aomi team issues the first key to the owner, who can rotate it with `POST /api/account/agent-keys`. | `apiKey` option, CLI `--api-key`, or `AOMI_API_KEY`.          |
+| Account bearer  | Account-scoped calls (credits, Agent keys, linked identities).  | `aomi login`, or your own signed-in session.                                                                                           | `getAccountBearer`, CLI `--account-bearer`.                   |
 
-If a call fails because of the App rather than your credentials, the error
-`code` says why: `app_not_found` (404), `app_inactive` (409, the owner has not
-activated it yet), `app_key_required` (401, private App, no key sent), or
-`app_key_not_scoped` (403, the key belongs to a different App). These surface
+If a call fails because of the Agent rather than your credentials, the error
+`code` says why: `agent_not_found` (404), `agent_inactive` (409, the owner has not
+activated it yet), `agent_key_required` (401, private Agent, no key sent), or
+`agent_key_not_scoped` (403, the key belongs to a different Agent). These surface
 as `AgentApiError` with `appAccessCode` set.
 
 ## Public authorization
 
 With no auth option, `Aomi` creates and reuses an anonymous session for the
-guest-safe REST surface. For a signed-in CLI, bot, or server process, configure
+guest-safe REST surface. For a signed-in CLI, agent, or server process, configure
 OAuth once and let the SDK own exact resources, scopes, refresh, and revocation:
 
 ```ts
@@ -62,7 +62,7 @@ for your own integration, register a device client once and keep its
 curl -sX POST https://aomi.chat/api/auth/oauth2/register \
   -H 'content-type: application/json' \
   -d '{
-    "client_name": "My Aomi bot",
+    "client_name": "My Aomi agent",
     "token_endpoint_auth_method": "none",
     "grant_types": ["urn:ietf:params:oauth:grant-type:device_code", "refresh_token"],
     "resources": ["https://aomi.chat/v1/agent"],
@@ -148,7 +148,7 @@ const aomi = new Aomi({
 });
 
 const build = await aomi.pipeline
-  .app("aave")
+  .toolset("aave")
   .build("supply", { asset: "USDC", amount: "100" });
 
 renderPreview(build.summary, build.actions, build.simulation);
@@ -172,15 +172,15 @@ await aomi.raw.pipeline.root();
 ```
 
 Agent runs use **Auto** routing by default. Select **Direct** only when the
-caller intentionally pins a turn to one app:
+caller intentionally pins a turn to one agent:
 
 ```ts
 await aomi.agent.run("Summarize this market", {
-  target: { mode: "direct", app: "polymarket" },
+  target: { mode: "direct", agent: "aomi/polymarket" },
 });
 
 await aomi.agent.run("Use our hosted research agent", {
-  target: { mode: "direct", applicationId: 2936682 },
+  target: { mode: "direct", agentId: 2936682 },
 });
 ```
 
@@ -253,7 +253,7 @@ adapter supplies, and the Commit service verifies signatures and transitions:
 | SVM transaction Commit     | `svm.signTransaction` signs the prepared base64 transaction; `svm.broadcastTransaction` submits when the broadcaster is Wallet. Venue submission needs an explicit `venueBroadcast` capability. |
 | Off-chain signature Action | `evm.signMessage`, `evm.signTypedData`, or `svm.signMessage`, according to the request.                                                                                                         |
 
-A bot or script signs in with its own key: `auth: wallet(signer)` uses SIWE
+An agent or script signs in with its own key: `auth: wallet(signer)` uses SIWE
 for an EVM signer (a viem account) and SIWS for a Solana one
 (`solanaSigner(...)`), once per process and again after a 401. The session
 proves account ownership only; `signer` is what signs the reviewed Commits.
@@ -372,9 +372,9 @@ runtime-schema-driven:
 
 ```ts
 const root = await client.pipeline.root();
-const operation = await client.pipeline.app("aave").operation("supply");
+const operation = await client.pipeline.toolset("aave").operation("supply");
 
-const result = await client.pipeline.app("aave").invoke("supply", {
+const result = await client.pipeline.toolset("aave").invoke("supply", {
   asset: "USDC",
   amount: "100",
 }); // arguments are checked against operation.inputSchema before POST
@@ -385,7 +385,7 @@ const skillMarkdown = await client.pipeline
 ```
 
 Integrations use filesystem discovery, scoped operations, and chain-specific Builds.
-The base package does not claim compile-time knowledge of live app or skill
+The base package does not claim compile-time knowledge of live toolset or skill
 operations; Catalog-specific generation remains a separate later capability.
 
 ### Verify before you sign
@@ -530,11 +530,11 @@ unsubscribe();
 session.close();
 ```
 
-To pin a session to one app, pass a typed Direct target:
+To pin a session to one agent, pass a typed Direct target:
 
 ```ts
 const directSession = new Session(client, {
-  target: { mode: "direct", app: "uniswap" },
+  target: { mode: "direct", agent: "aomi/uniswap" },
 });
 ```
 
@@ -548,18 +548,17 @@ new Session(clientOptions: AomiClientOptions, sessionOptions?: SessionOptions)
 new Session(client: AomiClient, sessionOptions?: SessionOptions)
 ```
 
-| Option         | Default               | Description                                             |
-| -------------- | --------------------- | ------------------------------------------------------- |
-| `sessionId`    | `crypto.randomUUID()` | Agent session ID                                        |
-| `target`       | `{ mode: "auto" }`    | Auto, or a Direct `app` / hosted `applicationId` target |
-| `model`        | —                     | Optional model preference                               |
-| `getUserState` | —                     | Reads canonical UserState when a turn starts            |
-| `actions`      | `{}`                  | Legacy wallet Action capabilities                       |
-| `commits`      | `{}`                  | Durable signing, broadcast, and recovery capabilities   |
-| `logger`       | —                     | Pass `console` for debug output                         |
+| Option         | Default               | Description                                           |
+| -------------- | --------------------- | ----------------------------------------------------- |
+| `sessionId`    | `crypto.randomUUID()` | Agent session ID                                      |
+| `target`       | `{ mode: "auto" }`    | Auto, or a Direct `agent` slug target                 |
+| `model`        | —                     | Optional model preference                             |
+| `getUserState` | —                     | Reads canonical UserState when a turn starts          |
+| `actions`      | `{}`                  | Legacy wallet Action capabilities                     |
+| `commits`      | `{}`                  | Durable signing, broadcast, and recovery capabilities |
+| `logger`       | —                     | Pass `console` for debug output                       |
 
-Legacy `app` and `applicationId` options still imply Direct for compatibility;
-new integrations should use `target` so routing intent is unambiguous.
+Thread sessions retain their bound agent. Pass a canonical `publisher/name` slug when selecting a Direct target.
 
 #### Methods
 
@@ -614,5 +613,5 @@ device code, or headlessly with a key:
 ```bash
 aomi whoami --private-key "$PRIVATE_KEY"                         # EVM, SIWE
 aomi whoami --solana-private-key "$SOLANA_KEY" --cluster devnet  # Solana, SIWS
-aomi pipeline build supply --app aave '{"asset":"USDC","amount":"100"}' --commit
+aomi pipeline build supply --toolset aave '{"asset":"USDC","amount":"100"}' --commit
 ```

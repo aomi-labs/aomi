@@ -14,7 +14,7 @@ venue-specific URL.
 
 - `src/api/*` and `src/kernel/*`: the routing core ported from product-mono: route allowlist,
   CORS profiles, rendezvous hashing over `BACKEND_ORIGINS`, tunnel failover,
-  the hosted-app availability probe and the manager cutover switch.
+  the hosted-agent availability probe and the manager cutover switch.
 - `src/api/task-body.ts` and `src/api/discovery.ts`: the Task API venue adapters.
   - A venue's `Authorization`, cookies and router headers never reach the API
     Server (`TASK_UPSTREAM_HEADERS`).
@@ -38,11 +38,11 @@ venue-specific URL.
   - `@aomi-labs/account/policy`: shared session capabilities, OAuth resource
     policies and the one `authorize` check.
   - `routes.ts`: the route table. `/v1/agent/**`, `/v1/pipeline/**`,
-    `/v1/account/{apps,transaction-safety,credits,statement}`, the account's
+    `/v1/account/{packages,transaction-safety,credits,statement}`, the account's
     wallets, agent wallets, lanes and platform links (`/v1/account/{wallets,
     agent-wallets,pause-all,connection-settings,connections/:key/wallets,
     link}`), thread-less commits (`/v1/commits/:ref/**`), the agent, pipeline
-    and app-locked (`/v1/apps/:app/mcp`) MCP transports, the `/api/*` backend
+    and agent-locked (`/v1/agents/:agent/mcp`) MCP transports, the `/api/*` backend
     allowlist, discovery and the public catalog. Bearers are minted as
     `aomi-edge` with the same delegated claims the portal minted as
     `aomi-bff`; a backend bearer carries no scope, only how the caller signed
@@ -130,7 +130,7 @@ To test staging origins, run `pnpm --filter aomi-edge dev --env-file
 `EDGE_TOPOLOGY=staging` and the matching staging service private key. Obtain
 origins from the staging inventory and credentials from its secret store.
 
-Each hosted-app availability probe has a 1.5-second deadline. A timed-out
+Each hosted-agent availability probe has a 1.5-second deadline. A timed-out
 origin is unavailable for that attempt, so healthy pool members can serve
 the request; configured warm-up retries retain their existing limit.
 
@@ -154,7 +154,7 @@ this repository:
   and `MANAGER_ORIGIN`;
 - the hosts and policies `PORTAL_HOSTS`, `BUILD_HOSTS`, `LANDING_HOSTS`,
   `CORS_ALLOWED_HOST_PATTERNS`, `TASK_CORS_PUBLIC_ORIGINS`,
-  `APP_CATALOG_PLATFORMS` and `BUILD_DEFAULT_PLATFORM`;
+  `CATALOG_PLATFORMS` and `BUILD_DEFAULT_PLATFORM`;
 - the optional auth settings `PORTAL_TRUSTED_ORIGINS`,
   `AOMI_TRUSTED_ORIGINS` and `AOMI_AUTH_DOMAIN` (the SIWE domain, default the
   `BETTER_AUTH_URL` host);
@@ -225,8 +225,7 @@ and `/api/auth/sign-in/anonymous` stay as aliases for published SDKs
 
 Before deploying the stack, reconcile these external settings together:
 
-- Replace `APP_DEPLOY_PLATFORMS` with the single `BUILD_DEFAULT_PLATFORM` slug
-  in product-mono's Edge environment record.
+- `BUILD_DEFAULT_PLATFORM` selects Build's default platform.
 - Supply Build's existing signing key under `BUILD_SERVICE_PRIVATE_KEY` and
   update the sidecar image to trust issuer `aomi-build`. The committed public
   keys stay unchanged; the service and key identifiers are renamed.

@@ -1,7 +1,7 @@
 ---
 name: aomi-transact
 description: >
-  Build natural-language crypto agents, web3 assistants, and trading bots that read
+  Build natural-language crypto agents, web3 assistants, and trading agents that read
   and write EVM chain state. Aomi turns prompts ("swap 1 ETH for USDC", "open a 3x
   GMX long", "bet $100 on Polymarket") into wallet-signed transactions on Ethereum,
   Base, Arbitrum, Optimism, Polygon, Linea — non-custodial, fork-simulated. Use when
@@ -18,11 +18,23 @@ compatibility: >
   and check command capabilities. Installing a skill does not upgrade a global binary.
 license: MIT
 version: "0.14.1"
-author: 'aomi-labs <hello@aomi.dev>'
-tags: [crypto, defi, web3, evm, ethereum, wallet, account-abstraction, trading, mcp, agent]
-allowed-tools: 'Bash(aomi:*), Bash(npx:*)'
+author: "aomi-labs <hello@aomi.dev>"
+tags:
+  [
+    crypto,
+    defi,
+    web3,
+    evm,
+    ethereum,
+    wallet,
+    account-abstraction,
+    trading,
+    mcp,
+    agent,
+  ]
+allowed-tools: "Bash(aomi:*), Bash(npx:*)"
 metadata:
-  author: 'aomi-labs <hello@aomi.dev>'
+  author: "aomi-labs <hello@aomi.dev>"
   version: "0.14.1"
   repository: aomi-labs/skills
   homepage: https://github.com/aomi-labs/skills/tree/main/aomi-transact
@@ -67,7 +79,7 @@ transactions. The Rust `aomi-cli` in product-mono has a different interface.
    leg and route fees. USDC and USDG are different contracts/assets. Finish this
    step with unambiguous, funded terms before building a payment.
 4. **Prepare once.** On a new task use `aomi chat "<exact intent>" --new-session
-   --public-key <sender> --chain <chain-id>`. Continue its original session on
+--public-key <sender> --chain <chain-id>`. Continue its original session on
    follow-ups. Read `aomi tx list --json`, retain the full Commit ID and export
    that exact Commit with `aomi tx export <commit-id> --format commit`.
 5. **Review.** Match the durable review to the approved intent, including sender,
@@ -105,8 +117,8 @@ and recovery, read [gotchas.md](references/gotchas.md) and
 - **Funding, execution and secret ingestion:** [workflows.md](references/workflows.md).
 - **Direct payment or bridge walkthrough:** [examples.md](references/examples.md).
 - **Protocol field/recipient warnings:** [drain-vectors.md](references/drain-vectors.md).
-- **App discovery and prompt examples:** [apps.md](references/apps.md); runtime
-  capabilities and this procedure take precedence over historical app examples.
+- **Agent discovery and prompt examples:** [agents.md](references/agents.md); runtime
+  capabilities and this procedure take precedence over historical agent examples.
 
 Source: https://github.com/aomi-labs/skills/tree/main/aomi-transact
 

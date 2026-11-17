@@ -42,7 +42,7 @@ React chat widget and for first-party host composition.
 - `AomiWidget` embeds one agent: the `agent="publisher/name"` prop (default
   `aomi/main`) is the Direct target of every new thread, sent as `agent` in the
   start intent. A thread keeps its agent; `thread_agent_mismatch` shows a
-  notice and is never retried with another agent. There is no agent or app
+  notice and is never retried with another agent. There is no agent
   picker and no `routing` prop.
 
 ## Layout Behavior

@@ -30,7 +30,7 @@ sources_of_truth:
 
 ## Operational Flows
 
-- The runtime reads current app, API key, client id, and user state before each send.
+- The runtime reads current agent, API key, client id, and user state before each send.
 - Incoming backend events are dispatched through the event context and then into hooks such as `useWalletHandler`.
 - Runtime methods such as `sendMessage`, `cancelGeneration`, `createThread`, and `renameThread` are exposed through the interface context.
 

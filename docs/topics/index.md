@@ -22,7 +22,7 @@ Use `./scripts/repowiki list` to enumerate topics and `./scripts/repowiki look <
 - [auth/facts/wallet-kit.md](auth/facts/wallet-kit.md): auth-provider bridge from host wallets into runtime `UserState`
 - [auth/facts/base-account.md](auth/facts/base-account.md): Base Account provider surface
 
-## Apps
+## Agents
 
 - [apps/facts/app-surfaces.md](apps/facts/app-surfaces.md): landing, base, portal, and telegram app surfaces
 - [apps/facts/widget-frame.md](apps/facts/widget-frame.md): embeddable Aomi frame composition and UI surface

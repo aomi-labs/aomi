@@ -1,7 +1,7 @@
 # Skill icon provenance
 
 These marks are rendered as `currentColor` SVGs in the same 24px icon slot as
-the app and chain registry. Existing registry marks are wrapped rather than
+the agent and chain registry. Existing registry marks are wrapped rather than
 copied (`1inch`, `Optimism`, `Robinhood`, `Yearn`, and `Zora`). The remaining
 protocol marks are compact symbol-only redraws based on the projects' own
 brand or documentation pages so the UI can apply one neutral Aomi color.

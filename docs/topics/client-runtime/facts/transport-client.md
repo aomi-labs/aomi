@@ -26,9 +26,21 @@ sources_of_truth:
 
 - Chat and session state methods target `/api/chat`, `/api/state`, `/api/system`, and `/api/interrupt`.
 - Session management methods create, list, rename, archive, and delete backend threads.
-- Account app methods list the catalog, add or remove installed apps, and
-  manage redacted per-user credential status by canonical application ID.
+- Account package methods list the Library, enable or disable packages, and
+  manage redacted per-user credential status by canonical package ID.
 - SSE support is factored into its own subscriber helper so UI consumers and CLI flows can share the same event model.
+
+## Target and catalog contracts
+
+Public turns select an agent with one `agent` slug (`publisher/name`), plus
+`mode: "auto" | "direct"`. Thread-scoped requests use the thread's stored
+binding. They do not accept a numeric target query.
+
+`listCatalog(threadId)` reads `/api/thread/catalog` with account and thread
+credentials and returns `{ toolsets, packages }`. Package cards carry Library
+state for that account. `resolveAgentKey(key)` sends only the explicit
+`Aomi-Agent-Key` header to `/api/agents/resolve` and returns one `AgentCard`.
+Pipeline discovery and calls use `/v1/pipeline/toolsets` and `toolset` fields.
 
 ## Cross-Package Role
 

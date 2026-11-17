@@ -22,7 +22,7 @@ Two ways, nothing else:
   the grant refreshes silently and lives in `~/.aomi/grants.json`.
   `aomi logout` revokes it.
 - `--private-key <hex>` (or `AOMI_PRIVATE_KEY`) signs in with SIWE using that
-  key, without a browser, and signs what the agent prepares. For bots.
+  key, without a browser, and signs what the agent prepares. For agents.
   `--solana-private-key <key>` (or `AOMI_SOLANA_PRIVATE_KEY`, base58 or a
   `solana-keygen` JSON array) does the same with SIWS, on `--cluster`
   (`mainnet`, `devnet` or `testnet`; default the signer's saved cluster, else
@@ -54,26 +54,26 @@ sign-in.
 
 ## Commands
 
-| Command | What it does |
-| --- | --- |
-| `chat [message]` | Ask once (`-p`) or open the chat screen. `--thread`, `--new`, `--app`, `--model` |
-| `threads` | `list`, `open <id>`, `new`, `rename <id> <title>`, `archive <id>` |
-| `login`, `logout`, `whoami` | Sign in and out |
-| `account` | Profile; `connections`, `unlink`, `credits`, `fund`, `statement` |
-| `wallets` | Agent wallets: `list`, `balance <id>`, `use <id>`; the local `signer` (`show`, `set`, `clear`) |
-| `rules` | Each agent wallet's rules, today's use and waiting change; `approve <change-id>`, `decline <change-id>` |
-| `tx` | `list`, `review <ref>`, `approve <ref>`, `reject <ref>`, `sign <ref>`, `export <ref>` |
-| `guard [strict\|balanced\|yolo]` | The thread's guard, or `--account`'s default |
-| `packages` | `list [--thread]`, `on <id> [--yes]`, `off <id>`, `reset <id>`, `connect <id> <slot>`, `disconnect <id> <slot>` |
-| `pipeline` | `ops`, `op`, `apps`, `skills`, `skill`, `invoke`, `build [--commit]` |
-| `publish` | Build and upload the root `aomi.toml`'s packages and agents. `--promote`, `--package`, `--agent`, `--no-build`, `--wasm name=path` |
-| `promote`, `rollback` | `<package\|agent> <name> [<number>]`: make a release live; rollback defaults to the one before live |
-| `releases` | `<package\|agent> <name>`: every release, newest first |
-| `model`, `chain` | `current`, `list`, `set` |
-| `keys` | Your own provider keys: `list`, `set <provider>`, `remove` |
-| `secret` | `list`, `add NAME=value…`, `clear` |
-| `config` | `current`, `set-backend <url>` |
-| `completion` | `eval "$(aomi completion)"` |
+| Command                          | What it does                                                                                                                       |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `chat [message]`                 | Ask once (`-p`) or open the chat screen. `--thread`, `--new`, `--agent`, `--model`                                                 |
+| `threads`                        | `list`, `open <id>`, `new`, `rename <id> <title>`, `archive <id>`                                                                  |
+| `login`, `logout`, `whoami`      | Sign in and out                                                                                                                    |
+| `account`                        | Profile; `connections`, `unlink`, `credits`, `fund`, `statement`                                                                   |
+| `wallets`                        | Agent wallets: `list`, `balance <id>`, `use <id>`; the local `signer` (`show`, `set`, `clear`)                                     |
+| `rules`                          | Each agent wallet's rules, today's use and waiting change; `approve <change-id>`, `decline <change-id>`                            |
+| `tx`                             | `list`, `review <ref>`, `approve <ref>`, `reject <ref>`, `sign <ref>`, `export <ref>`                                              |
+| `guard [strict\|balanced\|yolo]` | The thread's guard, or `--account`'s default                                                                                       |
+| `packages`                       | `list [--thread]`, `on <id> [--yes]`, `off <id>`, `reset <id>`, `connect <id> <slot>`, `disconnect <id> <slot>`                    |
+| `pipeline`                       | `ops`, `op`, `toolsets`, `skills`, `skill`, `invoke`, `build [--commit]`                                                           |
+| `publish`                        | Build and upload the root `aomi.toml`'s packages and agents. `--promote`, `--package`, `--agent`, `--no-build`, `--wasm name=path` |
+| `promote`, `rollback`            | `<package\|agent> <name> [<number>]`: make a release live; rollback defaults to the one before live                                |
+| `releases`                       | `<package\|agent> <name>`: every release, newest first                                                                             |
+| `model`, `chain`                 | `current`, `list`, `set`                                                                                                           |
+| `keys`                           | Your own provider keys: `list`, `set <provider>`, `remove`                                                                         |
+| `secret`                         | `list`, `add NAME=value…`, `clear`                                                                                                 |
+| `config`                         | `current`, `set-backend <url>`                                                                                                     |
+| `completion`                     | `eval "$(aomi completion)"`                                                                                                        |
 
 Credential and key values come from stdin or a hidden prompt, never argv.
 `--chain` takes a decimal chain id.
@@ -92,10 +92,10 @@ reusable workflow `aomi-labs/aomi/.github/workflows/publish-packages.yml`.
 ## The chat screen
 
 `aomi` opens it. Each turn shows "Worked Ns · N steps" (ctrl+o expands the
-steps), the reply, and a box for a commit waiting for your approval: `a`
+steps), the reply, and a box for a commit waiting for your web approval: `a`
 approve, `r` reject, `o` open in the browser, `d` details. Type `/` for
 `/model` (a list, Auto first), `/guard` (Strict, Balanced or Yolo for the
-thread), `/new`, `/help`. Chat routes to every app (Auto); `--app` pins one
+thread), `/new`, `/help`. Chat routes to the thread’s agent (Auto); `--agent` pins an agent slug
 for a run. Esc stops a turn; ctrl+c quits.
 
 ## State

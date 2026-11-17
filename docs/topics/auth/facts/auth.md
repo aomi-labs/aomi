@@ -7,7 +7,7 @@ review_after_days: 30
 sources_of_truth:
   - packages/account/src/account.ts
   - packages/account/src/better-auth/auth.ts
-  - packages/account/src/better-auth/provider-plugin.ts
+  - packages/account/src/better-auth/provider-package.ts
   - packages/account/src/service/account-service.ts
   - packages/account/src/service/provider-exchange.ts
   - packages/account/src/types.ts
@@ -43,7 +43,7 @@ stored list omits it.
 
 - [packages/account/src/account.ts](../../../../packages/account/src/account.ts)
 - [packages/account/src/better-auth/auth.ts](../../../../packages/account/src/better-auth/auth.ts)
-- [packages/account/src/better-auth/provider-plugin.ts](../../../../packages/account/src/better-auth/provider-plugin.ts)
+- [packages/account/src/better-auth/provider-package.ts](../../../../packages/account/src/better-auth/provider-package.ts)
 - [packages/account/src/service/account-service.ts](../../../../packages/account/src/service/account-service.ts)
 - [packages/account/src/service/provider-exchange.ts](../../../../packages/account/src/service/provider-exchange.ts)
 - [packages/account/src/types.ts](../../../../packages/account/src/types.ts)
@@ -52,7 +52,7 @@ stored list omits it.
 
 ### Account Sign-In
 
-Better Auth owns browser/device sessions. SIWE sign-in verifies an ERC-4361 message through the Better Auth SIWE plugin. Privy/Para token sign-in goes through the Aomi provider plugin, which verifies the provider token server-side, creates or finds a Better Auth user, links the provider identity in the `aomi_*` graph, syncs attested provider wallets, and sets the Better Auth session cookie.
+Better Auth owns browser/device sessions. SIWE sign-in verifies an ERC-4361 message through the Better Auth SIWE package. Privy/Para token sign-in goes through the Aomi provider package, which verifies the provider token server-side, creates or finds a Better Auth user, links the provider identity in the `aomi_*` graph, syncs attested provider wallets, and sets the Better Auth session cookie.
 
 ### OAuth and backend bearer handoff
 
@@ -104,3 +104,13 @@ sign-in and linking remain available through the browser account flow.
 The unused `/v1/account/session/cli` rotation endpoint is removed. OAuth
 refresh remains the terminal renewal mechanism; Better Auth session bearers
 remain supported for REST sign-in.
+
+### Hosted agent MCP resources
+
+Hosted resources use `/v1/agents/publisher%2Fname/mcp`. The account package
+exports `@aomi-labs/account/agent-mcp-resources.sql` as a one-shot database
+migration. It resolves each former bare name to one canonical agent slug,
+rewrites resource and client links plus consent, access-token, refresh-token
+and device-code resource arrays, and preserves opaque credential values.
+Missing or ambiguous agent names abort the transaction. Runtime code
+reads only the canonical resource URI.

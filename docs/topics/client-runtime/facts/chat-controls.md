@@ -12,7 +12,7 @@ sources_of_truth:
 # Chat controls
 
 Edit and Rerun work like a linear chat: they replace the conversation from a
-user message onward and continue it with a normal turn, with the same app,
+user message onward and continue it with a normal turn, with the same agent,
 tools and signing rules as any other message. Edit sends the revised text with
 `edit` set to the selected user's durable `message_key`. The widget's Rerun
 sends the request before the selected answer unchanged, also with `edit`, so it

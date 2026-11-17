@@ -1,5 +1,5 @@
 ---
-title: App Surfaces
+title: Agent Surfaces
 owner: frontend
 status: authoritative
 area: apps
@@ -12,7 +12,7 @@ sources_of_truth:
   - apps/portal/package.json
 ---
 
-# App Surfaces
+# Agent Surfaces
 
 The app surfaces in `apps/` are the main product and validation targets for package changes.
 

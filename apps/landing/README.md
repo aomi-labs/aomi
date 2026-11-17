@@ -10,7 +10,7 @@ the protected consumer and published compatibility/theme utilities.
 
 ## Development and builds
 
-Use Node.js 22.15+ or 24 and the repository-pinned pnpm through Corepack. App
+Use Node.js 22.15+ or 24 and the repository-pinned pnpm through Corepack. Agent
 commands from the repository root:
 
 ```sh
