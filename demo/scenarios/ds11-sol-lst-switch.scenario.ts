@@ -29,7 +29,7 @@ export const scenario: Scenario = {
   id: "ds11-sol-lst-switch",
   title: "Move my stake from Marinade to Jito",
   chains: [],
-  apps: [],
+  packages: [],
   svm: {
     cluster: "mainnet-beta",
     fund: { sol: "1000000000" },

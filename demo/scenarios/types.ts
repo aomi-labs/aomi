@@ -21,18 +21,8 @@ export type Scenario = {
   story?: string;
   /** EVM chain ids this scenario touches; each is reforked before the take. */
   chains: number[];
-  /**
-   * SDK apps this scenario needs, by name (`zerox`, `polymarket-rewards`, …).
-   * Empty means the scenario runs on built-in protocol skills alone — staking
-   * via Lido / Rocket Pool / Ether.fi needs no app at all.
-   *
-   * These are resolved from a LOCAL aomi-sdk build, not from a GitHub release.
-   * That is the point: it lets us record an integration that has not shipped
-   * yet — write the app, record the demo, no release cycle. It also keeps the
-   * backend from reconciling the whole production catalog, which is what makes
-   * a local backend unusable today.
-   */
-  apps: string[];
+  /** Package names the scenario needs; empty means builtin protocol skills only. */
+  packages: string[];
   /**
    * Chain actors (mock off-chain counterparties from product-mono's
    * `aomi-actors` crate — `across` is the first) to run for the take.

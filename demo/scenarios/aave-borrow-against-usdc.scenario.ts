@@ -18,7 +18,7 @@ export const scenario: Scenario = {
   title: "Borrow ETH against USDC on Aave, conservatively",
   story: "P2",
   chains: [1],
-  apps: [],
+  packages: [],
   erc20: [
     {
       symbol: "USDC",

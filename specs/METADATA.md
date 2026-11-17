@@ -133,7 +133,7 @@ class AomiClient {
   subscribeSSE(sessionId: string, onUpdate: (event: AomiSSEEvent) => void): () => void;
   listThreads(sessionId: string): Promise<AomiThread[]>;
   createThread(threadId: string): Promise<AomiCreateThreadResponse>;
-  getApps(sessionId: string): Promise<AomiAppDescriptor[]>;
+  listCatalog(sessionId: string): Promise<ThreadCatalog>;
   getModels(sessionId: string): Promise<string[]>;
   setModel(sessionId: string, rig: string, options?: SetModelOptions): Promise<SetModelResponse>;
 }
@@ -161,9 +161,9 @@ GET    /api/sessions
 GET    /api/sessions/:id
 PATCH  /api/sessions/:id
 DELETE /api/sessions/:id
-GET    /api/session/apps
+GET    /api/thread/catalog
 GET    /api/session/models
-POST   /api/session/model?rig=X&app=Y
+POST   /api/session/model?rig=X
 GET    /api/account
 GET    /v1/account/bearer
 POST   /api/auth/aomi/provider/exchange

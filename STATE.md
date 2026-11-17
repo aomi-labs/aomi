@@ -10,7 +10,7 @@ Rewrite this file in place; never append history. Keep it under 60 lines. Remove
 - 2026-11-12 · @CeciliaZ030 · Builder API keys at the Build edge; deploys after the product-mono#1712 migration · #878
 - 2026-11-12 · @CeciliaZ030 · Default the SDK, CLI and widget to aomi.chat (draft) · #875
 - 2026-11-02 · @arixoneth · Execution-only wallets never sign in (draft) · #824
-- 2026-11-03 · @arixoneth · Approve app releases at the Build edge; CLI deploys are approver-only · #823
+- 2026-11-03 · @arixoneth · Approve package releases at the Build edge; CLI deploys are approver-only · #823
 - 2026-10-31 · @CeciliaZ030 · Use the allowed origin for the Privy consumer fixture (draft) · #819
 - 2026-10-31 · @CeciliaZ030 · Preserve Recent selection during Portal startup (draft) · #818
 - 2026-10-31 · @CeciliaZ030 · Recover accepted wallet bundles without duplicate sends (draft) · #816

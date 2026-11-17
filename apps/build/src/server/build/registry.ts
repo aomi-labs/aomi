@@ -1,7 +1,6 @@
 import "@tanstack/react-start/server-only";
 
 import {
-  resolveRunBackend,
   storeQuery,
   type AomiSmitherApi,
 } from "@aomi-labs/smither";
@@ -35,21 +34,6 @@ const ENSURED = new WeakSet<object>();
 
 async function ensureRegistry(api: AomiSmitherApi): Promise<void> {
   if (ENSURED.has(api as object)) return;
-  const columns =
-    resolveRunBackend("registry").kind === "sqlite"
-      ? await storeQuery(
-          api,
-          "SELECT name FROM pragma_table_info('aomi_build_runs')",
-        )
-      : await storeQuery(
-          api,
-          "SELECT column_name as name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'aomi_build_runs'",
-        );
-  if (columns.some((column) => column.name === "app"))
-    await storeQuery(
-      api,
-      "ALTER TABLE aomi_build_runs RENAME COLUMN app TO package_name",
-    );
   await storeQuery(
     api,
     `CREATE TABLE IF NOT EXISTS aomi_build_runs (

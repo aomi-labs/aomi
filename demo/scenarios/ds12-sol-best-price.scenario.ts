@@ -30,7 +30,7 @@ export const scenario: Scenario = {
   id: "ds12-sol-best-price",
   title: "Best execution: quote Jupiter vs Raydium, take the winner",
   chains: [],
-  apps: [],
+  packages: [],
   svm: {
     cluster: "mainnet-beta",
     fund: { sol: "10000000000" },

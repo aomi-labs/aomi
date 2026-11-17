@@ -23,7 +23,7 @@ export const logs: LogRecord[] = [
     agent: "geckoterminal",
     kind: "event",
     status: "info",
-    eventType: "app_loaded",
+    eventType: "agent_loaded",
     summary: "Cold start 890 ms · dylib 2.0 MB · SDK 3.0.2",
   },
   {

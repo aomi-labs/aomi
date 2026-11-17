@@ -61,7 +61,7 @@ export async function verifyConsumer({ origin, upstream, css, provider }) {
     });
     const startedAt = performance.now();
     page.on("request", (request) => {
-      if (/privy|para-plugin/.test(request.url()))
+      if (/privy|para-adapter/.test(request.url()))
         providerRequests.push(request.url());
     });
     await page.goto(origin);
@@ -164,12 +164,12 @@ export async function verifyConsumer({ origin, upstream, css, provider }) {
       );
     if (provider) {
       assert.ok(
-        providerRequests.some((url) => url.includes(`${provider}-plugin`)),
+        providerRequests.some((url) => url.includes(`${provider}-adapter`)),
         "Chosen embedded wallet loads its own provider island",
       );
       const other = provider === "privy" ? "para" : "privy";
       assert.equal(
-        providerRequests.some((url) => url.includes(`${other}-plugin`)),
+        providerRequests.some((url) => url.includes(`${other}-adapter`)),
         false,
         "Chosen embedded wallet does not load the other provider island",
       );

@@ -103,7 +103,7 @@ const view = (overrides: Partial<CommitRefView> = {}): CommitRefView => ({
     },
   } as unknown as CommitRefView["action"],
   origin: "cli",
-  origin_app: null,
+  origin_agent_id: null,
   initiator: "cli",
   notify: "cli",
   sign_url: `https://portal.example/sign/${ref}`,

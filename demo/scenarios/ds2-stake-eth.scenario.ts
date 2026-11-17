@@ -18,8 +18,8 @@ export const scenario: Scenario = {
   story: "DS2",
   chains: [1],
   // Liquid staking runs on built-in protocol skills, so this scenario needs no
-  // SDK app. It is the cheapest possible first take: nothing to resolve.
-  apps: [],
+  // SDK package. It is the cheapest possible first take: nothing to resolve.
+  packages: [],
   // Two beats: the ask, then the go-ahead. Take 7 proved one turn ends with a
   // proposal, not a transaction — the agent researches yields and asks which
   // pool; the approval turn is what makes it execute (and it demos better:

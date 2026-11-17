@@ -25,9 +25,9 @@ Generated wire types and the public SDK facade remain supported.
 
 A conversation's thread ID is distinct from an authentication session ID. An
 Aomi account ID is distinct from a provider user ID, a token subject, an owner
-ID and a signer address. A hosted application ID is distinct from a routing app
-name and a package ID. Map these explicitly at each boundary; preserve wire
-field names and supported public aliases.
+ID and a signer address. An agent ID is distinct from a builtin toolset
+name and a package ID. Map these explicitly at each boundary. Public targets use
+the canonical agent slug `publisher/name`; retired aliases are rejected.
 
 ## Requests and events
 
@@ -44,7 +44,7 @@ commit completion remain explicit, replay-resistant operations.
 
 Display caches may hold catalogs, profile and credit metadata. They never hold
 credentials, conversation events, pending actions or mutation queues. Their
-scope includes backend, application and account identity, and a scope change
+scope includes backend, agent and account identity, and a scope change
 cancels private work before the new identity can render it.
 
 ## Identity and wallets
@@ -64,7 +64,7 @@ operating wallet to the session. Embedded AA provisioning is deferred.
 
 Each widget owns its runtime, display cache, wallet state and overlay container.
 Changing a wallet SDK must preserve the mounted chat. Public catalogs contain
-only an explicit public projection and carry no cookie or installed-app state.
+only an explicit public projection and carry no cookie or installed-package state.
 
 ## Hosts and compatibility
 

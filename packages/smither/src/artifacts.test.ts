@@ -11,15 +11,15 @@ let roots: string[] = [];
 function fixtureSdkRoot(packageName: string): string {
   const root = mkdtempSync(path.join(tmpdir(), "artifacts-test-"));
   roots.push(root);
-  const appDir = path.join(root, "packages", packageName);
-  mkdirSync(path.join(appDir, "src", "client"), { recursive: true });
-  mkdirSync(path.join(appDir, "target", "release"), { recursive: true });
-  writeFileSync(path.join(appDir, "Cargo.toml"), "[package]\n");
-  writeFileSync(path.join(appDir, "Cargo.lock"), "# lock\n");
-  writeFileSync(path.join(appDir, "src", "lib.rs"), "// lib\n");
-  writeFileSync(path.join(appDir, "src", "tool.rs"), "// tool\n");
-  writeFileSync(path.join(appDir, "src", "client", "client.rs"), "// client\n");
-  writeFileSync(path.join(appDir, "target", "release", "junk.bin"), "junk");
+  const packageDir = path.join(root, "packages", packageName);
+  mkdirSync(path.join(packageDir, "src", "client"), { recursive: true });
+  mkdirSync(path.join(packageDir, "target", "release"), { recursive: true });
+  writeFileSync(path.join(packageDir, "Cargo.toml"), "[package]\n");
+  writeFileSync(path.join(packageDir, "Cargo.lock"), "# lock\n");
+  writeFileSync(path.join(packageDir, "src", "lib.rs"), "// lib\n");
+  writeFileSync(path.join(packageDir, "src", "tool.rs"), "// tool\n");
+  writeFileSync(path.join(packageDir, "src", "client", "client.rs"), "// client\n");
+  writeFileSync(path.join(packageDir, "target", "release", "junk.bin"), "junk");
   return root;
 }
 

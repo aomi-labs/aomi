@@ -45,3 +45,10 @@ sources_of_truth:
 - [client-runtime/facts/transport-client.md](../../client-runtime/facts/transport-client.md)
 - [apps/facts/app-surfaces.md](../../apps/facts/app-surfaces.md)
 - [frontend-invariants.md](frontend-invariants.md) — protected consumer compatibility and CI ownership.
+
+## Package cutover
+
+Public agent targets use `publisher/name`. Connection wallet consent sends
+`new_agent_wallet`; commit provenance reads `origin_agent_id`. Billing labels
+builtin agent compute as builtin. Build run registries use `package_name`;
+startup does not upgrade the retired registry schema.

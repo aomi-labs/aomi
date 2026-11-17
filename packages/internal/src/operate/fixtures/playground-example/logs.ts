@@ -53,7 +53,7 @@ export const logs: LogRecord[] = [
     agent: "playground-example",
     kind: "event",
     status: "info",
-    eventType: "app_loaded",
+    eventType: "agent_loaded",
     summary: "Cold start 1010 ms · dylib 3.1 MB · SDK 3.0.2",
   },
   {

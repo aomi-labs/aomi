@@ -18,7 +18,7 @@ export const scenario: Scenario = {
   id: "ds6-sol-swap-stake",
   title: "Swap 5 SOL for USDC, then stake the rest",
   chains: [],
-  apps: [],
+  packages: [],
   svm: {
     cluster: "mainnet-beta",
     // 10 SOL, written after reset. Reset does NOT re-airdrop: the first take

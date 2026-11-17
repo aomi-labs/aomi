@@ -20,7 +20,7 @@ export const scenario: Scenario = {
   id: "money-legos-stake-collateralize",
   title: "Stake, wrap, collateralize, borrow — from one sentence",
   chains: [1],
-  apps: [],
+  packages: [],
   // Three turns, not two. A six-transaction plan earns an extra confirmation
   // beat: the agent stages and simulates, reports what it found (including the
   // wstETH wrap nobody asked for), and only then asks to commit. Cutting that

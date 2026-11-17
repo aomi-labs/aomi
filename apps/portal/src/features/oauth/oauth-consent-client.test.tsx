@@ -121,7 +121,7 @@ describe("OAuthConsentClient", () => {
     ).toBeInTheDocument();
     expect(await screen.findByText("Your wallets")).toBeInTheDocument();
     expect(screen.getByText("Codex sees all")).toBeInTheDocument();
-    // The app's wallet, made on approval, is locked at Ask on Aomi.
+    // The agent's wallet, made on approval, is locked at Ask on Aomi.
     expect(screen.getByText(/Created on approval/)).toBeInTheDocument();
     expect(screen.getByText("Ask on Aomi")).toBeInTheDocument();
     expect(screen.queryByRole("combobox")).toBeNull();
@@ -138,7 +138,7 @@ describe("OAuthConsentClient", () => {
           body: {
             wallets: [],
             agent: "aomi/world",
-            new_app_wallet: { lane: "ask_aomi" },
+            new_agent_wallet: { lane: "ask_aomi" },
             ask_only: true,
           },
         },

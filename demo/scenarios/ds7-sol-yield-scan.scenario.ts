@@ -28,7 +28,7 @@ export const scenario: Scenario = {
   id: "ds7-sol-yield-scan",
   title: "Compare Solana liquid-staking yields",
   chains: [],
-  apps: [],
+  packages: [],
   svm: {
     cluster: "mainnet-beta",
     // Funded like a real holder even though nothing is spent: the agent

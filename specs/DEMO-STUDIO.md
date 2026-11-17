@@ -123,7 +123,7 @@ takes.
 
 Two distinct layers, and I initially conflated them:
 
-**SDK apps / plugins** — verified by reading `~/Code/aomi-sdk/apps/*/src/*.rs`:
+**SDK packages** — verified by reading `~/Code/packages/packages/*/src/*.rs`:
 
 - *Execute:* Across, Binance, Bybit, OKX, CoW, Jupiter, 1inch, 0x (including
   **gasless**), LiFi, Khalani, Marinade, Polymarket, Polymarket Rewards,
@@ -144,7 +144,7 @@ it works.
 **Unverified:** byreal's perps path. `byreal-solana-test-plan.md` (status:
 `reference`, not authoritative) describes perps build-order / submit / cancel
 flows, which would contradict the read-only finding for the standalone
-`hyperliquid` plugin. byreal's source is not in this checkout — only a
+`hyperliquid` package. byreal's source is not in this checkout — only a
 `Cargo.lock` — so this needs checking against byreal's source or a live tool
 listing before any perps scenario is scripted. Until then, assume no perp
 execution.
@@ -153,7 +153,7 @@ execution.
 
 Recordings use the portal's E2E executor, not the production wallet stack:
 `viem` / `@solana/web3.js` + `tweetnacl` + an HMAC session cookie, with **zero
-`@getpara/*` imports**. The `providers/para/` plugin is not on the recording
+`@getpara/*` imports**. The `providers/para/` adapter is not on the recording
 path.
 
 Consequence for claims: a take proves the agent, backend, skills, permit,
@@ -217,4 +217,4 @@ No `fixtures/` directory — Layer 2 is `aomi test-env` in `product-mono`.
 - `product-mono/docs/topics/testing-automation/facts/full-testnet.md`
 - `product-mono/docs/topics/testing-automation/facts/aomi-transact-automation.md`
 - `product-mono/docs/topics/testing-automation/facts/byreal-solana-test-plan.md`
-- `~/Code/aomi-sdk/apps/*/src/*.rs` (capability sweep, 2026-07-30)
+- `~/Code/packages/packages/*/src/*.rs` (capability sweep, 2026-07-30)

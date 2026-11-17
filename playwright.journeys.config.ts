@@ -61,7 +61,7 @@ function localHosts() {
       url: embed,
       env: {
         VITE_AOMI_API_URL: portal,
-        VITE_AOMI_APPLICATION_ID: "1",
+        VITE_AOMI_AGENT: "aomi/main",
         VITE_PARA_API_KEY: "ci-fixture-not-a-secret",
       },
       timeout: 120_000,
@@ -71,8 +71,8 @@ function localHosts() {
 }
 
 const desktop = { width: 1440, height: 1000 };
-// Embeds take their app from props, not from the page URL.
-const portalOnly = /url-app-context\.spec\.ts$/;
+// Embeds take their agent from props, not from the page URL.
+const portalOnly = /url-agent-context\.spec\.ts$/;
 
 export default defineConfig<JourneyOptions>({
   testDir: "tests/e2e",

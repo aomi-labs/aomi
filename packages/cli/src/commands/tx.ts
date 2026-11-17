@@ -64,7 +64,7 @@ export function reviewLines(
     ["Signer", view.signer],
     [
       "Origin",
-      `${view.origin}${view.origin_app !== null ? ` (agent ${view.origin_app})` : ""} · initiated by ${view.initiator}`,
+      `${view.origin}${view.origin_agent_id !== null ? ` (agent ${view.origin_agent_id})` : ""} · initiated by ${view.initiator}`,
     ],
     ["Review", reviewSummary(review)],
   ];

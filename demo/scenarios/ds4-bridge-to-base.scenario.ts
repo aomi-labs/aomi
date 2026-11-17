@@ -29,7 +29,7 @@ export const scenario: Scenario = {
   title: "Move most of my ETH to Base — and prove it arrived",
   story: "DS4",
   chains: [1, 8453],
-  apps: [],
+  packages: [],
   // BOTH bridge actors, because the agent genuinely picks its own route:
   // the first live takes chose the canonical L1StandardBridge
   // (`depositETHTo`), which the Across filler rightly ignored. Arming the

@@ -89,7 +89,7 @@ export type AomiConnectionWalletsUpdate = {
    * With `agent`: make the agent's wallet now, in this lane, when none
    * of `wallets` is one the agent made.
    */
-  new_app_wallet?: { lane: AomiLane };
+  new_agent_wallet?: { lane: AomiLane };
   ask_only?: boolean;
 };
 

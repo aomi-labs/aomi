@@ -130,7 +130,6 @@ describe("ClientSession durable conversation intents", () => {
       mode: "direct",
       agent: "acme/assistant",
     });
-    expect(start.mock.calls[0]![0]).not.toHaveProperty("app");
   });
 
   it("forwards edit to the selected durable user message and projects the acknowledged replacement", async () => {

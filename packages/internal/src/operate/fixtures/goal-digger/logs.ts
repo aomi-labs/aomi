@@ -66,7 +66,7 @@ export const logs: LogRecord[] = [
     agent: "goal-digger",
     kind: "event",
     status: "info",
-    eventType: "app_evicted",
+    eventType: "agent_evicted",
     summary: "Evicted after 45m idle (memory pressure policy)",
   },
   {

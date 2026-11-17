@@ -348,13 +348,13 @@ const transactions = endpoint(
           : payments.events
               .filter((event) => event.kind === "settlement_confirmed")
               .map((event) => payoutRow(event, payments, scope.platform));
-      const appTransactions = onProjects(rows.rows, projects).map((row) => ({
+      const agentTransactions = onProjects(rows.rows, projects).map((row) => ({
         ...row,
-        kind: "app_transaction",
+        kind: "agent_transaction",
       }));
       return {
         projects,
-        transactions: [...appTransactions, ...payouts].sort(newestFirst),
+        transactions: [...agentTransactions, ...payouts].sort(newestFirst),
         nextCursor: rows.nextCursor ?? null,
       };
     },
@@ -515,8 +515,8 @@ const payments = endpoint("operate.payments", "GET", ops("payments"), {
   },
 });
 
-const appDetail = endpoint(
-  "operate.app_detail",
+const agentDetail = endpoint(
+  "operate.agent_detail",
   "GET",
   ops("observability/detail"),
   {
@@ -831,5 +831,5 @@ export const OPERATE_ROUTES: readonly BuildRoute[] = [
   logs,
   observability,
   payments,
-  appDetail,
+  agentDetail,
 ];

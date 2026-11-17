@@ -482,7 +482,7 @@ describe("active transaction presentation", () => {
           agent_id: 2937810,
           agent: "aomi/hoodit",
           display_name: "Hoodit",
-          metadata: { registered_via: "activate_apps" },
+          metadata: { registered_via: "activate_toolsets" },
         },
       ],
       skills: [

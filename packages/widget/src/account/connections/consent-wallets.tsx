@@ -103,7 +103,7 @@ export function ConsentWallets({
           ? {
               agent: agent,
               ...(pending
-                ? { new_app_wallet: { lane: lanes[pending] ?? "ask_aomi" } }
+                ? { new_agent_wallet: { lane: lanes[pending] ?? "ask_aomi" } }
                 : {}),
             }
           : {}),

@@ -28,7 +28,7 @@ const TREE_SKIP = new Set(["target", "node_modules", ".git", "Cargo.lock"]);
 /** The generated crate as a display tree. Paths are prefixed with the package
  *  name ("<package>/src/tool.rs") — the shape the /build page renders. */
 export function crateFileTree(
-  appDir: string,
+  packageDir: string,
   packageName: string,
 ): CrateFileNode[] {
   const walk = (dir: string, rel: string, depth: number): CrateFileNode[] => {
@@ -59,12 +59,12 @@ export function crateFileTree(
           : { path: childRel, type: "file" as const };
       });
   };
-  if (!existsSync(appDir)) return [];
+  if (!existsSync(packageDir)) return [];
   return [
     {
       path: packageName,
       type: "folder",
-      children: walk(appDir, packageName, 0),
+      children: walk(packageDir, packageName, 0),
     },
   ];
 }
@@ -108,9 +108,9 @@ export async function packageCrate(options: {
   packageName: string;
   runner?: CommandRunner;
 }): Promise<CrateArtifact> {
-  const appsDir = path.join(options.sdkRoot, "packages");
-  const appDir = path.join(appsDir, options.packageName);
-  if (!existsSync(appDir)) {
+  const packagesDir = path.join(options.sdkRoot, "packages");
+  const packageDir = path.join(packagesDir, options.packageName);
+  if (!existsSync(packageDir)) {
     return {
       fileTreeJson: "",
       crateTarB64: "",
@@ -118,7 +118,7 @@ export async function packageCrate(options: {
     };
   }
   const fileTreeJson = JSON.stringify(
-    crateFileTree(appDir, options.packageName),
+    crateFileTree(packageDir, options.packageName),
   );
   const runner = options.runner ?? localRunner;
   const tmp = mkdtempSync(path.join(tmpdir(), "aomi-crate-"));
@@ -132,7 +132,7 @@ export async function packageCrate(options: {
       "--exclude",
       "Cargo.lock",
       "-C",
-      appsDir,
+      packagesDir,
       options.packageName,
     ]);
     if (tar.exitCode !== 0) {

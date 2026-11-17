@@ -28,7 +28,7 @@ export const scenario: Scenario = {
   id: "ds10-sol-unstake",
   title: "Instantly unstake 2 mSOL back to SOL",
   chains: [],
-  apps: [],
+  packages: [],
   svm: {
     cluster: "mainnet-beta",
     // 1 SOL of gas money. Deliberately thin: the take's point is that the

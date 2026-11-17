@@ -314,7 +314,7 @@ export function AgentGroup({
 }
 
 export function SettingsChip({ agent }: { agent: AgentUsageEntry }) {
-  if (agent.native) return <Chip>native · base</Chip>;
+  if (agent.builtin) return <Chip>builtin · base</Chip>;
   const paymentMethods = new Set(
     agent.model.byModel
       .map((row) => row.paymentMethod)

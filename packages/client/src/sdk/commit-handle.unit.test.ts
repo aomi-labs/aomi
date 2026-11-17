@@ -78,7 +78,7 @@ const view = (overrides: Partial<CommitRefView> = {}): CommitRefView => ({
     },
   } as CommitRefView["action"],
   origin: "mcp",
-  origin_app: null,
+  origin_agent_id: null,
   initiator: "mcp:client-1",
   notify: "mcp:client-1",
   sign_url: `https://portal.example/sign/${ref}`,

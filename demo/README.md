@@ -18,7 +18,7 @@ promising anyone a video.
 | Layer | Where | Status |
 | --- | --- | --- |
 | Fork lifecycle + pre-funding | `aomi-cli test-env evm` in **product-mono** | exists, we only call it |
-| Backend, catalog-scoped | product-mono backend + `LOCAL_SCOPED_APPS` (branch `fix/test-db-guard-and-artifact-breaker`, not yet in main) | proven |
+| Backend | product-mono backend against a disposable local database | local |
 | Chain routing in the UI | `NEXT_PUBLIC_USE_FULL_TESTNET` + widget-lib helpers | wired into the portal |
 | E2E wallet + fork executor | `apps/portal/src/server/e2e-wallet.ts` | proven |
 | Scenarios | `demo/scenarios/*.scenario.ts` | 1 proven, rest draft — see below |
@@ -64,7 +64,7 @@ says 5 ETH became 5.0 stETH, that happened on a real Lido contract.
 portal's E2E executor — `viem`'s `privateKeyToAccount` (EVM),
 `@solana/web3.js` + `tweetnacl` (SVM), and an HMAC session cookie. It contains
 **no Para code at all**: the repo's eight `@getpara/*` packages and the
-`providers/para/` plugin (auth, embedded wallet, message signing) are not on
+`providers/para/` adapter (auth, embedded wallet, message signing) are not on
 the recording path.
 
 So a take does **not** prove the production wallet stack works. If asked "is
@@ -171,11 +171,10 @@ If takes start failing `assertForkedOrDie`, re-up and re-read the port.
 > network provider", which looks like an agent failure and is not. Order is
 > always: fork up → portal env → **backend restart** → record.
 
-### 2. Backend, scoped
+### 2. Backend
 
 ```bash
 cd ~/Code/product-mono/aomi
-LOCAL_SCOPED_APPS="demo-studio-none" \
 OFFICIAL_GITHUB_TOKEN="$(gh auth token)" \
 FULL_TESTNETS=true \
 PROVIDERS_TOML=$HOME/.aomi/test-env/providers.toml \
@@ -184,10 +183,7 @@ PROVIDERS_TOML=$HOME/.aomi/test-env/providers.toml \
 
 - `PROVIDERS_TOML` now points at the **derived** file test-env wrote — that is
   what routes the backend's chain reads/writes to the fork.
-- `LOCAL_SCOPED_APPS` = union of `scenario.apps`; `demo-studio-none` is the sentinel
-  for skills-only scenarios (scope only activates when non-empty). Scoped run:
-  boot log is ~1 line instead of ~17k fetch errors, and the host never writes
-  the shared `applications` table.
+- Use a disposable local database for demo accounts, agent configs and package releases.
 - Needs `SUPABASE_DB_URL` (or `DATABASE_URL`) in the environment — the backend
   refuses to boot without one.
 

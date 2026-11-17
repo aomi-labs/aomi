@@ -480,7 +480,7 @@ describe("connections", () => {
     const update = {
       wallets: [{ id: "g-1", lane: "ask_aomi" }],
       agent: "world",
-      new_app_wallet: { lane: "ask_aomi" },
+      new_agent_wallet: { lane: "ask_aomi" },
       ask_only: true,
     };
     expect(

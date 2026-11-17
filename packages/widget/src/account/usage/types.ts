@@ -118,7 +118,7 @@ export interface AgentOutcomeUsage {
 export interface AgentUsageEntry {
   id: string;
   name: string;
-  native: boolean;
+  builtin: boolean;
   settings: AgentSettings;
   model: AgentModelUsage;
   /** null when the agent has no tool calls this period. */

@@ -187,7 +187,7 @@ export const products = [
     slug: "package-sdk",
     title: "Package SDK",
     href: `${MARKETING_ROOT}/products/package-sdk`,
-    description: "Build and host applications on Aomi's shared runtime.",
+    description: "Build and host agents on Aomi's shared runtime.",
     eyebrow: "Product / Package SDK",
     headline:
       "Turn an API and operating mandate into a hosted transactional agent.",

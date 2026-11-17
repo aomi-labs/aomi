@@ -54,7 +54,7 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
     );
     expect(
       publicApi["x-aomi-route-manifest"].filter((route) =>
-        /\/v1\/account\/(apps|packages)/.test(route),
+        /\/v1\/account\/packages/.test(route),
       ),
     ).toEqual([
       "DELETE /v1/account/packages/{packageId}/choice",

@@ -21,7 +21,7 @@ If a call fails because of the Agent rather than your credentials, the error
 `code` says why: `agent_not_found` (404), `agent_inactive` (409, the owner has not
 activated it yet), `agent_key_required` (401, private Agent, no key sent), or
 `agent_key_not_scoped` (403, the key belongs to a different Agent). These surface
-as `AgentApiError` with `appAccessCode` set.
+as `AgentApiError` with `agentAccessCode` set.
 
 ## Public authorization
 

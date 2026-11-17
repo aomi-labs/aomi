@@ -18,7 +18,7 @@ export const scenario: Scenario = {
   title: "Lido vs Rocket Pool vs Ether.fi — argue, then act",
   story: "DS2/DS3/P1",
   chains: [1],
-  apps: [],
+  packages: [],
   prompts: [
     "Compare Lido, Rocket Pool and Ether.fi for staking 4 ETH — I care about risk, not just headline APR. Tell me which you'd actually pick and why.",
     "Agreed with your reasoning — go ahead and stake it there.",

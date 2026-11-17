@@ -322,15 +322,15 @@ function ItemizedContent({
   const aomiTotal = month.agents.reduce(
     (s, a) =>
       s +
-      (a.native
+      (a.builtin
         ? a.model.chargedUsd
         : a.settings.agentByok
           ? 0
           : a.model.baseUsd),
     0,
   );
-  const appRecipients = month.agents
-    .filter((a) => !a.native)
+  const agentRecipients = month.agents
+    .filter((a) => !a.builtin)
     .map((a) => ({
       name: a.name,
       amount: (a.tool?.chargedUsd ?? 0) + (a.outcome?.chargedUsd ?? 0),
@@ -397,13 +397,13 @@ function ItemizedContent({
           </span>
           <div className="flex flex-col gap-2 text-[13px]">
             <div className="flex items-center justify-between">
-              <span>Aomi · model compute on managed/native</span>
+              <span>Aomi · model compute on managed/builtin</span>
               <span className="font-mono tabular-nums">{usd(aomiTotal)}</span>
             </div>
             <div className="flex flex-col gap-1">
               <span>The agents · tool + outcome fees</span>
               <div className="border-aomi-border flex flex-col gap-1 border-l pl-3">
-                {appRecipients.map((a) => (
+                {agentRecipients.map((a) => (
                   <div
                     key={a.name}
                     className="text-aomi-muted flex items-center justify-between"

@@ -9713,7 +9713,7 @@
           "review",
           "wallet_attempt",
           "origin",
-          "origin_app",
+          "origin_agent_id",
           "initiator",
           "notify",
           "sign_url",
@@ -9900,7 +9900,7 @@
             ],
             "description": "Where the commit's thread was started."
           },
-          "origin_app": {
+          "origin_agent_id": {
             "type": ["integer", "null"],
             "description": "Agent id the thread runs inside, if any."
           },

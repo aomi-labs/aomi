@@ -1201,7 +1201,7 @@ export type AomiConnectionWalletsUpdate = {
         lane: AomiLane;
     }[];
     agent?: string;
-    new_app_wallet?: {
+    new_agent_wallet?: {
         lane: AomiLane;
     };
     ask_only?: boolean;

@@ -21,7 +21,7 @@ import { AomiWidget } from "@aomi-labs/widget";
 import "@aomi-labs/widget/styles.css";
 
 export function Assistant() {
-  return <AomiWidget applicationId="2937810" />;
+  return <AomiWidget agent="aomi/main" />;
 }
 ```
 

@@ -451,9 +451,9 @@ async function main(): Promise<void> {
     );
   }
   console.log(
-    scenario.apps.length
-      ? `Backend must expose exactly these apps: ${scenario.apps.join(", ")}\n`
-      : `Scenario needs no SDK apps (built-in skills only).\n`,
+    scenario.packages.length
+      ? `Backend must expose exactly these packages: ${scenario.packages.join(", ")}\n`
+      : `Scenario needs no SDK packages (built-in skills only).\n`,
   );
 
   try {

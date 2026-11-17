@@ -35,7 +35,7 @@ export const scenario: Scenario = {
   id: "ds9-sol-payment",
   title: "Pay 150 USDC to a fresh address",
   chains: [],
-  apps: [],
+  packages: [],
   svm: {
     cluster: "mainnet-beta",
     // 2 SOL: enough for fees + the recipient's ATA rent (~0.002 SOL), small

@@ -26,7 +26,7 @@ export const scenario: Scenario = {
   id: "ds14-bridge-round-trip",
   title: "Bridge to Base and back — round trip in one conversation",
   chains: [1, 8453],
-  apps: [],
+  packages: [],
   actors: ["across", "base-native"],
   prompts: [
     "Move 4 ETH over to Base for me.",

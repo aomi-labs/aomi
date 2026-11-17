@@ -215,7 +215,7 @@ function createAgentAccumulator(name: string): AgentAccumulator {
     usage: {
       id: name,
       name,
-      native: name === "default",
+      builtin: name === "default",
       settings: {
         modelKey: "managed",
         agentByok: false,

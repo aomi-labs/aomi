@@ -19,7 +19,7 @@ export const scenario: Scenario = {
   id: "ds13-cheapest-borrow",
   title: "Borrow 2,000 USDC at the cheapest rate — agent referees Aave vs Compound",
   chains: [1],
-  apps: [],
+  packages: [],
   // Turn 2 steers the collateral leg through WETH explicitly: the first
   // takes showed the agent reaching for Aave's native-ETH gateway
   // (WrappedTokenGatewayV3), which the aave skill's guard doesn't cover —

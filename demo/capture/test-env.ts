@@ -306,7 +306,7 @@ export async function actorsDown(): Promise<void> {
  * prefund shadows them); NATIVE balances of dev accounts do not. So this
  * returns the sim endpoints as `ForkedChain`s and the CALLER must
  * re-apply the demo wallet's native balances (and code wipe) to each sim
- * mirror, exactly as it did to the proxy. Skipping that re-application
+ * mirror, exactly as it did to the proxy. Skipping that refresh
  * is how an agent came to stake 5,000 ETH of a 10 ETH wallet.
  */
 export async function resyncSimForks(

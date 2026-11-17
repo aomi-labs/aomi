@@ -27,7 +27,7 @@ export const scenario: Scenario = {
   id: "ds8-cross-vm",
   title: "Stake on Ethereum, then swap on Solana — one conversation",
   chains: [1],
-  apps: [],
+  packages: [],
   svm: {
     cluster: "mainnet-beta",
     fund: { sol: "10000000000" },
