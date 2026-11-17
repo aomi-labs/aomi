@@ -54,7 +54,7 @@ export const logs: LogRecord[] = [
     kind: "event",
     status: "info",
     eventType: "agent_loaded",
-    summary: "Cold start 1010 ms · dylib 3.1 MB · SDK 3.0.2",
+    summary: "Cold start 1010 ms · SDK 3.0.2",
   },
   {
     ts: 1784475150,

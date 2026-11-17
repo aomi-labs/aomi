@@ -51,7 +51,6 @@ const livePayload = (): LiveAgentDetailPayload => ({
     ],
     lifecycle: {
       coldStartMs: 1_250,
-      dylibBytes: 4_718_592,
       loads24h: 2,
       evictions24h: 1,
     },
@@ -88,7 +87,6 @@ const livePayload = (): LiveAgentDetailPayload => ({
       toolErrorRate: 0.05,
       txErrorRate: 0.1,
       coldStartMs: 1_250,
-      dylibBytes: 4_718_592,
     },
   },
   transactions: [

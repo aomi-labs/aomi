@@ -318,7 +318,6 @@ export const OperateAgentMetrics = wire({
   toolErrorRate: maybeNum,
   txErrorRate: maybeNum,
   coldStartMs: maybeNum,
-  dylibBytes: maybeNum,
 });
 export type OperateAgentMetrics = z.output<typeof OperateAgentMetrics>;
 
@@ -428,7 +427,6 @@ export const OperateAgentDetailResult = wire({
   ),
   lifecycle: wire({
     coldStartMs: maybeNum,
-    dylibBytes: maybeNum,
     loads24h: maybeNum,
     evictions24h: maybeNum,
   }),

@@ -37,7 +37,6 @@ export const goalDigger: AgentFixture = {
     toolErrorRate: 0.12,
     txErrorRate: 0.083,
     coldStartMs: 1250,
-    dylibBytes: 4718592,
   },
   detail: {
     funnel: [
@@ -155,7 +154,6 @@ export const goalDigger: AgentFixture = {
     fees24h: "fees 24h 0.00017 SOL",
     lifecycle: [
       ["Cold start", "1250 ms"],
-      ["Dylib size", "4.5 MB"],
       ["Loads · 24h", "3"],
       ["Evictions · 24h", "2"],
     ],

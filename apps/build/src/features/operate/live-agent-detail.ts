@@ -37,9 +37,6 @@ const percentLabel = (value: number | null) =>
 const durationLabel = (value: number | null) =>
   finite(value) ? `${Math.round(value)} ms` : "—";
 
-const bytesLabel = (value: number | null) =>
-  finite(value) ? `${(value / 1024 / 1024).toFixed(1)} MB` : "—";
-
 function relativeTime(timestamp: number): string {
   const seconds = Math.max(0, Math.floor(Date.now() / 1000) - timestamp);
   if (seconds < 60) return "now";
@@ -259,7 +256,6 @@ export function liveAgentDetailView(
       toolErrorRate: health?.toolErrorRate ?? null,
       txErrorRate: health?.txErrorRate ?? null,
       coldStartMs: detail.lifecycle.coldStartMs,
-      dylibBytes: detail.lifecycle.dylibBytes,
     },
     detail: {
       funnel,
@@ -320,7 +316,6 @@ export function liveAgentDetailView(
       fees24h: "receipt fees shown per transaction",
       lifecycle: [
         ["Cold start", durationLabel(detail.lifecycle.coldStartMs)],
-        ["Binary", bytesLabel(detail.lifecycle.dylibBytes)],
         ["Loaded instances", numberLabel(detail.lifecycle.loads24h)],
         ["Evictions", numberLabel(detail.lifecycle.evictions24h)],
       ],

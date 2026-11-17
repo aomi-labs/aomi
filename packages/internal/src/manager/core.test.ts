@@ -138,7 +138,6 @@ describe("manager operate observability", () => {
       toolErrorRate: null,
       txErrorRate: null,
       coldStartMs: null,
-      dylibBytes: null,
     });
     expect(result.agents[0].pricing).toMatchObject({
       loadedAt: 1_785_118_000,
@@ -249,7 +248,6 @@ describe("manager operate observability", () => {
                 tool_error_rate: 0.12,
                 tx_error_rate: 0,
                 cold_start_ms: 1250,
-                dylib_bytes: 4718592,
               },
             },
           ],
@@ -273,7 +271,6 @@ describe("manager operate observability", () => {
       toolErrorRate: 0.12,
       txErrorRate: 0,
       coldStartMs: 1250,
-      dylibBytes: 4718592,
     });
   });
 });
@@ -419,7 +416,6 @@ describe("manager Builder agent", () => {
         ],
         lifecycle: {
           cold_start_ms: 1250,
-          dylib_bytes: 4718592,
           loads_24h: 2,
           evictions_24h: 1,
         },
@@ -716,10 +712,6 @@ describe("manager projects", () => {
               agents: [],
               sdk_version: null,
               sdk_versions: ["3.0.3", "3.0.4"],
-              ffi_version: 1,
-              ffi_versions: [1],
-              required_ffi_version: 1,
-              ffi_unrecorded: false,
             },
           ],
         }),
@@ -729,67 +721,6 @@ describe("manager projects", () => {
     const [source] = await client().listUserProjects({ githubUserId: "42" });
     expect(source.sdkVersion).toBeNull();
     expect(source.sdkVersions).toEqual(["3.0.3", "3.0.4"]);
-    expect(source).toMatchObject({
-      ffiVersion: 1,
-      ffiVersions: [1],
-      requiredFfiVersion: 1,
-      ffiUnrecorded: false,
-      ffiIncompatible: false,
-      ffiUnverifiedSdkVersions: [],
-    });
-  });
-
-  it("tells an unloadable live SDK apart from a missing FFI record", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        Response.json({
-          projects: [
-            {
-              id: 43,
-              installation_id: 1,
-              repository_link: "alice/legacy",
-              platform_name: "community",
-              agents: [],
-              sdk_version: "4.0.0",
-              sdk_versions: ["4.0.0"],
-              ffi_version: null,
-              ffi_versions: [],
-              required_ffi_version: 1,
-              ffi_unrecorded: true,
-              ffi_incompatible: true,
-              ffi_unverified_sdk_versions: ["4.0.0", 7, ""],
-            },
-            {
-              id: 44,
-              installation_id: 1,
-              repository_link: "alice/older-manager",
-              platform_name: "community",
-              agents: [],
-              sdk_version: "4.0.0",
-              sdk_versions: ["4.0.0"],
-              required_ffi_version: 1,
-              ffi_unrecorded: true,
-            },
-          ],
-        }),
-      ),
-    );
-
-    const [legacy, olderManager] = await client().listUserProjects({
-      githubUserId: "42",
-    });
-    expect(legacy).toMatchObject({
-      ffiUnrecorded: true,
-      ffiIncompatible: true,
-      ffiUnverifiedSdkVersions: ["4.0.0"],
-    });
-    // A Manager that predates the field never claims incompatibility.
-    expect(olderManager).toMatchObject({
-      ffiUnrecorded: true,
-      ffiIncompatible: false,
-      ffiUnverifiedSdkVersions: [],
-    });
   });
 });
 

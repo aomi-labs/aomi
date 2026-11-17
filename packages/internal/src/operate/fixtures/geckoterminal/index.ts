@@ -36,7 +36,6 @@ export const geckoterminal: AgentFixture = {
     toolErrorRate: 0.019,
     txErrorRate: null,
     coldStartMs: 890,
-    dylibBytes: 2097152,
   },
   detail: {
     funnel: [
@@ -131,7 +130,6 @@ export const geckoterminal: AgentFixture = {
     fees24h: "no onchain activity",
     lifecycle: [
       ["Cold start", "890 ms"],
-      ["Dylib size", "2.0 MB"],
       ["Loads · 24h", "1"],
       ["Evictions · 24h", "0"],
     ],

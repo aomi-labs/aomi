@@ -69,13 +69,6 @@ export const num = (fallback?: number) =>
 /** A number, or null. */
 export const maybeNum = leaf((value) => (value == null ? null : Number(value)));
 
-/** A positive integer, or null. */
-export const positive = leaf((value) =>
-  typeof value === "number" && Number.isInteger(value) && value > 0
-    ? value
-    : null,
-);
-
 export const flag = leaf((value) => Boolean(value));
 
 /** A flag the manager may not have checked yet: absent reads undefined, "unknown". */

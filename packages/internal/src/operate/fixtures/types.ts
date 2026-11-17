@@ -94,7 +94,6 @@ export type AgentCard = {
   toolErrorRate: number | null;
   txErrorRate: number | null;
   coldStartMs: number | null;
-  dylibBytes: number | null;
 };
 
 export type AgentDetail = {

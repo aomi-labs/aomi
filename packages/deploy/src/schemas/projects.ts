@@ -4,7 +4,6 @@ import { z } from "zod";
 import { DeployError } from "../errors";
 import { PlatformAgent, Project, projectFields } from "./deploy";
 import {
-  confirmed,
   dict,
   flag,
   list,
@@ -14,7 +13,6 @@ import {
   num,
   oneOf,
   opaque,
-  positive,
   strict,
   strings,
   text,
@@ -111,7 +109,6 @@ const AgentManifest = wire({
   path: text(),
   name: text(),
   sdkVersion: maybeText,
-  ffiVersion: positive,
   target: text(),
 });
 export type ProjectAgentManifest = z.output<typeof AgentManifest>;
@@ -156,16 +153,6 @@ const platformName = z.unknown().transform((value) => {
   return value.trim();
 });
 
-const positives = z
-  .unknown()
-  .transform((value) =>
-    Array.isArray(value)
-      ? value.filter(
-          (entry): entry is number => Number.isInteger(entry) && entry > 0,
-        )
-      : [],
-  );
-
 /** A platform-bound project plus its agents. */
 export const UserProject = wire({
   ...projectFields,
@@ -177,16 +164,6 @@ export const UserProject = wire({
   sdkVersion: maybeText,
   /** All distinct SDK versions running across this project's live agents. */
   sdkVersions: strings,
-  /** Verified contract of the live agents; independent of SDK release numbers. */
-  ffiVersion: positive,
-  ffiVersions: positives,
-  requiredFfiVersion: positive,
-  ffiUnrecorded: confirmed,
-  /** A live agent cannot load on this backend: its verified FFI is not the backend's, or its
-   *  recorded SDK maps to no verified FFI. Distinct from `ffiUnrecorded`, a missing record. */
-  ffiIncompatible: confirmed,
-  /** Recorded SDKs of live agents with no verified FFI: the ones `ffiIncompatible` names. */
-  ffiUnverifiedSdkVersions: strings,
 });
 export type UserProject = z.output<typeof UserProject>;
 

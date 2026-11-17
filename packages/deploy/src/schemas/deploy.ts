@@ -205,8 +205,6 @@ export type PlatformAgent = z.output<typeof PlatformAgent>;
 export const ServerTagsResult = wire({
   serverTags: strings,
   sdkVersion: text(),
-  ffiVersion: maybeNum,
-  ffiInterfaces: strings,
 });
 export type ServerTagsResult = z.output<typeof ServerTagsResult>;
 

@@ -125,13 +125,6 @@ export function statementPeriodLabel(
   return `${day(range?.fromDate)} – ${day(range?.toDate)}`;
 }
 
-export function bytesLabel(value: unknown): string | null {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  const mb = n / (1024 * 1024);
-  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(n / 1024)} KB`;
-}
-
 /** Backend-provided chain_name wins; otherwise map known ids, SVM → Solana. */
 export function chainLabel(row: {
   chainName?: string | null;

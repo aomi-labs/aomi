@@ -36,7 +36,6 @@ export const playgroundExample: AgentFixture = {
     toolErrorRate: 0.048,
     txErrorRate: 0,
     coldStartMs: 1010,
-    dylibBytes: 3250585,
   },
   detail: {
     funnel: [
@@ -145,7 +144,6 @@ export const playgroundExample: AgentFixture = {
     fees24h: "gas 24h 0.00037 ETH + 0.000011 SOL",
     lifecycle: [
       ["Cold start", "1010 ms"],
-      ["Dylib size", "3.1 MB"],
       ["Loads · 24h", "2"],
       ["Evictions · 24h", "1"],
     ],

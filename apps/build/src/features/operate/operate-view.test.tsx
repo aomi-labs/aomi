@@ -172,7 +172,6 @@ describe("OperateView transactions", () => {
             p95LatencyMs: 1234,
             inflightRequests: 3,
             coldStartMs: 1250,
-            dylibBytes: 4718592,
           },
         },
       ],
@@ -218,7 +217,7 @@ describe("OperateView transactions", () => {
     );
     // Lifecycle footer.
     expect(
-      screen.getByText(/SDK 3\.0\.2 · cold start 1250 ms · 4\.5 MB/),
+      screen.getByText(/SDK 3\.0\.2 · cold start 1250 ms/),
     ).toBeInTheDocument();
   });
 

@@ -28,7 +28,6 @@ import {
 } from "@/features/deploy/query-keys";
 import { operateFetch, operatePaymentsFetch, type OperateKind } from "./client";
 import {
-  bytesLabel,
   countLabel,
   numberLabel,
   percentLabel,
@@ -418,7 +417,6 @@ function Rows({
             metrics.coldStartMs != null
               ? `cold start ${unitLabel(metrics.coldStartMs, "ms", 0)}`
               : null,
-            bytesLabel(metrics.dylibBytes),
           ].filter(Boolean);
           const detailHref = agentDetailHref(agent);
           const card = (

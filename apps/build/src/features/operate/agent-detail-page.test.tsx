@@ -79,7 +79,6 @@ const payload = {
     ],
     lifecycle: {
       coldStartMs: 1250,
-      dylibBytes: 4718592,
       loads24h: 2,
       evictions24h: 1,
     },
