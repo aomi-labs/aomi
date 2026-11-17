@@ -4,7 +4,7 @@ import { AppWindowIcon, Globe2Icon, WandSparklesIcon } from "lucide-react";
 import { isTestnetChain, shortAddress } from "@aomi-labs/client";
 import { SUPPORTED_CHAINS, getChainInfo, useControl } from "@aomi-labs/react";
 import {
-  agentName,
+  walletName,
   familyTag,
   walletGroups,
 } from "@/account/account-management/wallet-model";
@@ -41,7 +41,7 @@ export function walletPickerItems(rows: readonly WalletRow[]): PickerItem[] {
   return groups.map(({ title, rows: own }) => {
     const walletIds = own.map((row) => `w_${row.linkedWalletId}`);
     const [first] = own;
-    const agent = agentName(first!);
+    const agent = walletName(first!);
     return {
       key: `wallet:${walletIds[0]}`,
       kind: "wallet" as const,

@@ -14,7 +14,7 @@ import { AccountAvatar } from "@/account/account-avatar";
 import { AccountMenu } from "@/account/account-menu";
 import { AccountStatusLine } from "@/account/account-status-line";
 import { useAccountSnapshot } from "@/account/account-snapshot";
-import { agentName } from "@/account/account-management/wallet-model";
+import { walletName } from "@/account/account-management/wallet-model";
 import { PendingMark, StatusPill } from "@/ui/aomi/status-pill";
 import { DisconnectConfirmDialog } from "./disconnect-confirm-dialog";
 import type { WalletAccountMenuOptions } from "@/account/account-menu-types";
@@ -152,7 +152,7 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
   const snapshotName = accountMenu?.primaryLine;
   const activeWallets = adapter.wallets
     .filter((row) => row.active)
-    .map((row) => `${row.family}|${row.address}|${agentName(row)}`)
+    .map((row) => `${row.family}|${row.address}|${walletName(row)}`)
     .join(",");
 
   useEffect(() => {

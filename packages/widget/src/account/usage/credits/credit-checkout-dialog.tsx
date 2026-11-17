@@ -52,7 +52,10 @@ import {
   SheetHeader,
 } from "@/wallet/picker/sheet-parts";
 import { BrandMark } from "@/account/account-management/controls";
-import { agentName, rowTitle } from "@/account/account-management/wallet-model";
+import {
+  walletName,
+  rowTitle,
+} from "@/account/account-management/wallet-model";
 import { PendingMark } from "@/ui/aomi/status-pill";
 import { useAccountCredits } from "@/account/use-account-credits";
 import { billingFromPosition, formatDollars } from "./format";
@@ -720,7 +723,7 @@ export function CreditCheckoutDialog({
                     )}
                   >
                     <BrandMark
-                      brand={agentName(row)}
+                      brand={walletName(row)}
                       dot={row.connected ? "on" : "off"}
                     />
                     <span className="flex min-w-0 flex-1 flex-col">
