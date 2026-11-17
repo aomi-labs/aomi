@@ -16,10 +16,10 @@ export async function startUpstream() {
         expires_at: Date.now() / 1000 + 3600,
       },
       "/api/public/catalog/models": ["gpt-5", "claude-sonnet-4-5"],
-      "/api/public/catalog/apps": [],
+      "/api/public/catalog/toolsets": [],
       "/api/public/catalog/skills": [],
       "/api/thread/models": ["gpt-5", "claude-sonnet-4-5"],
-      "/api/thread/apps": [],
+      "/api/thread/catalog": { toolsets: [], packages: [] },
       "/api/resource/skills": [],
     },
   });

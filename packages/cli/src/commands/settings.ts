@@ -9,7 +9,7 @@ import {
   type ConnectFlags,
 } from "../context";
 import { loadState, updateState } from "../state";
-import { readSecret } from "./apps";
+import { readSecret } from "./packages";
 
 type Flags = ConnectFlags & { json?: boolean };
 

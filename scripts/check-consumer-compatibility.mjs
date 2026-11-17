@@ -190,7 +190,7 @@ import { createRoot } from "react-dom/client";
 import { AomiWidget } from "@aomi-labs/widget";
 import "@aomi-labs/widget/styles.css";
 createRoot(document.getElementById("root")).render(
-  React.createElement(AomiWidget, { applicationId: "1", baseUrl: "https://example.invalid" }),
+  React.createElement(AomiWidget, { agent: "aomi/main", baseUrl: "https://example.invalid" }),
 );
 `,
   );

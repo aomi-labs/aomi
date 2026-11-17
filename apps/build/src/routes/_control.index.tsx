@@ -1,10 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { HomeRedirect } from "@/features/overview/home-redirect";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_control/")({
-  component: HomePage,
+  beforeLoad: () => {
+    throw redirect({ href: "/packages", statusCode: 307 });
+  },
 });
-
-function HomePage() {
-  return <HomeRedirect />;
-}

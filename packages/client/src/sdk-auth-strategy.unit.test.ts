@@ -107,7 +107,7 @@ describe("high-level OAuth strategy", () => {
       strategy: oauth({
         clientId: "managed-client",
         onCode,
-        scopes: ["account:apps:read"],
+        scopes: ["account:packages:read"],
       }),
     });
     await runtime.controller.login();
@@ -117,10 +117,10 @@ describe("high-level OAuth strategy", () => {
       expect.arrayContaining([
         "agent:write",
         "pipeline:execute",
-        "account:apps:read",
+        "account:packages:read",
       ]),
     );
-    expect(input.scopes).not.toContain("account:apps:write");
+    expect(input.scopes).not.toContain("account:packages:write");
     await input.onVerification({
       verificationUri: `${baseUrl}/oauth/device`,
       verificationUriComplete: `${baseUrl}/oauth/device?user_code=ABCD`,

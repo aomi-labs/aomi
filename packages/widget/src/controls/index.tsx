@@ -10,7 +10,6 @@ import { ConnectButton } from "@/wallet/connect-button";
 import { SecretInput } from "@/account/app-secrets/secret-input";
 import type { AomiRoutingConfig } from "./routing";
 import type { AppTagRequest } from "@/composer/capability-composer/model";
-import { AppSecretsDialog } from "@/account/app-secrets/app-secrets-dialog";
 
 // =============================================================================
 // Types
@@ -43,8 +42,6 @@ export type ControlBarProps = {
   hideNetwork?: boolean;
   /** Hide the secrets input */
   hideSecrets?: boolean;
-  /** Hide the per-user API keys button for apps that declare secret slots */
-  hideAppSecrets?: boolean;
 };
 
 // =============================================================================
@@ -60,7 +57,6 @@ export const ControlBar: FC<ControlBarProps> = ({
   hideWallet = true,
   hideNetwork = false,
   hideSecrets = false,
-  hideAppSecrets = false,
 }) => {
   return (
     <div className={cn("flex items-center gap-1", className)}>
@@ -69,7 +65,6 @@ export const ControlBar: FC<ControlBarProps> = ({
       {!hideSafety && <SafetySelect />}
       {!hideWallet && <ConnectButton />}
       {!hideSecrets && <SecretInput />}
-      {!hideAppSecrets && <AppSecretsDialog />}
       {children}
       {!hideApiKey && <ApiKeyInput />}
     </div>
@@ -82,15 +77,14 @@ export const ControlBar: FC<ControlBarProps> = ({
 
 export { ModelSelect, type ModelSelectProps } from "./model-select";
 export { SafetySelect, type SafetySelectProps } from "./safety-select";
-export type {
-  AomiRoutingConfig,
-  DirectRoutingApp,
-} from "./routing";
+export type { AomiRoutingConfig, DirectRoutingApp } from "./routing";
 export { ApiKeyInput, type ApiKeyInputProps } from "./api-key-input";
-export { ConnectButton, type ConnectButtonProps } from "@/wallet/connect-button";
-export { NetworkSelect, type NetworkSelectProps } from "./network-select";
-export { SecretInput, type SecretInputProps } from "@/account/app-secrets/secret-input";
 export {
-  AppSecretsDialog,
-  type AppSecretsDialogProps,
-} from "@/account/app-secrets/app-secrets-dialog";
+  ConnectButton,
+  type ConnectButtonProps,
+} from "@/wallet/connect-button";
+export { NetworkSelect, type NetworkSelectProps } from "./network-select";
+export {
+  SecretInput,
+  type SecretInputProps,
+} from "@/account/app-secrets/secret-input";

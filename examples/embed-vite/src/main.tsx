@@ -1,35 +1,20 @@
 import { createRoot } from "react-dom/client";
-import { AomiWidget, paraAuth, privyAuth, type AomiRoutingConfig, type AomiWidgetAuth } from "@aomi-labs/widget";
+import { AomiWidget, paraAuth, privyAuth, type AomiWidgetAuth } from "@aomi-labs/widget";
 import "@aomi-labs/widget/styles.css";
 import "./styles.css";
 
 const baseUrl =
   import.meta.env.VITE_AOMI_API_URL?.trim() || "http://localhost:3000";
 const params = new URLSearchParams(window.location.search);
-const configuredApplicationId =
-  import.meta.env.VITE_AOMI_APPLICATION_ID?.trim();
-const applicationId =
-  params.get("application_id")?.trim() || configuredApplicationId;
-const numericApplicationId = Number(applicationId);
-const routing: AomiRoutingConfig =
-  Number.isSafeInteger(numericApplicationId) && numericApplicationId > 0
-    ? {
-        targets: [
-          { mode: "auto" },
-          {
-            mode: "direct",
-            apps: [{ applicationId: numericApplicationId }],
-          },
-        ],
-      }
-    : { targets: [{ mode: "auto" }] };
+const configuredAgent = import.meta.env.VITE_AOMI_AGENT?.trim();
+const agent = params.get("agent")?.trim() || configuredAgent || "aomi/main";
 const providerParam = params.get("provider");
 const provider =
   providerParam === "para" || providerParam === "privy"
     ? providerParam
     : "browser";
 const initialThreadId =
-  applicationId === configuredApplicationId
+  agent === configuredAgent
     ? import.meta.env.VITE_AOMI_THREAD_ID?.trim()
     : undefined;
 const paraApiKey = import.meta.env.VITE_PARA_API_KEY?.trim();
@@ -55,13 +40,13 @@ function providerHref(nextProvider: "browser" | "para" | "privy") {
 }
 
 function App() {
-  if (!applicationId || !auth) {
+  if (!auth) {
     return (
       <main className="setup">
         <h1>Aomi widget consumer</h1>
         <p>
-          Copy .env.example to .env.local and set VITE_AOMI_APPLICATION_ID
-          {provider === "para" ? " and VITE_PARA_API_KEY" : ""}
+          Copy .env.example to .env.local and set
+          {provider === "para" ? " VITE_PARA_API_KEY" : ""}
           {provider === "privy" ? " and VITE_PRIVY_APP_ID" : ""}.
         </p>
       </main>
@@ -99,16 +84,14 @@ function App() {
           </a>
         </nav>
         <p className="fixture-note">
-          Provider selection and allowed routing are host concerns. This fixture
-          offers Auto plus its hosted application as Direct.
+          Provider selection is a host concern. This fixture embeds one agent.
         </p>
       </header>
       <AomiWidget
-        applicationId={applicationId}
+        agent={agent}
         initialThreadId={initialThreadId}
         baseUrl={baseUrl}
         auth={auth}
-        routing={routing}
         wallets={{
           evm: {
             preset: "popular",

@@ -9,11 +9,11 @@ import {
 } from "@stricli/core";
 import packageJson from "../package.json";
 import * as account from "./commands/account";
-import * as apps from "./commands/apps";
+import * as packages from "./commands/packages";
 import { chat } from "./commands/chat";
-import * as deploy from "./commands/deploy";
 import { guard } from "./commands/guard";
 import * as pipeline from "./commands/pipeline";
+import * as release from "./commands/release";
 import * as settings from "./commands/settings";
 import * as threads from "./commands/threads";
 import * as rules from "./commands/rules";
@@ -76,20 +76,19 @@ const signing = {
   }),
   chain: text("Chain id", { parse: parseChain, placeholder: "id" }),
 };
-const deployFlags = {
+/** Who publishes: a builder key, and where Build is. */
+const builder = {
   ...json,
-  activationToken: text("Platform activation token; env AOMI_DEPLOY_TOKEN", {
-    placeholder: "token",
+  keyFile: text("Read the builder key from this file; env AOMI_BUILDER_KEY", {
+    placeholder: "path",
   }),
-  platform: text(
-    "Deploy platform (default community); env AOMI_DEPLOY_PLATFORM",
-    { placeholder: "name" },
-  ),
-  backendUrl: text("Manager URL (default https://api.aomi.dev)", {
+  buildUrl: text("Build URL (default https://build.aomi.dev); env AOMI_BUILD_URL", {
     hidden: true,
     placeholder: "url",
   }),
 };
+const many = (brief: string, placeholder: string) =>
+  text(brief, { placeholder, variadic: true });
 
 const arg = (brief: string, placeholder: string, optional = false) => ({
   brief,
@@ -160,9 +159,12 @@ const BRIEFS = {
   rules: "What the agent may sign",
   tx: "Review, approve, sign, export",
   guard: "Spending limits for signing",
-  apps: "Install apps, set credentials",
+  packages: "Turn packages on or off, connect keys",
   pipeline: "Call app operations directly",
-  deploy: "Ship your own app",
+  publish: "Build and upload packages and agents",
+  promote: "Make a release live",
+  rollback: "Make an earlier release live",
+  releases: "A package's or agent's releases",
   model: "Pick the model",
   chain: "Pick the chain",
   keys: "Your own provider keys",
@@ -447,45 +449,48 @@ const root = routes(
       [arg("strict, balanced or yolo", "mode", true)],
       guard,
     ),
-    apps: routes(
-      BRIEFS.apps,
+    packages: routes(
+      BRIEFS.packages,
       {
-        list: command("Apps you can use", { ...json, ...conn }, [], apps.list),
-        install: command(
-          "Install an app",
-          { ...json, ...conn },
-          [arg("App name", "name")],
-          apps.install,
-        ),
-        uninstall: command(
-          "Uninstall an app",
-          { ...json, ...conn },
-          [arg("App name", "name")],
-          apps.uninstall,
-        ),
-        credentials: routes(
-          "An app's credentials",
+        list: command(
+          "Packages and whether each is on",
           {
-            list: command(
-              "The app's credential slots",
-              { ...json, ...conn },
-              [arg("App name", "name")],
-              apps.credentials,
-            ),
-            set: command(
-              "Set one (value from stdin or a prompt)",
-              { ...json, ...conn },
-              [arg("App name", "name"), arg("Credential", "key")],
-              apps.setCredential,
-            ),
-            remove: command(
-              "Remove one",
-              conn,
-              [arg("App name", "name"), arg("Credential", "key")],
-              apps.removeCredential,
-            ),
+            ...json,
+            ...conn,
+            thread: text("The thread's agent", { placeholder: "id" }),
           },
-          { default: "list" },
+          [],
+          packages.list,
+        ),
+        on: command(
+          "Turn a package on",
+          { ...json, ...conn, yes: yes("Skip the confirmation") },
+          [arg("Package, publisher/name", "package")],
+          packages.on,
+        ),
+        off: command(
+          "Turn a package off",
+          { ...json, ...conn },
+          [arg("Package, publisher/name", "package")],
+          packages.off,
+        ),
+        reset: command(
+          "Go back to the package's default",
+          { ...json, ...conn },
+          [arg("Package, publisher/name", "package")],
+          packages.reset,
+        ),
+        connect: command(
+          "Add your key for a slot (value from stdin or a prompt)",
+          { ...json, ...conn },
+          [arg("Package, publisher/name", "package"), arg("Slot", "slot")],
+          packages.connectSlot,
+        ),
+        disconnect: command(
+          "Remove your key for a slot",
+          conn,
+          [arg("Package, publisher/name", "package"), arg("Slot", "slot")],
+          packages.disconnectSlot,
         ),
       },
       { default: "list" },
@@ -576,42 +581,46 @@ const root = routes(
       },
       { default: "ops" },
     ),
-    deploy: routes(
-      BRIEFS.deploy,
+    publish: command(
+      BRIEFS.publish,
       {
-        run: command(
-          "Deploy the current commit",
-          {
-            ...deployFlags,
-            projectId: int("Project id; env AOMI_PROJECT_ID"),
-            branch: text("Deploy this branch's tip", { placeholder: "branch" }),
-            commit: text("Deploy this commit", { placeholder: "sha" }),
-            preflight: yes("Preview the manifest only"),
-          },
-          [],
-          deploy.deploy,
-        ),
-        status: command(
-          "The deployment's state",
-          {
-            ...deployFlags,
-            deploymentId: text("Deployment id", { placeholder: "id" }),
-            watch: yes("Poll until it is ready or failed"),
-          },
-          [],
-          deploy.status,
-        ),
-        activate: command(
-          "Promote the deployment",
-          {
-            ...deployFlags,
-            deploymentId: text("Deployment id", { placeholder: "id" }),
-          },
-          [],
-          deploy.activate,
-        ),
+        ...builder,
+        root: text("Folder with the root aomi.toml (default .)", {
+          placeholder: "dir",
+        }),
+        package: many("Only this package (repeatable)", "name"),
+        agent: many("Only this agent (repeatable)", "name"),
+        promote: yes("Make each new release live"),
+        build: yes("Build each package with cargo (--no-build skips)", {
+          default: true,
+          optional: undefined,
+        }),
+        wasm: many("Use this component for a package", "name=path"),
       },
-      { default: "run", hidden: ["run"] },
+      [],
+      release.publish,
+    ),
+    promote: command(
+      BRIEFS.promote,
+      builder,
+      [arg("package or agent", "kind"), arg("Name", "name"), arg("Release", "number")],
+      release.promote,
+    ),
+    rollback: command(
+      BRIEFS.rollback,
+      builder,
+      [
+        arg("package or agent", "kind"),
+        arg("Name", "name"),
+        arg("Release (default: the one before live)", "number", true),
+      ],
+      release.rollback,
+    ),
+    releases: command(
+      BRIEFS.releases,
+      builder,
+      [arg("package or agent", "kind"), arg("Name", "name")],
+      release.releases,
     ),
     model: routes(
       BRIEFS.model,
@@ -727,7 +736,8 @@ const GROUPS: [string, (keyof typeof BRIEFS)[]][] = [
   ["CHAT", ["chat", "threads"]],
   ["ACCOUNT", ["login", "logout", "whoami", "account"]],
   ["WALLETS & TRADES", ["wallets", "rules", "tx", "guard"]],
-  ["APPS", ["apps", "pipeline", "deploy"]],
+  ["APPS", ["packages", "pipeline"]],
+  ["PACKAGES", ["publish", "promote", "rollback", "releases"]],
 ];
 const SETTINGS: (keyof typeof BRIEFS)[] = [
   "model",

@@ -119,6 +119,20 @@ async function setup(initialState: "complete" | "interrupted" = "complete") {
 }
 
 describe("ClientSession durable conversation intents", () => {
+  it("starts a turn for the configured agent", async () => {
+    const { session, start } = await setup();
+    start.mockResolvedValue(acceptedBranch("edit"));
+    session.syncRuntimeOptions({
+      target: { mode: "direct", agent: " acme/bot " },
+    });
+    await session.sendAsync(revisedText, { edit: "original-request" });
+    expect(start.mock.calls[0]![0]).toMatchObject({
+      mode: "direct",
+      agent: "acme/bot",
+    });
+    expect(start.mock.calls[0]![0]).not.toHaveProperty("app");
+  });
+
   it("forwards edit to the selected durable user message and projects the acknowledged replacement", async () => {
     const { session, start } = await setup();
     start.mockResolvedValue(acceptedBranch("edit"));

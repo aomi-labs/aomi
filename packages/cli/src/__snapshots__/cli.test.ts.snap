@@ -184,9 +184,14 @@ WALLETS & TRADES
   guard      Spending limits for signing
 
 APPS
-  apps       Install apps, set credentials
+  packages   Turn packages on or off, connect keys
   pipeline   Call app operations directly
-  deploy     Ship your own app
+
+PACKAGES
+  publish    Build and upload packages and agents
+  promote    Make a release live
+  rollback   Make an earlier release live
+  releases   A package's or agent's releases
 
 SETTINGS
   model  chain  keys  secret  config  completion

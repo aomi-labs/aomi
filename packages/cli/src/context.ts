@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
+import { createInterface } from "node:readline/promises";
 import {
   Aomi,
   AomiError,
@@ -29,6 +30,16 @@ export class CliError extends Error {
     readonly exitCode = 1,
   ) {
     super(message);
+  }
+}
+
+export async function confirm(question: string): Promise<boolean> {
+  if (!process.stdin.isTTY) throw usage("Pass --yes outside a terminal");
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    return /^y(es)?$/i.test((await rl.question(`${question} [y/N] `)).trim());
+  } finally {
+    rl.close();
   }
 }
 
@@ -61,8 +72,8 @@ const SCOPES = [
   "pipeline:catalog",
   "pipeline:execute",
   "payments:submit",
-  "account:apps:read",
-  "account:apps:write",
+  "account:packages:read",
+  "account:packages:write",
   "account:credentials:read",
   "account:credentials:write",
   "account:transaction-safety:read",

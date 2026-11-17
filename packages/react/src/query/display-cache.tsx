@@ -29,7 +29,7 @@ export type DisplayResource =
   | "profile"
   | "credits"
   | "credit-ledger"
-  | "account-apps"
+  | "account-packages"
   | "transaction-safety"
   | "usage"
   | "account-wallets"

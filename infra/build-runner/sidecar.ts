@@ -1,6 +1,6 @@
 /**
  * Live-files sidecar for the build-runner image. Serves the generated crate
- * (apps/<app> under the SDK root) over the sandbox's exposed port so the BFF
+ * (packages/<name> under the SDK root) over the sandbox's exposed port so the BFF
  * can show Files/file contents while the run works — the microVM's disk is
  * otherwise invisible to the web tier.
  *
@@ -132,27 +132,27 @@ declare const Bun: {
 
 if ((import.meta as { main?: boolean }).main) {
   const sdkRoot = process.argv[2] ?? "/workspace/aomi-sdk";
-  const app = process.env.AOMI_SIDECAR_APP ?? "";
+  const packageName = process.env.AOMI_SIDECAR_APP ?? "";
   const expected: SidecarBearerExpectations = {
     publicKeyPem: process.env.AOMI_SIDECAR_PUBKEY ?? "",
     runId: process.env.AOMI_SIDECAR_RUN_ID ?? "",
   };
   const port = Number(process.env.AOMI_SIDECAR_PORT) || 8722;
-  const appDir = path.join(sdkRoot, "apps", app);
+  const packageDir = path.join(sdkRoot, "packages", packageName);
 
   const tree = (): Node[] => {
-    if (!app || !existsSync(appDir)) return [];
-    return [{ path: app, type: "folder", children: walk(appDir, app, 0) }];
+    if (!packageName || !existsSync(packageDir)) return [];
+    return [{ path: packageName, type: "folder", children: walk(packageDir, packageName, 0) }];
   };
 
-  /** Resolve a display path ("<app>/src/tool.rs") inside the jail, or null. */
+  /** Resolve a display path ("<name>/src/lib.rs") inside the jail, or null. */
   const jailedFile = (relPath: string): string | null => {
-    if (!app) return null;
-    const prefix = `${app}/`;
-    if (relPath !== app && !relPath.startsWith(prefix)) return null;
-    const inside = relPath === app ? "" : relPath.slice(prefix.length);
-    const resolved = path.resolve(appDir, inside);
-    if (resolved !== appDir && !resolved.startsWith(appDir + path.sep)) {
+    if (!packageName) return null;
+    const prefix = `${packageName}/`;
+    if (relPath !== packageName && !relPath.startsWith(prefix)) return null;
+    const inside = relPath === packageName ? "" : relPath.slice(prefix.length);
+    const resolved = path.resolve(packageDir, inside);
+    if (resolved !== packageDir && !resolved.startsWith(packageDir + path.sep)) {
       return null;
     }
     return resolved;
@@ -192,5 +192,5 @@ if ((import.meta as { main?: boolean }).main) {
     },
   });
 
-  console.log(`sidecar serving apps/${app} on :${port}`);
+  console.log(`sidecar serving packages/${packageName} on :${port}`);
 }

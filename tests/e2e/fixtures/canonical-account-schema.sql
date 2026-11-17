@@ -13,8 +13,10 @@
 --   20261020040000_agent_wallets.sql (agent_wallets, agent_wallet_keys,
 --     users.agents_paused, account_connections and wallet_access; without
 --     the backfill and the composite same-user foreign keys)
---   applications: only the columns wallet lists and the connections route read
---   threads and bot_registrations: only the columns the Telegram part of
+--   20261116120000_unified_packages.sql (agents, channels and the renamed
+--     agent columns; users.applications is dropped)
+--   agents: only the columns wallet lists and the connections route read
+--   threads and channels: only the columns the Telegram part of
 --     GET /v1/account/connections reads
 --   20261026060000_account_link.sql (account_link_codes only: the
 --     connections route reads linked_from/linked_at from it)
@@ -26,7 +28,6 @@ create extension if not exists pgcrypto;
 create table if not exists users (
   id text primary key default gen_random_uuid()::text,
   username text unique,
-  applications text[] not null default array['default']::text[],
   tier text not null default 'free',
   status text not null default 'active',
   last_seen_at bigint,
@@ -92,10 +93,10 @@ create unique index if not exists public_keys_primary_per_provider_uidx
   where is_primary and auth_provider_id is not null;
 
 -- Only the columns wallet lists and the connections route read.
-create table if not exists applications (
+create table if not exists agents (
   id bigserial primary key,
   name text not null,
-  label text not null
+  display_name text not null
 );
 
 -- The wallet the user sees. No account has one by default.
@@ -106,7 +107,7 @@ create table if not exists agent_wallets (
   para_subject text not null unique,
   paused boolean not null default false,
   archived_at bigint,
-  created_by_app bigint references applications(id),
+  created_by_agent_id bigint references agents(id),
   last_used_at bigint,
   created_at bigint not null,
   updated_at bigint not null,
@@ -134,7 +135,7 @@ create table if not exists account_connections (
   key text not null
     check (key ~ '^(portal|cli|[a-z]+:[A-Za-z0-9._~-]{1,200})$'),
   label text,
-  application_id bigint references applications(id),
+  agent_id bigint references agents(id),
   ask_only boolean not null default false,
   last_used_at bigint,
   created_at bigint not null,
@@ -160,17 +161,17 @@ create table if not exists threads (
   user_id text references users(id)
 );
 
-create table if not exists bot_registrations (
+create table if not exists channels (
   id text primary key,
   owner_user_id text references users(id),
-  platform text not null,
+  kind text not null,
   status text not null default 'active',
   label text,
-  platform_bot_id text not null,
+  external_bot_id text not null,
   platform_username text,
   created_at bigint not null,
   updated_at bigint not null,
-  unique (platform, platform_bot_id)
+  unique (kind, external_bot_id)
 );
 
 -- One-time link codes (product-mono 20261026060000_account_link).

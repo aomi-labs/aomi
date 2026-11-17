@@ -637,7 +637,7 @@ describe("manager cutover routing", () => {
       "/api/platforms/community/apps",
       "/api/account",
       "/api/account/grants",
-      "/api/account/apps",
+      "/api/account/packages",
       "/api/account/bots/bot_1/extra",
       "/api/account/providers/para/agent-wallet",
     ]) {

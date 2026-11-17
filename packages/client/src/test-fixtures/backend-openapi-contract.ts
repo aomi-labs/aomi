@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { AOMI_BACKEND_ENDPOINTS } from "./routes";
+import { AOMI_AUTH_CLASSES, AOMI_BACKEND_ENDPOINTS } from "./routes";
 import type { AomiAuthClass, AomiHttpMethod } from "./routes";
 
 type OpenApiOperation = {
@@ -76,7 +76,9 @@ export function routeContractFromOpenApi(openApi: OpenApiDocument) {
       const auth = operation["x-aomi-auth"];
       expect(isAomiAuthList(auth), `${method} ${path} x-aomi-auth`).toBe(true);
       if (!isAomiAuthList(auth)) {
-        throw new Error(`${method} ${path} has an invalid x-aomi-auth contract`);
+        throw new Error(
+          `${method} ${path} has an invalid x-aomi-auth contract`,
+        );
       }
       routes.push(`${method} ${path} ${authLabel(auth)}`);
     }
@@ -98,23 +100,5 @@ function isAomiAuthList(value: unknown): value is readonly AomiAuthClass[] {
 }
 
 function isAomiAuthClass(value: unknown): value is AomiAuthClass {
-  return (
-    value === "public" ||
-    value === "thread" ||
-    value === "account" ||
-    value === "agent_adapter" ||
-    value === "app_gate" ||
-    value === "delegated" ||
-    value === "service" ||
-    value === "builder:read" ||
-    value === "project:deploy" ||
-    value === "project:activate" ||
-    value === "project:observe" ||
-    value === "admin" ||
-    value === "activation" ||
-    value === "activation-admin" ||
-    value === "activation-or-wallet" ||
-    value === "wallet" ||
-    value === "wallet-session"
-  );
+  return (AOMI_AUTH_CLASSES as readonly unknown[]).includes(value);
 }

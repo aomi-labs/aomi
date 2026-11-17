@@ -100,22 +100,6 @@ describe("account overview", () => {
     act(() => store.seedAccountOverview({ user: { user_id: "acct-b" } }));
     expect(screen.getByText("none")).toBeTruthy();
   });
-
-  it("updates installed apps only for the account the profile belongs to", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => new Promise<Response>(() => {})),
-    );
-    render(frame(user("acct-a")));
-    act(() =>
-      store.seedAccountOverview({ user: { user_id: "acct-a", apps: [] } }),
-    );
-    act(() => store.updateAccountApps("acct-b", ["other"]));
-    act(() => store.updateAccountApps("acct-a", ["uniswap"], [7]));
-    expect(cache.client.getQueryData(cache.key("profile"))).toEqual({
-      user: { user_id: "acct-a", apps: ["uniswap"], application_ids: [7] },
-    });
-  });
 });
 
 describe("formatAllowanceSummary", () => {

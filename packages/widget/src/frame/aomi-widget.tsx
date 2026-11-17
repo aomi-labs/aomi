@@ -33,11 +33,6 @@ import {
   type AomiWidgetAuth,
   type ResolvedWidgetAuth,
 } from "./widget-auth";
-import {
-  normalizeAomiRouting,
-  toAgentTarget,
-  type AomiRoutingConfig,
-} from "@/controls/routing";
 
 export type WalletPresentationConfig = WalletsConfig;
 
@@ -45,8 +40,11 @@ export type AomiWidgetTheme = "light" | "dark" | "system";
 
 export type AomiWidgetProps = {
   children?: ReactNode;
-  /** The hosted App's Application ID; scopes threads and sign-in state. */
-  applicationId: string | number;
+  /**
+   * The one agent this widget talks to, `publisher/name`. Every new thread is
+   * created for it and keeps it. Defaults to `aomi/main`.
+   */
+  agent?: string;
   /** Aomi backend origin. Defaults to https://aomi.chat. */
   baseUrl?: string;
   /** Color theme. "system" follows the visitor's OS setting. Defaults to "system". */
@@ -61,9 +59,7 @@ export type AomiWidgetProps = {
   showHeader?: boolean;
   /** Portal controls enabled by default; account management remains available. */
   features?: AomiWidgetFeatures;
-  controlBarProps?: Omit<AomiFrameControlBarProps, "children">;
-  /** Execution modes and Direct apps available in this widget. Defaults to Auto only. */
-  routing?: AomiRoutingConfig;
+  controlBarProps?: Omit<AomiFrameControlBarProps, "children" | "routing">;
   clientOptions?: Omit<AomiClientOptions, "baseUrl" | "getAccountBearer">;
   /** Select the account's saved BYOK key for Agent turns. */
   persistThread?: boolean;
@@ -80,26 +76,23 @@ export type AomiWidgetProps = {
 };
 
 const DEFAULT_BASE_URL = "https://aomi.chat";
+const AGENT_ID = /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*$/;
 const THEMES: readonly AomiWidgetTheme[] = ["light", "dark", "system"];
 
 type WidgetConfig =
   | { error: string }
   | {
-      applicationId: string;
+      agent: string;
       baseUrl: string;
       resolved: ResolvedWidgetAuth;
     };
 
 /** Validate props at the edge so a host mistake reads as a message, not a crash. */
 function resolveWidgetConfig(props: AomiWidgetProps): WidgetConfig {
-  const applicationId =
-    typeof props.applicationId === "number"
-      ? String(props.applicationId)
-      : props.applicationId;
-  if (typeof applicationId !== "string" || !applicationId.trim())
+  const agent = props.agent?.trim() || "aomi/main";
+  if (!AGENT_ID.test(agent))
     return {
-      error:
-        'applicationId is required: pass your hosted App\'s Application ID, e.g. <AomiWidget applicationId="123" />.',
+      error: `agent must look like "publisher/name"; got ${JSON.stringify(props.agent)}.`,
     };
   const baseUrl = (props.baseUrl ?? DEFAULT_BASE_URL).replace(
     /\/+$/,
@@ -115,7 +108,7 @@ function resolveWidgetConfig(props: AomiWidgetProps): WidgetConfig {
     };
   const resolved = resolveWidgetAuth(props.auth);
   if ("error" in resolved) return resolved;
-  return { applicationId, baseUrl, resolved };
+  return { agent, baseUrl, resolved };
 }
 
 function WidgetConfigError({
@@ -158,19 +151,19 @@ function useThemeClass(theme: AomiWidgetTheme): "light" | "dark" {
 }
 
 export function AomiWidget(props: AomiWidgetProps) {
-  const { applicationId, baseUrl, theme } = props;
+  const { agent, baseUrl, theme } = props;
   // Hosts usually build auth inline (auth={privyAuth(…)}); key it by value so
   // a re-render does not restart the wallet island.
   const authKey = JSON.stringify(props.auth ?? null);
   const config = useMemo(
     () =>
       resolveWidgetConfig({
-        applicationId,
+        agent,
         baseUrl,
         theme,
         auth: JSON.parse(authKey) ?? undefined,
       }),
-    [applicationId, baseUrl, theme, authKey],
+    [agent, baseUrl, theme, authKey],
   );
   if ("error" in config)
     return (
@@ -180,7 +173,7 @@ export function AomiWidget(props: AomiWidgetProps) {
 }
 
 function ConfiguredWidget({
-  applicationId,
+  agent,
   baseUrl,
   resolved,
   ...props
@@ -194,7 +187,7 @@ function ConfiguredWidget({
 
   return (
     <AomiWalletKitProvider
-      applicationId={applicationId}
+      applicationId={agent}
       auth={auth}
       providers={providers}
       wallets={props.wallets}
@@ -205,7 +198,7 @@ function ConfiguredWidget({
       <ApprovalAuthorityContext.Provider value={false}>
         <WidgetFrame
           baseUrl={baseUrl}
-          applicationId={applicationId}
+          agent={agent}
           width={props.width}
           height={props.height}
           className={cn(themeClass, props.className)}
@@ -216,7 +209,6 @@ function ConfiguredWidget({
           showHeader={props.showHeader}
           features={props.features}
           controlBarProps={props.controlBarProps}
-          routing={props.routing}
           clientOptions={props.clientOptions}
           persistThread={props.persistThread}
           threadPersistenceKey={props.threadPersistenceKey}
@@ -243,7 +235,6 @@ type WidgetFrameProps = Pick<
   | "showHeader"
   | "features"
   | "controlBarProps"
-  | "routing"
   | "clientOptions"
   | "persistThread"
   | "threadPersistenceKey"
@@ -251,11 +242,11 @@ type WidgetFrameProps = Pick<
   | "initialThreadId"
   | "threadId"
   | "onThreadChange"
-> & { baseUrl: string; applicationId: string };
+> & { baseUrl: string; agent: string };
 
 function WidgetFrame({
   baseUrl,
-  applicationId,
+  agent,
   width = "100%",
   height = "80vh",
   className,
@@ -266,7 +257,6 @@ function WidgetFrame({
   showHeader = true,
   features,
   controlBarProps,
-  routing,
   clientOptions,
   persistThread,
   threadPersistenceKey,
@@ -299,14 +289,11 @@ function WidgetFrame({
   );
   const showNetworkInHeader =
     showHeader && controlBarProps?.hideNetwork !== true;
-  const resolvedRouting = routing ?? controlBarProps?.routing;
-  const normalizedRouting = normalizeAomiRouting(resolvedRouting);
-  const fixedAgentTarget =
-    normalizedRouting.modes.length === 1 &&
-    normalizedRouting.modes[0] === "direct" &&
-    normalizedRouting.directApps.length === 1
-      ? toAgentTarget(normalizedRouting.directApps[0]!)
-      : undefined;
+  // One agent per widget: every thread is created for it, never a picker.
+  const agentTarget = useMemo(
+    () => ({ mode: "direct" as const, agent }),
+    [agent],
+  );
   return (
     <ShellTransportProvider
       baseUrl={baseUrl}
@@ -314,8 +301,8 @@ function WidgetFrame({
     >
       <AomiFrame.Root
         backendUrl={baseUrl}
-        applicationId={applicationId}
-        agentTarget={fixedAgentTarget}
+        applicationId={agent}
+        agentTarget={agentTarget}
         accountSessionAvailable={Boolean(walletKit.accountUser)}
         clientOptions={runtimeClientOptions}
         width={width}
@@ -357,7 +344,6 @@ function WidgetFrame({
             hideApiKey: true,
             ...controlBarProps,
             hideNetwork: showNetworkInHeader || controlBarProps?.hideNetwork,
-            routing: resolvedRouting,
           }}
         />
       </AomiFrame.Root>

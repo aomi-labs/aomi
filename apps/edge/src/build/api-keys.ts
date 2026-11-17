@@ -2,7 +2,7 @@
  * Builder API keys: a long-lived credential a builder creates on the portal
  * and a script sends as `Authorization: Bearer aomi_key_…`. The edge owns the
  * `api_keys` table (its migration ships in product-mono) and stores only the
- * key's SHA-256. A key names its builder and up to three capabilities; the
+ * key's SHA-256. A key names its builder and some of `KEY_CAPABILITIES`; the
  * manager enforces them on the builder bearer the edge mints for the call.
  *
  * Managing keys takes the portal's GitHub session cookie. A CLI bearer or a
@@ -21,8 +21,24 @@ import type { BuildContext } from "./context";
 import type { BuildRoute } from "./endpoint";
 
 export const API_KEY_PREFIX = "aomi_key_";
+/**
+ * The release capabilities: publishing and promoting packages and agents
+ * (rollback is a promote) and setting a package's builder secrets.
+ */
+export const RELEASE_CAPABILITIES = [
+  "package:publish",
+  "package:promote",
+  "agent:publish",
+  "agent:promote",
+  "package:secrets",
+] as const;
 /** The capabilities a key can hold; the manager's route labels. */
-export const KEY_CAPABILITIES = ["project:deploy", "project:activate", "project:observe"] as const;
+export const KEY_CAPABILITIES = [
+  "project:deploy",
+  "project:activate",
+  "project:observe",
+  ...RELEASE_CAPABILITIES,
+] as const;
 /** The characters of a key kept in the clear so its owner can tell keys apart. */
 const DISPLAY_PREFIX_LENGTH = 16;
 

@@ -31,7 +31,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => ({
     select: (location: { pathname: string; searchStr: string }) => unknown;
   }) =>
     options.select({
-      pathname: "/projects",
+      pathname: "/agents",
       searchStr: searchParams.current.toString(),
     }),
   useRouter: () => ({ preloadRoute: vi.fn(), history }),
@@ -132,8 +132,8 @@ describe("OperateView transactions", () => {
       expect(screen.getByText(/no transactions yet/i)).toBeInTheDocument();
     });
     expect(
-      screen.getByRole("link", { name: /open projects/i }),
-    ).toHaveAttribute("href", "/projects");
+      screen.getByRole("link", { name: /open agents/i }),
+    ).toHaveAttribute("href", "/agents");
   });
 
   it("renders 24h trend tiles and error split when the manager emits them", async () => {

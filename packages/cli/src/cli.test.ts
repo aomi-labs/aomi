@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { Readable } from "node:stream";
 import { Keypair } from "@solana/web3.js";
 import bs58 from "bs58";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -197,9 +198,12 @@ describe("help", () => {
 });
 
 describe("command validation", () => {
-  it.each(["session", "wallet", "app", "byok"])("rejects retired command %s", async (name) => {
-    expect((await cli(name)).code).toBe(2);
-  });
+  it.each(["session", "wallet", "app", "byok"])(
+    "rejects retired command %s",
+    async (name) => {
+      expect((await cli(name)).code).toBe(2);
+    },
+  );
 
   it("is a usage error to mistype a command or pass a non-decimal chain", async () => {
     expect((await cli("thraeds")).code).toBe(2);
@@ -369,7 +373,150 @@ describe("sign-in", () => {
       "Bearer device-token",
     );
   });
+});
 
+describe("aomi packages", () => {
+  const row = (id: number, name: string, more: object = {}) => ({
+    package_id: id,
+    id: `acme/${name}`,
+    display_name: name,
+    description: "",
+    icon_url: null,
+    families: ["evm"],
+    tool_count: 1,
+    skills: [],
+    live: { release: 1, digest: "d" },
+    verified: true,
+    listed: true,
+    agent_listed: false,
+    choice: null,
+    enabled: false,
+    reason: "off_by_default",
+    envelope: {
+      hash: "h",
+      hosts: ["api.acme.dev"],
+      transactions: ["evm"],
+      signatures: [],
+    },
+    slots: [],
+    ...more,
+  });
+  const packages = [
+    row(1, "swap", {
+      enabled: true,
+      reason: "verified_default",
+      slots: [
+        {
+          name: "API_KEY",
+          owner: "person",
+          description: "",
+          required: true,
+          status: "missing",
+        },
+      ],
+    }),
+    row(2, "core", {
+      enabled: true,
+      agent_listed: true,
+      reason: "agent_listed",
+    }),
+    row(3, "lend"),
+  ];
+
+  beforeEach(() => {
+    routes["GET /api/account/packages"] = {
+      agent: { id: "aomi/main", display_name: "Aomi" },
+      packages,
+    };
+    routes["PUT /api/account/packages/3/choice"] = {
+      ...packages[2],
+      enabled: true,
+    };
+    routes["PUT /api/account/packages/1/secrets/API_KEY"] = {
+      slot: "API_KEY",
+      status: "ready",
+    };
+  });
+  afterEach(() => {
+    for (const key of Object.keys(routes))
+      if (key.includes("/api/account/packages")) delete routes[key];
+  });
+
+  it("lists each package with its state and reason", async () => {
+    const { code, stdout } = await cli("packages", "--private-key", KEY);
+    expect(code).toBe(0);
+    expect(stdout.split("\n")).toEqual([
+      "acme/swap  on (on by default)  verified  evm  needs API_KEY",
+      "acme/core  on (the agent lists it)  verified  evm",
+      "acme/lend  off (off by default)  verified  evm",
+      "",
+    ]);
+  });
+
+  it("shows the notice and turns nothing on without --yes", async () => {
+    const { code, stdout, stderr } = await cli(
+      "packages",
+      "on",
+      "acme/lend",
+      "--private-key",
+      KEY,
+    );
+    expect(code).toBe(2);
+    expect(stdout).toContain("reach api.acme.dev");
+    expect(stdout).toContain("approve evm transactions");
+    expect(stderr).toContain("--yes");
+    expect(requests.some((r) => r.key.startsWith("PUT"))).toBe(false);
+  });
+
+  it("turns a package on with --yes", async () => {
+    const { code, stdout } = await cli(
+      "packages",
+      "on",
+      "acme/lend",
+      "--yes",
+      "--private-key",
+      KEY,
+    );
+    expect(code).toBe(0);
+    expect(stdout).toBe("acme/lend is on\n");
+    const sent = requests.find((r) => r.key.startsWith("PUT"));
+    expect(sent?.body).toBe('{"enabled":true}');
+  });
+
+  it("refuses off for an agent-listed package and exits non-zero", async () => {
+    const { code, stderr } = await cli(
+      "packages",
+      "off",
+      "acme/core",
+      "--private-key",
+      KEY,
+    );
+    expect(code).toBe(1);
+    expect(stderr).toContain("the agent lists it");
+    expect(requests.some((r) => r.key.startsWith("PUT"))).toBe(false);
+  });
+
+  it("connects a slot from stdin and never prints the value", async () => {
+    const stdin = Object.getOwnPropertyDescriptor(process, "stdin");
+    Object.defineProperty(process, "stdin", {
+      value: Readable.from(["s3cret-value\n"]),
+      configurable: true,
+    });
+    const { code, stdout, stderr } = await cli(
+      "packages",
+      "connect",
+      "acme/swap",
+      "API_KEY",
+      "--private-key",
+      KEY,
+    );
+    Object.defineProperty(process, "stdin", stdin!);
+    expect(code).toBe(0);
+    expect(stdout).toBe("API_KEY connected\n");
+    expect(stdout + stderr).not.toContain("s3cret-value");
+    const sent = requests.find((r) => r.key.startsWith("PUT"));
+    expect(sent?.body).toBe('{"value":"s3cret-value"}');
+  });
 });
 
 describe("aomi rules", () => {
@@ -493,7 +640,13 @@ describe("aomi rules", () => {
   });
 
   it("declines a change, and refuses one that is no longer waiting", async () => {
-    const declined = await cli("rules", "decline", CHANGE, "--private-key", KEY);
+    const declined = await cli(
+      "rules",
+      "decline",
+      CHANGE,
+      "--private-key",
+      KEY,
+    );
     expect(declined.code).toBe(0);
     expect(declined.stdout).toContain("Declined");
     routes[paths.change] = { ...change, state: "applied" };

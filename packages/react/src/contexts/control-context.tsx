@@ -40,14 +40,9 @@ import {
   type AuthEndpointsActions,
 } from "../control/auth-endpoints";
 import {
-  useAppSecretsImpl,
-  type AppSecretsActions,
-} from "../control/app-secrets";
-import {
   usePerThreadControlImpl,
   type PerThreadControlActions,
 } from "../control/per-thread-control";
-
 
 // =============================================================================
 // Public types
@@ -61,7 +56,6 @@ export type ControlState = ApiKeyState &
 
 export type ControlContextApi = ApiKeyActions &
   SecretsActions &
-  AppSecretsActions &
   AuthEndpointsActions &
   PerThreadControlActions & {
     state: ControlState;
@@ -94,18 +88,6 @@ export function useApiKey(): {
   return {
     state: { apiKey: ctx.state.apiKey, clientId: ctx.state.clientId },
     actions: { setApiKey: ctx.setApiKey },
-  };
-}
-
-export function useAppSecrets(): { actions: AppSecretsActions } {
-  const ctx = useControl();
-  return {
-    actions: {
-      listAppSecrets: ctx.listAppSecrets,
-      saveAppSecrets: ctx.saveAppSecrets,
-      deleteAppSecret: ctx.deleteAppSecret,
-      clearAppSecrets: ctx.clearAppSecrets,
-    },
   };
 }
 
@@ -237,8 +219,6 @@ export function ControlContextProvider({
     getControlSessionId: getCurrentControlSessionId,
   });
 
-  const appSecrets = useAppSecretsImpl({ aomiRef });
-
   const authEndpoints = useAuthEndpointsImpl({
     aomiRef,
     apiKeyRef,
@@ -324,7 +304,6 @@ export function ControlContextProvider({
     getControlState,
     ...apiKey.actions,
     ...secrets,
-    ...appSecrets.actions,
     ...authEndpoints.actions,
     ...perThread,
   };

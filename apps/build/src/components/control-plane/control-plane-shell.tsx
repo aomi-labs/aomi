@@ -6,17 +6,18 @@ import {
   BookOpen,
   CircleUserRound,
   Github,
-  FolderKanban,
+  Bot,
   Gauge,
   Hammer,
   Home,
+  Key,
   KeyRound,
   LogOut,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
-  Rocket,
+  Package,
   ScrollText,
   Search,
   Settings,
@@ -31,8 +32,6 @@ import { Aomi } from "@aomi-labs/client";
 import { AomiLogo } from "@/components/brand/aomi-logo";
 import { ColorThemeToggle } from "@/components/control-plane/color-theme-toggle";
 import { ControlPlaneLink } from "@/components/control-plane/control-plane-link";
-import { platformHref } from "@/features/deploy/platform";
-import { usePlatform } from "@/features/deploy/use-platform";
 import {
   CommandPalette,
   openCommandPalette,
@@ -61,14 +60,21 @@ type NavGroup = {
 
 const navGroups: NavGroup[] = [
   {
-    title: "Overview",
+    title: "Publisher",
     items: [
-      { label: "Overview", href: "/overview", icon: Home, enabled: true },
       {
-        label: "Projects",
-        href: "/projects",
-        icon: FolderKanban,
+        label: "Packages",
+        href: "/packages",
+        icon: Package,
         enabled: true,
+        requiresGitHub: true,
+      },
+      {
+        label: "Agents",
+        href: "/agents",
+        icon: Bot,
+        enabled: true,
+        requiresGitHub: true,
       },
     ],
   },
@@ -79,13 +85,6 @@ const navGroups: NavGroup[] = [
   {
     title: "Operate",
     items: [
-      {
-        label: "Deployments",
-        href: "/operate/deployments",
-        icon: Rocket,
-        enabled: true,
-        requiresGitHub: true,
-      },
       {
         label: "Transactions",
         href: "/operate/transactions",
@@ -119,6 +118,13 @@ const navGroups: NavGroup[] = [
   {
     title: "Account",
     items: [
+      {
+        label: "Keys",
+        href: "/keys",
+        icon: Key,
+        enabled: true,
+        requiresGitHub: true,
+      },
       {
         label: "Providers",
         href: "/providers",
@@ -278,7 +284,6 @@ function NavItemLink({
   onNavigate?: () => void;
 }) {
   const Icon = item.icon;
-  const platform = usePlatform();
   const enabled = item.enabled && (!item.requiresGitHub || signedIn);
   const content = (
     <>
@@ -316,7 +321,7 @@ function NavItemLink({
 
   return (
     <ControlPlaneLink
-      href={platformHref(item.href, platform)}
+      href={item.href}
       warmOnIntent={!active}
       onClick={onNavigate}
       data-active={active ? "true" : "false"}

@@ -254,14 +254,11 @@ const routes: Record<string, unknown> = {
     ],
   },
   "GET /v1/account/agent-wallets/aw_1/balances": { networks: [] },
-  "GET /v1/account/apps": [[{ name: "polymarket", application_id: 7 }]],
-  "POST /v1/account/apps/7": {
-    application_id: 7,
-    app: "polymarket",
-    installed: true,
-    apps: ["polymarket"],
+  "PUT /api/account/packages/7/choice": { package_id: 7, enabled: true },
+  "PUT /api/account/packages/7/secrets/API_KEY": {
+    slot: "API_KEY",
+    status: "ready",
   },
-  "POST /v1/account/apps/7/secrets": { slots: [] },
   "GET /v1/account/transaction-safety": {
     mode: "strict",
     revision: 2,
@@ -423,8 +420,8 @@ describe("the whole v2 SDK in one script", () => {
     const wallets = await aomi.account.wallets.list();
     const trading = wallets.find((w) => w.label === "Trading")!;
     await aomi.account.wallets.balance(trading.id);
-    await aomi.account.apps.install("polymarket");
-    await aomi.account.apps.credentials("polymarket").set("API_KEY", "key");
+    await aomi.account.packages.setChoice(7, true);
+    await aomi.account.packages.setSecret(7, "API_KEY", "key");
     await aomi.account.guard.set({ mode: "balanced" });
     const credits = await aomi.account.credits.get();
     expect(credits).toEqual({ balance_microusd: 41_200 });

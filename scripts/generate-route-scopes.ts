@@ -10,7 +10,7 @@ const target = resolve(import.meta.dirname, "../packages/client/src/generated/ro
 const resources = resourcesFor("");
 
 const rows = ROUTES.flatMap((route) => {
-  if (!route.on || route.on === "appMcp" || route.to === "mcp") return [];
+  if (!route.on || route.on === "agentMcp" || route.to === "mcp") return [];
   const methods = Object.entries(route.methods).flatMap(([method, need]) => {
     const scope = typeof need === "string" ? need : need.oauthScope;
     return scope && scope !== "public" && scope !== PORTAL_SESSION && scope !== OWNER_SESSION ? [`${method}: ${JSON.stringify(scope)}`] : [];

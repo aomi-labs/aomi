@@ -89,9 +89,10 @@ describe("statement adapter", () => {
         ],
         next_cursor: null,
       })
-      .mockResolvedValueOnce([
-        { name: "uniswap", application_id: 7, is_public: true },
-      ]);
+      .mockResolvedValueOnce({
+        agent: { id: "aomi/main", display_name: "Aomi" },
+        packages: [{ package_id: 7, display_name: "uniswap" }],
+      });
 
     const month = await fetchMonthlyStatement("2026-07", account);
 
@@ -155,9 +156,10 @@ describe("statement adapter", () => {
         entries: Array.from({ length: 50 }, (_, index) => row(index + 200)),
         next_cursor: null,
       })
-      .mockResolvedValueOnce([
-        { name: "uniswap", application_id: 7, is_public: true },
-      ]);
+      .mockResolvedValueOnce({
+        agent: { id: "aomi/main", display_name: "Aomi" },
+        packages: [{ package_id: 7, display_name: "uniswap" }],
+      });
 
     const statement = await fetchMonthlyStatement("2026-08", account);
 
@@ -165,7 +167,7 @@ describe("statement adapter", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toContain("from=1785542400");
     expect(fetchMock.mock.calls[1]?.[0]).toContain("cursor=page-2");
     expect(fetchMock.mock.calls[2]?.[0]).toContain("cursor=page-3");
-    expect(fetchMock.mock.calls[3]?.[0]).toBe("/v1/account/apps");
+    expect(fetchMock.mock.calls[3]?.[0]).toBe("/api/account/packages");
     expect(statement.apps[0]?.name).toBe("uniswap");
     expect(statement.apps[0]?.model.turns).toBe(250);
     expect(statement.summary.totalUsd).toBe(2.5);

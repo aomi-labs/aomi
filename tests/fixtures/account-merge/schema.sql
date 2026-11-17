@@ -6,6 +6,21 @@
 -- and ownership/uniqueness constraints exercised by the merge routine.
 -- This fixture is not a replacement for the backend's full migration tests.
 
+-- The pinned merge copies predate unified packages: they read the old
+-- users.applications, applications and bot_registrations relations.
+ALTER TABLE users
+    ADD COLUMN applications TEXT[] NOT NULL DEFAULT ARRAY['default']::TEXT[];
+
+CREATE TABLE applications (
+    id BIGSERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    label TEXT NOT NULL
+);
+
+CREATE TABLE bot_registrations (
+    id TEXT PRIMARY KEY
+);
+
 ALTER TABLE public_keys
     ADD CONSTRAINT public_keys_id_user_id_key UNIQUE (id, user_id),
     ADD CONSTRAINT public_keys_id_user_provider_key

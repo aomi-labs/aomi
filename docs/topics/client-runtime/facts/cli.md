@@ -9,6 +9,7 @@ sources_of_truth:
   - packages/cli/src/app.ts
   - packages/cli/src/context.ts
   - packages/cli/src/tui/chat.ts
+  - packages/cli/src/commands/release.ts
 ---
 
 # CLI
@@ -34,6 +35,41 @@ code of its own.
 - `--private-key` / `AOMI_PRIVATE_KEY`: the SDK's `wallet()` strategy (SIWE)
   and the EVM signer (`viemSigner`).
 - Otherwise a guest, whose bearer is kept in `~/.aomi/cli.json`.
+
+## Packages
+
+- `aomi packages` (`src/commands/packages.ts`) drives `aomi.account.packages`
+  on `/api/account/packages`. `list [--thread <id>]` prints each package as
+  `publisher/name`, on or off with the reason, verified, families and missing
+  slots. A package is named by `publisher/name` or its numeric id.
+- `on <id>` prints the live envelope's notice (hosts, transaction families,
+  signatures) and asks to confirm unless `--yes`; outside a terminal it needs
+  `--yes`. `off <id>` on an agent-listed package prints the reason and exits 1
+  without calling the backend. `reset <id>` clears the choice.
+- `connect <id> <slot>` reads the value from stdin or a hidden prompt, never
+  an argument, and never prints it; `disconnect <id> <slot>` clears it.
+- Device sign-in asks for `account:packages:read` and `account:packages:write`.
+
+## Releases
+
+- `aomi publish` reads the root `aomi.toml` (`[[packages]] path`,
+  `[[agents]] name` and `voice`). For each package folder it runs
+  `cargo build --release --target wasm32-wasip2` (skipped by `--no-build`;
+  `--wasm <name>=<path>` names the component), tars `aomi.toml`,
+  `package.wasm` and the `icon`, `skills` paths and `guards` its `[package]`
+  lists, and uploads the tar. It then posts each agent's root text and voice
+  file. `--package` and `--agent` select; `--promote` promotes each new
+  release with the live number the upload answered.
+- `aomi promote <package|agent> <name> <number>`, `aomi rollback <package|agent>
+<name> [<number>]` (default: the highest release below live) and
+  `aomi releases <package|agent> <name>` read the list first and send its live
+  number as `expected_live`.
+- They call the Build edge's `/api/build/{packages,agents}/*` (default
+  `https://build.aomi.dev`, `AOMI_BUILD_URL`) through `ManagerClient` from
+  `@aomi-labs/internal` with a builder API key from `AOMI_BUILDER_KEY` or
+  `--key-file`. A refusal prints `code: message` and exits 1.
+- `.github/workflows/publish-packages.yml` is the reusable workflow a builder
+  repository calls to run `aomi publish --promote` on its runner.
 
 ## Output
 

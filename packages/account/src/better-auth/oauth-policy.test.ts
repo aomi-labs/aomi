@@ -223,8 +223,8 @@ describe("Aomi OAuth resource policy", () => {
   it("limits app credential capabilities to authenticated account grants", () => {
     const resources = aomiOAuthResources(env);
     const scopes = [
-      "account:apps:read",
-      "account:apps:write",
+      "account:packages:read",
+      "account:packages:write",
       "account:credentials:read",
       "account:credentials:write",
     ];

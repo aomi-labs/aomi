@@ -306,10 +306,10 @@ describe("portal surface: sessions", () => {
     const bad = await portal("/v1/agent/sessions", { headers: { authorization: "Bearer nobody" } });
     expect(bad.status).toBe(401);
     expect(await bad.json()).toMatchObject({ error: { code: "invalid_token" } });
-    const good = await portal("/v1/account/apps", { headers: { authorization: "Bearer user" } });
+    const good = await portal("/v1/account/packages", { headers: { authorization: "Bearer user" } });
     expect(good.status).toBe(200);
     expect((await upstreamBearer(seen[0])).payload).toMatchObject({
-      scope: "account:apps:read",
+      scope: "account:packages:read",
       resource: `${PORTAL}/v1/account`,
     });
   });
@@ -1281,14 +1281,14 @@ describe("portal surface: the /v1 sign-in and app-locked MCP", () => {
   it("takes a /v1 token on REST, narrowed to the route's scopes, and never on MCP", async () => {
     const token = await oauthToken({
       sub: "user",
-      scope: "agent:read pipeline:catalog account:apps:read offline_access",
+      scope: "agent:read pipeline:catalog account:packages:read offline_access",
       aud: `${PORTAL}/v1`,
     });
     const headers = { authorization: `Bearer ${token}` };
     expect((await portal("/v1/agent/sessions", { headers })).status).toBe(200);
     expect((await upstreamBearer(seen[0])).payload).toMatchObject({ scope: "agent:read", resource: `${PORTAL}/v1/agent` });
-    expect((await portal("/v1/account/apps", { headers })).status).toBe(200);
-    expect((await upstreamBearer(seen[1])).payload).toMatchObject({ scope: "account:apps:read", resource: `${PORTAL}/v1/account` });
+    expect((await portal("/v1/account/packages", { headers })).status).toBe(200);
+    expect((await upstreamBearer(seen[1])).payload).toMatchObject({ scope: "account:packages:read", resource: `${PORTAL}/v1/account` });
     expect((await portal("/v1/account/wallets", { headers })).status).toBe(200);
     // A scope the token lacks is still refused.
     expect((await portal("/v1/agent/chat", { method: "POST", headers, body: "{}" })).status).toBe(403);
@@ -1298,11 +1298,11 @@ describe("portal surface: the /v1 sign-in and app-locked MCP", () => {
   });
 
   it("holds a /v1 guest token to the route's own guest ceiling", async () => {
-    const token = await oauthToken({ sub: "guest", guest: true, scope: "agent:read account:apps:read", aud: `${PORTAL}/v1` });
+    const token = await oauthToken({ sub: "guest", guest: true, scope: "agent:read account:packages:read", aud: `${PORTAL}/v1` });
     // On /v1/agent the account scope is dropped, so the guest reads.
     expect((await portal("/v1/agent/sessions", { headers: { authorization: `Bearer ${token}` } })).status).toBe(200);
     // On /v1/account it is kept, and a guest may not carry it.
-    expect((await portal("/v1/account/apps", { headers: { authorization: `Bearer ${token}` } })).status).toBe(403);
+    expect((await portal("/v1/account/packages", { headers: { authorization: `Bearer ${token}` } })).status).toBe(403);
   });
 
   it("forwards an app MCP grant for exactly its own path with every scope it holds", async () => {

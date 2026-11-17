@@ -117,74 +117,16 @@ ensure_backend_schema() {
     exit 1
   fi
 
-  apply_migration() {
-    local name="$1"
-    local path="$migrations_dir/$name"
-    if [ ! -f "$path" ]; then
-      echo "Missing migration: $path" >&2
-      exit 1
-    fi
-    echo "Applying migration: $name"
-    psql "$LOCAL_DB_URL" -v ON_ERROR_STOP=1 -q -f "$path"
-  }
-
   if ! psql "$LOCAL_DB_URL" -tAc "select to_regclass('public.users')" | grep -q users; then
     echo "Applying migrations into aomi_local from $migrations_dir"
     for migration in "$migrations_dir"/*.sql; do
       psql "$LOCAL_DB_URL" -v ON_ERROR_STOP=1 -q -f "$migration"
     done
-    return 0
   fi
-
-  echo "Converging local backend schema from $migrations_dir"
-
-  if psql "$LOCAL_DB_URL" -tAc "select to_regclass('public.bff_cli_device_sessions') is not null or to_regclass('public.bff_cli_sessions') is not null" | grep -q t; then
-    apply_migration 20260713000000_drop_legacy_bff_cli_sessions.sql
-  fi
-
-  if ! psql "$LOCAL_DB_URL" -tAc "select to_regclass('public.threads')" | grep -q threads; then
-    apply_migration 20260625000000_session_user_state.sql
-    apply_migration 20260625010000_drop_sessions_active_identity_wallet_id.sql
-    apply_migration 20260626000000_drop_scheduled_intents_authorized_wallet_ref.sql
-    apply_migration 20260626010000_sessions_thread_scheduling.sql
-    apply_migration 20260626020000_backfill_scheduled_intents_to_threads.sql
-    apply_migration 20260626030000_drop_sessions_active_identity_id.sql
-    apply_migration 20260627000000_drop_scheduled_intents.sql
-    apply_migration 20260627005000_rename_sessions_to_threads.sql
-    apply_migration 20260627010000_threads_spawn_input.sql
-    apply_migration 20260627020000_threads_fold_intent_into_spawn_input.sql
-    apply_migration 20260627030000_cron_jobs.sql
-    apply_migration 20260627040000_threads_drop_timers.sql
-  fi
-
-  if ! psql "$LOCAL_DB_URL" -tAc "select to_regclass('public.cron_jobs')" | grep -q cron_jobs; then
-    apply_migration 20260627030000_cron_jobs.sql
-  fi
-
-  if ! psql "$LOCAL_DB_URL" -tAc "select 1 from information_schema.columns where table_schema = 'public' and table_name = 'cron_jobs' and column_name = 'lease_until'" | grep -q 1; then
-    apply_migration 20260629010000_cron_jobs_lease.sql
-  fi
-
-  if ! psql "$LOCAL_DB_URL" -tAc "select to_regclass('public.auth_providers')" | grep -q auth_providers; then
-    if psql "$LOCAL_DB_URL" -tAc "select to_regclass('public.auth_identities')" | grep -q auth_identities; then
-      apply_migration 20260624000000_betterauth_global_identity_uidx.sql
-    fi
-    apply_migration 20260630010000_identity_wallets_signing_authorization.sql
-    apply_migration 20260701010000_account_model_consolidation.sql
-    apply_migration 20260701020000_account_model_contract.sql
-    apply_migration 20260701030000_account_model_slim.sql
-  fi
-
-  if ! psql "$LOCAL_DB_URL" -tAc "select count(*) = 6 from information_schema.columns where table_schema = 'public' and table_name in ('llm_usage_events', 'user_transactions') and column_name in ('application_id', 'app_source_id', 'platform_id')" | grep -q t; then
-    apply_migration 20260707010000_owned_operate_attribution.sql
-  fi
-
-  if ! psql "$LOCAL_DB_URL" -tAc "select to_regclass('public.user_transactions_application_created_idx')" | grep -q user_transactions_application_created_idx; then
-    apply_migration 20260707010100_owned_operate_attribution_indexes.sql
-  fi
-
-  if ! psql "$LOCAL_DB_URL" -tAc "select to_regclass('public.thread_archives')" | grep -q thread_archives; then
-    apply_migration 20260717000000_thread_archives.sql
+  if ! psql "$LOCAL_DB_URL" -tAc "select to_regclass('public.agents') is not null and to_regclass('public.packages') is not null and to_regclass('public.channels') is not null" | grep -q t; then
+    echo "The selected local database needs the complete unified-packages migration set." >&2
+    echo "Apply the canonical migrations to that database before starting this stack." >&2
+    exit 1
   fi
 }
 
@@ -253,7 +195,7 @@ start_backend() {
       "cd '$WORK_DIR' && bash '$PRODUCT_BACKEND_LAUNCHER' 2>&1 | tee '$BACKEND_LOG'"
   else
     tmux new-session -d -s "$BACKEND_SESSION" \
-      "cd '$PRODUCT_MONO_DIR/aomi' && set -a && source ../.env.dev && set +a && export DATABASE_URL='$LOCAL_DB_URL' AOMI_APPS_DIR='$PRODUCT_MONO_DIR/aomi/plugins' BACKEND_HOST='127.0.0.1' BACKEND_PORT='8080' OPENROUTER_BASE_URL='$OPENROUTER_BASE' OPENROUTER_API_BASE='$OPENROUTER_BASE' RUST_LOG=\"\${RUST_LOG:-info}\" BAML_LOG=\"\${BAML_LOG:-warn}\" && cargo run -p backend 2>&1 | tee '$BACKEND_LOG'"
+      "cd '$PRODUCT_MONO_DIR/aomi' && set -a && source ../.env.dev && set +a && export DATABASE_URL='$LOCAL_DB_URL' BACKEND_HOST='127.0.0.1' BACKEND_PORT='8080' OPENROUTER_BASE_URL='$OPENROUTER_BASE' OPENROUTER_API_BASE='$OPENROUTER_BASE' RUST_LOG=\"\${RUST_LOG:-info}\" BAML_LOG=\"\${BAML_LOG:-warn}\" && aomi-dev cargo run -p backend 2>&1 | tee '$BACKEND_LOG'"
   fi
   wait_for_url "backend" "$BACKEND_URL/health" 120
 }
@@ -295,7 +237,7 @@ smoke_chat() {
     -X POST \
     -H "Content-Type: application/json" \
     -H "Idempotency-Key: dev-stack-$thread_id" \
-    -d "{\"sessionId\":\"$thread_id\",\"message\":\"Say only pong\",\"app\":\"default\",\"clientId\":\"dev-stack-smoke\",\"userState\":{\"connection\":{\"is_connected\":false}}}" \
+    -d "{\"sessionId\":\"$thread_id\",\"message\":\"Say only pong\",\"agent\":\"aomi/main\",\"clientId\":\"dev-stack-smoke\",\"userState\":{\"connection\":{\"is_connected\":false}}}" \
     "$PORTAL_URL/api/v1/agent/chat" | grep -q '^200$'
 
   local cursor

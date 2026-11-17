@@ -56,7 +56,6 @@ import { AomiMark } from "@/ui/aomi-mark";
 import { AssistantMessageRow } from "./assistant-message-row";
 import { ActivitySidebar } from "@/sidebar/activity/activity-sidebar";
 import { ModelSelect } from "@/controls/model-select";
-import { AppSecretsDialog } from "@/account/app-secrets/app-secrets-dialog";
 import {
   SafetySelect,
   ThreadSafetyProvider,
@@ -486,7 +485,6 @@ const ComposerAction: FC = () => {
   const hideApiKey = controlBarProps.hideApiKey ?? false;
   const hideWallet = controlBarProps.hideWallet ?? true;
   const hideNetwork = controlBarProps.hideNetwork ?? false;
-  const hideAppSecrets = controlBarProps.hideAppSecrets ?? false;
   const { hostError, selectedApp } = useCapabilityComposer();
   const safety = useThreadSafety();
   const committingSafety = Boolean(safety?.pending && safety.busy);
@@ -509,9 +507,6 @@ const ComposerAction: FC = () => {
           {!hideModel && <ModelSelect />}
           {!hideSafety && <SafetySelect />}
           <AppIndicator app={selectedApp ?? undefined} />
-          {/* Renders only when the directly targeted app asks the signed-in
-              user for app credentials. */}
-          {!hideAppSecrets && <AppSecretsDialog />}
           {!hideWallet && <ConnectButton />}
           {!hideApiKey && <ApiKeyInput />}
         </div>

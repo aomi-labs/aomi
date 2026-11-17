@@ -95,7 +95,6 @@ export {
 export {
   useControl,
   useApiKey,
-  useAppSecrets,
   useAuthEndpoints,
   usePerThreadControl,
   ControlContextProvider,

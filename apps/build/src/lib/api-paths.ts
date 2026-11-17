@@ -6,17 +6,6 @@
 
 const BUILD_API = "/api/build";
 
-function withPlatform(path: string, platform?: string): string {
-  if (!platform) return path;
-  const separator = path.includes("?") ? "&" : "?";
-  return `${path}${separator}platform=${encodeURIComponent(platform)}`;
-}
-
-// Project read, optionally narrowed server-side to one Project.
-function projectsPath(base: string, projectId?: number): string {
-  return projectId === undefined ? base : `${base}?projectId=${projectId}`;
-}
-
 export const API_PATHS = {
   build: {
     auth: {
@@ -33,61 +22,21 @@ export const API_PATHS = {
       exchange: `${BUILD_API}/cli/exchange`,
       status: `${BUILD_API}/cli/status`,
     },
-    deployments: {
-      preflight: `${BUILD_API}/deployments/preflight`,
-      deploy: `${BUILD_API}/deployments/deploy`,
-      redeploy: `${BUILD_API}/deployments/redeploy`,
-      promote: `${BUILD_API}/deployments/promote`,
-      projects: (platform?: string, projectId?: number) =>
-        withPlatform(
-          projectsPath(`${BUILD_API}/deployments/projects`, projectId),
-          platform,
-        ),
-      feed: (
-        limit: number,
-        cursor?: { createdAt: number; id: number } | null,
-      ) => {
-        const params = new URLSearchParams({ limit: String(limit) });
-        if (cursor) {
-          params.set("cursorCreatedAt", String(cursor.createdAt));
-          params.set("cursorId", String(cursor.id));
-        }
-        return `${BUILD_API}/deployments/feed?${params}`;
-      },
-      history: (projectId: number, limit?: number, platform?: string) => {
-        const params = new URLSearchParams({
-          projectId: String(projectId),
-        });
-        if (limit) params.set("limit", String(limit));
-        if (platform) params.set("platform", platform);
-        return `${BUILD_API}/deployments/history?${params}`;
-      },
-      sdkStatus: `${BUILD_API}/deployments/sdk-status`,
-      status: (deploymentId: string, platform?: string) =>
-        withPlatform(
-          `${BUILD_API}/deployments/status?deploymentId=${encodeURIComponent(deploymentId)}`,
-          platform,
-        ),
-      requiredSecrets: (projectId: number, platform?: string) =>
-        withPlatform(
-          `${BUILD_API}/deployments/required-secrets?projectId=${projectId}`,
-          platform,
-        ),
-      records: (app: string, projectId?: number, platform?: string) =>
-        withPlatform(
-          `${BUILD_API}/deployments/records?app=${encodeURIComponent(app)}${
-            projectId != null ? `&projectId=${projectId}` : ""
-          }`,
-          platform,
-        ),
-      deactivate: `${BUILD_API}/deployments/deactivate`,
-      sdkUpgrade: `${BUILD_API}/deployments/sdk-upgrade`,
-      sdkUpgradeStatus: (projectId: number, platform?: string) =>
-        withPlatform(
-          `${BUILD_API}/deployments/sdk-upgrade-status?projectId=${projectId}`,
-          platform,
-        ),
-    },
+    publisher: `${BUILD_API}/publishers/me`,
+    agent: (name: string) => `${BUILD_API}/agents/${encodeURIComponent(name)}`,
+    agentConfigs: (name: string) =>
+      `${BUILD_API}/agents/${encodeURIComponent(name)}/configs`,
+    agentPromote: (name: string) =>
+      `${BUILD_API}/agents/${encodeURIComponent(name)}/promote`,
+    package: (name: string) =>
+      `${BUILD_API}/packages/${encodeURIComponent(name)}`,
+    packageReleases: (name: string) =>
+      `${BUILD_API}/packages/${encodeURIComponent(name)}/releases`,
+    packagePromote: (name: string) =>
+      `${BUILD_API}/packages/${encodeURIComponent(name)}/promote`,
+    packageSecret: (name: string, slot: string) =>
+      `${BUILD_API}/packages/${encodeURIComponent(name)}/secrets/${encodeURIComponent(slot)}`,
+    keys: `${BUILD_API}/keys`,
     operate: {
       bots: `${BUILD_API}/operate/bots`,
       botCommandSecret: (botId: string) =>

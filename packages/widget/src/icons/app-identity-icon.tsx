@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 import { getAppIcon } from "./app-map";
 
 export interface AppIdentityIconProps {
@@ -5,7 +9,24 @@ export interface AppIdentityIconProps {
   brandId?: string;
   name: string;
   abbr?: string;
+  /** The package's own icon. Shown only once it has loaded, so a missing one never flashes. */
+  imageUrl?: string | null;
   size?: "row" | "detail";
+}
+
+/** `src` once it has loaded; null while loading, after a failure or without one. */
+function useLoaded(src: string | null | undefined): string | null {
+  const [loaded, setLoaded] = useState<string | null>(null);
+  useEffect(() => {
+    if (!src) return;
+    const image = new Image();
+    image.onload = () => setLoaded(src);
+    image.src = src;
+    return () => {
+      image.onload = null;
+    };
+  }, [src]);
+  return src && loaded === src ? src : null;
 }
 
 function fallbackAbbr(name: string): string {
@@ -24,8 +45,10 @@ export function AppIdentityIcon({
   brandId,
   name,
   abbr,
+  imageUrl,
   size = "row",
 }: AppIdentityIconProps) {
+  const image = useLoaded(imageUrl);
   // `undefined` supports older hand-built callers. An empty brand is an
   // intentional custom-app boundary and must never fall back to the wire name.
   const Icon = getAppIcon(brandId === undefined ? name : brandId);
@@ -35,11 +58,13 @@ export function AppIdentityIcon({
     <span
       title={name}
       aria-label={name}
-      className={`border-aomi-overlay-border bg-aomi-surface-2 text-aomi-accent flex shrink-0 items-center justify-center rounded-xl border ${
+      className={`border-aomi-overlay-border bg-aomi-surface-2 text-aomi-accent flex shrink-0 items-center justify-center overflow-hidden rounded-xl border ${
         detail ? "size-12" : "size-9"
       }`}
     >
-      {Icon ? (
+      {image ? (
+        <img src={image} alt="" className="size-full object-cover" />
+      ) : Icon ? (
         <Icon aria-hidden="true" className={detail ? "size-7" : "size-5"} />
       ) : (
         <span

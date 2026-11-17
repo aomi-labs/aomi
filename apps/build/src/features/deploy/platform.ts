@@ -44,31 +44,3 @@ import { DEFAULT_DEPLOY_PLATFORM } from "@/lib/deploy-platform";
 export function platformParam(value: string | string[] | undefined): string {
   return rawPlatformParam(value) ?? DEFAULT_DEPLOY_PLATFORM;
 }
-
-/**
- * Routes whose navigation stays inside one platform. Project detail still
- * derives authority from the canonical Project; carrying the query here keeps
- * surrounding links and the return path in the same visible scope.
- */
-function isPlatformScoped(href: string): boolean {
-  return (
-    href === "/overview" ||
-    href === "/projects" ||
-    href.startsWith("/projects/") ||
-    href === "/operate/deployments" ||
-    href === "/operate/deployments/new"
-  );
-}
-
-/** Re-attach the active platform to a platform-scoped href. */
-export function platformHref(
-  href: string,
-  platform: string | null | undefined,
-): string {
-  if (!platform) return href;
-  const [pathname, query = ""] = href.split("?", 2);
-  if (!isPlatformScoped(pathname)) return href;
-  const params = new URLSearchParams(query);
-  params.set("platform", platform);
-  return `${pathname}?${params}`;
-}

@@ -57,6 +57,13 @@ export class ManagerClient {
     }
     const payload = body ?? (WITH_BODY.has(method) ? {} : undefined);
     const search = params.toString() ? `?${params}` : "";
+    // Bytes go as they are, as a tar; anything else as JSON.
+    const sent =
+      payload === undefined
+        ? {}
+        : payload instanceof Uint8Array
+          ? { type: "application/x-tar", body: payload as Uint8Array<ArrayBuffer> }
+          : { type: "application/json", body: JSON.stringify(payload) };
     let response: Response;
     try {
       response = await this.fetchImpl(`${this.url}${path}${search}`, {
@@ -64,9 +71,9 @@ export class ManagerClient {
         headers: {
           Authorization: `Bearer ${this.bearer}`,
           ...headers,
-          ...(payload === undefined ? {} : { "Content-Type": "application/json" }),
+          ...(sent.type ? { "Content-Type": sent.type } : {}),
         },
-        ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
+        ...(sent.body === undefined ? {} : { body: sent.body }),
       });
     } catch (cause) {
       throw new BackendError(op, 0, `${op} request failed`, undefined, { cause });

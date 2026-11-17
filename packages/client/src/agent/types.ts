@@ -30,6 +30,7 @@ export type AgentTarget =
       mode?: "auto";
       app?: never;
       applicationId?: never;
+      agent?: never;
     }
   | {
       mode: "direct";
@@ -37,6 +38,12 @@ export type AgentTarget =
       applicationId?: number;
       /** Builtin name, or an exact-name consistency check for a hosted app. */
       app?: string;
+      /**
+       * The agent this thread belongs to, `publisher/name`. A thread keeps the
+       * agent it was created with; another one is refused with
+       * `thread_agent_mismatch`.
+       */
+      agent?: string;
     };
 export type InterruptIntent = Schemas["InterruptIntent"];
 export type RespondToActionIntent = Schemas["RespondToActionIntent"];

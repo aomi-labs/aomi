@@ -119,6 +119,16 @@ export function describeSendFailure(
       },
     };
   }
+  // The thread belongs to another agent; never retried with a different one.
+  if (apiError?.code === "thread_agent_mismatch")
+    return {
+      notice: {
+        type: "error",
+        title: "Different agent",
+        message:
+          "This conversation belongs to a different agent, so it can't continue here. Start a new conversation to talk to this one.",
+      },
+    };
   if (apiError?.appAccessCode)
     return {
       notice: { type: "error", ...APP_ACCESS_NOTICES[apiError.appAccessCode] },

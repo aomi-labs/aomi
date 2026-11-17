@@ -43,8 +43,8 @@ const SCOPE_LINES: Record<string, string[]> = {
   "pipeline:catalog": ["Browse Aomi apps and tools"],
   "mcp:pipeline": ["Browse Aomi apps and tools"],
   "payments:submit": ["Pay for its own requests"],
-  "account:apps:read": ["See your installed apps"],
-  "account:apps:write": ["Install and remove apps"],
+  "account:packages:read": ["See your packages and their state"],
+  "account:packages:write": ["Turn packages on or off and set their keys"],
   "account:credentials:read": [
     "See which app keys are set, never their values",
   ],

@@ -24,12 +24,12 @@ describe("shared account transport", () => {
   it("keeps ordinary Portal requests same-origin", async () => {
     const fetcher = vi.fn(
       async (_input: RequestInfo | URL, _init?: RequestInit) =>
-        Response.json({ apps: [] }),
+        Response.json({ agent: { id: "aomi/main" }, packages: [] }),
     );
     vi.stubGlobal("fetch", fetcher);
-    await createShellTransport().aomi.account.apps.list();
+    await createShellTransport().aomi.account.packages.list();
     expect(fetcher).toHaveBeenCalledWith(
-      "/v1/account/apps",
+      "/api/account/packages",
       expect.objectContaining({ credentials: "same-origin" }),
     );
   });

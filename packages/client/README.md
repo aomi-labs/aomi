@@ -15,7 +15,7 @@ a call asks for one.
 | None (guest)    | Default. Guest-safe Agent and Pipeline calls.                   | Nothing to do — the SDK creates an anonymous session on the first request.                                                         | Omit `auth`.                                                  |
 | OAuth client ID | A user signs in your CLI, bot, or server process (device flow). | Register a public device client once — see [Register an OAuth client](#register-an-oauth-client). No secret.                       | `auth: oauth({ clientId: process.env.AOMI_OAUTH_CLIENT_ID })` |
 | App key         | Only for **private** Apps. Public Apps never need one.          | Get it from the App's owner. The Aomi team issues the first key to the owner, who can rotate it with `POST /api/account/app-keys`. | `apiKey` option, CLI `--api-key`, or `AOMI_API_KEY`.          |
-| Account bearer  | Account-scoped calls (credits, App keys, linked identities).    | `aomi login`, or your own signed-in session.                                                                               | `getAccountBearer`, CLI `--account-bearer`.                   |
+| Account bearer  | Account-scoped calls (credits, App keys, linked identities).    | `aomi login`, or your own signed-in session.                                                                                       | `getAccountBearer`, CLI `--account-bearer`.                   |
 
 If a call fails because of the App rather than your credentials, the error
 `code` says why: `app_not_found` (404), `app_inactive` (409, the owner has not
@@ -184,41 +184,21 @@ await aomi.agent.run("Use our hosted research agent", {
 });
 ```
 
-Signed-in clients can manage installed apps and per-user app credentials by
-canonical application ID. Credential responses contain configuration status
-only; saved values are never returned. OAuth clients use the `/v1/account`
-resource with separate `account:apps:read`, `account:apps:write`,
-`account:credentials:read`, and `account:credentials:write` scopes. Credential
-read access reveals setup status only, never saved values.
+Signed-in clients read the Library and switch packages on or off for their
+chats. Each row carries the effective state for the thread's agent
+(`enabled`, `reason`), whether the live release is verified, its capability
+envelope, and its key slots. A person slot reports `ready` or `missing`;
+saved values are never returned. Packages the agent lists stay on, so turning
+one off fails with HTTP 409.
 
 ```ts
-const catalog = await client.listAccountApps(sessionId);
-const app = catalog.find((entry) => entry.name === "credential-demo")!;
+const { agent, packages } = await aomi.account.packages.list({ threadId });
+const jupiter = packages.find((row) => row.id === "aomi/jupiter")!;
 
-await client.setAppCredential(
-  sessionId,
-  app.applicationId!,
-  "DEMO_API_TOKEN",
-  token,
-);
-await client.addAccountApp(sessionId, app.applicationId!);
-
-const status = await client.getAppCredentialsStatus(
-  sessionId,
-  app.applicationId!,
-);
-await client.replaceAppCredential(
-  sessionId,
-  app.applicationId!,
-  "DEMO_API_TOKEN",
-  rotatedToken,
-);
-await client.removeAppCredential(
-  sessionId,
-  app.applicationId!,
-  "DEMO_API_TOKEN",
-);
-await client.removeAccountApp(sessionId, app.applicationId!);
+await aomi.account.packages.setSecret(jupiter.package_id, "JUP_KEY", token);
+await aomi.account.packages.setChoice(jupiter.package_id, true);
+await aomi.account.packages.clearChoice(jupiter.package_id); // back to its default
+await aomi.account.packages.clearSecret(jupiter.package_id, "JUP_KEY");
 ```
 
 For event-driven Agent integrations, retain the run object:

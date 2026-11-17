@@ -7,8 +7,8 @@ import { isApiKey, keyGrant, type KeyGrant } from "./api-keys";
 
 export type AuthOptions = { write?: boolean; cliScope?: GitHubCliScope };
 
-/** `key` is set when the caller authenticated with a builder API key. */
-export type Caller = { session: GitHubSession; visibilityGrant: string | null; key?: KeyGrant };
+/** `key` is set when the caller authenticated with a builder API key, `cli` with a CLI bearer. */
+export type Caller = { session: GitHubSession; visibilityGrant: string | null; key?: KeyGrant; cli?: true };
 
 /**
  * Who is calling a Build control-plane route: a CLI bearer with the required
@@ -27,7 +27,7 @@ export async function authorize(request: Request, ctx: BuildContext, options: Au
   }
   if (options.cliScope) {
     const cli = await signerFor(ctx).readCliSession(bearer, options.cliScope);
-    if (cli) return { session: cli, visibilityGrant: null };
+    if (cli) return { session: cli, visibilityGrant: null, cli: true };
   }
   if (options.write && !cookieWriteAllowed(request, ctx.trustedOrigins)) throw new EdgeError(403, "forbidden");
   const session = await githubSessionOf(request, ctx);

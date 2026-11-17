@@ -2,6 +2,18 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+// The services serialize keys in different orders; compare components by content.
+const canonical = (value) =>
+  JSON.stringify(value, (_, entry) =>
+    entry && typeof entry === "object" && !Array.isArray(entry)
+      ? Object.fromEntries(
+          Object.entries(entry).sort(([a], [b]) =>
+            a < b ? -1 : a > b ? 1 : 0,
+          ),
+        )
+      : entry,
+  );
+
 // Service contracts remain separate at runtime; only the SDK combines them.
 export function publicApiContract(rustRepo) {
   const documents = [
@@ -33,7 +45,7 @@ export function publicApiContract(rustRepo) {
     api.components[kind] ??= {};
     for (const [name, schema] of Object.entries(entries)) {
       const prior = api.components[kind][name];
-      if (prior && JSON.stringify(prior) !== JSON.stringify(schema)) {
+      if (prior && canonical(prior) !== canonical(schema)) {
         throw new Error(`Conflicting public API component: ${kind}/${name}`);
       }
       api.components[kind][name] = schema;

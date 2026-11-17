@@ -67,8 +67,9 @@ venue-specific URL.
 - `src/build/*`: the Build surface (cutover 1, step 3). On a `BUILD_HOSTS`
   host the edge serves Build's GitHub sign-in (`/api/build/auth/github/*`), CLI
   login (`/api/build/cli/*`), builder credits (`/v1/builder/credits/**`), the
-  anonymous GitHub App install start and the launch, deployments and operate
-  control-plane families (`/api/build/{launch,deployments,operate}/**`);
+  anonymous GitHub App install start, the launch, deployments and operate
+  control-plane families (`/api/build/{launch,deployments,operate}/**`) and
+  the release API (`/api/build/{packages,agents}/:name/*`);
   everything else passes through to `BUILD_UPSTREAM_ORIGIN` (the Vercel Build
   app) unchanged: the build sandbox, integrations and local-only helpers.
   - `session.ts`: the `aomi_github`, `aomi_github_visibility` and
@@ -90,7 +91,9 @@ venue-specific URL.
     in the `api_keys` table behind `HYPERDRIVE` (the migration is
     product-mono's). `GET`, `POST` and `DELETE /api/build/keys` list, create
     and revoke the signed-in builder's keys and take the portal session
-    cookie only. A request presenting a key is served only by the
+    cookie only. A key holds some of `project:{deploy,activate,observe}`,
+    `package:{publish,promote}` and `agent:{publish,promote}`. A request
+    presenting a key is served only by the release routes and the
     `endpoint()` routes that stay on the manager (activate, promote and the
     secrets routes read the vault and refuse a key). Its manager calls carry a `role: "user"` builder
     bearer (`auth_source: "api_key"`, the key's capabilities as `scope`)
@@ -98,6 +101,11 @@ venue-specific URL.
     calls that leave the manager's routes, such as the secrets vault, are
     refused at the edge. Credits, sign-in, key management and the
     pass-through answer a key 403.
+  - `releases.ts`: package releases and agent configs. `/api/build/<path>`
+    proxies to the manager's `/api/<path>` with the raw body, at most 10 MB
+    (`413 too_large`). A key needs the route's capability
+    (`403 insufficient_scope`); a CLI bearer or the session cookie is sent as
+    a builder bearer holding all four release capabilities.
   - Not moved: `build/**` (the Vercel sandbox), `integrations`, `dev-session`
     (local only) and `internal/sentry-smoke`.
 

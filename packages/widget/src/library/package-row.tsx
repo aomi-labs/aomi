@@ -1,20 +1,21 @@
 "use client";
 
+import type { AomiPackage } from "@aomi-labs/client";
 import { AppIdentityIcon } from "@/icons/app-identity-icon";
-import type { CatalogPackage } from "./packages-catalog";
+import { brandId } from "./model";
 
 interface PackageIconProps {
-  app: CatalogPackage;
-  size?: "small" | "large" | "detail";
+  row: AomiPackage;
+  size?: "row" | "detail";
 }
 
-export function PackageIcon({ app, size = "large" }: PackageIconProps) {
+export function PackageIcon({ row, size = "row" }: PackageIconProps) {
   return (
     <AppIdentityIcon
-      brandId={app.brandId}
-      name={app.name}
-      abbr={app.abbr}
-      size={size === "detail" ? "detail" : "row"}
+      brandId={brandId(row)}
+      name={row.display_name}
+      imageUrl={row.icon_url}
+      size={size}
     />
   );
 }

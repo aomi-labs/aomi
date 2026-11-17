@@ -1,25 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
 import {
-  FolderKanban,
+  Bot,
   Gauge,
-  Home,
+  Key,
   KeyRound,
+  Package,
   Plug,
-  Plus,
-  Rocket,
   Settings,
   WalletCards,
   type LucideIcon,
 } from "lucide-react";
-import {
-  lastEnvironmentHref,
-  lastProjectHref,
-  lastUsageHref,
-} from "@/lib/project-navigation";
-import { getLastProjectId } from "@/lib/project-navigation";
-import { platformHref } from "@/features/deploy/platform";
-import { usePlatform } from "@/features/deploy/use-platform";
 
 type CommandItem = {
   id: string;
@@ -30,115 +21,70 @@ type CommandItem = {
   keywords?: string;
 };
 
-function buildCommands(): CommandItem[] {
-  const lastId = getLastProjectId();
-  const items: CommandItem[] = [
-    {
-      id: "project-home",
-      label: lastId ? "Last project" : "Projects",
-      hint: lastId ? "Open project Home" : "Your connected repositories",
-      href: lastProjectHref(),
-      icon: FolderKanban,
-      keywords: "project app repo home",
-    },
-  ];
-
-  if (lastId) {
-    items.push({
-      id: "projects",
-      label: "All projects",
-      hint: "Your connected repositories",
-      href: "/projects",
-      icon: FolderKanban,
-      keywords: "project list",
-    });
-    items.push({
-      id: "project-deployments",
-      label: "Project deployments",
-      hint: "History for last project",
-      href: lastProjectHref("deployments"),
-      icon: Rocket,
-      keywords: "release promote live history",
-    });
-  }
-
-  items.push(
-    {
-      id: "new-app",
-      label: "New app",
-      hint: "Import and deploy from GitHub",
-      href: "/operate/deployments/new",
-      icon: Plus,
-      keywords: "create deploy import",
-    },
-    {
-      id: "deployments",
-      label: "Deployments",
-      hint: "Operate → Deployments",
-      href: "/operate/deployments",
-      icon: Rocket,
-      keywords: "release promote live",
-    },
-    {
-      id: "transactions",
-      label: "Transactions",
-      hint: "Operate → Transactions",
-      href: "/operate/transactions",
-      icon: WalletCards,
-      keywords: "tx spend",
-    },
-    {
-      id: "usage",
-      label: "Usage",
-      hint: lastId ? "Credits for last project" : "Credits and tokens meter",
-      href: lastUsageHref(),
-      icon: Gauge,
-      keywords: "credits tokens meter",
-    },
-    {
-      id: "settings",
-      label: "Settings",
-      hint: "Account settings",
-      href: "/settings",
-      icon: Settings,
-    },
-    {
-      id: "providers",
-      label: "Providers",
-      hint: "LLM keys that fund your users",
-      href: "/providers",
-      icon: KeyRound,
-      keywords: "model keys llm openai anthropic openrouter byok",
-    },
-    {
-      id: "secrets",
-      label: "Environment / Secrets",
-      hint: lastId
-        ? "Keys on last project Environment"
-        : "Open Environment from Settings",
-      href: lastEnvironmentHref(),
-      icon: KeyRound,
-      keywords: "environment keys env secrets",
-    },
-    {
-      id: "integrations",
-      label: "Integrations",
-      hint: "Bots and channels",
-      href: "/integrations",
-      icon: Plug,
-    },
-    {
-      id: "overview",
-      label: "Overview",
-      hint: "Stats and recent activity",
-      href: "/overview",
-      icon: Home,
-      keywords: "dashboard home",
-    },
-  );
-
-  return items;
-}
+const COMMANDS: CommandItem[] = [
+  {
+    id: "packages",
+    label: "Packages",
+    hint: "Your packages, their releases and secrets",
+    href: "/packages",
+    icon: Package,
+    keywords: "package release promote rollback secrets",
+  },
+  {
+    id: "agents",
+    label: "Agents",
+    hint: "Your agents, their configs and channels",
+    href: "/agents",
+    icon: Bot,
+    keywords: "agent config channel telegram",
+  },
+  {
+    id: "keys",
+    label: "Keys",
+    hint: "Builder keys for the CLI and CI",
+    href: "/keys",
+    icon: Key,
+    keywords: "builder key ci cli capabilities",
+  },
+  {
+    id: "transactions",
+    label: "Transactions",
+    hint: "Operate → Transactions",
+    href: "/operate/transactions",
+    icon: WalletCards,
+    keywords: "tx spend",
+  },
+  {
+    id: "usage",
+    label: "Usage",
+    hint: "Credits and tokens meter",
+    href: "/operate/usage",
+    icon: Gauge,
+    keywords: "credits tokens meter",
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    hint: "Account settings",
+    href: "/settings",
+    icon: Settings,
+  },
+  {
+    id: "providers",
+    label: "Providers",
+    hint: "LLM keys that fund your users",
+    href: "/providers",
+    icon: KeyRound,
+    keywords: "model keys llm openai anthropic openrouter byok",
+  },
+  {
+    id: "integrations",
+    label: "Integrations",
+    hint: "Bots and channels",
+    href: "/integrations",
+    icon: Plug,
+  },
+];
 
 const OPEN_EVENT = "aomi-build:open-command-palette";
 
@@ -155,17 +101,12 @@ function matches(item: CommandItem, query: string) {
 
 export function CommandPalette() {
   const router = useRouter();
-  const platform = usePlatform();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const [commands, setCommands] = useState<CommandItem[]>(() =>
-    buildCommands(),
-  );
-
   const filtered = useMemo(
-    () => commands.filter((item) => matches(item, query.trim())),
-    [commands, query],
+    () => COMMANDS.filter((item) => matches(item, query.trim())),
+    [query],
   );
 
   useEffect(() => {
@@ -198,10 +139,7 @@ export function CommandPalette() {
     if (!open) {
       setQuery("");
       setActive(0);
-      return;
     }
-    // Refresh last-project targets each time the palette opens.
-    setCommands(buildCommands());
   }, [open]);
 
   useEffect(() => {
@@ -210,7 +148,7 @@ export function CommandPalette() {
 
   function run(href: string) {
     setOpen(false);
-    router.navigate({ href: platformHref(href, platform) });
+    router.navigate({ href });
   }
 
   if (!open) return null;
@@ -248,7 +186,7 @@ export function CommandPalette() {
                 if (item) run(item.href);
               }
             }}
-            placeholder="Jump to projects, deployments, settings…"
+            placeholder="Jump to packages, agents, keys…"
             className="text-foreground placeholder:text-dim h-9 w-full bg-transparent text-sm outline-none"
           />
         </div>

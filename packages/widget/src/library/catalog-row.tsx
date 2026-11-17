@@ -1,97 +1,82 @@
 "use client";
+import type { AomiPackage } from "@aomi-labs/client";
+import { KeyRound, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { Check, Loader2, MessageCircle, Plus } from "lucide-react";
 import { aomiButton } from "@/ui/aomi/button";
-import {
-  ChainMarks,
-  KindPill,
-  SkillIdentity,
-  type LibrarySelection,
-} from "./library-detail-panel";
+import { Switch } from "@/ui/aomi/switch";
 import { PackageIcon } from "./package-row";
-import {
-  ARC_TESTNET_CHAIN_ID,
-  isPackageAvailableOnHost,
-  type CatalogPackage,
-} from "./packages-catalog";
-import { selectionName, selectionDescription } from "./model";
+import { FAMILIES, contentsLine, needsConnect, publisher } from "./model";
 
-// One width for Try, Add and Added so every row's action lines up.
-const rowAction = cn(
-  aomiButton({ variant: "secondary", size: "sm" }),
-  "w-[72px]",
-);
-
-function AppAction({
-  app,
-  installed,
+/** The row control: Connect until a required person key is in, then the switch. */
+export function PackageControl({
+  row,
   busy,
   disabled,
-  hostChainIds,
-  onInstall,
+  onToggle,
+  onConnect,
 }: {
-  app: CatalogPackage;
-  installed: boolean;
+  row: AomiPackage;
   busy: boolean;
   disabled: boolean;
-  hostChainIds: readonly number[];
-  onInstall: () => void;
+  onToggle: (enabled: boolean) => void;
+  onConnect: () => void;
 }) {
-  const available = isPackageAvailableOnHost(app, hostChainIds);
-  if (installed) {
+  if (busy)
     return (
-      <span className="text-aomi-muted type-meta inline-flex h-7 w-[72px] shrink-0 items-center justify-center gap-1.5 font-medium">
-        <Check className="size-3.5" /> Added
+      <span className="flex w-[72px] justify-end">
+        <Loader2 className="text-aomi-muted size-4 animate-spin" />
       </span>
     );
-  }
+  if (needsConnect(row))
+    return (
+      <button
+        type="button"
+        onClick={onConnect}
+        disabled={disabled}
+        aria-label={`Connect ${row.display_name}`}
+        className={cn(
+          aomiButton({ variant: "secondary", size: "sm" }),
+          "w-[72px]",
+        )}
+      >
+        <KeyRound /> Connect
+      </button>
+    );
   return (
-    <button
-      type="button"
-      onClick={onInstall}
-      disabled={disabled || !available}
-      aria-label={
-        available
-          ? `Add ${app.name} from catalog`
-          : `${app.name} needs a network this site doesn't support`
-      }
-      className={rowAction}
-    >
-      {busy ? (
-        <Loader2 className="animate-spin" />
-      ) : (
-        <>
-          <Plus /> Add
-        </>
-      )}
-    </button>
+    <span className="flex w-[72px] justify-end">
+      <Switch
+        checked={row.enabled}
+        disabled={disabled || row.agent_listed}
+        onCheckedChange={onToggle}
+        aria-label={`${row.display_name} on in your chats`}
+        title={
+          row.agent_listed ? "Your agent uses it, so it stays on" : undefined
+        }
+      />
+    </span>
   );
 }
 
 export function CatalogRow({
-  selection,
+  row,
   selected,
-  installed,
   busy,
   disabled,
-  hostChainIds,
   onSelect,
-  onInstall,
-  onTry,
+  onToggle,
+  onConnect,
 }: {
-  selection: LibrarySelection;
+  row: AomiPackage;
   selected: boolean;
-  installed: boolean;
   busy: boolean;
   disabled: boolean;
-  hostChainIds: readonly number[];
   onSelect: () => void;
-  onInstall: () => void;
-  onTry: () => void;
+  onToggle: (enabled: boolean) => void;
+  onConnect: () => void;
 }) {
-  const app = selection.kind === "app" ? selection.item : null;
-  const arcOnly =
-    app?.chainIds.length === 1 && app.chainIds[0] === ARC_TESTNET_CHAIN_ID;
+  const families = FAMILIES.filter((family) => row.families.includes(family.id))
+    .map((family) => family.label)
+    .join(" · ");
   return (
     <article
       className={cn(
@@ -102,53 +87,35 @@ export function CatalogRow({
       <button
         type="button"
         onClick={onSelect}
-        aria-label={`Open ${selectionName(selection)} details`}
+        aria-label={`Open ${row.display_name} details`}
         className="flex min-w-0 flex-1 items-center gap-3 py-2 text-left"
       >
-        {selection.kind === "app" ? (
-          <PackageIcon app={selection.item} size="small" />
-        ) : (
-          <SkillIdentity skillId={selection.item.id} />
-        )}
+        <PackageIcon row={row} />
         <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-1.5 md:gap-2">
+          <span className="flex flex-wrap items-baseline gap-1.5 md:gap-2">
             <span className="type-row [overflow-wrap:anywhere]">
-              {selectionName(selection)}
+              {row.display_name}
             </span>
-            <KindPill kind={selection.kind} />
-            {arcOnly ? (
-              <span className="type-meta text-aomi-muted shrink-0">
-                Arc only
-              </span>
-            ) : null}
+            <span className="type-meta text-aomi-muted">
+              by {publisher(row)}
+            </span>
           </span>
           <span className="type-meta text-aomi-muted mt-0.5 line-clamp-2 block [overflow-wrap:anywhere]">
-            {selectionDescription(selection)}
+            {row.description}
           </span>
         </span>
       </button>
-      <span className="hidden w-24 shrink-0 justify-end md:flex">
-        <ChainMarks chainIds={selection.item.chainIds} />
+      <span className="type-meta text-aomi-muted hidden w-32 shrink-0 flex-col items-end md:flex">
+        <span>{families || "Any network"}</span>
+        <span>{contentsLine(row)}</span>
       </span>
-      {app ? (
-        <AppAction
-          app={app}
-          installed={installed}
-          busy={busy}
-          disabled={disabled}
-          hostChainIds={hostChainIds}
-          onInstall={onInstall}
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={onTry}
-          aria-label={`Try ${selectionName(selection)}`}
-          className={rowAction}
-        >
-          <MessageCircle /> Try
-        </button>
-      )}
+      <PackageControl
+        row={row}
+        busy={busy}
+        disabled={disabled}
+        onToggle={onToggle}
+        onConnect={onConnect}
+      />
     </article>
   );
 }

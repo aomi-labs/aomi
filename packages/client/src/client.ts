@@ -6,15 +6,12 @@ import type {
   AomiAccountResponse,
   AomiAppDescriptor,
   AomiClientOptions,
-  AomiClearAppSecretsResponse,
   AomiClearSecretsResponse,
   AomiDeleteSecretResponse,
   AomiIngestSecretsResponse,
   AomiListSecretsResponse,
   AomiRequestOptions,
-  AomiAccountAppMutationResponse,
   AomiSimulateResponse,
-  AomiUserAppSecrets,
   GetAccountBearer,
   Logger,
   AomiHttpMethod,
@@ -316,18 +313,6 @@ function absoluteBase(baseUrl: string): string {
 // AomiClient
 // =============================================================================
 
-/** Build the credential path for the selected account transport. */
-function appSecretsPath(
-  applicationId: ApplicationId,
-  basePath: string,
-): string {
-  const id = String(applicationId ?? "").trim();
-  if (!id) {
-    throw new Error("applicationId is required for app secrets");
-  }
-  return `${basePath}/${encodeURIComponent(id)}/secrets`;
-}
-
 /** Best-effort `{ error }` body reader for user-facing failure messages. */
 async function readErrorDetail(response: Response): Promise<string | null> {
   try {
@@ -356,15 +341,11 @@ export class AomiClient {
   private readonly logger?: Logger;
   private readonly hasAccountAuth: boolean;
   private readonly guestSession?: GuestSessionProvider;
-  private readonly accountAppsPath: string;
 
   constructor(options: AomiClientOptions) {
     // Strip trailing slash
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.hasAccountAuth = Boolean(options.getAccountBearer || options.oauth);
-    this.accountAppsPath = options.oauth
-      ? "/v1/account/apps"
-      : "/api/account/apps";
     this.apiKey = options.apiKey;
     const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
     // Keep the caller's fetch implementation for tests and browser adapters;
@@ -733,71 +714,6 @@ export class AomiClient {
     return (await response.json()) as AomiAccountResponse;
   }
 
-  /** List the full app catalog available to the signed-in account. */
-  async listAccountApps(sessionId: string): Promise<AomiAppDescriptor[]> {
-    const url = buildApiUrl(this.baseUrl, this.accountAppsPath);
-    const response = await this.fetchImpl(url, {
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to list account apps: HTTP ${response.status}`);
-    }
-
-    const data = (await response.json()) as unknown;
-    if (!Array.isArray(data)) return [];
-    return data
-      .map((item) => normalizeAppDescriptor(item))
-      .filter((item): item is AomiAppDescriptor => item !== null);
-  }
-
-  /**
-   * Atomically install one exact application row. A private app the account
-   * cannot see yet needs its `apiKey`; the backend reads it on its own route.
-   */
-  async addAccountApp(
-    sessionId: string,
-    applicationId: ApplicationId,
-    options: { apiKey?: string } = {},
-  ): Promise<AomiAccountAppMutationResponse> {
-    const url = buildApiUrl(
-      this.baseUrl,
-      `${options.apiKey ? "/api/account/apps" : this.accountAppsPath}/${encodeURIComponent(String(applicationId))}`,
-    );
-    const headers = new Headers(withSessionHeader(sessionId));
-    if (options.apiKey) headers.set(APP_KEY_HEADER, options.apiKey);
-    const response = await this.fetchImpl(url, { method: "POST", headers });
-
-    if (!response.ok) {
-      throw new Error(`Failed to install account app: HTTP ${response.status}`);
-    }
-
-    return (await response.json()) as AomiAccountAppMutationResponse;
-  }
-
-  /** Atomically uninstall one exact application row. */
-  async removeAccountApp(
-    sessionId: string,
-    applicationId: ApplicationId,
-  ): Promise<AomiAccountAppMutationResponse> {
-    const url = buildApiUrl(
-      this.baseUrl,
-      `${this.accountAppsPath}/${encodeURIComponent(String(applicationId))}`,
-    );
-    const response = await this.fetchImpl(url, {
-      method: "DELETE",
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Failed to uninstall account app: HTTP ${response.status}`,
-      );
-    }
-
-    return (await response.json()) as AomiAccountAppMutationResponse;
-  }
-
   /**
    * Get available models.
    */
@@ -876,150 +792,6 @@ export class AomiClient {
       baml: string;
       created: boolean;
     };
-  }
-
-  // ===========================================================================
-  // Per-user app secrets (client-supplied API keys)
-  // ===========================================================================
-  //
-  // Apps can ask each signed-in user for their own credentials. These values
-  // are account-scoped and durable on the backend, and are resolved for every
-  // dynamic invocation of that app. Distinct from `ingestSecrets`, which is
-  // the ephemeral browser-scoped store.
-
-  /**
-   * The slots an app declares with the current account's configuration
-   * state. Never values.
-   */
-  async listAppSecrets(
-    sessionId: string,
-    applicationId: ApplicationId,
-  ): Promise<AomiUserAppSecrets> {
-    const url = joinApiPath(
-      this.baseUrl,
-      appSecretsPath(applicationId, this.accountAppsPath),
-    );
-    const response = await this.fetchImpl(url, {
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to list app secrets: HTTP ${response.status}`);
-    }
-
-    return (await response.json()) as AomiUserAppSecrets;
-  }
-
-  /** Read per-user credential status for one application ID. */
-  getAppCredentialsStatus(
-    sessionId: string,
-    applicationId: ApplicationId,
-  ): Promise<AomiUserAppSecrets> {
-    return this.listAppSecrets(sessionId, applicationId);
-  }
-
-  /**
-   * Save (upsert) the current account's own values for some of an app's
-   * slots. Slots omitted from `secrets` are left untouched, so one key can
-   * be rotated without re-entering the others.
-   */
-  async saveAppSecrets(
-    sessionId: string,
-    applicationId: ApplicationId,
-    secrets: Record<string, string>,
-  ): Promise<AomiUserAppSecrets> {
-    const url = joinApiPath(
-      this.baseUrl,
-      appSecretsPath(applicationId, this.accountAppsPath),
-    );
-    const response = await this.fetchImpl(url, {
-      method: "POST",
-      headers: withSessionHeader(sessionId, {
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify({ secrets }),
-    });
-
-    if (!response.ok) {
-      const detail = await readErrorDetail(response);
-      throw new Error(
-        `Failed to save app secrets: HTTP ${response.status}${detail ? ` (${detail})` : ""}`,
-      );
-    }
-
-    return (await response.json()) as AomiUserAppSecrets;
-  }
-
-  /** Save one declared per-user credential. The value is never returned. */
-  setAppCredential(
-    sessionId: string,
-    applicationId: ApplicationId,
-    name: string,
-    value: string,
-  ): Promise<AomiUserAppSecrets> {
-    return this.saveAppSecrets(sessionId, applicationId, { [name]: value });
-  }
-
-  /** Replace one saved credential. The backend uses the same secure upsert. */
-  replaceAppCredential(
-    sessionId: string,
-    applicationId: ApplicationId,
-    name: string,
-    value: string,
-  ): Promise<AomiUserAppSecrets> {
-    return this.setAppCredential(sessionId, applicationId, name, value);
-  }
-
-  /** Remove one of the current account's own values for an app. */
-  async deleteAppSecret(
-    sessionId: string,
-    applicationId: ApplicationId,
-    name: string,
-  ): Promise<AomiDeleteSecretResponse> {
-    const url = joinApiPath(
-      this.baseUrl,
-      `${appSecretsPath(applicationId, this.accountAppsPath)}/${encodeURIComponent(name)}`,
-    );
-    const response = await this.fetchImpl(url, {
-      method: "DELETE",
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to delete app secret: HTTP ${response.status}`);
-    }
-
-    return (await response.json()) as AomiDeleteSecretResponse;
-  }
-
-  /** Remove one saved per-user credential by application ID. */
-  removeAppCredential(
-    sessionId: string,
-    applicationId: ApplicationId,
-    name: string,
-  ): Promise<AomiDeleteSecretResponse> {
-    return this.deleteAppSecret(sessionId, applicationId, name);
-  }
-
-  /** Remove every value the current account stored for an app. */
-  async clearAppSecrets(
-    sessionId: string,
-    applicationId: ApplicationId,
-  ): Promise<AomiClearAppSecretsResponse> {
-    const url = joinApiPath(
-      this.baseUrl,
-      appSecretsPath(applicationId, this.accountAppsPath),
-    );
-    const response = await this.fetchImpl(url, {
-      method: "DELETE",
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to clear app secrets: HTTP ${response.status}`);
-    }
-
-    return (await response.json()) as AomiClearAppSecretsResponse;
   }
 
   // ===========================================================================

@@ -15,7 +15,10 @@ sources_of_truth:
 
 The frontend has one persisted repository concept: `Project`. Repository
 candidates exist only in the GitHub connection flow and never appear in the
-Projects, Deployments, Operate, or bot-configuration data sets.
+Operate or bot-configuration data sets. Build has no Projects or Deployments
+pages: its Packages and Agents pages read the builder's publisher through the
+Build release routes (`docs/topics/bff/facts/endpoints.md`) and are read-only
+for repo config.
 
 ```ts
 type Project = {
@@ -48,28 +51,21 @@ send that exact commit.
 
 ```mermaid
 flowchart LR
-    B["Builder session"] --> PL["Projects list with optional selected platform"]
-    B --> P["GET user/projects without platform"]
+    B["Builder session"] --> P["GET user/projects without platform"]
     P --> BOT["Telegram eligible apps"]
-    B --> D["GET user/deployments"]
-    D --> DL["Deployment history"]
     B --> O["Account observability without platform"]
     O --> OC["Cards from every bound platform"]
     OC --> S["Selected project"]
     S --> BP["Read detail on project.platformName"]
 ```
 
-Account-wide Deployments, Operate, and Telegram reads omit `platform`. This
-lets the backend aggregate projects and deployment history across different
-platforms. The Projects page may explicitly select one platform. A
-single-project read first proves account ownership, then uses that project's
-`platformName`; the launch default must not override the binding.
+Account-wide Operate and Telegram reads omit `platform`. This lets the
+backend aggregate projects across different platforms. A single-project read
+first proves account ownership, then uses that project's `platformName`; the
+launch default must not override the binding.
 
 ## Page invariants
 
-- Projects renders only persisted `UserProject` rows, never GitHub candidates.
-- Deployments uses the builder-wide deployment feed and joins rows by
-  `projectId`.
 - Observability overview and detail share the same project identity. A card
   that links to detail cannot switch back to the default platform.
 - App detail supports 1h, 24h, 7d and 30d activity windows, passed through the
