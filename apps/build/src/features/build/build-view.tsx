@@ -183,7 +183,7 @@ export function BuildView() {
     ],
   );
 
-  const scrollToChanneltom = useCallback(() => {
+  const scrollToBottom = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     requestAnimationFrame(() => {
@@ -192,7 +192,7 @@ export function BuildView() {
   }, []);
 
   useEffect(() => {
-    scrollToChanneltom();
+    scrollToBottom();
   }, [
     messages,
     streamingMessageId,
@@ -201,7 +201,7 @@ export function BuildView() {
     awaitingVerify,
     shipReady,
     fileTree,
-    scrollToChanneltom,
+    scrollToBottom,
   ]);
 
   useEffect(() => {

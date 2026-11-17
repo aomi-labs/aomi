@@ -143,7 +143,7 @@ export function ApiWorkbench() {
 
         <div className={styles.responseCodePanel}>
           <div className={styles.panelLabel}>
-            <span>200 / agent&#47;json</span>
+            <span>200 / application&#47;json</span>
             <span>response</span>
           </div>
           <pre key={`${surface}-response`}>
