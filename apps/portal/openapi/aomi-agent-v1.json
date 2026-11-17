@@ -10034,7 +10034,7 @@
           },
           "browser_app": {
             "type": ["string", "null"],
-            "description": "The browser wallet toolset (MetaMask, Rabby) that linked it."
+            "description": "The browser wallet app (MetaMask, Rabby) that linked it."
           },
           "provider": {
             "type": ["string", "null"]
@@ -10048,7 +10048,7 @@
           },
           "maker_agent": {
             "type": ["string", "null"],
-            "description": "The toolset that made the agent wallet."
+            "description": "The agent that made the agent wallet."
           },
           "lane": {
             "type": "string",
