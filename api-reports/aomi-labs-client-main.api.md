@@ -2297,7 +2297,7 @@ export type CallVerificationField = "request" | "simulation" | "count" | "chainI
 export type CallVerificationSubject = Action | ActionRequest | SignableCommit | null | undefined;
 
 // @public
-export function canonicalAgentId(appId: string | null | undefined): string;
+export function canonicalAgentId(agentScope: string | null | undefined): string;
 
 // @public (undocumented)
 export type CapabilityHint = {

@@ -24,9 +24,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "public"
-        ]
+        "x-aomi-auth": ["public"]
       }
     },
     "/api/integrations/github-app/oauth/start": {
@@ -92,9 +90,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/oauth/claim": {
@@ -105,9 +101,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects": {
@@ -118,10 +112,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service",
-          "builder:read"
-        ]
+        "x-aomi-auth": ["service", "builder:read"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}": {
@@ -132,10 +123,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service",
-          "builder:read"
-        ]
+        "x-aomi-auth": ["service", "builder:read"]
       },
       "delete": {
         "responses": {
@@ -144,9 +132,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/installations": {
@@ -157,10 +143,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service",
-          "builder:read"
-        ]
+        "x-aomi-auth": ["service", "builder:read"]
       }
     },
     "/api/integrations/github-app/builder/agents/{agent_id}": {
@@ -171,10 +154,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service",
-          "builder:read"
-        ]
+        "x-aomi-auth": ["service", "builder:read"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/agents": {
@@ -185,10 +165,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service",
-          "builder:read"
-        ]
+        "x-aomi-auth": ["service", "builder:read"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/transactions": {
@@ -199,9 +176,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/usage": {
@@ -212,10 +187,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service",
-          "project:observe"
-        ]
+        "x-aomi-auth": ["service", "project:observe"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/logs": {
@@ -226,10 +198,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service",
-          "project:observe"
-        ]
+        "x-aomi-auth": ["service", "project:observe"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/observability": {
@@ -240,10 +209,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service",
-          "project:observe"
-        ]
+        "x-aomi-auth": ["service", "project:observe"]
       }
     },
     "/api/integrations/github-app/user/observability": {
@@ -254,10 +220,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service",
-          "project:observe"
-        ]
+        "x-aomi-auth": ["service", "project:observe"]
       }
     },
     "/api/integrations/github-app/user/payments": {
@@ -268,9 +231,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/transactions": {
@@ -281,9 +242,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/statement": {
@@ -294,9 +253,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/usage": {
@@ -307,10 +264,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service",
-          "project:observe"
-        ]
+        "x-aomi-auth": ["service", "project:observe"]
       }
     },
     "/api/integrations/github-app/user/logs": {
@@ -321,10 +275,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service",
-          "project:observe"
-        ]
+        "x-aomi-auth": ["service", "project:observe"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/statement": {
@@ -335,9 +286,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/builder/agents/{agent_id}/agent-key": {
@@ -348,9 +297,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       },
       "post": {
         "responses": {
@@ -359,9 +306,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/builder/agents/{agent_id}/detail": {
@@ -372,10 +317,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service",
-          "project:observe"
-        ]
+        "x-aomi-auth": ["service", "project:observe"]
       }
     },
     "/api/integrations/github-app/builder/agents/{agent_id}/tools/{tool}/trace": {
@@ -386,10 +328,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service",
-          "project:observe"
-        ]
+        "x-aomi-auth": ["service", "project:observe"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/channels": {
@@ -400,9 +339,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       },
       "post": {
         "responses": {
@@ -411,9 +348,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/channels/{channel_id}": {
@@ -424,9 +359,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/channels": {
@@ -437,9 +370,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       },
       "post": {
         "responses": {
@@ -448,9 +379,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/channels/{channel_id}": {
@@ -461,9 +390,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       },
       "delete": {
         "responses": {
@@ -472,9 +399,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/channels/{channel_id}/command-secret": {
@@ -485,9 +410,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/channels/{channel_id}/webhook": {
@@ -498,9 +421,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/model-keys": {
@@ -511,9 +432,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       },
       "post": {
         "responses": {
@@ -522,9 +441,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/model-keys/{key_id}": {
@@ -535,9 +452,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       },
       "delete": {
         "responses": {
@@ -546,9 +461,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/model-keys/{key_id}/grants": {
@@ -559,9 +472,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/publishers/me": {
@@ -572,9 +483,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "builder"
-        ]
+        "x-aomi-auth": ["builder"]
       }
     },
     "/api/packages/{name}": {
@@ -585,9 +494,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "builder"
-        ]
+        "x-aomi-auth": ["builder"]
       }
     },
     "/api/packages/{name}/releases": {
@@ -598,10 +505,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "builder",
-          "package:publish"
-        ]
+        "x-aomi-auth": ["builder", "package:publish"]
       },
       "get": {
         "responses": {
@@ -610,9 +514,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "builder"
-        ]
+        "x-aomi-auth": ["builder"]
       }
     },
     "/api/packages/{name}/promote": {
@@ -623,10 +525,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "builder",
-          "package:promote"
-        ]
+        "x-aomi-auth": ["builder", "package:promote"]
       }
     },
     "/api/packages/{name}/secrets/{slot}": {
@@ -637,10 +536,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "builder",
-          "package:secrets"
-        ]
+        "x-aomi-auth": ["builder", "package:secrets"]
       },
       "delete": {
         "responses": {
@@ -649,10 +545,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "builder",
-          "package:secrets"
-        ]
+        "x-aomi-auth": ["builder", "package:secrets"]
       }
     },
     "/api/agents/{name}": {
@@ -663,9 +556,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "builder"
-        ]
+        "x-aomi-auth": ["builder"]
       }
     },
     "/api/agents/{name}/configs": {
@@ -676,10 +567,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "builder",
-          "agent:publish"
-        ]
+        "x-aomi-auth": ["builder", "agent:publish"]
       },
       "get": {
         "responses": {
@@ -688,9 +576,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "builder"
-        ]
+        "x-aomi-auth": ["builder"]
       }
     },
     "/api/agents/{name}/promote": {
@@ -701,10 +587,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "builder",
-          "agent:promote"
-        ]
+        "x-aomi-auth": ["builder", "agent:promote"]
       }
     },
     "/api/account/channels": {
@@ -719,9 +602,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       },
       "post": {
         "responses": {
@@ -734,9 +615,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/channels/{id}": {
@@ -751,9 +630,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/platforms/{name}/activate": {
@@ -764,9 +641,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "admin"
-        ]
+        "x-aomi-auth": ["admin"]
       }
     },
     "/api/platforms/{name}/deactivate": {
@@ -777,9 +652,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "admin"
-        ]
+        "x-aomi-auth": ["admin"]
       }
     },
     "/api/platforms/{name}/projects": {
@@ -790,9 +663,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "admin"
-        ]
+        "x-aomi-auth": ["admin"]
       }
     }
   },

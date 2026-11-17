@@ -17,7 +17,8 @@ import type { Scenario } from "./types";
  */
 export const scenario: Scenario = {
   id: "ds13-cheapest-borrow",
-  title: "Borrow 2,000 USDC at the cheapest rate — agent referees Aave vs Compound",
+  title:
+    "Borrow 2,000 USDC at the cheapest rate — agent referees Aave vs Compound",
   chains: [1],
   packages: [],
   // Turn 2 steers the collateral leg through WETH explicitly: the first

@@ -3,12 +3,12 @@
 Aomi provides a React chat widget, a headless React runtime, a TypeScript SDK
 and a terminal client for conversations and wallet actions.
 
-| Package | Purpose |
-| --- | --- |
-| `@aomi-labs/widget` | Chat UI and browser wallet integration |
-| `@aomi-labs/react` | Headless conversation runtime |
+| Package             | Purpose                                               |
+| ------------------- | ----------------------------------------------------- |
+| `@aomi-labs/widget` | Chat UI and browser wallet integration                |
+| `@aomi-labs/react`  | Headless conversation runtime                         |
 | `@aomi-labs/client` | Browser and Node transport, accounts and Pipeline SDK |
-| `@aomi-labs/cli` | The `aomi` terminal command |
+| `@aomi-labs/cli`    | The `aomi` terminal command                           |
 
 ## Widget
 

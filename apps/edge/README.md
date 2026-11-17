@@ -40,8 +40,8 @@ venue-specific URL.
   - `routes.ts`: the route table. `/v1/agent/**`, `/v1/pipeline/**`,
     `/v1/account/{packages,transaction-safety,credits,statement}`, the account's
     wallets, agent wallets, lanes and platform links (`/v1/account/{wallets,
-    agent-wallets,pause-all,connection-settings,connections/:key/wallets,
-    link}`), thread-less commits (`/v1/commits/:ref/**`), the agent, pipeline
+agent-wallets,pause-all,connection-settings,connections/:key/wallets,
+link}`), thread-less commits (`/v1/commits/:ref/**`), the agent, pipeline
     and agent-locked (`/v1/agents/:agent/mcp`) MCP transports, the `/api/*` backend
     allowlist, discovery and the public catalog. Bearers are minted as
     `aomi-edge` with the same delegated claims the portal minted as
@@ -181,8 +181,8 @@ product-mono's deploy pushes them to the Worker on every deploy.
 - Never run `wrangler secret put` by hand. A value that exists only on the
   Worker is stored nowhere else, so nobody can read it back or rotate it.
 - `EDGE_SERVICE_PRIVATE_KEY`: generate it with `pnpm --filter aomi-edge
-  generate-key <env>`. Store the private half with `gh secret set
-  EDGE_SERVICE_PRIVATE_KEY -e <env> -R aomi-labs/product-mono`. Commit the
+generate-key <env>`. Store the private half with `gh secret set
+EDGE_SERVICE_PRIVATE_KEY -e <env> -R aomi-labs/product-mono`. Commit the
   public half in `packages/service-identity/src/topologies.ts` and
   product-mono's `service.<env>.toml` in the same change.
 - `BETTER_AUTH_SECRET`: the portal's current value, so sessions and the

@@ -92,7 +92,9 @@ function seedUrl(scenario: Scenario): string {
     url.searchParams.set("svmAddress", E2E_SVM_ADDRESS);
     url.searchParams.set(
       "svmCluster",
-      scenario.svm.cluster === "mainnet-beta" ? "solana:mainnet" : "solana:devnet",
+      scenario.svm.cluster === "mainnet-beta"
+        ? "solana:mainnet"
+        : "solana:devnet",
     );
   }
   url.searchParams.set("redirect", "/");
@@ -144,9 +146,7 @@ async function forkProgress(
       // fork. "Some chain moved" would pass a take whose bridge never
       // arrived — the exact half-demo this studio exists to prevent.
       const moved = (n: number, i: number) => n > (before[i] ?? 0);
-      const advanced = requireAll
-        ? after.every(moved)
-        : after.some(moved);
+      const advanced = requireAll ? after.every(moved) : after.some(moved);
       return { advanced, detail };
     },
   };
@@ -478,7 +478,9 @@ async function main(): Promise<void> {
         .then((r) => r.ok)
         .catch(() => false);
       if (!ok) {
-        throw new Error(`Portal at ${PORTAL_URL} is not answering; start it first.`);
+        throw new Error(
+          `Portal at ${PORTAL_URL} is not answering; start it first.`,
+        );
       }
     }
 
@@ -564,9 +566,7 @@ async function seedStartingState(
     }
     for (const account of scenario.svm.tokenAccounts ?? []) {
       await setTokenAccount(E2E_SVM_ADDRESS, account.mint, account.amount);
-      console.log(
-        `svm seeded ${account.symbol}: ${account.amount} base units`,
-      );
+      console.log(`svm seeded ${account.symbol}: ${account.amount} base units`);
     }
   }
   // Ports can change across resets — and pids.json may list chains this
@@ -641,7 +641,11 @@ async function seedStartingState(
     for (const sim of sims) {
       await wipeAccountCode(sim, E2E_ADDRESS);
       const isSource = sim.chainId === scenario.chains[0];
-      await setBalance(sim, E2E_ADDRESS, isSource ? "0x8AC7230489E80000" : "0x0");
+      await setBalance(
+        sim,
+        E2E_ADDRESS,
+        isSource ? "0x8AC7230489E80000" : "0x0",
+      );
       console.log(
         `mirrored wallet state onto sim :${sim.port} (chain ${sim.chainId}, ${isSource ? "10" : "0"} ETH)`,
       );

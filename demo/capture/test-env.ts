@@ -28,7 +28,15 @@ const PIDS_PATH = join(TEST_ENV_DIR, "pids.json");
  */
 const AOMI_BIN =
   process.env.AOMI_BIN ??
-  join(homedir(), "Code", "product-mono", "aomi", "target", "debug", "aomi-cli");
+  join(
+    homedir(),
+    "Code",
+    "product-mono",
+    "aomi",
+    "target",
+    "debug",
+    "aomi-cli",
+  );
 
 export type ForkedChain = {
   chainId: number;
@@ -155,7 +163,10 @@ export async function assertForkedOrDie(
 
     // `anvil_nodeInfo` only exists on anvil. A real RPC returns a JSON-RPC
     // error for it, which is precisely the signal we want to catch.
-    const body = (await response.json()) as { result?: unknown; error?: unknown };
+    const body = (await response.json()) as {
+      result?: unknown;
+      error?: unknown;
+    };
     if (body.error || !body.result) {
       throw new Error(
         `Refusing to record: ${chain.rpcUrl} answered but is NOT an anvil fork ` +
@@ -240,10 +251,7 @@ export async function nativeBalance(
   chain: ForkedChain,
   address: string,
 ): Promise<bigint> {
-  const result = await rpc(chain.rpcUrl, "eth_getBalance", [
-    address,
-    "latest",
-  ]);
+  const result = await rpc(chain.rpcUrl, "eth_getBalance", [address, "latest"]);
   return BigInt((result as string) ?? "0x0");
 }
 

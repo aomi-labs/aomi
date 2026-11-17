@@ -15,14 +15,14 @@ promising anyone a video.
 
 ## How it fits together
 
-| Layer | Where | Status |
-| --- | --- | --- |
-| Fork lifecycle + pre-funding | `aomi-cli test-env evm` in **product-mono** | exists, we only call it |
-| Backend | product-mono backend against a disposable local database | local |
-| Chain routing in the UI | `NEXT_PUBLIC_USE_FULL_TESTNET` + widget-lib helpers | wired into the portal |
-| E2E wallet + fork executor | `apps/portal/src/server/e2e-wallet.ts` | proven |
-| Scenarios | `demo/scenarios/*.scenario.ts` | 1 proven, rest draft — see below |
-| Capture | `demo/capture/record.ts` | proven |
+| Layer                        | Where                                                    | Status                           |
+| ---------------------------- | -------------------------------------------------------- | -------------------------------- |
+| Fork lifecycle + pre-funding | `aomi-cli test-env evm` in **product-mono**              | exists, we only call it          |
+| Backend                      | product-mono backend against a disposable local database | local                            |
+| Chain routing in the UI      | `NEXT_PUBLIC_USE_FULL_TESTNET` + widget-lib helpers      | wired into the portal            |
+| E2E wallet + fork executor   | `apps/portal/src/server/e2e-wallet.ts`                   | proven                           |
+| Scenarios                    | `demo/scenarios/*.scenario.ts`                           | 1 proven, rest draft — see below |
+| Capture                      | `demo/capture/record.ts`                                 | proven                           |
 
 The UI keeps the **real** chain ids and only swaps the RPC url, so a recording
 shows "Ethereum · Mainnet" while every transaction lands on a local fork.
@@ -33,14 +33,14 @@ Only claim a scenario works if it is listed **proven** here. A scenario file
 existing means the prompt and expectations are written down, not that a take has
 ever completed.
 
-| Scenario | Status |
-| --- | --- |
-| `ds2-stake-eth` | **proven** — takes 13/14, 5.0 stETH verified on-chain |
-| `money-legos-stake-collateralize` | draft — agent found wstETH unprompted and simulated all 6 txs, but commit is blocked by the staged-tx-loss bug |
-| `stake-shootout` | draft — blocked by the multi-skill guard bug (comparing pools activates 3 staking skills, whose guards then reject each other) |
-| `aave-borrow-against-usdc` | draft — never run |
-| `ds4-bridge-to-base` | draft — source leg only by design; L2 arrival needs the real sequencer |
-| `ds6-sol-swap-stake` | draft — owned by the Solana track |
+| Scenario                          | Status                                                                                                                         |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `ds2-stake-eth`                   | **proven** — takes 13/14, 5.0 stETH verified on-chain                                                                          |
+| `money-legos-stake-collateralize` | draft — agent found wstETH unprompted and simulated all 6 txs, but commit is blocked by the staged-tx-loss bug                 |
+| `stake-shootout`                  | draft — blocked by the multi-skill guard bug (comparing pools activates 3 staking skills, whose guards then reject each other) |
+| `aave-borrow-against-usdc`        | draft — never run                                                                                                              |
+| `ds4-bridge-to-base`              | draft — source leg only by design; L2 arrival needs the real sequencer                                                         |
+| `ds6-sol-swap-stake`              | draft — owned by the Solana track                                                                                              |
 
 ### What cannot be recorded at all
 
@@ -87,21 +87,21 @@ of those happens, keep the chip out of frame or out of the claim.
 This question comes up every time someone watches a take. The demo wallet is in
 **`client_auto`** signing mode, one of three backend lanes:
 
-| Mode | Who signs | On camera |
-| --- | --- | --- |
-| `manual` | the human, in real time (request routes to the FE) | approval UI |
-| `auto` | the server, via a delegated provider grant | nothing |
-| `client_auto` ← demos | a key-holding caller at the edge, unattended | nothing |
+| Mode                  | Who signs                                          | On camera   |
+| --------------------- | -------------------------------------------------- | ----------- |
+| `manual`              | the human, in real time (request routes to the FE) | approval UI |
+| `auto`                | the server, via a delegated provider grant         | nothing     |
+| `client_auto` ← demos | a key-holding caller at the edge, unattended       | nothing     |
 
 The wallet earned that mode through the **permit ceremony** (challenge → wallet
 signs → commit, once for `bind`, once for `client_auto`) — off camera, before
-recording. That ceremony *is* the wallet signature; it is the same grant a real
+recording. That ceremony _is_ the wallet signature; it is the same grant a real
 power user opts into.
 
 Note what the browser does and does not hold: it carries only the HMAC session
 cookie (an address and a cluster). The key is a server-only env var and the
 signing code sits behind `import "server-only"`, so it cannot reach the client
-bundle. In production `client_auto`, the edge signer often genuinely *is* the
+bundle. In production `client_auto`, the edge signer often genuinely _is_ the
 browser (Para MPC/passkey); the studio moves it server-side so no key material
 is ever near a screen recording.
 
@@ -146,7 +146,7 @@ FULL_TESTNETS=true PROVIDERS_TOML=~/Code/product-mono/providers.toml \
   ./aomi/target/debug/aomi-cli test-env evm up --chains 1
 ```
 
-`PROVIDERS_TOML` is required — discovery walks the *cwd's* ancestors, so it
+`PROVIDERS_TOML` is required — discovery walks the _cwd's_ ancestors, so it
 fails from this repo. **The port is random on every `up`** — read it:
 
 ```bash
@@ -270,7 +270,7 @@ FULL_TESTNETS=true aomi-cli test-env svm up --cluster mainnet-beta
 `token_fixtures`, and it is tempting to assume `test-env svm reset` re-applies
 them. Measured 2026-08-01: it does not. It does not even restart Surfpool —
 the process had been up 3h57m across a dozen resets. A take that spends SOL
-therefore starts from the *previous take's* leftovers unless the studio writes
+therefore starts from the _previous take's_ leftovers unless the studio writes
 the balances itself.
 
 So scenarios declare their entire starting state and the recorder writes it
@@ -307,7 +307,7 @@ transactions, so EVM uses block advance; Surfpool mints slots on a clock, so
 Solana takes declare `svm.verify` balance assertions instead — a take that
 moved no balances fails, no matter how good it looked.
 
-### Two failure modes that produce a *plausible* bad video
+### Two failure modes that produce a _plausible_ bad video
 
 Both were found shooting DS6, and both pass every automated check the studio
 had at the time. They are the reason a human still watches the take.
@@ -316,15 +316,15 @@ had at the time. They are the reason a human still watches the take.
 not necessarily finished — execution callbacks land afterwards and trigger one
 more agent turn. DS6 take 2 typed its approval 1.6s into that gap; the agent
 had no confirmation hash yet, so it re-staged an already-executed leg, read
-back the (correctly) spent balance, and closed with *"your current balance is
-~0.0099 SOL … not enough"* while the chain showed a perfect swap and stake.
+back the (correctly) spent balance, and closed with _"your current balance is
+~0.0099 SOL … not enough"_ while the chain showed a perfect swap and stake.
 Chain assertions all passed. The video was unusable.
 
 The recorder now settles after **every** turn, not just at the end of the
 take. Expect a ~9s gap before a follow-up prompt; that gap is the fix.
 
 Related, and worth wording carefully in the scenario: an approval prompt
-should say *"Yes, approve the stake"*, not *"go ahead and execute both"* — the
+should say _"Yes, approve the stake"_, not _"go ahead and execute both"_ — the
 latter reads as an instruction to redo the swap.
 
 **2. Bundle construction is not deterministic.** The agent does not build the
@@ -346,10 +346,10 @@ it was noticed:
   paint. Clicking Decline mid-take is too late; it mounts lazily and sat over
   the composer for a whole turn.
 - **Next dev indicator** — a badge in the bottom-left, directly on top of the
-  account chip, reading as *"this product has N issues"*. Disabled via
+  account chip, reading as _"this product has N issues"_. Disabled via
   `AOMI_HIDE_DEV_INDICATOR=true` (wired into the `portal-demo-studio` launch
   config); the CSS-injection approach is not reliable enough to depend on.
-- **Thread sidebar** — collapsed by clicking its trigger, then *verified*
+- **Thread sidebar** — collapsed by clicking its trigger, then _verified_
   collapsed via `data-state`. A blind click is not enough. Left open, the
   frame shows prior debug threads, one of which is titled "Lido ETH Staking
   Testnet Fail".
@@ -379,7 +379,7 @@ independent guards, none of which should be downgraded:
 - Takes create **real threads** on the canonical user's account in the shared
   DB — archive them before partner-facing takes; the sidebar is on camera.
 - Raw `wallet:tx_complete` JSON renders as a chat bubble, and the agent's
-  "please approve" can land *after* auto-execution confirms — both are product
+  "please approve" can land _after_ auto-execution confirms — both are product
   UI polish items on the demo path.
 - Solana: `test-env svm` (Surfpool mirror) exists but is unverified against
   Jupiter/Marinade; byreal's off-chain orderbook can't be forked at all.

@@ -12,16 +12,16 @@ Generated wire types and the public SDK facade remain supported.
 
 ## Ownership
 
-| Concern | Owner |
-| --- | --- |
-| Backend requests and auth renewal | `packages/client/src/client.ts` |
-| Ordered conversation, Stop, branching, actions and commits | `packages/client/src/session/` |
-| Canonical account graph response and account operations | `packages/client/src/account/` |
-| React orchestration and assistant-ui adaptation | `packages/react/src/runtime/` |
-| Chat display and wallet adapters | Widget package |
-| First-party cookies, widget origin binding, OAuth and upstream authority | `packages/account` and the Edge |
-| Deployment console | `apps/build` |
-| Backend orchestration and on-chain execution | Rust backend; never a display cache |
+| Concern                                                                  | Owner                               |
+| ------------------------------------------------------------------------ | ----------------------------------- |
+| Backend requests and auth renewal                                        | `packages/client/src/client.ts`     |
+| Ordered conversation, Stop, branching, actions and commits               | `packages/client/src/session/`      |
+| Canonical account graph response and account operations                  | `packages/client/src/account/`      |
+| React orchestration and assistant-ui adaptation                          | `packages/react/src/runtime/`       |
+| Chat display and wallet adapters                                         | Widget package                      |
+| First-party cookies, widget origin binding, OAuth and upstream authority | `packages/account` and the Edge     |
+| Deployment console                                                       | `apps/build`                        |
+| Backend orchestration and on-chain execution                             | Rust backend; never a display cache |
 
 A conversation's thread ID is distinct from an authentication session ID. An
 Aomi account ID is distinct from a provider user ID, a token subject, an owner

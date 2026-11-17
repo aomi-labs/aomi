@@ -90,7 +90,16 @@
     "plugins": [
       "prettier-plugin-tailwindcss"
     ],
-    "tailwindStylesheet": "app/globals.css"
+    "tailwindStylesheet": "app/globals.css",
+    "overrides": [
+      {
+        "files": "api-reports/*.api.md",
+        "options": {
+          "embeddedLanguageFormatting": "off",
+          "endOfLine": "crlf"
+        }
+      }
+    ]
   },
   "devDependencies": {
     "@ai-sdk/openai": "^2.0.46",

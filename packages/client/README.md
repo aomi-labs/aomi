@@ -10,12 +10,12 @@ uses it by default).
 Most integrations need nothing: start as a guest and add a credential only when
 a call asks for one.
 
-| Credential      | When you need it                                                | How to get it                                                                                                                          | How to pass it                                                |
-| --------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| None (guest)    | Default. Guest-safe Agent and Pipeline calls.                   | Nothing to do — the SDK creates an anonymous session on the first request.                                                             | Omit `auth`.                                                  |
+| Credential      | When you need it                                                  | How to get it                                                                                                                          | How to pass it                                                |
+| --------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| None (guest)    | Default. Guest-safe Agent and Pipeline calls.                     | Nothing to do — the SDK creates an anonymous session on the first request.                                                             | Omit `auth`.                                                  |
 | OAuth client ID | A user signs in your CLI, agent, or server process (device flow). | Register a public device client once — see [Register an OAuth client](#register-an-oauth-client). No secret.                           | `auth: oauth({ clientId: process.env.AOMI_OAUTH_CLIENT_ID })` |
-| Agent key       | Only for **private** Agents. Public Agents never need one.      | Get it from the Agent's owner. The Aomi team issues the first key to the owner, who can rotate it with `POST /api/account/agent-keys`. | `apiKey` option, CLI `--api-key`, or `AOMI_API_KEY`.          |
-| Account bearer  | Account-scoped calls (credits, Agent keys, linked identities).  | `aomi login`, or your own signed-in session.                                                                                           | `getAccountBearer`, CLI `--account-bearer`.                   |
+| Agent key       | Only for **private** Agents. Public Agents never need one.        | Get it from the Agent's owner. The Aomi team issues the first key to the owner, who can rotate it with `POST /api/account/agent-keys`. | `apiKey` option, CLI `--api-key`, or `AOMI_API_KEY`.          |
+| Account bearer  | Account-scoped calls (credits, Agent keys, linked identities).    | `aomi login`, or your own signed-in session.                                                                                           | `getAccountBearer`, CLI `--account-bearer`.                   |
 
 If a call fails because of the Agent rather than your credentials, the error
 `code` says why: `agent_not_found` (404), `agent_inactive` (409, the owner has not

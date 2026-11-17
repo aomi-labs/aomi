@@ -102,7 +102,7 @@ export const scenario: Scenario = {
   moneyShot:
     "The chain switcher reading SVM while the same agent that staked ETH " +
     "yesterday swaps and stakes on Solana — two VMs, one conversation.",
-  timeoutMs: 150_000,  // a passing take streams ~25s/turn; failures cost less
+  timeoutMs: 150_000, // a passing take streams ~25s/turn; failures cost less
   expectsExecution: true,
 };
 

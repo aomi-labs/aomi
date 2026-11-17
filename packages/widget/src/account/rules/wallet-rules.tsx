@@ -380,7 +380,9 @@ export function WalletRules({
                     <>
                       Can use{" "}
                       <Names
-                        names={protocols.map((id) => protocolLabel(id, catalog))}
+                        names={protocols.map((id) =>
+                          protocolLabel(id, catalog),
+                        )}
                       />
                     </>
                   ) : protocols ? (

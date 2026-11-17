@@ -31,10 +31,10 @@ export default function AgentsBuildPage() {
         <p className={styles.eyebrow}>Build</p>
         <h1>Build on Aomi</h1>
         <p>
-          Turn your platform into an agent. Bring your APIs — OpenAPI,
-          REST, SDK — and Aomi converts them into intent-shaped tools, deployed
-          as an Aomi Agent hosted on our runtime, with built-in scalability and
-          on-chain harness.
+          Turn your platform into an agent. Bring your APIs — OpenAPI, REST, SDK
+          — and Aomi converts them into intent-shaped tools, deployed as an Aomi
+          Agent hosted on our runtime, with built-in scalability and on-chain
+          harness.
         </p>
         <div className={styles.heroActions}>
           <Link to="/agents/build.md" reloadDocument>

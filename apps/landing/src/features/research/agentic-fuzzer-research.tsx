@@ -336,8 +336,8 @@ function Harness() {
           </li>
           <li>
             <span>
-              <strong>Typed tools and deterministic engines.</strong> Packages are
-              WASI components that run their tools next to the model.
+              <strong>Typed tools and deterministic engines.</strong> Packages
+              are WASI components that run their tools next to the model.
             </span>
           </li>
           <li>

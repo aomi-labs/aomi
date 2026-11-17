@@ -18,7 +18,10 @@ function fixtureSdkRoot(packageName: string): string {
   writeFileSync(path.join(packageDir, "Cargo.lock"), "# lock\n");
   writeFileSync(path.join(packageDir, "src", "lib.rs"), "// lib\n");
   writeFileSync(path.join(packageDir, "src", "tool.rs"), "// tool\n");
-  writeFileSync(path.join(packageDir, "src", "client", "client.rs"), "// client\n");
+  writeFileSync(
+    path.join(packageDir, "src", "client", "client.rs"),
+    "// client\n",
+  );
   writeFileSync(path.join(packageDir, "target", "release", "junk.bin"), "junk");
   return root;
 }

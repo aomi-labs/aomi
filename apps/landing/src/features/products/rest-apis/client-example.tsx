@@ -13,7 +13,9 @@ function tokenClass(token: string) {
   if (token.startsWith("http")) return styles.codeProperty;
   if (token.startsWith("-")) return styles.codeProperty;
   if (/^\d/.test(token)) return styles.codeNumber;
-  if (["agent", "toolset", "wallet", "type", "text", "action"].includes(token)) {
+  if (
+    ["agent", "toolset", "wallet", "type", "text", "action"].includes(token)
+  ) {
     return styles.codeProperty;
   }
   return styles.codeKeyword;

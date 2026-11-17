@@ -16,13 +16,13 @@ Recording is the easy last mile. This spec is mostly about the environment.
 
 ## Locked decisions
 
-| Decision | Choice |
-| --- | --- |
-| Audience | BD calls **and** social **and** docs |
-| Capture strategy | **Record one master per scenario, cut three ways.** Never re-shoot per format. |
-| Environment | Pinned EVM fork via the **existing** `aomi test-env`, plus real-mainnet for Solana and 1–2 proof videos |
-| Wallet | Full-testnet wallet routing — no extension, no popups, no seed phrase on camera |
-| Content validation | External trader reviews the scenario catalog before we build capture |
+| Decision           | Choice                                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------------------------- |
+| Audience           | BD calls **and** social **and** docs                                                                    |
+| Capture strategy   | **Record one master per scenario, cut three ways.** Never re-shoot per format.                          |
+| Environment        | Pinned EVM fork via the **existing** `aomi test-env`, plus real-mainnet for Solana and 1–2 proof videos |
+| Wallet             | Full-testnet wallet routing — no extension, no popups, no seed phrase on camera                         |
+| Content validation | External trader reviews the scenario catalog before we build capture                                    |
 
 "Record once, cut three ways" is load-bearing. A 2-minute BD take contains the
 20-second social loop and the 8-second docs loop inside it. The studio emits a
@@ -72,8 +72,8 @@ routing **preserves real chain IDs** (`1`, `8453`) and only swaps the RPC URL:
 
 So the UI renders **"Ethereum · Mainnet"** — exactly as in the screenshot that
 started this work — while every transaction executes against a local fork. It is
-explicitly *not* modeled as Localhost `31337`. Demos look real because the chain
-identity on screen *is* real; only the RPC is local.
+explicitly _not_ modeled as Localhost `31337`. Demos look real because the chain
+identity on screen _is_ real; only the RPC is local.
 
 Layer 2 work is therefore reduced to: pick fork block heights, extend funding
 beyond ETH/USDC for scenarios that need other tokens, and wire the capture
@@ -91,13 +91,13 @@ Run in CI on every release. **Demos then cannot go stale.**
 
 A pinned EVM fork does not cover the whole surface.
 
-| Venue class | Examples | Fork? | Plan |
-| --- | --- | --- | --- |
-| EVM spot / bridge / lend / stake | Uniswap, Lido, Rocket Pool, Ether.fi, Aave, CoW, 1inch, 0x, LiFi, Across, CCTP, Stargate | Yes | `aomi test-env` pinned fork |
-| Solana | Jupiter, Marinade, byreal, svm_transfer | **No** | Mainnet, tiny amounts |
-| Prediction markets | Polymarket, Limitless, Kalshi, Manifold | Partly — Polygon settlement, live off-chain CLOB | Real account, small size |
-| CEX | Binance, Bybit, OKX | No | Venue sandbox API keys |
-| Read-only data | DefiLlama, Dune, GeckoTerminal, Hyperliquid, dYdX, GMX, Morpho, Yearn, l2beat, Kaito, Neynar | N/A | Live APIs, response-cached |
+| Venue class                      | Examples                                                                                     | Fork?                                            | Plan                        |
+| -------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------- |
+| EVM spot / bridge / lend / stake | Uniswap, Lido, Rocket Pool, Ether.fi, Aave, CoW, 1inch, 0x, LiFi, Across, CCTP, Stargate     | Yes                                              | `aomi test-env` pinned fork |
+| Solana                           | Jupiter, Marinade, byreal, svm_transfer                                                      | **No**                                           | Mainnet, tiny amounts       |
+| Prediction markets               | Polymarket, Limitless, Kalshi, Manifold                                                      | Partly — Polygon settlement, live off-chain CLOB | Real account, small size    |
+| CEX                              | Binance, Bybit, OKX                                                                          | No                                               | Venue sandbox API keys      |
+| Read-only data                   | DefiLlama, Dune, GeckoTerminal, Hyperliquid, dYdX, GMX, Morpho, Yearn, l2beat, Kaito, Neynar | N/A                                              | Live APIs, response-cached  |
 
 **Scenario 6 on Surfpool:** replication
 plan for scenario 6 on a Surfpool mainnet fork. Key upgrades over what's below:
@@ -113,7 +113,7 @@ source shows a whole `aomi test-env svm` command group — a Surfpool-backed loc
 SVM mirror with `up` / `down` / `status` / `reset`, plus `wallet`, `airdrop` and
 `usdc` helpers.
 
-The byreal doc is still right about *byreal*: its orderbook is an off-chain API
+The byreal doc is still right about _byreal_: its orderbook is an off-chain API
 that no fork can mirror. But that says nothing about on-chain Solana programs.
 Jupiter and Marinade are on-chain, so a mainnet-forked SVM mirror may serve them
 fine. **Unverified** — try the SVM mirror before accepting real-money Solana
@@ -125,10 +125,10 @@ Two distinct layers, and I initially conflated them:
 
 **SDK packages** — verified by reading `~/Code/packages/packages/*/src/*.rs`:
 
-- *Execute:* Across, Binance, Bybit, OKX, CoW, Jupiter, 1inch, 0x (including
+- _Execute:_ Across, Binance, Bybit, OKX, CoW, Jupiter, 1inch, 0x (including
   **gasless**), LiFi, Khalani, Marinade, Polymarket, Polymarket Rewards,
   Limitless, Kalshi, Manifold, Krexa (borrow USDC), Delta, svm_transfer.
-- *Read-only:* Hyperliquid, dYdX, GMX, Morpho, Yearn, DefiLlama, Dune,
+- _Read-only:_ Hyperliquid, dYdX, GMX, Morpho, Yearn, DefiLlama, Dune,
   GeckoTerminal, l2beat, Kaito, Neynar, X.
 
 **Protocol skills** — a separate layer, referenced throughout the story catalog:

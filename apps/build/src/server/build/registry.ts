@@ -1,9 +1,6 @@
 import "@tanstack/react-start/server-only";
 
-import {
-  storeQuery,
-  type AomiSmitherApi,
-} from "@aomi-labs/smither";
+import { storeQuery, type AomiSmitherApi } from "@aomi-labs/smither";
 
 /**
  * Durable run registry, keyed by (owner, package): the identity layer the

@@ -2,14 +2,14 @@
 
 ## Packages
 
-| Package | Purpose |
-| --- | --- |
-| `@aomi-labs/react` | React runtime provider, contexts, hooks, and public widget integration surface |
-| `@aomi-labs/client` | `AomiClient`, `ClientSession`/`Session`, user-state types, wallet helpers, AA helpers |
-| `@aomi-labs/cli` | The `aomi` terminal command |
+| Package              | Purpose                                                                                                                                                                                            |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@aomi-labs/react`   | React runtime provider, contexts, hooks, and public widget integration surface                                                                                                                     |
+| `@aomi-labs/client`  | `AomiClient`, `ClientSession`/`Session`, user-state types, wallet helpers, AA helpers                                                                                                              |
+| `@aomi-labs/cli`     | The `aomi` terminal command                                                                                                                                                                        |
 | `@aomi-labs/account` | Server-only account graph, Better Auth, SIWE/provider exchange, authorization policy, service topology. Shared auth runs in the Edge Worker; Build session signing is shared with the Build server |
-| `@aomi-labs/app-kit` | Shared Vite/Nitro config for the TanStack Start apps (`vite`, `platform`, `http`, `url-search`) |
-| `@aomi-labs/widget` | Chat UI and wallet provider adapters |
+| `@aomi-labs/app-kit` | Shared Vite/Nitro config for the TanStack Start apps (`vite`, `platform`, `http`, `url-search`)                                                                                                    |
+| `@aomi-labs/widget`  | Chat UI and wallet provider adapters                                                                                                                                                               |
 
 ## Stack
 
@@ -21,12 +21,12 @@
 
 ## Package Entrypoints
 
-| Package | Main exports |
-| --- | --- |
-| `@aomi-labs/react` | `AomiRuntimeProvider`, runtime hooks and handlers; client types come from `@aomi-labs/client` |
-| `@aomi-labs/client` | `Aomi` (threads, turns, commits, `aomi.account`), `AomiClient`, `/viem`, `/solana`, `/node` signer helpers, `/trace` decoder. The terminal command is provided by `@aomi-labs/cli` |
-| `@aomi-labs/cli` | `aomi` terminal command (Stricli commands, pi-tui chat; `aomi login` device code or `--private-key`) |
-| `@aomi-labs/account` | `./build-session`, `./account`, `./better-auth`, `./policy`, `./principal`, `./providers`, `./widget-auth` |
+| Package              | Main exports                                                                                                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@aomi-labs/react`   | `AomiRuntimeProvider`, runtime hooks and handlers; client types come from `@aomi-labs/client`                                                                                      |
+| `@aomi-labs/client`  | `Aomi` (threads, turns, commits, `aomi.account`), `AomiClient`, `/viem`, `/solana`, `/node` signer helpers, `/trace` decoder. The terminal command is provided by `@aomi-labs/cli` |
+| `@aomi-labs/cli`     | `aomi` terminal command (Stricli commands, pi-tui chat; `aomi login` device code or `--private-key`)                                                                               |
+| `@aomi-labs/account` | `./build-session`, `./account`, `./better-auth`, `./policy`, `./principal`, `./providers`, `./widget-auth`                                                                         |
 
 ## Directory Structure
 
@@ -128,18 +128,36 @@ type AomiClientOptions = {
 };
 
 class AomiClient {
-  fetchState(sessionId: string, userState?: UserState, clientId?: string): Promise<AomiStateResponse>;
-  sendMessage(sessionId: string, message: string, options?: SendOptions): Promise<AomiChatResponse>;
-  subscribeSSE(sessionId: string, onUpdate: (event: AomiSSEEvent) => void): () => void;
+  fetchState(
+    sessionId: string,
+    userState?: UserState,
+    clientId?: string,
+  ): Promise<AomiStateResponse>;
+  sendMessage(
+    sessionId: string,
+    message: string,
+    options?: SendOptions,
+  ): Promise<AomiChatResponse>;
+  subscribeSSE(
+    sessionId: string,
+    onUpdate: (event: AomiSSEEvent) => void,
+  ): () => void;
   listThreads(sessionId: string): Promise<AomiThread[]>;
   createThread(threadId: string): Promise<AomiCreateThreadResponse>;
   listCatalog(sessionId: string): Promise<ThreadCatalog>;
   getModels(sessionId: string): Promise<string[]>;
-  setModel(sessionId: string, rig: string, options?: SetModelOptions): Promise<SetModelResponse>;
+  setModel(
+    sessionId: string,
+    rig: string,
+    options?: SetModelOptions,
+  ): Promise<SetModelResponse>;
 }
 
 class ClientSession {
-  constructor(clientOrOptions: AomiClient | AomiClientOptions, sessionOptions?: SessionOptions);
+  constructor(
+    clientOrOptions: AomiClient | AomiClientOptions,
+    sessionOptions?: SessionOptions,
+  );
   send(message: string): Promise<SendResult>;
   sendAsync(message: string): Promise<AomiChatResponse>;
   resolve(requestId: string, result: WalletRequestResult): Promise<void>;
