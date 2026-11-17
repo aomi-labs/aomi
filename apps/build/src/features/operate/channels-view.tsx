@@ -1,8 +1,7 @@
 import type { Channel, ChannelAgent } from "@aomi-labs/deploy";
-// Telegram channel management for the Integrations page: provider rail, the
+// Telegram bot channels for the Integrations page: provider rail, the
 // how-it-works explainer, an inline add flow, and one card per registered
-// channel with in-place agent editing. UI ported from the /mock-integration design
-// session; data layer (react-query + BFF operate/channels routes) unchanged.
+// channel with in-place agent editing.
 
 import { cn } from "@aomi-labs/widget";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -58,8 +57,6 @@ type AgentOption = {
   name: string;
   projectLabel: string;
 };
-
-type Draft = { agentId: number | null };
 
 /** Channel-level command config as typed. Only fields that differ from the
  *  seed are sent, so an untouched card never rewrites what the manager has. */
@@ -189,15 +186,15 @@ function RadioGlyph({
 
 function AgentTable({
   options,
-  draft,
+  agentId,
   onChange,
-  ghostAgents = [],
+  ghost,
   disabled,
 }: {
   options: AgentOption[];
-  draft: Draft;
-  onChange: (next: Draft) => void;
-  ghostAgents?: ChannelAgent[];
+  agentId: number | null;
+  onChange: (agentId: number) => void;
+  ghost?: ChannelAgent | null;
   disabled?: boolean;
 }) {
   return (
@@ -216,7 +213,7 @@ function AgentTable({
               key={agent.agentId}
               className={cn(
                 "transition-colors",
-                draft.agentId === agent.agentId
+                agentId === agent.agentId
                   ? "bg-accent"
                   : "hover:bg-surface-2/60",
               )}
@@ -227,12 +224,12 @@ function AgentTable({
                     type="radio"
                     className="sr-only"
                     name="channel-agent"
-                    checked={draft.agentId === agent.agentId}
+                    checked={agentId === agent.agentId}
                     disabled={disabled}
-                    onChange={() => onChange({ agentId: agent.agentId })}
+                    onChange={() => onChange(agent.agentId)}
                     aria-label={`Select ${agent.name} (${agent.projectLabel})`}
                   />
-                  <RadioGlyph checked={draft.agentId === agent.agentId} />
+                  <RadioGlyph checked={agentId === agent.agentId} />
                 </label>
               </td>
               <td className="text-foreground truncate px-3 py-2.5">
@@ -243,14 +240,14 @@ function AgentTable({
               </td>
             </tr>
           ))}
-          {ghostAgents.map((agent) => (
-            <tr key={agent.id} className="text-dim">
+          {ghost ? (
+            <tr className="text-dim">
               <td />
-              <td className="px-3 py-2.5">{agent.displayName}</td>
+              <td className="px-3 py-2.5">{ghost.displayName}</td>
               <td>no longer available</td>
             </tr>
-          ))}
-          {!options.length && !ghostAgents.length ? (
+          ) : null}
+          {!options.length && !ghost ? (
             <tr>
               <td colSpan={3} className="text-dim px-3 py-6 text-center">
                 No deployed agents available for this account.
@@ -388,7 +385,7 @@ function ChannelCommandFields({
           "miniAppUrl",
           "Mini App URL",
           { type: "url", placeholder: "https://agent.example.com/telegram" },
-          "Opened from the channel's menu button. Leave blank for none.",
+          "Opened from the bot's menu button. Leave blank for none.",
         )}
         {field(
           "miniAppLabel",
@@ -406,7 +403,7 @@ function ChannelCommandFields({
           "commands",
           "Custom commands",
           { type: "text", placeholder: "b, p, r, chart" },
-          "Custom commands are handled by the channel's command service, without an agent turn.",
+          "Custom commands are handled by the bot's command service, without an agent turn.",
         )}
       </div>
       {commandList(draft.commands).length > 0 &&
@@ -455,7 +452,7 @@ function ChannelCard({
   onBeginEdit: () => void;
   onCancel: () => void;
   onSave: (
-    draft: Draft,
+    agentId: number,
     threadMode: string,
     commandConfig: ReturnType<typeof commandPatch>,
   ) => Promise<void>;
@@ -468,15 +465,7 @@ function ChannelCard({
    *  later remount cannot bring it back. */
   onWebhookChecked: () => void;
 }) {
-  const mapped = useMemo(
-    () => (channel.agent ? [channel.agent] : []),
-    [channel.agent],
-  );
-  const initialDraft = useMemo<Draft>(
-    () => ({ agentId: channel.agentId }),
-    [channel.agentId],
-  );
-  const [draft, setDraft] = useState<Draft>(initialDraft);
+  const [agentId, setAgentId] = useState(channel.agentId);
   const [draftThreadMode, setDraftThreadMode] = useState(channel.threadMode);
   // Seeded from the channel, never from an agent: the config is channel-level.
   const seed = commandSeed(channel);
@@ -492,20 +481,14 @@ function ChannelCard({
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
 
-  // Agents still mapped to this channel but gone from the builder's projects. They
-  // render as uncheckable-only rows: keeping one selected would 403 at the
-  // BFF ownership check, so save stays blocked until they are unchecked.
-  const ghostAgents = useMemo(() => {
-    const available = new Set(options.map((option) => option.agentId));
-    return mapped.filter((agent) => !available.has(agent.id));
-  }, [mapped, options]);
-
-  const ghostStillSelected = ghostAgents.some(
-    (agent) => draft.agentId === agent.id,
-  );
+  // The channel's agent when it is gone from the builder's projects. It renders
+  // as a row without a radio: saving it would 403 at the BFF ownership check,
+  // so save stays blocked until another agent is picked.
+  const ghost = options.some((option) => option.agentId === channel.agent.id)
+    ? null
+    : channel.agent;
   const canSave =
-    draft.agentId !== null &&
-    !ghostStillSelected &&
+    agentId !== ghost?.id &&
     (commandList(commandDraft.commands).length === 0 ||
       commandDraft.commandEndpoint.trim().length > 0) &&
     !saving;
@@ -555,7 +538,7 @@ function ChannelCard({
                 disabled={removing}
                 className="border-border hover:bg-accent-hover text-foreground h-8 rounded-full border px-3.5 text-xs font-medium disabled:opacity-50"
               >
-                Change agents
+                Change agent
               </button>
               <button
                 type="button"
@@ -582,9 +565,9 @@ function ChannelCard({
           </div>
           <AgentTable
             options={options}
-            draft={draft}
-            onChange={setDraft}
-            ghostAgents={ghostAgents}
+            agentId={agentId}
+            onChange={setAgentId}
+            ghost={ghost}
             disabled={saving}
           />
           <div className="mt-5">
@@ -600,7 +583,9 @@ function ChannelCard({
                   onClick={() => {
                     setRevealing(true);
                     setError(null);
-                    fetch(API_PATHS.build.operate.channelCommandSecret(channel.id))
+                    fetch(
+                      API_PATHS.build.operate.channelCommandSecret(channel.id),
+                    )
                       .then(async (res) => {
                         const json = await readJsonResponse<{
                           commandSecret?: string;
@@ -650,7 +635,7 @@ function ChannelCard({
                 type="button"
                 disabled={saving}
                 onClick={() => {
-                  setDraft(initialDraft);
+                  setAgentId(channel.agentId);
                   setDraftThreadMode(channel.threadMode);
                   setCommandDraft(seed);
                   setSecret(null);
@@ -668,7 +653,7 @@ function ChannelCard({
                   setSaving(true);
                   setError(null);
                   onSave(
-                    draft,
+                    agentId,
                     draftThreadMode,
                     commandPatch(commandDraft, seed),
                   )
@@ -677,7 +662,7 @@ function ChannelCard({
                       setError(
                         err instanceof Error
                           ? err.message
-                          : "Failed to save agents",
+                          : "Failed to save agent",
                       );
                     })
                     .finally(() => setSaving(false));
@@ -691,20 +676,12 @@ function ChannelCard({
         </div>
       ) : (
         <div className="border-border flex flex-wrap gap-2 border-t px-5 py-3.5">
-          {mapped.map((agent) => (
-            <span
-              key={agent.id}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs",
-                "border-accent-selected/40 bg-accent text-accent-selected",
-              )}
-            >
-              {agent.displayName}
-              {agent.projectLabel ? (
-                <span className="opacity-60">· {agent.projectLabel}</span>
-              ) : null}
-            </span>
-          ))}
+          <span className="border-accent-selected/40 bg-accent text-accent-selected inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
+            {channel.agent.displayName}
+            {channel.agent.projectLabel ? (
+              <span className="opacity-60">· {channel.agent.projectLabel}</span>
+            ) : null}
+          </span>
           <span
             className="text-dim w-full truncate pt-1 font-mono text-[11px]"
             data-testid="channel-command-summary"
@@ -803,14 +780,14 @@ function AddChannelCard({
     label: string;
     token: string;
     threadMode: string;
-    draft: Draft;
+    agentId: number;
     commandConfig: ReturnType<typeof commandPatch>;
   }) => Promise<void>;
 }) {
   const [label, setLabel] = useState("");
   const [token, setToken] = useState("");
   const [threadMode, setThreadMode] = useState("single");
-  const [draft, setDraft] = useState<Draft>({ agentId: null });
+  const [agentId, setAgentId] = useState<number | null>(null);
   const [commandDraft, setCommandDraft] = useState<CommandDraft>(commandSeed());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -818,7 +795,7 @@ function AddChannelCard({
   const canRegister =
     !busy &&
     token.trim().length > 0 &&
-    draft.agentId !== null &&
+    agentId !== null &&
     (commandList(commandDraft.commands).length === 0 ||
       commandDraft.commandEndpoint.trim().length > 0);
 
@@ -826,11 +803,10 @@ function AddChannelCard({
     <div className="border-border-hover bg-surface-1 rounded-md border">
       <div className="border-border border-b p-5">
         <h2 className="text-foreground text-sm font-medium">
-          Add a Telegram channel
+          Add a Telegram bot
         </h2>
         <p className="text-dim mt-1 text-xs">
-          Paste the token from BotFather and pick the agents this channel
-          serves.
+          Paste the token from BotFather and pick the agent this bot serves.
         </p>
       </div>
       <div className="space-y-5 p-5">
@@ -873,8 +849,8 @@ function AddChannelCard({
           </div>
           <AgentTable
             options={options}
-            draft={draft}
-            onChange={setDraft}
+            agentId={agentId}
+            onChange={setAgentId}
             disabled={busy}
           />
         </div>
@@ -893,13 +869,14 @@ function AddChannelCard({
             type="button"
             disabled={!canRegister}
             onClick={() => {
+              if (agentId === null) return;
               setBusy(true);
               setError(null);
               onRegister({
                 label: label.trim(),
                 token,
                 threadMode,
-                draft,
+                agentId,
                 // Against an empty seed: only filled fields are sent.
                 commandConfig: commandPatch(commandDraft, commandSeed()),
               })
@@ -976,7 +953,7 @@ export function ChannelsView() {
       label: string;
       token: string;
       threadMode: string;
-      draft: Draft;
+      agentId: number;
       commandConfig: ReturnType<typeof commandPatch>;
     }) => {
       const res = await fetch(channelsUrl(), {
@@ -986,7 +963,7 @@ export function ChannelsView() {
           credential: input.token.trim(),
           label: input.label || undefined,
           threadMode: input.threadMode,
-          agentId: input.draft.agentId,
+          agentId: input.agentId,
           ...input.commandConfig,
         }),
       });
@@ -1005,10 +982,10 @@ export function ChannelsView() {
     [queryClient, queryKey, projects],
   );
 
-  const handleSaveAgents = useCallback(
+  const handleSaveAgent = useCallback(
     async (
       channel: Channel,
-      draft: Draft,
+      agentId: number,
       threadMode: string,
       commandConfig: ReturnType<typeof commandPatch>,
     ) => {
@@ -1017,7 +994,7 @@ export function ChannelsView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           channelId: channel.id,
-          agentId: draft.agentId,
+          agentId,
           threadMode,
           ...commandConfig,
         }),
@@ -1025,8 +1002,8 @@ export function ChannelsView() {
       const json = await readJsonResponse<{
         channel?: Channel;
         webhookWarning?: string;
-      }>(res, "Failed to save agents");
-      if (!json.channel) throw new Error("Failed to save agents");
+      }>(res, "Failed to save agent");
+      if (!json.channel) throw new Error("Failed to save agent");
       const updated = json.channel;
       const webhookWarning = json.webhookWarning;
       setWebhookWarnings((current) => {
@@ -1132,8 +1109,8 @@ export function ChannelsView() {
               editing={editingId === channel.id}
               onBeginEdit={() => setEditingId(channel.id)}
               onCancel={() => setEditingId(null)}
-              onSave={(draft, threadMode, commandConfig) =>
-                handleSaveAgents(channel, draft, threadMode, commandConfig)
+              onSave={(agentId, threadMode, commandConfig) =>
+                handleSaveAgent(channel, agentId, threadMode, commandConfig)
               }
               onRemove={() => void handleRemove(channel)}
               removing={removingId === channel.id}
@@ -1147,7 +1124,7 @@ export function ChannelsView() {
           ))}
           {channels.length === 0 && !adding ? (
             <div className="border-border bg-surface-1 text-dim rounded-md border px-4 py-14 text-center text-sm">
-              No Telegram channels yet. Add one to start receiving messages.
+              No Telegram bots yet. Add one to start receiving messages.
             </div>
           ) : null}
         </div>

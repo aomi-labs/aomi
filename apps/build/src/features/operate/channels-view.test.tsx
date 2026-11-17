@@ -131,10 +131,10 @@ describe("ChannelsView", () => {
     render(<ChannelsView />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: /change agents/i }),
+      await screen.findByRole("button", { name: /change agent/i }),
     );
     fireEvent.click(screen.getByRole("button", { name: /^save/i }));
-    await screen.findByRole("button", { name: /change agents/i });
+    await screen.findByRole("button", { name: /change agent/i });
 
     expect(mockedOperateFetch).toHaveBeenCalledWith("channels");
     const [patchUrl] = fetchSpy.mock.calls.find(
@@ -180,7 +180,7 @@ describe("ChannelsView", () => {
     render(<ChannelsView />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: /change agents/i }),
+      await screen.findByRole("button", { name: /change agent/i }),
     );
     expect(screen.getByText("Editing")).toBeInTheDocument();
     // Two thread-mode toggles are on screen (explainer + edit panel); the
@@ -191,7 +191,7 @@ describe("ChannelsView", () => {
     fireEvent.click(multiRadios[multiRadios.length - 1]);
     fireEvent.click(screen.getByRole("button", { name: /^save/i }));
 
-    await screen.findByRole("button", { name: /change agents/i });
+    await screen.findByRole("button", { name: /change agent/i });
     const [, patchInit] = fetchSpy.mock.calls.find(
       ([, init]) => init?.method === "PATCH",
     )!;
@@ -211,7 +211,7 @@ describe("ChannelsView", () => {
     });
     render(<ChannelsView />);
     fireEvent.click(
-      await screen.findByRole("button", { name: /change agents/i }),
+      await screen.findByRole("button", { name: /change agent/i }),
     );
     expect(
       screen.getByRole("radio", {
@@ -238,7 +238,7 @@ describe("ChannelsView", () => {
     render(<ChannelsView />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: /change agents/i }),
+      await screen.findByRole("button", { name: /change agent/i }),
     );
     // Fields are seeded from the channel, not from an agent.
     expect(screen.getByLabelText(/mini app url/i)).toHaveValue(
@@ -250,7 +250,7 @@ describe("ChannelsView", () => {
     expect(screen.getByLabelText(/custom commands/i)).toHaveValue("b, p");
     fireEvent.click(screen.getByRole("button", { name: /^save/i }));
 
-    await screen.findByRole("button", { name: /change agents/i });
+    await screen.findByRole("button", { name: /change agent/i });
     const [, patchInit] = fetchSpy.mock.calls.find(
       ([, init]) => init?.method === "PATCH",
     )!;
@@ -286,20 +286,20 @@ describe("ChannelsView", () => {
     render(<ChannelsView />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: /change agents/i }),
+      await screen.findByRole("button", { name: /change agent/i }),
     );
     expect(screen.getByLabelText(/command endpoint/i)).toHaveValue("");
     fireEvent.click(screen.getByRole("button", { name: /^save/i }));
-    await screen.findByRole("button", { name: /change agents/i });
+    await screen.findByRole("button", { name: /change agent/i });
 
     // Reopening edits the refreshed channel, not the draft from before the save.
-    fireEvent.click(screen.getByRole("button", { name: /change agents/i }));
+    fireEvent.click(screen.getByRole("button", { name: /change agent/i }));
     expect(screen.getByLabelText(/command endpoint/i)).toHaveValue(
       "https://api.world.inc/commands",
     );
     expect(screen.getByLabelText(/custom commands/i)).toHaveValue("b");
     fireEvent.click(screen.getByRole("button", { name: /^save/i }));
-    await screen.findByRole("button", { name: /change agents/i });
+    await screen.findByRole("button", { name: /change agent/i });
 
     const patches = fetchSpy.mock.calls
       .filter(([, init]) => init?.method === "PATCH")
@@ -334,7 +334,7 @@ describe("ChannelsView", () => {
     render(<ChannelsView />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: /change agents/i }),
+      await screen.findByRole("button", { name: /change agent/i }),
     );
     fireEvent.change(screen.getByLabelText(/mini app url/i), {
       target: { value: "  " },
@@ -347,7 +347,7 @@ describe("ChannelsView", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /^save/i }));
 
-    await screen.findByRole("button", { name: /change agents/i });
+    await screen.findByRole("button", { name: /change agent/i });
     const [, patchInit] = fetchSpy.mock.calls.find(
       ([, init]) => init?.method === "PATCH",
     )!;
@@ -370,7 +370,7 @@ describe("ChannelsView", () => {
     render(<ChannelsView />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: /change agents/i }),
+      await screen.findByRole("button", { name: /change agent/i }),
     );
     fireEvent.change(screen.getByLabelText(/custom commands/i), {
       target: { value: "b" },
@@ -397,7 +397,7 @@ describe("ChannelsView", () => {
     render(<ChannelsView />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: /change agents/i }),
+      await screen.findByRole("button", { name: /change agent/i }),
     );
     fireEvent.click(
       screen.getByRole("button", { name: /reveal command secret/i }),
@@ -484,10 +484,10 @@ describe("ChannelsView", () => {
     render(<ChannelsView />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: /change agents/i }),
+      await screen.findByRole("button", { name: /change agent/i }),
     );
     fireEvent.click(screen.getByRole("button", { name: /^save/i }));
-    await screen.findByRole("button", { name: /change agents/i });
+    await screen.findByRole("button", { name: /change agent/i });
 
     expect(
       screen.getByText(
@@ -528,10 +528,10 @@ describe("ChannelsView", () => {
     render(<ChannelsView />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: /change agents/i }),
+      await screen.findByRole("button", { name: /change agent/i }),
     );
     fireEvent.click(screen.getByRole("button", { name: /^save/i }));
-    await screen.findByRole("button", { name: /change agents/i });
+    await screen.findByRole("button", { name: /change agent/i });
     const warning = () =>
       screen.queryByText(/saved, but the webhook was not re-asserted/i);
     expect(warning()).toBeInTheDocument();
@@ -620,12 +620,12 @@ describe("ChannelsView", () => {
     render(<ChannelsView />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: /change agents/i }),
+      await screen.findByRole("button", { name: /change agent/i }),
     );
     expect(screen.getByText("Editing")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
     expect(
-      screen.getByRole("button", { name: /change agents/i }),
+      screen.getByRole("button", { name: /change agent/i }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Editing")).not.toBeInTheDocument();
   });
@@ -635,7 +635,7 @@ describe("ChannelsView", () => {
     mockedOperateFetch.mockResolvedValue({ projects: [], channels: [CHANNEL] });
     render(<ChannelsView />);
     fireEvent.click(
-      await screen.findByRole("button", { name: /change agents/i }),
+      await screen.findByRole("button", { name: /change agent/i }),
     );
     expect(screen.getByRole("button", { name: /^save/i })).toBeDisabled();
   });
