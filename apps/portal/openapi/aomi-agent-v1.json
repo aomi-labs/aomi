@@ -35,10 +35,6 @@
     "GET /v1/builder/credits/methods",
     "GET /v1/commits/{ref}",
     "GET /v1/pipeline",
-    "GET /v1/pipeline/apps",
-    "GET /v1/pipeline/apps/{app}",
-    "GET /v1/pipeline/apps/{app}/operations",
-    "GET /v1/pipeline/apps/{app}/operations/{operation}",
     "GET /v1/pipeline/core",
     "GET /v1/pipeline/evm",
     "GET /v1/pipeline/evm/account",
@@ -66,6 +62,10 @@
     "GET /v1/pipeline/svm/simulate",
     "GET /v1/pipeline/svm/stage",
     "GET /v1/pipeline/svm/token-holdings",
+    "GET /v1/pipeline/toolsets",
+    "GET /v1/pipeline/toolsets/{toolset}",
+    "GET /v1/pipeline/toolsets/{toolset}/operations",
+    "GET /v1/pipeline/toolsets/{toolset}/operations/{operation}",
     "PATCH /v1/agent/sessions/{sessionId}",
     "POST /v1/account/credits/funding-events",
     "POST /v1/account/credits/funding-events/{id}/cancel",
@@ -75,7 +75,7 @@
     "POST /v1/agent/chat/{sessionId}/interrupt",
     "POST /v1/agent/chat/{sessionId}/steer",
     "POST /v1/agent/mcp",
-    "POST /v1/apps/{app}/mcp",
+    "POST /v1/agents/{agent}/mcp",
     "POST /v1/builder/credits/funding-events",
     "POST /v1/builder/credits/funding-events/{id}/cancel",
     "POST /v1/commits/{ref}/approve",
@@ -86,7 +86,6 @@
     "POST /v1/commits/{ref}/renew",
     "POST /v1/commits/{ref}/sign",
     "POST /v1/payment/webhooks/stripe",
-    "POST /v1/pipeline/apps/{app}/operations/{operation}",
     "POST /v1/pipeline/evm/account",
     "POST /v1/pipeline/evm/build",
     "POST /v1/pipeline/evm/commit",
@@ -112,6 +111,7 @@
     "POST /v1/pipeline/svm/simulate",
     "POST /v1/pipeline/svm/stage",
     "POST /v1/pipeline/svm/token-holdings",
+    "POST /v1/pipeline/toolsets/{toolset}/operations/{operation}",
     "POST /v1/task/build",
     "POST /v1/task/{quoteId}/result",
     "POST /v1/task/{quoteId}/status",
@@ -460,7 +460,7 @@
     },
     "/v1/agent/mcp": {
       "post": {
-        "operationId": "agentMcp",
+        "operationId": "agentGatewayMcp",
         "description": "Dual-era stateless MCP endpoint supporting modern 2026-07-28 requests and legacy initialize clients.",
         "requestBody": {
           "required": true,
@@ -501,18 +501,19 @@
         ]
       }
     },
-    "/v1/apps/{app}/mcp": {
+    "/v1/agents/{agent}/mcp": {
       "post": {
-        "operationId": "appMcp",
-        "description": "Agent MCP locked to one app: every aomi_chat turn runs in that app, without Auto execution, and a different application argument is a 400. An unknown app is 404 app_not_found. The OAuth resource is this exact URL on the portal origin.",
+        "operationId": "agentMcp",
+        "description": "Agent MCP locked to one agent: every aomi_chat turn runs in that agent, without Auto execution, and a different agent argument is a 400. An unknown agent is 404 agent_not_found. The OAuth resource is this exact URL on the portal origin.",
         "parameters": [
           {
-            "name": "app",
+            "name": "agent",
             "in": "path",
             "required": true,
+            "description": "Agent slug publisher/name; percent-encode the slash as part of this path segment.",
             "schema": {
               "type": "string",
-              "pattern": "^[a-z0-9][a-z0-9-_]{0,62}$"
+              "minLength": 3
             }
           }
         ],
@@ -817,15 +818,15 @@
         ]
       }
     },
-    "/v1/pipeline/apps": {
+    "/v1/pipeline/toolsets": {
       "get": {
-        "operationId": "browsePipelineApps",
+        "operationId": "browsePipelineToolsets",
         "parameters": [
           {
             "$ref": "#/components/parameters/CatalogCursor"
           },
           {
-            "$ref": "#/components/parameters/AppPageLimit"
+            "$ref": "#/components/parameters/ToolsetPageLimit"
           }
         ],
         "responses": {
@@ -849,12 +850,12 @@
         ]
       }
     },
-    "/v1/pipeline/apps/{app}": {
+    "/v1/pipeline/toolsets/{toolset}": {
       "get": {
-        "operationId": "browsePipelineApp",
+        "operationId": "browsePipelineToolset",
         "parameters": [
           {
-            "$ref": "#/components/parameters/PipelineApp"
+            "$ref": "#/components/parameters/PipelineToolset"
           }
         ],
         "responses": {
@@ -878,12 +879,12 @@
         ]
       }
     },
-    "/v1/pipeline/apps/{app}/operations": {
+    "/v1/pipeline/toolsets/{toolset}/operations": {
       "get": {
-        "operationId": "browsePipelineAppOperations",
+        "operationId": "browsePipelineToolsetOperations",
         "parameters": [
           {
-            "$ref": "#/components/parameters/PipelineApp"
+            "$ref": "#/components/parameters/PipelineToolset"
           },
           {
             "$ref": "#/components/parameters/CatalogCursor"
@@ -913,12 +914,12 @@
         ]
       }
     },
-    "/v1/pipeline/apps/{app}/operations/{operation}": {
+    "/v1/pipeline/toolsets/{toolset}/operations/{operation}": {
       "get": {
-        "operationId": "describePipelineAppOperation",
+        "operationId": "describePipelineToolsetOperation",
         "parameters": [
           {
-            "$ref": "#/components/parameters/PipelineApp"
+            "$ref": "#/components/parameters/PipelineToolset"
           },
           {
             "$ref": "#/components/parameters/PipelineOperation"
@@ -945,18 +946,18 @@
         ]
       },
       "post": {
-        "operationId": "invokePipelineAppOperation",
+        "operationId": "invokePipelineToolsetOperation",
         "parameters": [
           {
-            "$ref": "#/components/parameters/PipelineApp"
+            "$ref": "#/components/parameters/PipelineToolset"
           },
           {
             "$ref": "#/components/parameters/PipelineOperation"
           },
           {
-            "name": "application_id",
+            "name": "agent_id",
             "in": "query",
-            "description": "Numeric registered application identity, required for hosted apps; used for admission funding and source-bound backend resolution.",
+            "description": "Numeric registered agent identity, required for hosted toolsets; used for admission funding and source-bound backend resolution.",
             "schema": {
               "type": "integer",
               "format": "int64",
@@ -966,7 +967,7 @@
           {
             "name": "platform",
             "in": "query",
-            "description": "Optional platform hint; must match the registered application.",
+            "description": "Optional platform hint; must match the registered agent.",
             "schema": {
               "type": "string"
             }
@@ -5399,8 +5400,8 @@
           "pattern": "^act_[A-Za-z0-9_-]+$"
         }
       },
-      "PipelineApp": {
-        "name": "app",
+      "PipelineToolset": {
+        "name": "toolset",
         "in": "path",
         "required": true,
         "schema": {
@@ -5447,7 +5448,7 @@
           "type": "string"
         }
       },
-      "AppPageLimit": {
+      "ToolsetPageLimit": {
         "name": "limit",
         "in": "query",
         "required": false,
@@ -5540,21 +5541,15 @@
             "maxLength": 512,
             "description": "User message_key to replace with message. Replace the conversation from that message and run the new text as a normal turn; mutually exclusive with regenerate."
           },
-          "applicationId": {
-            "type": ["integer", "null"]
-          },
-          "app": {
-            "type": ["string", "null"]
-          },
           "agent": {
             "type": ["string", "null"],
             "pattern": "^[^/ ]+/[^/ ]+$",
-            "description": "The agent a new session runs as, publisher/name. A session keeps its agent: naming another is refused with thread_agent_mismatch. Unknown is 404 app_not_found; not combinable with applicationId. A browser Origin other than Aomi's portal that the agent's allowed_origins does not list is 403 origin_not_allowed."
+            "description": "The agent a new session runs as, publisher/name. A session keeps its agent: naming another is refused with thread_agent_mismatch. Unknown is 404 agent_not_found. A browser Origin other than Aomi's portal that the agent's allowed_origins does not list is 403 origin_not_allowed."
           },
           "mode": {
             "type": ["string", "null"],
             "enum": ["auto", "direct", null],
-            "description": "Execution policy. Omit for Auto unless app, applicationId or agent selects a Direct target."
+            "description": "Execution policy. Omit for Auto unless agent selects a Direct target."
           },
           "model": {
             "type": ["string", "null"]
@@ -5721,7 +5716,7 @@
           "broadcaster": {
             "type": "string",
             "enum": ["wallet", "hosted", "venue"],
-            "description": "Selected submitter. Auto selects hosted before assembly; an explicit wallet selection is invalid for Auto. App policy still bounds this choice."
+            "description": "Selected submitter. Auto selects hosted before assembly; an explicit wallet selection is invalid for Auto. Agent policy still bounds this choice."
           }
         }
       },
@@ -5750,7 +5745,7 @@
           "broadcaster": {
             "type": "string",
             "enum": ["wallet", "hosted", "venue"],
-            "description": "Selected submitter. Auto selects hosted before assembly; an explicit wallet selection is invalid for Auto. App policy still bounds this choice."
+            "description": "Selected submitter. Auto selects hosted before assembly; an explicit wallet selection is invalid for Auto. Agent policy still bounds this choice."
           }
         }
       },
@@ -6126,7 +6121,7 @@
           "broadcaster": {
             "type": "string",
             "enum": ["wallet", "hosted", "venue"],
-            "description": "Selected submitter. Auto selects hosted before assembly; an explicit wallet selection is invalid for Auto. App policy still bounds this choice."
+            "description": "Selected submitter. Auto selects hosted before assembly; an explicit wallet selection is invalid for Auto. Agent policy still bounds this choice."
           },
           "state": {
             "type": "string",
@@ -6817,7 +6812,7 @@
               "call_id",
               "agent_id",
               "label",
-              "app",
+              "toolset",
               "resumed"
             ],
             "properties": {
@@ -6833,7 +6828,7 @@
               "label": {
                 "type": ["string", "null"]
               },
-              "app": {
+              "toolset": {
                 "type": "string"
               },
               "resumed": {
@@ -6854,7 +6849,7 @@
               "type",
               "call_id",
               "agent_id",
-              "app",
+              "toolset",
               "phase",
               "elapsed_ms",
               "observed_at_ms"
@@ -6869,7 +6864,7 @@
               "agent_id": {
                 "type": "string"
               },
-              "app": {
+              "toolset": {
                 "type": "string"
               },
               "phase": {
@@ -8612,10 +8607,10 @@
           },
           "origin": {
             "type": "object",
-            "description": "App, skills, and Catalog operations that assembled the actions.",
-            "required": ["app", "operations"],
+            "description": "Toolset, skills, and Catalog operations that assembled the actions.",
+            "required": ["toolset", "operations"],
             "properties": {
-              "app": {
+              "toolset": {
                 "type": "string"
               },
               "skills": {
@@ -8643,7 +8638,7 @@
           },
           "attestation": {
             "type": "string",
-            "description": "Server authentication of the Build owner, app scope, status, and simulation guard evidence. Older attestation versions require a new stage and simulation."
+            "description": "Server authentication of the Build owner, toolset scope, status, and simulation guard evidence. Older attestation versions require a new stage and simulation."
           },
           "transactionSafetyMode": {
             "$ref": "#/components/schemas/TransactionSafetyMode",
@@ -9752,7 +9747,7 @@
           "broadcaster": {
             "type": "string",
             "enum": ["wallet", "hosted", "venue"],
-            "description": "Selected submitter. Auto selects hosted before assembly; an explicit wallet selection is invalid for Auto. App policy still bounds this choice."
+            "description": "Selected submitter. Auto selects hosted before assembly; an explicit wallet selection is invalid for Auto. Agent policy still bounds this choice."
           },
           "state": {
             "type": "string",
@@ -9907,7 +9902,7 @@
           },
           "origin_app": {
             "type": ["integer", "null"],
-            "description": "Application id the thread runs inside, if any."
+            "description": "Agent id the thread runs inside, if any."
           },
           "initiator": {
             "type": "string",
@@ -10011,7 +10006,7 @@
           "provider",
           "created_at",
           "agent_wallet_id",
-          "maker_app"
+          "maker_agent"
         ],
         "properties": {
           "id": {
@@ -10032,14 +10027,14 @@
           },
           "label": {
             "type": "string",
-            "description": "An agent wallet's name; else the user's label or a default: the wallet app, 'Privy' or 'Para'."
+            "description": "An agent wallet's name; else the user's label or a default: the wallet toolset, 'Privy' or 'Para'."
           },
           "custom_label": {
             "type": ["string", "null"]
           },
           "browser_app": {
             "type": ["string", "null"],
-            "description": "The browser wallet app (MetaMask, Rabby) that linked it."
+            "description": "The browser wallet toolset (MetaMask, Rabby) that linked it."
           },
           "provider": {
             "type": ["string", "null"]
@@ -10051,9 +10046,9 @@
             "type": ["string", "null"],
             "description": "The agent wallet this key belongs to; its EVM and SVM keys share it."
           },
-          "maker_app": {
+          "maker_agent": {
             "type": ["string", "null"],
-            "description": "The app that made the agent wallet."
+            "description": "The toolset that made the agent wallet."
           },
           "lane": {
             "type": "string",
@@ -10121,12 +10116,12 @@
           "entries": {
             "items": {
               "properties": {
+                "agent_id": {
+                  "type": ["integer", "null"]
+                },
                 "amount_microusd": {
                   "format": "int64",
                   "type": "integer"
-                },
-                "application_id": {
-                  "type": ["integer", "null"]
                 },
                 "created_at": {
                   "format": "int64",
@@ -10267,13 +10262,13 @@
         "description": "Better Auth OAuth 2.1 authorization-code/device grants. Access tokens are exact-resource bound; the Portal BFF verifies them and delegates a downscoped internal bearer.",
         "flows": {
           "authorizationCode": {
-            "authorizationUrl": "https://aomi.chat/api/auth/oauth2/authorize",
-            "tokenUrl": "https://aomi.chat/api/auth/oauth2/token",
+            "authorizationUrl": "http://localhost:3000/api/auth/oauth2/authorize",
+            "tokenUrl": "http://localhost:3000/api/auth/oauth2/token",
             "scopes": {
               "agent:read": "Read owned Agent turns and sessions",
               "agent:write": "Start, continue, interrupt, update, or delete Agent sessions",
               "agent:actions:resolve": "Resolve a durable Agent Action",
-              "pipeline:catalog": "Browse public Pipeline apps, skills, and operations",
+              "pipeline:catalog": "Browse public Pipeline toolsets, skills, and operations",
               "pipeline:execute": "Attempt Pipeline execution subject to Gate F policy",
               "account:transaction-safety:read": "Read owned transaction safety preferences",
               "account:transaction-safety:write": "Update owned transaction safety preferences",
@@ -10286,20 +10281,20 @@
             }
           }
         },
-        "x-device-authorization-url": "https://aomi.chat/api/auth/device/code",
+        "x-device-authorization-url": "http://localhost:3000/api/auth/device/code",
         "x-aomi-resources": {
-          "agent": "https://aomi.chat/v1/agent",
-          "pipeline": "https://aomi.chat/v1/pipeline",
-          "agentMcp": "https://aomi.chat/v1/agent/mcp",
-          "appMcp": "https://aomi.chat/v1/apps/{app}/mcp",
-          "pipelineMcp": "https://aomi.chat/v1/pipeline/mcp",
-          "account": "https://aomi.chat/v1/account"
+          "agent": "http://localhost:3000/v1/agent",
+          "pipeline": "http://localhost:3000/v1/pipeline",
+          "agentGatewayMcp": "http://localhost:3000/v1/agent/mcp",
+          "agentMcp": "http://localhost:3000/v1/agents/{agent}/mcp",
+          "pipelineMcp": "http://localhost:3000/v1/pipeline/mcp",
+          "account": "http://localhost:3000/v1/account"
         }
       },
       "paymentOAuth": {
         "flows": {
           "authorizationCode": {
-            "authorizationUrl": "https://aomi.chat/api/auth/oauth2/authorize",
+            "authorizationUrl": "http://localhost:3000/api/auth/oauth2/authorize",
             "scopes": {
               "account:credits:fund": "Fund personal credits",
               "account:credits:read": "Read personal credits",
@@ -10307,7 +10302,7 @@
               "builder:credits:fund": "Fund builder credits",
               "builder:credits:read": "Read builder credits"
             },
-            "tokenUrl": "https://aomi.chat/api/auth/oauth2/token"
+            "tokenUrl": "http://localhost:3000/api/auth/oauth2/token"
           }
         },
         "type": "oauth2"

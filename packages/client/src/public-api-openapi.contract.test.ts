@@ -39,8 +39,8 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
       schema: { type: "string" },
     });
     // The agent MCP locked to one app.
-    expect(publicApi.paths["/v1/apps/{app}/mcp"].post.operationId).toBe(
-      "appMcp",
+    expect(publicApi.paths["/v1/agents/{agent}/mcp"].post.operationId).toBe(
+      "agentMcp",
     );
     const methods = new Set(["get", "post", "put", "patch", "delete"]);
     const routes = Object.entries(publicApi.paths).flatMap(

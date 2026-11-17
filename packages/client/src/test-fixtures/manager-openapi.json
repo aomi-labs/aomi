@@ -163,7 +163,7 @@
         ]
       }
     },
-    "/api/integrations/github-app/builder/applications/{application_id}": {
+    "/api/integrations/github-app/builder/agents/{agent_id}": {
       "get": {
         "responses": {
           "200": {
@@ -177,7 +177,7 @@
         ]
       }
     },
-    "/api/integrations/github-app/user/projects/{id}/apps": {
+    "/api/integrations/github-app/user/projects/{id}/agents": {
       "get": {
         "responses": {
           "200": {
@@ -340,7 +340,7 @@
         ]
       }
     },
-    "/api/integrations/github-app/builder/applications/{application_id}/app-key": {
+    "/api/integrations/github-app/builder/agents/{agent_id}/agent-key": {
       "get": {
         "responses": {
           "200": {
@@ -364,7 +364,7 @@
         ]
       }
     },
-    "/api/integrations/github-app/builder/applications/{application_id}/detail": {
+    "/api/integrations/github-app/builder/agents/{agent_id}/detail": {
       "get": {
         "responses": {
           "200": {
@@ -378,7 +378,7 @@
         ]
       }
     },
-    "/api/integrations/github-app/builder/applications/{application_id}/tools/{tool}/trace": {
+    "/api/integrations/github-app/builder/agents/{agent_id}/tools/{tool}/trace": {
       "get": {
         "responses": {
           "200": {
@@ -392,7 +392,7 @@
         ]
       }
     },
-    "/api/integrations/github-app/user/projects/{id}/bots": {
+    "/api/integrations/github-app/user/projects/{id}/channels": {
       "get": {
         "responses": {
           "200": {
@@ -416,7 +416,7 @@
         ]
       }
     },
-    "/api/integrations/github-app/user/projects/{id}/bots/{bot_id}": {
+    "/api/integrations/github-app/user/projects/{id}/channels/{channel_id}": {
       "delete": {
         "responses": {
           "200": {
@@ -429,7 +429,7 @@
         ]
       }
     },
-    "/api/integrations/github-app/user/bots": {
+    "/api/integrations/github-app/user/channels": {
       "get": {
         "responses": {
           "200": {
@@ -453,7 +453,7 @@
         ]
       }
     },
-    "/api/integrations/github-app/user/bots/{bot_id}": {
+    "/api/integrations/github-app/user/channels/{channel_id}": {
       "patch": {
         "responses": {
           "200": {
@@ -477,7 +477,7 @@
         ]
       }
     },
-    "/api/integrations/github-app/user/bots/{bot_id}/command-secret": {
+    "/api/integrations/github-app/user/channels/{channel_id}/command-secret": {
       "get": {
         "responses": {
           "200": {
@@ -490,7 +490,7 @@
         ]
       }
     },
-    "/api/integrations/github-app/user/bots/{bot_id}/webhook": {
+    "/api/integrations/github-app/user/channels/{channel_id}/webhook": {
       "post": {
         "responses": {
           "200": {
@@ -707,7 +707,7 @@
         ]
       }
     },
-    "/api/account/bots": {
+    "/api/account/channels": {
       "get": {
         "responses": {
           "200": {
@@ -739,7 +739,7 @@
         ]
       }
     },
-    "/api/account/bots/{id}": {
+    "/api/account/channels/{id}": {
       "delete": {
         "responses": {
           "200": {

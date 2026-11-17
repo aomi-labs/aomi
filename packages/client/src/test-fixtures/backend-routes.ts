@@ -15,12 +15,12 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "DELETE",
-    path: "/api/account/app-keys/:key_hash",
+    path: "/api/account/agent-keys/:key_hash",
     auth: ["account"],
   },
   {
     method: "DELETE",
-    path: "/api/account/bots/:id",
+    path: "/api/account/channels/:id",
     auth: ["account"],
   },
   {
@@ -45,7 +45,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "DELETE",
-    path: "/api/integrations/github-app/user/bots/:bot_id",
+    path: "/api/integrations/github-app/user/channels/:channel_id",
     auth: ["service"],
   },
   {
@@ -60,13 +60,13 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "DELETE",
-    path: "/api/integrations/github-app/user/projects/:id/bots/:bot_id",
+    path: "/api/integrations/github-app/user/projects/:id/channels/:channel_id",
     auth: ["service"],
   },
   {
     method: "DELETE",
     path: "/api/packages/:name/secrets/:slot",
-    auth: ["builder", "package:secrets"],
+    auth: ["builder","package:secrets"],
   },
   {
     method: "DELETE",
@@ -81,7 +81,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "DELETE",
     path: "/api/threads/:thread_id",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "GET",
@@ -115,12 +115,12 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/api/account/app-keys",
+    path: "/api/account/agent-keys",
     auth: ["account"],
   },
   {
     method: "GET",
-    path: "/api/account/bots",
+    path: "/api/account/channels",
     auth: ["account"],
   },
   {
@@ -150,11 +150,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/api/admin/apps/public",
-    auth: ["admin"],
-  },
-  {
-    method: "GET",
     path: "/api/admin/release",
     auth: ["admin"],
   },
@@ -170,6 +165,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/admin/toolsets",
+    auth: ["admin"],
+  },
+  {
+    method: "GET",
     path: "/api/agents/:name",
     auth: ["builder"],
   },
@@ -180,28 +180,33 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/agents/resolve",
+    auth: [],
+  },
+  {
+    method: "GET",
     path: "/api/commits/:commit_id",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "GET",
-    path: "/api/integrations/github-app/builder/applications/:application_id",
-    auth: ["service", "builder:read"],
+    path: "/api/integrations/github-app/builder/agents/:agent_id",
+    auth: ["service","builder:read"],
   },
   {
     method: "GET",
-    path: "/api/integrations/github-app/builder/applications/:application_id/app-key",
+    path: "/api/integrations/github-app/builder/agents/:agent_id/agent-key",
     auth: ["service"],
   },
   {
     method: "GET",
-    path: "/api/integrations/github-app/builder/applications/:application_id/detail",
-    auth: ["service", "project:observe"],
+    path: "/api/integrations/github-app/builder/agents/:agent_id/detail",
+    auth: ["service","project:observe"],
   },
   {
     method: "GET",
-    path: "/api/integrations/github-app/builder/applications/:application_id/tools/:tool/trace",
-    auth: ["service", "project:observe"],
+    path: "/api/integrations/github-app/builder/agents/:agent_id/tools/:tool/trace",
+    auth: ["service","project:observe"],
   },
   {
     method: "GET",
@@ -225,23 +230,23 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/api/integrations/github-app/user/bots",
+    path: "/api/integrations/github-app/user/channels",
     auth: ["service"],
   },
   {
     method: "GET",
-    path: "/api/integrations/github-app/user/bots/:bot_id/command-secret",
+    path: "/api/integrations/github-app/user/channels/:channel_id/command-secret",
     auth: ["service"],
   },
   {
     method: "GET",
     path: "/api/integrations/github-app/user/installations",
-    auth: ["service", "builder:read"],
+    auth: ["service","builder:read"],
   },
   {
     method: "GET",
     path: "/api/integrations/github-app/user/logs",
-    auth: ["service", "project:observe"],
+    auth: ["service","project:observe"],
   },
   {
     method: "GET",
@@ -251,7 +256,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/integrations/github-app/user/observability",
-    auth: ["service", "project:observe"],
+    auth: ["service","project:observe"],
   },
   {
     method: "GET",
@@ -261,32 +266,32 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/integrations/github-app/user/projects",
-    auth: ["service", "builder:read"],
+    auth: ["service","builder:read"],
   },
   {
     method: "GET",
     path: "/api/integrations/github-app/user/projects/:id",
-    auth: ["service", "builder:read"],
+    auth: ["service","builder:read"],
   },
   {
     method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/apps",
-    auth: ["service", "builder:read"],
+    path: "/api/integrations/github-app/user/projects/:id/agents",
+    auth: ["service","builder:read"],
   },
   {
     method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/bots",
+    path: "/api/integrations/github-app/user/projects/:id/channels",
     auth: ["service"],
   },
   {
     method: "GET",
     path: "/api/integrations/github-app/user/projects/:id/logs",
-    auth: ["service", "project:observe"],
+    auth: ["service","project:observe"],
   },
   {
     method: "GET",
     path: "/api/integrations/github-app/user/projects/:id/observability",
-    auth: ["service", "project:observe"],
+    auth: ["service","project:observe"],
   },
   {
     method: "GET",
@@ -301,7 +306,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/integrations/github-app/user/projects/:id/usage",
-    auth: ["service", "project:observe"],
+    auth: ["service","project:observe"],
   },
   {
     method: "GET",
@@ -316,7 +321,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/integrations/github-app/user/usage",
-    auth: ["service", "project:observe"],
+    auth: ["service","project:observe"],
   },
   {
     method: "GET",
@@ -350,22 +355,12 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/api/resource/apps",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/resource/apps/:app",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/resource/search/apps",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
     path: "/api/resource/search/tools",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/resource/search/toolsets",
     auth: ["account"],
   },
   {
@@ -390,6 +385,16 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/resource/toolsets",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/resource/toolsets/:toolset",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
     path: "/api/secrets",
     auth: ["thread"],
   },
@@ -400,8 +405,8 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/api/thread/apps",
-    auth: ["thread"],
+    path: "/api/thread/catalog",
+    auth: ["account","thread"],
   },
   {
     method: "GET",
@@ -416,17 +421,17 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/thread/transaction-safety",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "GET",
     path: "/api/threads",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "GET",
     path: "/api/threads/:thread_id",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "GET",
@@ -485,13 +490,13 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "PATCH",
-    path: "/api/integrations/github-app/user/bots/:bot_id",
+    path: "/api/integrations/github-app/user/channels/:channel_id",
     auth: ["service"],
   },
   {
     method: "PATCH",
     path: "/api/threads/:thread_id",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "PATCH",
@@ -516,7 +521,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/_internal/agent/turns",
-    auth: ["delegated", "app_gate"],
+    auth: ["delegated","agent_gate"],
   },
   {
     method: "POST",
@@ -525,7 +530,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/account/app-keys",
+    path: "/api/account/agent-keys",
     auth: ["account"],
   },
   {
@@ -540,7 +545,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/account/bots",
+    path: "/api/account/channels",
     auth: ["account"],
   },
   {
@@ -566,12 +571,12 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/agents/:name/configs",
-    auth: ["builder", "agent:publish"],
+    auth: ["builder","agent:publish"],
   },
   {
     method: "POST",
     path: "/api/agents/:name/promote",
-    auth: ["builder", "agent:promote"],
+    auth: ["builder","agent:promote"],
   },
   {
     method: "POST",
@@ -585,38 +590,38 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/bots/telegram/mini-app/:bot_id/wallet",
+    path: "/api/bots/telegram/mini-app/:channel_id/wallet",
     auth: [],
   },
   {
     method: "POST",
     path: "/api/commits",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "POST",
     path: "/api/commits/:commit_id/manual",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "POST",
     path: "/api/commits/:commit_id/wallet-attempts",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "POST",
     path: "/api/commits/:commit_id/wallet-attempts/:attempt_id/report",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "POST",
     path: "/api/commits/batch",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "POST",
     path: "/api/exec/run",
-    auth: ["account", "thread", "app_gate", "delegated"],
+    auth: ["account","thread","agent_gate","delegated"],
   },
   {
     method: "POST",
@@ -626,11 +631,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/exec/tool-call",
-    auth: ["account", "thread", "app_gate", "delegated"],
+    auth: ["account","thread","agent_gate","delegated"],
   },
   {
     method: "POST",
-    path: "/api/integrations/github-app/builder/applications/:application_id/app-key",
+    path: "/api/integrations/github-app/builder/agents/:agent_id/agent-key",
     auth: ["service"],
   },
   {
@@ -640,12 +645,12 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/integrations/github-app/user/bots",
+    path: "/api/integrations/github-app/user/channels",
     auth: ["service"],
   },
   {
     method: "POST",
-    path: "/api/integrations/github-app/user/bots/:bot_id/webhook",
+    path: "/api/integrations/github-app/user/channels/:channel_id/webhook",
     auth: ["service"],
   },
   {
@@ -655,7 +660,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/integrations/github-app/user/projects/:id/bots",
+    path: "/api/integrations/github-app/user/projects/:id/channels",
     auth: ["service"],
   },
   {
@@ -666,62 +671,62 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/packages/:name/promote",
-    auth: ["builder", "package:promote"],
+    auth: ["builder","package:promote"],
   },
   {
     method: "POST",
     path: "/api/packages/:name/releases",
-    auth: ["builder", "package:publish"],
-  },
-  {
-    method: "POST",
-    path: "/api/pipeline/apps/:app/operations/:operation",
-    auth: ["account", "app_gate", "delegated"],
+    auth: ["builder","package:publish"],
   },
   {
     method: "POST",
     path: "/api/pipeline/evm/build",
-    auth: ["account", "app_gate", "delegated"],
+    auth: ["account","agent_gate","delegated"],
   },
   {
     method: "POST",
     path: "/api/pipeline/evm/commit",
-    auth: ["account", "app_gate", "delegated"],
+    auth: ["account","agent_gate","delegated"],
   },
   {
     method: "POST",
     path: "/api/pipeline/evm/simulate",
-    auth: ["account", "app_gate", "delegated"],
+    auth: ["account","agent_gate","delegated"],
   },
   {
     method: "POST",
     path: "/api/pipeline/evm/stage",
-    auth: ["account", "app_gate", "delegated"],
+    auth: ["account","agent_gate","delegated"],
   },
   {
     method: "POST",
     path: "/api/pipeline/skills/:skill/operations/:operation",
-    auth: ["account", "app_gate", "delegated"],
+    auth: ["account","agent_gate","delegated"],
   },
   {
     method: "POST",
     path: "/api/pipeline/svm/build",
-    auth: ["account", "app_gate", "delegated"],
+    auth: ["account","agent_gate","delegated"],
   },
   {
     method: "POST",
     path: "/api/pipeline/svm/commit",
-    auth: ["account", "app_gate", "delegated"],
+    auth: ["account","agent_gate","delegated"],
   },
   {
     method: "POST",
     path: "/api/pipeline/svm/simulate",
-    auth: ["account", "app_gate", "delegated"],
+    auth: ["account","agent_gate","delegated"],
   },
   {
     method: "POST",
     path: "/api/pipeline/svm/stage",
-    auth: ["account", "app_gate", "delegated"],
+    auth: ["account","agent_gate","delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/pipeline/toolsets/:toolset/operations/:operation",
+    auth: ["account","agent_gate","delegated"],
   },
   {
     method: "POST",
@@ -746,7 +751,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/system",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "POST",
@@ -761,7 +766,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/thread/sim/world",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "POST",
@@ -771,12 +776,12 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/threads/:thread_id/archive",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "POST",
     path: "/api/threads/:thread_id/unarchive",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "POST",
@@ -891,17 +896,17 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "PUT",
     path: "/api/packages/:name/secrets/:slot",
-    auth: ["builder", "package:secrets"],
+    auth: ["builder","package:secrets"],
   },
   {
     method: "PUT",
     path: "/api/thread/transaction-safety",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "PUT",
     path: "/api/thread/wallet",
-    auth: ["account", "thread"],
+    auth: ["account","thread"],
   },
   {
     method: "PUT",

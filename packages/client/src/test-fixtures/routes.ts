@@ -5,7 +5,7 @@ export const AOMI_AUTH_CLASSES = [
   "public",
   "thread",
   "account",
-  "app_gate",
+  "agent_gate",
   "delegated",
   "service",
   "admin",
