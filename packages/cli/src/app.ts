@@ -512,7 +512,7 @@ const root = routes("the Aomi agent in your terminal", {
         pipeline.operation,
       ),
       toolsets: command(
-        "Agents with operations",
+        "Toolsets with operations",
         {
           ...json,
           ...conn,

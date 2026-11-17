@@ -915,7 +915,7 @@ function TemplatePicker({
         </div>
       ))}
       <p className="type-meta text-aomi-muted">
-        A template replaces this wallet&rsquo;s rules. If it gives the protocol
+        A template replaces this wallet&rsquo;s rules. If it gives the agent
         more than it has now, it waits for approval.
       </p>
       <div className="flex justify-end">

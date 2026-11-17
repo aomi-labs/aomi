@@ -44,7 +44,7 @@ const agents = [
     "SDK 3.0.3 · 3 tools · cold start 860 ms · 1.9 MB",
   ],
   [
-    "hyperliquid-arb-agent",
+    "hyperliquid-arb-bot",
     "release-2026.08.24-funding-arb",
     "22",
     "482",
@@ -103,7 +103,7 @@ const transactions = [
   ],
   [
     "Jul 15, 10:42 PM",
-    "hyperliquid-arb-agent",
+    "hyperliquid-arb-bot",
     "confirmed",
     "Hyperliquid",
     "0x2000…00ab",
@@ -123,7 +123,7 @@ const transactions = [
   ],
   [
     "Jul 15, 8:08 PM",
-    "hyperliquid-arb-agent",
+    "hyperliquid-arb-bot",
     "failed",
     "Hyperliquid",
     "0x2000…00ab",
@@ -139,7 +139,7 @@ const logs = [
     "scan_funding_spread",
     "420ms",
     "ETH funding +12.4% annualized · hedge route eligible",
-    "hyperliquid-arb-agent",
+    "hyperliquid-arb-bot",
     "ok",
   ],
   [
@@ -171,7 +171,7 @@ const logs = [
     "open_hedged_position",
     "790ms",
     "PolicyDenied: projected notional exceeds $100k mandate",
-    "hyperliquid-arb-agent",
+    "hyperliquid-arb-bot",
     "error",
   ],
   [
@@ -187,7 +187,7 @@ const logs = [
 const revenue = [
   [
     "Tool invocations",
-    "hyperliquid-arb-agent",
+    "hyperliquid-arb-bot",
     "482",
     "$482.00",
     "$48.20",
@@ -213,8 +213,8 @@ const revenue = [
 ] as const;
 
 const charges = [
-  ["Model usage", "hyperliquid-arb-agent", "482", "$18.42"],
-  ["Agent hosting", "hyperliquid-arb-agent", "1", "$10.00"],
+  ["Model usage", "hyperliquid-arb-bot", "482", "$18.42"],
+  ["Agent hosting", "hyperliquid-arb-bot", "1", "$10.00"],
   ["Model usage", "polymarket-trader", "214", "$8.61"],
   ["Agent hosting", "world-market-telegram", "1", "$10.00"],
   ["Agent hosting", "sommelier-liquidity-manager", "1", "$10.00"],

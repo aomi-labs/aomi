@@ -222,7 +222,7 @@ export const generatedFileTree: BuildFileNode[] = [
   },
 ];
 
-/** Prompt-aware mock file tree so arb agents look different from generic agents. */
+/** Prompt-aware mock file tree so arb bots look different from generic agents. */
 export function deriveGeneratedFileTree(prompt: string): BuildFileNode[] {
   const lower = prompt.toLowerCase();
   const isArb =
@@ -239,40 +239,40 @@ export function deriveGeneratedFileTree(prompt: string): BuildFileNode[] {
     !lower.includes("binance")
   ) {
     venues.push({
-      path: "arb-agent/src/client/hyperliquid.rs",
+      path: "arb-bot/src/client/hyperliquid.rs",
       type: "file",
     });
   }
   if (lower.includes("binance") || !lower.includes("hyperliquid")) {
     venues.push({
-      path: "arb-agent/src/client/binance.rs",
+      path: "arb-bot/src/client/binance.rs",
       type: "file",
     });
   }
 
   return [
     {
-      path: "arb-agent",
+      path: "arb-bot",
       type: "folder",
       children: [
         {
-          path: "arb-agent/src",
+          path: "arb-bot/src",
           type: "folder",
           children: [
             {
-              path: "arb-agent/src/client",
+              path: "arb-bot/src/client",
               type: "folder",
               children: [
                 ...venues,
-                { path: "arb-agent/src/client/mod.rs", type: "file" },
+                { path: "arb-bot/src/client/mod.rs", type: "file" },
               ],
             },
-            { path: "arb-agent/src/lib.rs", type: "file" },
-            { path: "arb-agent/src/tool.rs", type: "file" },
+            { path: "arb-bot/src/lib.rs", type: "file" },
+            { path: "arb-bot/src/tool.rs", type: "file" },
           ],
         },
-        { path: "arb-agent/Cargo.toml", type: "file" },
-        { path: "arb-agent/test.json", type: "file" },
+        { path: "arb-bot/Cargo.toml", type: "file" },
+        { path: "arb-bot/test.json", type: "file" },
       ],
     },
   ];
@@ -346,7 +346,7 @@ export function deriveSmithersNodes(prompt: string): SmithersNode[] {
 export const seedBuildSessions: BuildSession[] = [
   {
     id: "run_1203_arb_bot",
-    title: "Hyperliquid and Binance arb agent",
+    title: "Hyperliquid and Binance arb bot",
     status: "healthy",
     model: "Aomi",
     updatedAt: "2m ago",
@@ -405,31 +405,31 @@ All checks passed. Ready to ship toward Projects.`,
     ],
     fileTree: [
       {
-        path: "arb-agent",
+        path: "arb-bot",
         type: "folder",
         children: [
           {
-            path: "arb-agent/src",
+            path: "arb-bot/src",
             type: "folder",
             children: [
               {
-                path: "arb-agent/src/client",
+                path: "arb-bot/src/client",
                 type: "folder",
                 children: [
                   {
-                    path: "arb-agent/src/client/hyperliquid.rs",
+                    path: "arb-bot/src/client/hyperliquid.rs",
                     type: "file",
                   },
-                  { path: "arb-agent/src/client/binance.rs", type: "file" },
-                  { path: "arb-agent/src/client/mod.rs", type: "file" },
+                  { path: "arb-bot/src/client/binance.rs", type: "file" },
+                  { path: "arb-bot/src/client/mod.rs", type: "file" },
                 ],
               },
-              { path: "arb-agent/src/lib.rs", type: "file" },
-              { path: "arb-agent/src/tool.rs", type: "file" },
+              { path: "arb-bot/src/lib.rs", type: "file" },
+              { path: "arb-bot/src/tool.rs", type: "file" },
             ],
           },
-          { path: "arb-agent/Cargo.toml", type: "file" },
-          { path: "arb-agent/test.json", type: "file" },
+          { path: "arb-bot/Cargo.toml", type: "file" },
+          { path: "arb-bot/test.json", type: "file" },
         ],
       },
     ],

@@ -85,7 +85,7 @@ export const settingsSections: SettingsSection[] = [
   {
     slug: "channels",
     title: "Bot setup",
-    description: "Telegram and deploy channels.",
+    description: "Telegram and deploy bots.",
     icon: Bot,
     enabled: true,
     status: "soon",

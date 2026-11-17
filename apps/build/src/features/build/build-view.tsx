@@ -44,7 +44,7 @@ import {
 import { BUILD_TEMPLATES } from "@/features/build/templates";
 
 const actionPills = [
-  { label: "Arb agent", action: "tpl_arbitrage_agent" },
+  { label: "Arb bot", action: "tpl_arbitrage_bot" },
   { label: "OpenAPI agent", action: "tpl_openapi_agent" },
   { label: "Plan from idea", hint: "⇧Tab", action: "plan" },
 ];
@@ -478,7 +478,7 @@ export function BuildView() {
                       isLoading={isGenerating}
                       actionPills={actionPills}
                       onActionPillClick={handleActionPill}
-                      placeholder="Describe an agent — e.g. hyperliquid & binance arb agent"
+                      placeholder="Describe an agent — e.g. hyperliquid & binance arb bot"
                       autoFocus
                     />
                     <TemplateGallery

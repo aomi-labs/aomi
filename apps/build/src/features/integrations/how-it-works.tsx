@@ -7,9 +7,9 @@ import { BadgeCheck, Bot, Copy, ExternalLink } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 /** The /setcommands list we tell builders to paste into BotFather: exactly
- *  the commands the channel handles itself (the Telegram crate's panels, and the
+ *  the commands the bot handles itself (the Telegram crate's panels, and the
  *  reserved list the backend refuses as custom commands). Custom commands a
- *  builder adds to their channel are theirs to advertise. */
+ *  builder adds to their bot are theirs to advertise. */
 export function botfatherCommands(): string {
   return [
     "start - Start the bot",
@@ -102,11 +102,11 @@ export function TelegramHowItWorks() {
     },
     {
       title: "Register it here",
-      body: "Paste the token, select its agent. We verify the token with Telegram and activate the webhook automatically.",
+      body: "Paste the token and pick its agent. We verify the token with Telegram and activate the webhook automatically.",
     },
     {
       title: "Users just chat",
-      body: "Anyone who messages your channel uses their own Aomi identity, wallets, and threads. New conversations run on the channel’s agent.",
+      body: "Anyone who messages your bot uses their own Aomi identity, wallets, and threads. New conversations run on the channel’s agent.",
     },
     {
       title: "Users choose how their agent signs",
@@ -122,7 +122,7 @@ export function TelegramHowItWorks() {
       <div className="grid gap-10 lg:grid-cols-2">
         <div className="space-y-5">
           <h2 className="font-display text-foreground text-lg font-normal tracking-tight">
-            How Telegram channels work with Aomi
+            How Telegram bots work with Aomi
           </h2>
           <ol className="space-y-5">
             {steps.map((step, index) => (

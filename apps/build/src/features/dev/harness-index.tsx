@@ -16,7 +16,7 @@ const HARNESSES = [
     href: "/dev/integrations-preview",
     name: "Integrations preview",
     description:
-      "The real Integrations page (Telegram channels: add, edit agents, remove) over in-memory channel fixtures with a light/dark switch.",
+      "The real Integrations page (Telegram bots: add, change agent, remove) over in-memory channel fixtures with a light/dark switch.",
   },
   {
     href: "/dev/operate-preview",

@@ -21,7 +21,7 @@ import {
 type Config = NonNullable<Agent["live"]>["config"];
 
 const CHANNEL_KIND: Record<string, string> = {
-  telegram: "Telegram channel",
+  telegram: "Telegram bot",
   widget: "Widget",
   page: "Page",
   api: "API",

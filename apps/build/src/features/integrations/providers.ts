@@ -53,9 +53,9 @@ export const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
         required: true,
       },
       {
-        key: "clientId",
-        label: "Client ID",
-        placeholder: "Optional client ID",
+        key: "applicationId",
+        label: "Application ID",
+        placeholder: "Optional application / client ID",
         secret: false,
         required: false,
       },

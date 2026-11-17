@@ -1,6 +1,6 @@
 // Shared thread-mode slide bar: the sliding pill toggle plus the `?` whose
 // tooltip carries the explanation. Used on each channel card (channels-view) and in
-// the "How Telegram channels work" explainer. Lives here rather than in
+// the "How Telegram bots work" explainer. Lives here rather than in
 // features/operate because channels-view already imports from
 // features/integrations — the other direction would be a cycle.
 
@@ -79,7 +79,7 @@ export function ThreadModeControl({
       <ThreadModeToggle value={value} onChange={onChange} disabled={disabled} />
       <HelpBadge label="About thread mode">
         {tooltip ??
-          "Single thread keeps the channel to one conversation. Multiple threads lets users switch threads with /thread."}
+          "Single thread keeps the bot to one conversation. Multiple threads lets users switch threads with /thread."}
       </HelpBadge>
     </div>
   );
