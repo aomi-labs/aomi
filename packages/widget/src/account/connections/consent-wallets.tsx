@@ -71,7 +71,7 @@ export function ConsentWallets({
   const agentWallet = agent
     ? agents?.find(
         (wallet) =>
-          wallet.toolset?.name === agent && wallet.archived_at === null,
+          wallet.agent?.name === agent && wallet.archived_at === null,
       )
     : undefined;
   const pending = agent && agents && !agentWallet ? `agent:${agent}` : null;

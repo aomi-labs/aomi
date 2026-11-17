@@ -8,6 +8,7 @@ sources_of_truth:
   - packages/widget/src/wallet/context.tsx
   - packages/widget/src/wallet/composer/wallet-state.ts
   - packages/widget/src/account/use-account-acl.ts
+  - packages/client/src/account/agent-wallets.ts
   - packages/client/src/user-state/index.ts
   - packages/client/src/session/index.ts
 ---
@@ -62,6 +63,9 @@ connection-management UI should project `wallets`.
 
 Auto-approve (`client_auto`) is caller-side behavior. It is not server Auto and
 does not create delegation or enable an agent wallet.
+
+The agent-wallet list includes the maker as `agent` with its ID, name, and
+label. Wallets without a maker have `agent: null`.
 
 Changing a signing mode opens an Aomi confirmation dialog with the exact wallet,
 current/proposed mode, and permission consequences. **Review change** fetches

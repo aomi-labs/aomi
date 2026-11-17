@@ -215,7 +215,7 @@ describe("agent wallets", () => {
     name: "Trading",
     paused: false,
     archived_at: null,
-    toolset: null,
+    agent: null,
     last_used_at: 1_760_000_100,
     created_at: 1_760_000_000,
     addresses: [
@@ -235,7 +235,7 @@ describe("agent wallets", () => {
     name: "World",
     paused: true,
     archived_at: 1_760_000_200,
-    toolset: { id: 90, name: "world" },
+    agent: { id: 90, name: "community/world", label: "World" },
     last_used_at: null,
     addresses: [{ family: "evm", address: "0x41c2", wallet_id: "w_31" }],
     connections: [
@@ -284,7 +284,7 @@ describe("agent wallets", () => {
     expect(listed.wallets[0]).toEqual(trading);
     expect(listed.wallets[1]).toMatchObject({
       archived_at: 1_760_000_200,
-      toolset: { id: 90, name: "world", label: "world" },
+      agent: { id: 90, name: "community/world", label: "World" },
       connections: [
         { key: "telegram:42", label: "telegram:42", lane: "instant" },
         { key: "cli", label: "cli", lane: "ask_client" },

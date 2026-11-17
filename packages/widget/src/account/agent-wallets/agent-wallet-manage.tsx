@@ -107,7 +107,7 @@ export function AgentWalletManage({
         title={wallet.name}
         description={[
           "Agent wallet",
-          wallet.toolset ? `made in ${wallet.toolset.label}` : null,
+          wallet.agent ? `made in ${wallet.agent.label}` : null,
           archived
             ? "archived"
             : wallet.last_used_at === null

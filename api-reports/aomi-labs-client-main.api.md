@@ -848,7 +848,7 @@ export type AomiAgentWallet = {
     name: string;
     paused: boolean;
     archived_at: number | null;
-    toolset: AomiAgentWalletToolset | null;
+    agent: AomiAgentWalletAgent | null;
     last_used_at: number | null;
     created_at: number;
     addresses: AomiAgentWalletAddress[];
@@ -861,6 +861,13 @@ export type AomiAgentWalletAddress = {
     address: string;
     wallet_id: string;
     operating_address?: string;
+};
+
+// @public
+export type AomiAgentWalletAgent = {
+    id: number;
+    name: string;
+    label: string;
 };
 
 // @public (undocumented)
@@ -903,13 +910,6 @@ export type AomiAgentWalletNetwork = {
 export type AomiAgentWallets = {
     pause_all: boolean;
     wallets: AomiAgentWallet[];
-};
-
-// @public
-export type AomiAgentWalletToolset = {
-    id: number;
-    name: string;
-    label: string;
 };
 
 // @public

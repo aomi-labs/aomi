@@ -21,8 +21,8 @@ import {
 import type { AomiWalletFamily } from "../types";
 import { laneOf, type AomiLane } from "./lanes";
 
-/** The toolset that created a wallet and stays linked to it. */
-export type AomiAgentWalletToolset = {
+/** The agent that created a wallet and stays linked to it. */
+export type AomiAgentWalletAgent = {
   id: number;
   name: string;
   label: string;
@@ -54,8 +54,8 @@ export type AomiAgentWallet = {
   paused: boolean;
   /** Unix seconds; archived wallets are hidden from chats and connections. */
   archived_at: number | null;
-  /** The toolset that made it ("made in"); information only. */
-  toolset: AomiAgentWalletToolset | null;
+  /** The agent that made it ("made in"); information only. */
+  agent: AomiAgentWalletAgent | null;
   /** Unix seconds. */
   last_used_at: number | null;
   /** Unix seconds. */
@@ -139,19 +139,19 @@ export function parseAgentWallets(value: unknown): AomiAgentWallets {
 export function parseAgentWallet(value: unknown): AomiAgentWallet {
   const record = asRecord(value);
   if (!record) throw invalid("wallet must be an object");
-  const toolset = asRecord(record.toolset);
+  const agent = asRecord(record.agent);
   return {
     id: text(record.id, "wallet.id"),
     name: text(record.name, "wallet.name"),
     paused: record.paused === true,
     archived_at: numberOrNull(record.archived_at),
-    toolset:
-      toolset && typeof toolset.id === "number"
+    agent:
+      agent && typeof agent.id === "number"
         ? {
-            id: toolset.id,
-            name: text(toolset.name, "toolset.name"),
+            id: agent.id,
+            name: text(agent.name, "agent.name"),
             label:
-              stringValue(toolset.label) ?? text(toolset.name, "toolset.name"),
+              stringValue(agent.label) ?? text(agent.name, "agent.name"),
           }
         : null,
     last_used_at: numberOrNull(record.last_used_at),

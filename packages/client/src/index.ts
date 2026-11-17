@@ -504,7 +504,7 @@ export type {
 export type {
   AomiAgentWallet,
   AomiAgentWalletAddress,
-  AomiAgentWalletToolset,
+  AomiAgentWalletAgent,
   AomiAgentWalletAsset,
   AomiAgentWalletBalances,
   AomiAgentWalletConnection,
