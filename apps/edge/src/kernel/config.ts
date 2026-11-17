@@ -24,7 +24,6 @@ export type Config = {
     redirects: ReadonlyMap<string, string>;
     upstream: string | null;
     trustedOrigins: readonly string[];
-    catalogPlatforms: readonly string[];
   };
   landing: {
     hosts: ReadonlySet<string>;
@@ -134,7 +133,6 @@ export function config(env: EdgeEnv): Config {
       redirects: portalHostRedirects(env.PORTAL_HOST_REDIRECTS, portalHosts),
       upstream: origin(env.PORTAL_UPSTREAM_ORIGIN),
       trustedOrigins: list(env.PORTAL_TRUSTED_ORIGINS),
-      catalogPlatforms: list(env.CATALOG_PLATFORMS),
     },
     landing: {
       hosts: hosts(env.LANDING_HOSTS),
