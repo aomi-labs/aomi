@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { Package as PackageIcon, Plus } from "lucide-react";
 import { aomiButton, StatusPill } from "@aomi-labs/widget/host-composition";
 
@@ -8,11 +7,11 @@ import {
   ErrorPanel,
   LoadingPanel,
 } from "@/features/deploy/components/deployments/ui/state-panels";
-import { operateFetch } from "@/features/operate/client";
 
 import { releaseLabel, shortName, type Agent, type Package } from "./client";
 import { useAgents, useAllReleases, usePackages, usePublisher } from "./hooks";
 import { agentStatus, channelLabel, packageStatus } from "./inventory-view";
+import { fromDate, toolCalls, useUsage } from "./usage-view";
 import { Card, Cell, EmptyRow, Mono, Row, Tile, plural } from "./ui";
 
 const ROW_LINK =
@@ -59,30 +58,13 @@ function channelsOf(agent: Agent | undefined) {
   return [...new Set((agent?.channels ?? []).map((c) => channelLabel(c.kind)))];
 }
 
-/** Model cost in credits over the last seven days, from the Usage read. */
-function useCreditsThisWeek() {
-  const fromDate = new Date(Date.now() - 6 * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
-  return useQuery({
-    queryKey: ["build", "usage", fromDate],
-    queryFn: () =>
-      operateFetch<{ daily: { creditsUsed?: number }[] }>("usage", {
-        fromDate,
-      }),
-    select: (usage) =>
-      usage.daily.reduce((sum, day) => sum + (day.creditsUsed ?? 0), 0),
-    retry: false,
-  });
-}
-
 /** Build's home: counts, the package and agent lists and the newest releases. */
 export function OverviewView() {
   const { data, error, isPending } = usePublisher();
   const packages = usePackages(data?.packages.map((pkg) => pkg.id) ?? []);
   const agents = useAgents(data?.agents.map((agent) => agent.id) ?? []);
   const releases = useAllReleases(data);
-  const credits = useCreditsThisWeek();
+  const usage = useUsage(fromDate("7 days"));
   if (isPending) return <LoadingPanel label="Loading your overview…" />;
   if (error) return <ErrorPanel message={error.message} />;
 
@@ -130,12 +112,21 @@ export function OverviewView() {
             .filter(Boolean)
             .join(" · ")}
         />
-        {credits.data !== undefined ? (
-          <Stat
-            label="Credits used, 7 days"
-            value={credits.data.toLocaleString("en-US")}
-            hint="Model cost, counted per agent"
-          />
+        {usage.data ? (
+          <>
+            <Stat
+              label="Credits used, 7 days"
+              value={(usage.data.daily ?? [])
+                .reduce((sum, day) => sum + (day.creditsUsed ?? 0), 0)
+                .toLocaleString("en-US")}
+              hint="Model cost, counted per agent"
+            />
+            <Stat
+              label="Tool calls, 7 days"
+              value={toolCalls(usage.data).toLocaleString("en-US")}
+              hint="Billed tool calls across your agents"
+            />
+          </>
         ) : null}
       </div>
       <div className="flex flex-wrap items-start gap-6">

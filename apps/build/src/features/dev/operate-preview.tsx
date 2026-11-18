@@ -356,37 +356,6 @@ const LOGS = {
   nextCursor: null,
 };
 
-const USAGE = {
-  projects: [SOURCE],
-  range: { fromDate: "2026-07-01", toDate: "2026-07-15", maxDays: 31 },
-  daily: [],
-  breakdown: [
-    {
-      provider: "anthropic",
-      model: "claude-opus-4-8",
-      paymentMethod: "quota",
-      inputTokens: 1_100_000,
-      outputTokens: 152_000,
-      creditsUsed: 9.1204,
-      events: 152,
-      source: SOURCE,
-    },
-    {
-      provider: "anthropic",
-      model: "claude-haiku-4-5",
-      paymentMethod: "quota",
-      inputTokens: 206_000,
-      outputTokens: 30_300,
-      creditsUsed: 1.6233,
-      events: 88,
-      source: SOURCE,
-    },
-  ],
-  statement: {
-    ...exampleStatement(SOURCE),
-    payments: SOMM_PAYMENTS,
-  },
-};
 
 const SESSION = {
   signedIn: true,
@@ -412,12 +381,11 @@ function stubFetch() {
     if (url.includes("/api/build/operate/transactions"))
       return Response.json(TRANSACTIONS);
     if (url.includes("/api/build/operate/logs")) return Response.json(LOGS);
-    if (url.includes("/api/build/operate/usage")) return Response.json(USAGE);
     return real(input, init);
   };
 }
 
-const KINDS: ViewKind[] = ["observability", "transactions", "usage", "logs"];
+const KINDS: ViewKind[] = ["observability", "transactions", "logs"];
 
 export default function DevOperatePreview() {
   const [ready] = useState(() => {
@@ -425,7 +393,7 @@ export default function DevOperatePreview() {
     return true;
   });
   const router = useRouter();
-  const [kind, setKind] = useState<ViewKind>("usage");
+  const [kind, setKind] = useState<ViewKind>("observability");
   const [detailAgent, setDetailAgent] = useState<string | null>(null);
   if (!ready) return null;
 

@@ -1,6 +1,15 @@
 import { aomiButton, StatusPill } from "@aomi-labs/widget/host-composition";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { KeyRound } from "lucide-react";
+
+import { UrlLink as Link } from "@/components/url-link";
+import { modelKeysFetch } from "@/features/operate/client";
+import {
+  PROVIDERS,
+  PROVIDER_LABELS,
+  type ProvidersPayload,
+} from "@/features/operate/providers-view";
 
 import {
   ErrorPanel,
@@ -66,7 +75,61 @@ function NewKey() {
   );
 }
 
-/** Builder keys (CLI and CI) and access keys, which are not available yet. */
+/** The builder's model keys per provider; they are added and changed on Providers. */
+function ModelKeys() {
+  const { data } = useQuery({
+    queryKey: ["build", "model-keys"],
+    queryFn: () => modelKeysFetch<ProvidersPayload>(),
+  });
+  return (
+    <Card
+      title="Model keys"
+      action={
+        <span className="type-meta text-aomi-muted">
+          Pay the model cost for people using your agents
+        </span>
+      }
+      footer="With no model key, people pay from their own Aomi balance."
+    >
+      {PROVIDERS.map((provider) => {
+        const key = data?.keys?.find((row) => row.provider === provider);
+        return (
+          <Row
+            key={provider}
+            leading={
+              <span className="bg-aomi-surface-2 text-aomi-muted rounded-control flex size-8 shrink-0 items-center justify-center">
+                <KeyRound className="size-4" aria-hidden />
+              </span>
+            }
+            label={
+              key?.label
+                ? `${PROVIDER_LABELS[provider]} · ${key.label}`
+                : PROVIDER_LABELS[provider]
+            }
+            hint={key ? <Mono>{key.keyPrefix}…</Mono> : "No key"}
+          >
+            <Cell width={132}>
+              {key ? (
+                <StatusPill tone="success" dot>
+                  Active
+                </StatusPill>
+              ) : (
+                <StatusPill>Not set</StatusPill>
+              )}
+            </Cell>
+            <Cell width={96} end>
+              <Link href="/providers" className={aomiButton({ size: "sm" })}>
+                {key ? "Manage" : "Add key"}
+              </Link>
+            </Cell>
+          </Row>
+        );
+      })}
+    </Card>
+  );
+}
+
+/** Model keys, builder keys (CLI and CI) and access keys, which are not available yet. */
 export function KeysView() {
   const queries = useQueryClient();
   const { data, error, isPending } = useQuery({
@@ -85,16 +148,28 @@ export function KeysView() {
         title="Keys"
         summary={
           <p>
-            Builder keys are for the CLI and CI. Secrets a package&apos;s tools
-            need are set on the package.
+            Model keys pay for the model. Builder keys are for the CLI and CI.
+            Access keys open private agents and packages. Secrets a
+            package&apos;s tools need are set on the package.
           </p>
         }
       />
+      <ModelKeys />
       <Card
         title="Builder keys"
-        count={data.keys.length}
+        action={
+          <span className="type-meta text-aomi-muted">
+            For the CLI and CI. Capabilities: publish, promote, secrets.
+          </span>
+        }
         footer="A key can do only what its capabilities allow. Keys are not tied to an agent."
       >
+        <div className="type-eyebrow text-aomi-muted bg-aomi-surface flex gap-3 px-3.5 py-2.5">
+          <span className="flex-1">Name</span>
+          <span className="w-[300px] shrink-0">Can do</span>
+          <span className="w-[132px] shrink-0">Status</span>
+          <span className="w-[96px] shrink-0" />
+        </div>
         {data.keys.map((key) => (
           <Row
             key={key.id}
@@ -104,11 +179,22 @@ export function KeysView() {
                 <Mono>{key.prefix}…</Mono> ·{" "}
                 {key.lastUsedAt
                   ? `last used ${formatTime(key.lastUsedAt)}`
-                  : `created ${formatTime(key.createdAt)}`}{" "}
-                · {key.capabilities.join(", ")}
+                  : `created ${formatTime(key.createdAt)}`}
               </>
             }
           >
+            <Cell width={300}>
+              <span className="flex flex-wrap gap-1">
+                {key.capabilities.map((capability) => (
+                  <span
+                    key={capability}
+                    className="border-aomi-border bg-aomi-surface inline-flex h-6 items-center rounded-full border px-2 text-[12px]"
+                  >
+                    {capability}
+                  </span>
+                ))}
+              </span>
+            </Cell>
             <Cell width={132}>
               {key.revokedAt ? (
                 <StatusPill>Revoked</StatusPill>

@@ -16,7 +16,6 @@ const OPERATE_ROUTES: Record<string, OperateKind> = {
   "/operate/logs": "logs",
   "/operate/observability": "observability",
   "/operate/transactions": "transactions",
-  "/operate/usage": "usage",
 };
 
 /**

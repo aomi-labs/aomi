@@ -1,7 +1,6 @@
 import type { Project } from "@aomi-labs/deploy";
 import {
   Activity,
-  Gauge,
   ListFilter,
   ScrollText,
   WalletCards,
@@ -40,13 +39,12 @@ import {
   LogRows,
   type LogsPageFilter,
 } from "./log-rows";
-import { UsageRows } from "./usage-rows";
 import { pageFrame, pageTitle } from "@/components/control-plane/page";
 
 // OperateView renders every operate surface except Channels, which has its own
 // dedicated ChannelsView (register form + table) instead of the generic
 // kind-indexed rows below.
-export type ViewKind = Exclude<OperateKind, "channels">;
+export type ViewKind = Exclude<OperateKind, "channels" | "usage">;
 
 type Projectish = Project & { agents?: unknown[] };
 
@@ -80,7 +78,6 @@ type PaymentState = {
 
 const meta = {
   transactions: { title: "Transactions", icon: WalletCards },
-  usage: { title: "Usage", icon: Gauge },
   logs: { title: "Logs", icon: ScrollText },
   observability: { title: "Health", icon: Activity },
 } satisfies Record<ViewKind, { title: string; icon: LucideIcon }>;
@@ -248,21 +245,6 @@ function Rows({
         }}
       />
     );
-  }
-
-  if (kind === "usage") {
-    const daily = payload.daily ?? [];
-    const breakdown = payload.breakdown ?? [];
-    if (!daily.length && !breakdown.length && !payload.statement)
-      return (
-        <EmptyState
-          title="Usage"
-          description="Credits and tokens appear after your agents run chat turns. This is a meter, not Billing."
-          actionHref="/agents"
-          actionLabel="Open Agents"
-        />
-      );
-    return <UsageRows payload={payload} />;
   }
 
   if (kind === "logs") {

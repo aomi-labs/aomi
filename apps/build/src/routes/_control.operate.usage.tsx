@@ -1,15 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Suspense } from "react";
-import { OperateView } from "@/features/operate/operate-view";
+
+import { UsageView } from "@/features/packages/usage-view";
 
 export const Route = createFileRoute("/_control/operate/usage")({
-  component: OperateUsagePage,
+  component: UsageView,
 });
-
-function OperateUsagePage() {
-  return (
-    <Suspense fallback={null}>
-      <OperateView kind="usage" />
-    </Suspense>
-  );
-}

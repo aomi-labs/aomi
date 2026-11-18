@@ -1,16 +1,29 @@
 import { StatusPill } from "@aomi-labs/widget/host-composition";
 import { UrlLink as Link } from "@/components/url-link";
-import { PageHeader, pageFrame } from "@/components/control-plane/page";
+import { pageFrame, pageTitle } from "@/components/control-plane/page";
+import { Package as PackageIcon } from "lucide-react";
 import {
   ErrorPanel,
   LoadingPanel,
 } from "@/features/deploy/components/deployments/ui/state-panels";
 
 import { releaseLabel, shortName, type Agent } from "./client";
-import { useAgent, usePublisher } from "./hooks";
+import { useAgent, usePackages, usePublisher } from "./hooks";
 import { agentStatus } from "./inventory-view";
 import { ReleaseHistory } from "./release-history";
-import { Card, EmptyRow, Cell, Columns, Field, Mono, Notice, Row, SourceStrip, Tile, formatTime } from "./ui";
+import {
+  Card,
+  Cell,
+  Columns,
+  EmptyRow,
+  Field,
+  Mono,
+  Notice,
+  Row,
+  SourceStrip,
+  formatTime,
+  plural,
+} from "./ui";
 
 type Config = NonNullable<Agent["live"]>["config"];
 
@@ -59,28 +72,75 @@ function StatusNotice({ agent, name }: { agent: Agent; name: string }) {
 function Voice({ config }: { config: Config }) {
   return (
     <Card title="Voice" origin="repo">
-      <Field label="Name" hint={config.name}>
-        {config.display_name}
-      </Field>
-      <div className="whitespace-pre-wrap px-3.5 py-2.5 text-[13px] leading-5">
-        {config.voice ?? (
-          <span className="text-aomi-muted">
-            No voice written: it speaks as Aomi.
+      <div className="flex flex-col gap-4 px-3.5 py-3.5">
+        <div className="flex flex-col gap-1">
+          <span className="type-meta text-aomi-muted font-medium">Name</span>
+          <span className="text-[14px]">
+            {config.display_name}{" "}
+            <span className="text-aomi-muted">
+              <Mono>{config.name}</Mono>
+            </span>
           </span>
-        )}
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="type-meta text-aomi-muted font-medium">
+            Instructions
+          </span>
+          <span className="whitespace-pre-wrap text-[14px] leading-5">
+            {config.voice ?? (
+              <span className="text-aomi-muted">
+                No voice written: it speaks as Aomi.
+              </span>
+            )}
+          </span>
+        </div>
       </div>
     </Card>
   );
 }
 
 function Packages({ config, owned }: { config: Config; owned: Set<string> }) {
+  // Only this publisher's packages are readable; others show their id.
+  const details = usePackages(config.packages.filter((id) => owned.has(id)));
+  const detail = (id: string) =>
+    details.find((pkg) => pkg?.package.id === id);
   return (
     <Card title="Packages" count={config.packages.length} origin="repo">
       {config.packages.length === 0 ? (
         <EmptyRow>No packages: Aomi&apos;s own tools only</EmptyRow>
       ) : (
         config.packages.map((id) => (
-          <Row key={id} label={<Mono>{id}</Mono>}>
+          <Row
+            key={id}
+            leading={
+              <span className="bg-aomi-surface-2 text-aomi-muted rounded-control flex size-8 shrink-0 items-center justify-center">
+                <PackageIcon className="size-4" aria-hidden />
+              </span>
+            }
+            label={id}
+            hint={(() => {
+              const live = detail(id)?.live;
+              return live
+                ? `${plural(live.skills.length, "skill")} · ${plural(live.tools.length, "tool")}`
+                : detail(id)?.package.description;
+            })()}
+          >
+            <Cell width={132}>
+              {detail(id)?.live ? (
+                <StatusPill>
+                  Live{" "}
+                  {releaseLabel({
+                    number: detail(id)!.live!.release,
+                    digest: detail(id)!.live!.digest,
+                  })}
+                </StatusPill>
+              ) : null}
+            </Cell>
+            <Cell width={84}>
+              {detail(id)?.verified ? (
+                <StatusPill tone="accent">Verified</StatusPill>
+              ) : null}
+            </Cell>
             <Cell width={96} end>
               {owned.has(id) ? (
                 <Link
@@ -102,10 +162,12 @@ function Rules({ config }: { config: Config }) {
   const rules = config.wallet_rules;
   return (
     <>
-      <Card title="Chains and wallet rules" origin="repo">
+      <Card title="Chains" origin="repo">
         <Field label="Allowed chains" hint="Where the agent may trade">
           {config.chains.join(", ") || "None"}
         </Field>
+      </Card>
+      <Card title="Wallet rules" origin="repo">
         <Field label="Wallet" hint="Where people trade from">
           {rules.agent
             ? "A wallet made for this agent"
@@ -170,31 +232,30 @@ export function AgentDetailView({ name }: { name: string }) {
   const { live } = data;
   return (
     <div className={pageFrame}>
-      <PageHeader
-        title={
-          <span className="flex items-center gap-3">
-            <Tile round>{data.agent.display_name.charAt(0).toUpperCase()}</Tile>
-            {data.agent.display_name}
-          </span>
-        }
-        badges={
-          <StatusPill tone={status.tone} dot={status.tone === "success"}>
-            {status.label}
-          </StatusPill>
-        }
-        summary={
-          live ? (
+      <div className="flex min-w-0 items-start gap-3.5">
+        <span className="bg-aomi-fg text-aomi-bg flex size-11 shrink-0 items-center justify-center rounded-full text-[17px] font-semibold">
+          {data.agent.display_name.charAt(0).toUpperCase()}
+        </span>
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className={pageTitle}>{data.agent.display_name}</h1>
+            <StatusPill tone={status.tone} dot={status.tone === "success"}>
+              {status.label}
+            </StatusPill>
+          </div>
+          {live ? (
             <>
-              <p>
-                {live.config.packages.length} packages · {data.channels.length}{" "}
-                channels · config <Mono>{releaseLabel(live)}</Mono> live since{" "}
+              <p className="text-aomi-muted text-[14px]">
+                {plural(live.config.packages.length, "package")} ·{" "}
+                {plural(data.channels.length, "channel")} · config{" "}
+                <Mono>{releaseLabel(live)}</Mono> live since{" "}
                 {formatTime(live.created_at)}
               </p>
               <SourceStrip repo={live.source_repo} commit={live.commit} />
             </>
-          ) : null
-        }
-      />
+          ) : null}
+        </div>
+      </div>
       <StatusNotice agent={data} name={name} />
       <Columns
         main={

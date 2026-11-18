@@ -235,6 +235,10 @@ export function Notice({ children }: { children: ReactNode }) {
   );
 }
 
+/** How a package's tools run: every release is one sandbox component; with no tools it is instructions only. */
+export const packageKind = (tools: number) =>
+  tools === 0 ? "Instructions only" : "Sandbox";
+
 /** `1 tool`, `2 tools`. */
 export const plural = (count: number, noun: string) =>
   `${count} ${noun}${count === 1 ? "" : "s"}`;

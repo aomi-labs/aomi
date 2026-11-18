@@ -396,146 +396,6 @@ describe("OperateView transactions", () => {
     expect(screen.getByText("Usage openai/gpt-5-nano")).toBeInTheDocument();
   });
 
-  it("renders the statement when present, meter otherwise", async () => {
-    operateFetch.mockResolvedValue({
-      projects: [],
-      daily: [],
-      breakdown: [],
-      // BFF filled the statement from example fixtures (BE not live yet).
-      example: true,
-      // BE statement vocabulary: subjects, entries, raw USD floats.
-      statement: {
-        range: { fromDate: "2026-07-01", toDate: "2026-07-15" },
-        summary: {
-          grossRevenue: 183.25,
-          platformFees: 28.33,
-          serviceCharges: 41.9,
-          net: 113.02,
-        },
-        revenue: [
-          {
-            subject: "tool_invocation",
-            agent: "goal-digger",
-            agentId: 77,
-            events: 128,
-            gross: 128.0,
-            platformFee: 12.8,
-            net: 115.2,
-          },
-        ],
-        charges: [
-          {
-            item: "hosting",
-            agent: "goal-digger",
-            agentId: 77,
-            events: 1,
-            amount: 10.0,
-          },
-        ],
-        entries: [
-          {
-            day: "2026-07-15",
-            agent: "goal-digger",
-            subject: "model",
-            events: 68,
-            gross: 4.1,
-            platformFee: 0.37,
-            net: -4.1,
-          },
-        ],
-        payments: {
-          available: true,
-          scope: "recipient_bucket",
-          summary: {
-            accruedCredits: 100,
-            accruedUsd: 1,
-            settledCredits: 100,
-            settledUsd: 1,
-            outstandingCredits: 0,
-            outstandingUsd: 0,
-            pricedCalls: 1,
-            settlements: 1,
-          },
-          resources: [
-            {
-              agent: "somm-agent",
-              agentId: 2936606,
-              tool: "get_idle_assets",
-              flatCredits: 100,
-              flatUsd: 1,
-              beneficiary: "banana_evm",
-              recipient: "0x5D907BEa404e6F821d467314a9cA07663CF64c9B",
-              chain: "eip155:84532",
-              observedCalls: 1,
-            },
-          ],
-          events: [
-            {
-              id: "settle:proof",
-              kind: "settlement_confirmed",
-              occurredAt: 1_700_000_001,
-              agent: "somm-agent",
-              credits: 100,
-              usd: 1,
-              recipient: "0x5D907BEa404e6F821d467314a9cA07663CF64c9B",
-              paymentMethod: "coinbase",
-              receiptId:
-                "0x55e510bb72adb05979adc8afad8c70fa7ca3d0c2cb5dca9432bf82e46ff1df74",
-              explorerUrl:
-                "https://sepolia.basescan.org/tx/0x55e510bb72adb05979adc8afad8c70fa7ca3d0c2cb5dca9432bf82e46ff1df74",
-            },
-          ],
-        },
-      },
-    });
-
-    render(<OperateView kind="usage" />);
-    await waitFor(() => {
-      expect(screen.getByText("Gross revenue")).toBeInTheDocument();
-    });
-    // Floats format at render time; the period comes from the range.
-    expect(screen.getByText("+$113.02")).toBeInTheDocument();
-    expect(screen.getByText("Tool invocations")).toBeInTheDocument();
-    expect(screen.getByText("$115.20")).toBeInTheDocument();
-    expect(screen.getByText("Agent hosting")).toBeInTheDocument();
-    expect(screen.getByText("Model usage")).toBeInTheDocument();
-    expect(screen.getByText("−$4.10")).toBeInTheDocument();
-    expect(screen.getAllByText("Jul 1 – Jul 15").length).toBeGreaterThan(0);
-    expect(screen.getByText("Partner payments")).toBeInTheDocument();
-    expect(
-      screen.getByText("Partner payments").closest("#partner-payments"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Statement · Jul 1 – Jul 15")).toBeInTheDocument();
-    expect(screen.getByText("Current outstanding")).toBeInTheDocument();
-    expect(
-      screen.getByText("Current outstanding").nextElementSibling,
-    ).toHaveClass("text-aomi-success");
-    expect(
-      screen.getByText("all periods · recipient bucket"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("100.00 credits · statement period"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("1 receipt · statement period"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        /liabilities owed to tool beneficiaries, not builder revenue/,
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("banana_evm")).not.toBeInTheDocument();
-    expect(screen.getByText("get_idle_assets")).toBeInTheDocument();
-    expect(screen.getByText("Settlement confirmed")).toBeInTheDocument();
-    const receipt = screen.getByRole("link", { name: "0x55e5…df74" });
-    expect(receipt).toHaveAttribute(
-      "href",
-      expect.stringContaining("sepolia.basescan.org/tx/"),
-    );
-    expect(receipt.querySelector("svg")).toBeInTheDocument();
-    // example: true → the header labels the page as example data.
-    expect(screen.getByText("Example data")).toBeInTheDocument();
-  });
 
   it("renders partner settlement receipts as transaction records", async () => {
     operateFetch.mockResolvedValue({
@@ -659,41 +519,18 @@ describe("OperateView transactions", () => {
     expect(screen.queryByText("banana_evm")).not.toBeInTheDocument();
   });
 
-  it("falls back to the token meter without a statement", async () => {
-    operateFetch.mockResolvedValue({
-      projects: [],
-      daily: [
-        {
-          periodUtcDay: "2026-07-15",
-          agent: "demo",
-          inputTokens: 412000,
-          outputTokens: 58400,
-          creditsUsed: 3.4182,
-        },
-      ],
-      breakdown: [],
-      statement: null,
-    });
-
-    render(<OperateView kind="usage" />);
-    await waitFor(() => {
-      expect(screen.getByText("412,000")).toBeInTheDocument();
-    });
-    expect(screen.queryByText("Gross revenue")).not.toBeInTheDocument();
-  });
 
   it("honors ?project= when loading operate data", async () => {
     searchParams.current = new URLSearchParams("project=42");
     operateFetch.mockResolvedValue({
       projects: [{ id: 42, repositoryLink: "a/b", agents: [] }],
-      daily: [],
-      breakdown: [],
+      logs: [],
     });
 
-    render(<OperateView kind="usage" />);
+    render(<OperateView kind="logs" />);
 
     await waitFor(() => {
-      expect(operateFetch).toHaveBeenCalledWith("usage", {
+      expect(operateFetch).toHaveBeenCalledWith("logs", {
         projectId: 42,
       });
     });
@@ -705,14 +542,13 @@ describe("OperateView transactions", () => {
     );
     operateFetch.mockResolvedValue({
       projects: [{ id: 1620, repositoryLink: "aomi/somm-agent", agents: [] }],
-      daily: [],
-      breakdown: [],
+      logs: [],
     });
 
-    render(<OperateView kind="usage" />);
+    render(<OperateView kind="logs" />);
 
     await waitFor(() => {
-      expect(operateFetch).toHaveBeenCalledWith("usage", {
+      expect(operateFetch).toHaveBeenCalledWith("logs", {
         projectId: 1620,
       });
     });

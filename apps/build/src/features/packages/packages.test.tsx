@@ -58,10 +58,12 @@ function renderWithQueries(ui: ReactNode) {
 
 it("lists the publisher's agents and packages apart", async () => {
   const agents = renderWithQueries(<InventoryView only="agents" />);
-  expect(await screen.findByRole("link", { name: "Hoodit" })).toHaveAttribute(
-    "href",
-    "/agents/hoodit",
-  );
+  expect(await screen.findByText("Hoodit")).toBeInTheDocument();
+  expect(
+    screen
+      .getAllByRole("link", { name: "View" })
+      .map((link) => link.getAttribute("href")),
+  ).toContain("/agents/hoodit");
   expect(screen.getByText("Needs a rebuild")).toBeInTheDocument();
   expect(screen.queryByText("Trade")).not.toBeInTheDocument();
   agents.unmount();
@@ -108,6 +110,7 @@ it("says so when the live release moved before a promote", async () => {
     body: { code: "live_changed", message: "live moved", live: 6 },
   };
   renderWithQueries(<PackageDetailView name="trade" />);
+  fireEvent.click(await screen.findByRole("tab", { name: "Releases" }));
   await screen.findByText("#6 · 6a3f9c");
   fireEvent.click(screen.getByRole("button", { name: "Promote" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -128,10 +131,12 @@ it("replaces a builder secret through the package's secret route, never showing 
     body: { slot: "GMGN_API_KEY", status: "set" },
   };
   renderWithQueries(<PackageDetailView name="trade" />);
-  expect(await screen.findByText("Users add their own")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Add value" })).toBeInTheDocument();
-  expect(screen.getByText("Verified")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("tab", { name: "Guards" }));
   expect(screen.getByText("api.gmgn.ai")).toBeInTheDocument();
+  expect(screen.getByText("Verified")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("tab", { name: "Secrets" }));
+  expect(screen.getByText("Users add their own")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Add value" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Replace" }));
   fireEvent.change(screen.getByLabelText("New value for GMGN_API_KEY"), {
     target: { value: "new-secret" },

@@ -4,12 +4,16 @@ import {
   StatusPill,
   type StatusTone,
 } from "@aomi-labs/widget/host-composition";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   ChevronRight,
+  Code,
+  Globe,
   Package as PackageIcon,
   Plus,
   Search,
+  Send,
+  Terminal,
 } from "lucide-react";
 
 import { UrlLink as Link } from "@/components/url-link";
@@ -19,9 +23,19 @@ import {
   LoadingPanel,
 } from "@/features/deploy/components/deployments/ui/state-panels";
 
-import { shortName, type Publisher } from "./client";
+import { shortName, type Agent, type Publisher } from "./client";
 import { useAgents, usePackages, usePublisher } from "./hooks";
-import { Card, Cell, EmptyRow, Mono, Row, Tile, plural } from "./ui";
+import {
+  Card,
+  Cell,
+  EmptyRow,
+  Mono,
+  Row,
+  Tile,
+  formatTime,
+  packageKind,
+  plural,
+} from "./ui";
 
 const AGENT_STATUS: Record<
   Publisher["agents"][number]["status"],
@@ -62,52 +76,205 @@ export const channelLabel = (kind: string) => CHANNELS[kind] ?? kind;
 const ROW_LINK =
   "after:absolute after:inset-0 after:content-[''] hover:underline";
 
-function AgentList({ agents }: { agents: Publisher["agents"] }) {
+function Chip({ icon, children }: { icon?: ReactNode; children: ReactNode }) {
   return (
-    <Card
-      title="Agents"
-      count={agents.length}
-      origin="repo"
-      footer="An agent is added by an [[agents]] table in aomi.toml and published with aomi publish."
-    >
-      {agents.length === 0 ? (
-        <EmptyRow>No agents yet</EmptyRow>
-      ) : (
-        agents.map((agent) => {
-          const status = agentStatus(agent.status);
-          return (
+    <span className="border-aomi-border bg-aomi-surface inline-flex h-6 max-w-full items-center gap-1.5 rounded-full border px-2 text-[12px] [&_svg]:text-aomi-muted [&_svg]:size-3">
+      {icon}
+      <span className="truncate">{children}</span>
+    </span>
+  );
+}
+
+const CHANNEL_ICON: Record<string, ReactNode> = {
+  telegram: <Send aria-hidden />,
+  widget: <Code aria-hidden />,
+  page: <Globe aria-hidden />,
+  sdk: <Terminal aria-hidden />,
+  api: <Terminal aria-hidden />,
+};
+
+function CardRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-3 text-[13px]">
+      <span className="text-aomi-muted w-[96px] shrink-0 leading-6">{label}</span>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 leading-6">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function AgentCard({
+  agent,
+  detail,
+}: {
+  agent: Publisher["agents"][number];
+  detail: Agent | undefined;
+}) {
+  const status = agentStatus(agent.status);
+  const config = detail?.live?.config;
+  const rules = config?.wallet_rules;
+  return (
+    <div className="border-aomi-border bg-aomi-raised rounded-card flex flex-col gap-4 border p-5">
+      <div className="flex items-start gap-3">
+        <span className="bg-aomi-fg text-aomi-bg flex size-10 shrink-0 items-center justify-center rounded-full text-[15px] font-semibold">
+          {agent.display_name.charAt(0).toUpperCase()}
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="text-[16px] font-semibold leading-[22px]">
+            {agent.display_name}
+          </span>
+          <span className="text-aomi-muted">
+            <Mono>{agent.id}</Mono>
+          </span>
+        </div>
+        <StatusPill tone={status.tone} dot={status.tone === "success"}>
+          {status.label}
+        </StatusPill>
+      </div>
+      <div className="flex flex-col gap-2.5">
+        <CardRow label="Channels">
+          {detail?.channels.length ? (
+            detail.channels.map((channel) => (
+              <Chip key={channel.id} icon={CHANNEL_ICON[channel.kind]}>
+                {channelLabel(channel.kind)} {channel.external_bot_id}
+              </Chip>
+            ))
+          ) : (
+            <span className="text-aomi-muted">No channels yet</span>
+          )}
+        </CardRow>
+        <CardRow label="Packages">
+          {config?.packages.length ? (
+            config.packages.map((id) => (
+              <Chip key={id} icon={<PackageIcon aria-hidden />}>
+                {id}
+              </Chip>
+            ))
+          ) : (
+            <span className="text-aomi-muted">Aomi&apos;s own tools only</span>
+          )}
+        </CardRow>
+        {rules ? (
+          <CardRow label="Wallet rules">
+            {[
+              config.chains.join(", ") || null,
+              rules.agent ? "a wallet made for this agent" : "the person's own wallets",
+              rules.ask_only || rules.default === "ask"
+                ? "asks before every trade"
+                : "instant by default",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </CardRow>
+        ) : null}
+        {config ? (
+          <CardRow label="Model cost">
+            {config.model_cost === "builder"
+              ? "You pay, from your builder credits"
+              : "People pay from their own Aomi balance"}
+          </CardRow>
+        ) : null}
+      </div>
+      <div className="border-aomi-border mt-auto flex items-center justify-between gap-3 border-t pt-4">
+        <span className="type-meta text-aomi-muted">
+          {detail?.live
+            ? `Config live since ${formatTime(detail.live.created_at)}`
+            : "No config live"}
+        </span>
+        <Link
+          href={`/agents/${shortName(agent.id)}`}
+          className={aomiButton({ size: "sm" })}
+        >
+          View
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function AgentList({ publisher }: { publisher: Publisher }) {
+  const details = useAgents(publisher.agents.map((agent) => agent.id));
+  const channels = details.flatMap((agent) =>
+    (agent?.channels ?? []).map((channel) => ({
+      channel,
+      agent: agent!.agent.display_name,
+    })),
+  );
+  return (
+    <>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {publisher.agents.map((agent, index) => (
+          <AgentCard key={agent.id} agent={agent} detail={details[index]} />
+        ))}
+        <div className="border-aomi-border rounded-card flex flex-col gap-2 border border-dashed p-5">
+          <span className="text-[16px] font-semibold leading-[22px]">
+            Add an agent
+          </span>
+          <p className="type-control text-aomi-muted">
+            An agent is added by an <Mono>[[agents]]</Mono> table in{" "}
+            <Mono>aomi.toml</Mono>. Commit it and release; the agent shows up
+            here. Build only holds channel tokens and which config is live.
+          </p>
+          <a
+            href="https://aomi.dev/docs"
+            target="_blank"
+            rel="noreferrer"
+            className="type-control mt-1 font-medium hover:underline"
+          >
+            How agents are configured
+          </a>
+        </div>
+      </div>
+      <Card
+        title="Channels"
+        action={
+          <Link
+            href="/operate/channels"
+            className="type-meta text-aomi-muted hover:text-aomi-fg"
+          >
+            Manage channels
+          </Link>
+        }
+      >
+        {channels.length === 0 ? (
+          <EmptyRow>No channels yet</EmptyRow>
+        ) : (
+          channels.map(({ channel, agent }) => (
             <Row
-              key={agent.id}
+              key={channel.id}
               leading={
-                <Tile round>{agent.display_name.charAt(0).toUpperCase()}</Tile>
-              }
-              label={
-                <Link
-                  href={`/agents/${shortName(agent.id)}`}
-                  className={ROW_LINK}
-                >
-                  {agent.display_name}
-                </Link>
-              }
-              hint={<Mono>{agent.id}</Mono>}
-            >
-              <Cell width={120}>
-                <span className="type-meta text-aomi-muted">
-                  {agent.live_config == null
-                    ? "No config live"
-                    : `Config #${agent.live_config}`}
+                <span className="bg-aomi-surface-2 text-aomi-muted rounded-control flex size-8 shrink-0 items-center justify-center [&_svg]:size-4">
+                  {CHANNEL_ICON[channel.kind] ?? <Globe aria-hidden />}
                 </span>
+              }
+              label={channel.external_bot_id}
+              hint={channelLabel(channel.kind)}
+            >
+              <Cell width={144}>
+                <AgentChip name={agent} />
               </Cell>
               <Cell width={132}>
-                <StatusPill tone={status.tone} dot={status.tone === "success"}>
-                  {status.label}
+                <StatusPill
+                  tone={channel.live ? "success" : "neutral"}
+                  dot={channel.live}
+                >
+                  {channel.live ? "Active" : "Off"}
                 </StatusPill>
               </Cell>
+              <Cell width={96} end>
+                <Link
+                  href="/operate/channels"
+                  className={aomiButton({ size: "sm" })}
+                >
+                  Manage
+                </Link>
+              </Cell>
             </Row>
-          );
-        })
-      )}
-    </Card>
+          ))
+        )}
+      </Card>
+    </>
   );
 }
 
@@ -221,6 +388,11 @@ function PackageList({ publisher }: { publisher: Publisher }) {
                   hint={detail?.package.description || null}
                 >
                   <Cell width={140}>
+                    {detail?.live ? (
+                      <StatusPill>{packageKind(detail.live.tools.length)}</StatusPill>
+                    ) : null}
+                  </Cell>
+                  <Cell width={140}>
                     <span className="type-meta text-aomi-muted">
                       {detail?.live
                         ? `${plural(detail.live.skills.length, "skill")} · ${plural(detail.live.tools.length, "tool")}`
@@ -322,7 +494,7 @@ export function InventoryView({ only }: { only: "agents" | "packages" }) {
         }
       />
       {only === "agents" ? (
-        <AgentList agents={data.agents} />
+        <AgentList publisher={data} />
       ) : (
         <PackageList publisher={data} />
       )}
