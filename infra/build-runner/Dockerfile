@@ -21,7 +21,7 @@
 
 # Sandbox custom images are plain OCI images (linux/amd64) — no base-OS
 # requirement, so use Debian slim for smaller layers and apt tooling.
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim AS build-runner-runtime
 
 ARG AOMI_SDK_REF=main
 ARG AOMI_REF=main
@@ -44,7 +44,7 @@ RUN NODE_TAR=$(curl -fsSL "https://nodejs.org/dist/latest-v${NODE_VERSION}.x/" \
     && curl -fsSL "https://nodejs.org/dist/latest-v${NODE_VERSION}.x/${NODE_TAR}" \
         | tar -xJ -C /usr/local --strip-components=1 \
     && node --version && npm --version \
-    && npm install -g pnpm @anthropic-ai/claude-code \
+    && npm install -g pnpm@10.28.0 @anthropic-ai/claude-code @openai/codex \
     && curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash -s "bun-v${BUN_VERSION}"
 
 # Rust toolchain.
@@ -104,6 +104,7 @@ RUN --mount=type=secret,id=gh_token \
 # a valid probe: on refs with the subcommand it exits 1 wanting --plan, on
 # refs without it the unknown-subcommand fallthrough exits 0), and the
 # binaries exist.
+RUN claude --version && codex --version && cargo clippy --version && cargo fmt --version
 RUN bun /workspace/aomi/packages/smither/dist/cli.js --help >/dev/null \
     && grep -q "run-plan" /workspace/aomi/packages/smither/dist/cli.js \
     && test -x /workspace/aomi-sdk/target/release/aomi-build \
