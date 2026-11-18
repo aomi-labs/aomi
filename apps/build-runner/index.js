@@ -1,5 +1,7 @@
 import { Buffer } from "node:buffer";
 import { extractFileFromTarGz } from "../build/src/server/build/tar.ts";
+import { modelRequest } from "./model.js";
+export { ContainerProxy } from "@cloudflare/containers";
 import { Container } from "@cloudflare/containers";
 
 // This Worker has only a private service binding. The caller authenticates the owner.
@@ -21,6 +23,13 @@ export default {
 };
 
 export class BuildRun extends Container {
+  static outboundByHost = {
+    "model.internal": (request, env, ctx) =>
+      env.RUNS.get(env.RUNS.idFromString(ctx.containerId)).model(request),
+  };
+  async model(request) {
+    return modelRequest(request, this.env, await this.ctx.storage.get("run"));
+  }
   defaultPort = 8080;
   sleepAfter = "5m";
 
@@ -37,7 +46,7 @@ export class BuildRun extends Container {
           typeof input.prompt !== "string" || !input.prompt.trim() || input.prompt.length > 4000 ||
           !["none", "claude", "codex"].includes(input.builder)) return new Response(null, { status: 400 });
       run = { id: request.headers.get("x-run-id"), input, status: "running",
-        createdAt: new Date().toISOString(), capability: crypto.randomUUID(), expires: Date.now() + 30 * 60_000, attempts: 0 };
+        createdAt: new Date().toISOString(), capability: crypto.randomUUID(), modelCapability: crypto.randomUUID(), expires: Date.now() + 30 * 60_000, attempts: 0 };
       await this.ctx.storage.put("run", run);
       await this.schedule(1, "supervise");
     }
@@ -83,7 +92,14 @@ export class BuildRun extends Container {
       await this.startAndWaitForPorts({ ports: 8080, startOptions: {
         entrypoint: ["bun", "/workspace/container.ts"], enableInternet: true,
         envVars: { AOMI_RUN_ID: run.id, AOMI_RUN_CAPABILITY: run.capability,
-          AOMI_RUN_EXPIRES: String(run.expires), IS_SANDBOX: "1" },
+          AOMI_RUN_EXPIRES: String(run.expires), IS_SANDBOX: "1",
+          ...(run.input.builder === "claude" ? {
+            ANTHROPIC_BASE_URL: "http://model.internal",
+            ANTHROPIC_AUTH_TOKEN: run.modelCapability, ANTHROPIC_MODEL: "moonshotai/kimi-k2.7-code",
+            ANTHROPIC_SMALL_FAST_MODEL: "moonshotai/kimi-k2.7-code",
+          } : run.input.builder === "codex" ? {
+            OPENAI_BASE_URL: "http://model.internal/v1", OPENAI_API_KEY: run.modelCapability,
+          } : {}) },
       } });
       const response = await this.containerFetch("http://runner/start", {
         method: "POST", headers, body: JSON.stringify(run.input),
