@@ -62,6 +62,7 @@ export type SdkFreshness = {
   /** HEAD after any sync, or null when the checkout is not a git repo. */
   headSha: string | null;
   action:
+    | "image"
     | "up-to-date"
     | "fast-forwarded"
     | "not-git"
@@ -243,6 +244,17 @@ export async function resolveFreshAomiBinaries(
   runner: CommandRunner = defaultRunner,
   options: { allowStale?: boolean } = {},
 ): Promise<ResolvedBinaries & { freshness: SdkFreshness }> {
+  // The runner image already compiled these tools from this exact checkout.
+  const imageRevision = process.env.AOMI_RUNNER_SDK_REVISION;
+  if (imageRevision && sdkRoot === process.env.AOMI_SDK_ROOT) {
+    const head = await git(sdkRoot, ["rev-parse", "HEAD"], runner);
+    const bins = targetBinaryPaths(sdkRoot);
+    if (head.exitCode !== 0 || head.stdout.trim() !== imageRevision ||
+        !(await fileExists(bins.aomiBuild)) || !(await fileExists(bins.aomiRun))) {
+      throw new Error("Runner SDK checkout and prebuilt binaries do not match the image");
+    }
+    return { ...bins, sdkRoot, source: "runner-image", freshness: { headSha: imageRevision, action: "image" } };
+  }
   const freshness = await ensureFreshSdkCheckout(sdkRoot, runner, options);
   const binaries = await resolveAomiBinaries(sdkRoot, runner, options);
   const warning = [freshness.warning, binaries.warning].filter(Boolean).join("; ");

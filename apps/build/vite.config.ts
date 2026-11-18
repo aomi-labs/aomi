@@ -1,7 +1,7 @@
 import { defineConfig, mergeConfig } from "vite";
 import { sentryTanstackStart } from "@sentry/tanstackstart-react/vite";
 import { appConfig, loadAppEnv, sentryOptions } from "@aomi-labs/app-kit/vite";
-import { deployStage } from "@aomi-labs/app-kit/platform";
+import { deployStage, deployTarget } from "@aomi-labs/app-kit/platform";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
@@ -38,6 +38,7 @@ export default defineConfig(({ mode }) => {
     host: "0.0.0.0",
   });
   return mergeConfig(base, {
+    define: { "import.meta.env.AOMI_BUILD_WORKER": JSON.stringify(deployTarget(env) === "cloudflare") },
     plugins: [sentryTanstackStart(sentryOptions(env, "build"))],
     resolve: {
       dedupe: ["@assistant-ui/react", "viem", "wagmi", "zustand"],
