@@ -129,7 +129,7 @@ function ModelKeys() {
   );
 }
 
-/** Model keys, builder keys (CLI and CI) and access keys, which are not available yet. */
+/** Model keys, builder keys (CLI and CI), and why Build shows no codes for private packages. */
 export function KeysView() {
   const queries = useQueryClient();
   const { data, error, isPending } = useQuery({
@@ -159,7 +159,7 @@ export function KeysView() {
         title="Builder keys"
         action={
           <span className="type-meta text-aomi-muted">
-            For the CLI and CI. Capabilities: publish, promote, secrets.
+            For the CLI and CI. A key may publish and promote packages and agents, and set package secrets.
           </span>
         }
         footer="A key can do only what its capabilities allow. Keys are not tied to an agent."
@@ -222,8 +222,8 @@ export function KeysView() {
       </Card>
       <Card title="Access keys">
         <Row
-          label="Access keys are not available yet"
-          hint="Codes that open a private package come later; until then a private package reaches no one but you."
+          label="Codes for private packages can't be made in Build yet"
+          hint="People who have a code add the package with Add with code in the Aomi Chat Library. Build can't list, create or revoke codes yet."
         />
       </Card>
     </div>
