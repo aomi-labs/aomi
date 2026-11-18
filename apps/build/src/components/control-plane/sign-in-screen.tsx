@@ -1,6 +1,7 @@
 import { Github } from "lucide-react";
 
 import { AomiLogo, AomiMark } from "@/components/brand/aomi-logo";
+import { DevSignIn } from "@/components/dev-sign-in";
 import { githubSigninUrl } from "@/features/deploy/client";
 
 /** What a signed-out visitor sees in place of the console. */
@@ -30,6 +31,7 @@ export function SignInScreen() {
               <Github className="size-4" aria-hidden />
               Continue with GitHub
             </a>
+            <DevSignIn />
             <p className="type-meta text-aomi-muted text-center">
               Aomi only reads the repositories you choose. You can change that
               in GitHub at any time.
