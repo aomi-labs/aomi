@@ -12,13 +12,14 @@ import {
   isTestnetChain,
   mentionGroups,
   packageMentions,
+  parsePackageCatalog,
   parseSkillCatalog,
   shortAddress,
   skillLabel,
   SUPPORTED_CHAIN_IDS,
   type Aomi,
   type AomiAccountWallet,
-  type AomiPackage,
+  type AomiPublicPackage,
   type MentionItem,
 } from "@aomi-labs/client";
 
@@ -28,12 +29,18 @@ export async function mentionCatalog(
   thread: string,
 ): Promise<MentionItem[]> {
   const [packages, skills, wallets] = await Promise.all([
-    // The Library of the thread's agent; `aomi/main`'s before the thread is stored.
-    aomi.account.packages
-      .list({ threadId: thread })
-      .catch(() => aomi.account.packages.list())
-      .then((catalog) => catalog.packages)
-      .catch(() => [] as AomiPackage[]),
+    // Signed in: the thread's packages that are on (`aomi/main`'s before the
+    // thread is stored). A guest: the public catalog.
+    aomi.auth.mode === "guest"
+      ? aomi.raw
+          .getPublicCatalog("packages")
+          .then(parsePackageCatalog)
+          .catch(() => [] as AomiPublicPackage[])
+      : aomi.account.packages
+          .list({ threadId: thread })
+          .catch(() => aomi.account.packages.list())
+          .then((catalog) => catalog.packages.filter((row) => row.enabled))
+          .catch(() => [] as AomiPublicPackage[]),
     aomi.raw
       .getPublicCatalog("skills")
       .then(parseSkillCatalog)

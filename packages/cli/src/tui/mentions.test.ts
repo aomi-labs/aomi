@@ -13,11 +13,18 @@ const row = (extra: Partial<AomiPackage>) =>
     ...extra,
   }) as AomiPackage;
 
-function client(list: (options?: { threadId?: string }) => Promise<unknown>) {
+function client(
+  list: (options?: { threadId?: string }) => Promise<unknown>,
+  mode: "guest" | "account" = "account",
+  publicPackages: unknown = { packages: [] },
+) {
   return {
-    auth: { mode: "guest" },
-    raw: { getPublicCatalog: async () => ({ skills: [] }) },
-    account: { packages: { list } },
+    auth: { mode },
+    raw: {
+      getPublicCatalog: async (kind: string) =>
+        kind === "packages" ? publicPackages : { skills: [] },
+    },
+    account: { packages: { list }, wallets: { list: async () => [] } },
   } as unknown as Aomi;
 }
 
@@ -47,6 +54,20 @@ describe("mentionCatalog", () => {
     });
     const items = await mentionCatalog(client(list), "new-thread");
     expect(items.some((item) => item.id === "aomi/defillama")).toBe(true);
+  });
+
+  it("gives a guest the public catalog, never the account read", async () => {
+    const list = vi.fn();
+    const items = await mentionCatalog(
+      client(list, "guest", {
+        packages: [{ id: "aomi/jupiter", display_name: "Jupiter", skills: [] }],
+      }),
+      "thread-1",
+    );
+    expect(list).not.toHaveBeenCalled();
+    expect(
+      items.filter((item) => item.kind === "package").map((item) => item.id),
+    ).toEqual(["aomi/jupiter"]);
   });
 
   it("offers a package under Packages and sends its id on the hint line", async () => {

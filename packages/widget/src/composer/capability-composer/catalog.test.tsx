@@ -1,16 +1,30 @@
 import { render, renderHook } from "@testing-library/react";
 import type { FC } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AgentCard, AomiPackage } from "@aomi-labs/client";
+import type {
+  AgentCard,
+  AomiPackage,
+  AomiPublicPackage,
+} from "@aomi-labs/client";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 
 const fixture = vi.hoisted(() => ({
   model: "openai:gpt-6.1-sol",
   agents: [] as AgentCard[],
   packages: [] as AomiPackage[],
+  publicPackages: [] as AomiPublicPackage[],
+  signedIn: true,
 }));
 vi.mock("@aomi-labs/react", async (original) => ({
   ...(await original<typeof import("@aomi-labs/react")>()),
+  useDisplayQuery: (query: { resource: string; enabled?: boolean }) => ({
+    data:
+      query.enabled === false
+        ? undefined
+        : query.resource === "packages"
+          ? fixture.publicPackages
+          : { packages: fixture.packages },
+  }),
   useControl: () => ({
     state: {
       agentCards: fixture.agents,
@@ -36,15 +50,15 @@ vi.mock("@/wallet/context", () => ({
   useAomiWalletKit: () => ({ wallets: [] }),
 }));
 vi.mock("@/account/account-overview", () => ({
-  useAccountOverview: () => null,
+  useAccountOverview: () =>
+    fixture.signedIn ? { user: { user_id: "user-1" } } : null,
+}));
+vi.mock("@/account/transport", () => ({
+  useAomi: () => ({}),
+  useShellAomi: () => ({}),
 }));
 vi.mock("@/library/use-package-catalog", () => ({
-  usePackageCatalog: () => ({
-    catalog: {
-      agent: { id: "aomi/main", display_name: "Aomi" },
-      packages: fixture.packages,
-    },
-  }),
+  packageCatalogQuery: () => ({ resource: "account-packages" }),
 }));
 import {
   packagePickerItems,
@@ -55,6 +69,8 @@ import { pickerGroups } from "./model";
 
 beforeEach(() => {
   fixture.packages = [];
+  fixture.publicPackages = [];
+  fixture.signedIn = true;
   fixture.model = "openai:gpt-6.1-sol";
   fixture.agents = [
     {
@@ -276,17 +292,8 @@ const pkg = (extra: Partial<AomiPackage>): AomiPackage =>
   }) as AomiPackage;
 
 describe("packagePickerItems", () => {
-  it("lists the packages that are on, once each, with a one-line description", () => {
-    const items = packagePickerItems([
-      pkg({}),
-      pkg({}),
-      pkg({
-        package_id: 2,
-        id: "acme/off",
-        display_name: "Off",
-        enabled: false,
-      }),
-    ]);
+  it("lists each package once, with a one-line description", () => {
+    const items = packagePickerItems([pkg({}), pkg({})]);
     expect(
       items.map(({ key, kind, id, label, description }) => ({
         key,
@@ -309,7 +316,7 @@ describe("packagePickerItems", () => {
   it("draws the package's own icon", () => {
     const [{ Icon }] = packagePickerItems([
       pkg({ icon_url: "https://example.test/llama.png" }),
-    ]) as [{ Icon: FC<{ className?: string }> }];
+    ]) as unknown as [{ Icon: FC<{ className?: string }> }];
     const { container } = render(<Icon className="size-3.5" />);
     expect(container.querySelector("img")?.getAttribute("src")).toBe(
       "https://example.test/llama.png",
@@ -324,13 +331,36 @@ describe("packagePickerItems", () => {
     },
   );
 
-  it("feeds the picker with the Library's packages", () => {
-    fixture.packages = [pkg({})];
+  it("feeds a signed-in picker the Library's packages that are on", () => {
+    fixture.packages = [
+      pkg({}),
+      pkg({
+        package_id: 2,
+        id: "acme/off",
+        display_name: "Off",
+        enabled: false,
+      }),
+    ];
+    fixture.publicPackages = [pkg({ id: "acme/public" })];
     const { result } = renderHook(useCapabilityCatalog);
     expect(
       result.current
         .filter((item) => item.kind === "package")
         .map((item) => item.id),
     ).toEqual(["aomi/defillama"]);
+  });
+
+  it("feeds a guest's picker the public catalog", () => {
+    fixture.signedIn = false;
+    fixture.packages = [pkg({})];
+    fixture.publicPackages = [
+      pkg({ id: "acme/public", display_name: "Public" }),
+    ];
+    const { result } = renderHook(useCapabilityCatalog);
+    expect(
+      result.current
+        .filter((item) => item.kind === "package")
+        .map((item) => item.id),
+    ).toEqual(["acme/public"]);
   });
 });

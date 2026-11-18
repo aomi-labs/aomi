@@ -9,18 +9,20 @@ import {
 import {
   isTestnetChain,
   packageMentions,
+  parsePackageCatalog,
   shortAddress,
-  type AomiPackage,
+  type AomiPublicPackage,
 } from "@aomi-labs/client";
 import {
   SUPPORTED_CHAINS,
   getChainInfo,
   useControl,
+  useDisplayQuery,
   useOptionalAomiRuntime,
 } from "@aomi-labs/react";
 import { useAccountOverview } from "@/account/account-overview";
-import { brandId } from "@/library/model";
-import { usePackageCatalog } from "@/library/use-package-catalog";
+import { packageCatalogQuery } from "@/library/use-package-catalog";
+import { useAomi, useShellAomi } from "@/account/transport";
 import {
   walletName,
   familyTag,
@@ -78,8 +80,9 @@ export function walletPickerItems(rows: readonly WalletRow[]): PickerItem[] {
 }
 
 /** A package's icon at picker size: its own image, else its brand mark or a box. */
-function packageIcon(row: AomiPackage): FC<{ className?: string }> {
-  const Fallback = getAgentIcon(brandId(row)) ?? PackageIcon;
+function packageIcon(row: AomiPublicPackage): FC<{ className?: string }> {
+  const Fallback =
+    getAgentIcon(row.id.split("/").at(-1) ?? row.id) ?? PackageIcon;
   const src = row.icon_url;
   if (!src) return Fallback;
   return function PackageImage({ className }) {
@@ -97,31 +100,62 @@ function packageIcon(row: AomiPackage): FC<{ className?: string }> {
   };
 }
 
-/** The packages on in this chat as picker rows (`packageMentions`), with their icons. */
-export function packagePickerItems(rows: readonly AomiPackage[]): PickerItem[] {
+/** Package rows (`packageMentions`) for the picker, with their icons. */
+export function packagePickerItems(
+  rows: readonly AomiPublicPackage[],
+): PickerItem[] {
   const byId = new Map(rows.map((row) => [row.id, row]));
-  return packageMentions(rows).map((item) => {
-    const row = byId.get(item.id)!;
+  return packageMentions(rows).map(({ id, label, description, searchText }) => {
+    const row = byId.get(id)!;
     return {
-      ...item,
-      key: `package:${item.id}`,
+      key: `package:${id}`,
+      kind: "package",
+      id,
+      label,
+      description,
       fullDescription: row.description,
+      searchText,
       Icon: packageIcon(row),
     };
   });
 }
 
-/** The Library's rows for this chat's agent (a guest's are the defaults), as picker rows. */
+/**
+ * The packages "@" offers. Signed in: the account's packages that are on in
+ * this chat (the Library's read; the runtime loads only those). A guest: the
+ * public catalog, nothing tied to an account.
+ */
 export function usePackagePickerItems(): PickerItem[] {
   const accountUserId = useAccountOverview()?.user.user_id;
+  const shell = useShellAomi();
+  const aomi = useAomi();
   const runtime = useOptionalAomiRuntime();
   // A chat the server has not stored yet reads `aomi/main`'s rows, as the Library does.
   const threadId =
     runtime && runtime.isRemoteThread?.(runtime.currentThreadId)
       ? runtime.currentThreadId
       : undefined;
-  const { catalog } = usePackageCatalog(accountUserId, threadId);
-  return useMemo(() => packagePickerItems(catalog?.packages ?? []), [catalog]);
+  const account = useDisplayQuery({
+    ...packageCatalogQuery(shell, accountUserId, threadId),
+    enabled: accountUserId != null,
+  });
+  const publicRows = useDisplayQuery({
+    resource: "packages",
+    fetcher: (signal) =>
+      aomi.raw
+        .getPublicCatalog("packages", { signal })
+        .then(parsePackageCatalog),
+    enabled: accountUserId == null,
+  });
+  return useMemo(
+    () =>
+      packagePickerItems(
+        accountUserId != null
+          ? (account.data?.packages ?? []).filter((row) => row.enabled)
+          : (publicRows.data ?? []),
+      ),
+    [accountUserId, account.data, publicRows.data],
+  );
 }
 
 export function useCapabilityCatalog(): PickerItem[] {
