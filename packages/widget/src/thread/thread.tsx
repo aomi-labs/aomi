@@ -757,6 +757,7 @@ function useTouchActions() {
 }
 
 const AssistantActionBar: FC = () => {
+  const createdAt = useMessage((state) => state.createdAt);
   const touchActions = useTouchActions();
   return (
     <ActionBarPrimitive.Root
@@ -791,6 +792,12 @@ const AssistantActionBar: FC = () => {
           <RefreshCwIcon className="size-[15px]" />
         </Button>
       </ActionBarPrimitive.Reload>
+      <time className="text-xs" dateTime={createdAt.toISOString()}>
+        {createdAt.toLocaleTimeString(undefined, {
+          hour: "numeric",
+          minute: "2-digit",
+        })}
+      </time>
     </ActionBarPrimitive.Root>
   );
 };
