@@ -14,7 +14,7 @@ export const API_PATHS = {
         callback: `${BUILD_API}/auth/github/callback`,
         status: `${BUILD_API}/auth/github/status`,
         signout: `${BUILD_API}/auth/github/signout`,
-        devSession: `${BUILD_API}/auth/github/dev-session`,
+        devSignIn: `${BUILD_API}/auth/github/dev-sign-in`,
       },
     },
     cli: {

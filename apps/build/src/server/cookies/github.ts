@@ -1,16 +1,13 @@
-
 import "@tanstack/react-start/server-only";
 import { getCookie } from "@tanstack/react-start/server";
 import {
   bearerOf,
   GITHUB_SESSION_COOKIE,
   GitHubSessionSigner,
-  SESSION_TTL_SECONDS,
   type GitHubCliScope,
   type GitHubSession,
 } from "@aomi-labs/account/build-session";
-import { appendCookie } from "@/server/http-response";
-import { githubSessionSecret, secureCookies } from "@/server/env";
+import { githubSessionSecret } from "@/server/env";
 
 export type {
   GitHubCliScope,
@@ -43,20 +40,4 @@ export async function getGitHubCliSessionFromRequest(
   } catch {
     return null;
   }
-}
-
-export async function setGitHubSessionCookie(
-  response: Response,
-  session: GitHubSession,
-): Promise<void> {
-  const token = await new GitHubSessionSigner(
-    githubSessionSecret(),
-  ).issueSession(session);
-  appendCookie(response, GITHUB_SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: secureCookies(),
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_TTL_SECONDS,
-  });
 }

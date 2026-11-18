@@ -44,7 +44,6 @@ const STATIC_ROUTE_SEGMENTS = new Set([
   "deployment",
   "deployments",
   "detail",
-  "dev-session",
   "device-auth",
   "download",
   "e2e",
