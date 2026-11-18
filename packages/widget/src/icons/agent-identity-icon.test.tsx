@@ -54,7 +54,7 @@ it("keeps the initials when the icon is not served", () => {
   expect(container.querySelector("img")).toBeNull();
 });
 
-it("prefers the package's own icon to Aomi's curated artwork once it loads", () => {
+it("prefers Aomi's curated artwork to the package's own icon", () => {
   stubImages();
   const { container } = render(
     <AgentIdentityIcon
@@ -63,27 +63,7 @@ it("prefers the package's own icon to Aomi's curated artwork once it loads", () 
       imageUrl="/api/packages/aomi%2Fdefillama/icon"
     />,
   );
-  // Curated artwork holds the place until the image loads.
-  expect(container.querySelector("img")).toBeNull();
-  expect(container.querySelector("svg")).not.toBeNull();
-
-  act(() => images[0]!.onload?.());
-  expect(container.querySelector("img")).toHaveAttribute(
-    "src",
-    "/api/packages/aomi%2Fdefillama/icon",
-  );
-  expect(container.querySelector("svg")).toBeNull();
-});
-
-it("keeps Aomi's curated artwork when the package's icon is not served", () => {
-  stubImages();
-  const { container } = render(
-    <AgentIdentityIcon
-      brandId="defillama"
-      name="defillama"
-      imageUrl="/missing"
-    />,
-  );
+  expect(images).toHaveLength(0);
   expect(container.querySelector("img")).toBeNull();
   expect(container.querySelector("svg")).not.toBeNull();
 });

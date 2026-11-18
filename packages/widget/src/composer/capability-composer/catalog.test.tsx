@@ -315,19 +315,19 @@ describe("packagePickerItems", () => {
     ]);
   });
 
-  it("draws the package's own icon, else Aomi's brand mark, else a box", () => {
-    const [own, brand, box] = packagePickerItems([
+  it("draws Aomi's brand mark, else the package's own icon, else a box", () => {
+    const [brand, own, box] = packagePickerItems([
       pkg({ icon_url: "https://example.test/llama.png" }),
       pkg({
         package_id: 2,
-        id: "aomi/hyperliquid",
-        display_name: "Hyperliquid",
-        icon_url: null,
+        id: "acme/feed",
+        display_name: "Feed",
+        icon_url: "https://example.test/feed.png",
       }),
       pkg({
         package_id: 3,
-        id: "acme/feed",
-        display_name: "Feed",
+        id: "acme/box",
+        display_name: "Box",
         icon_url: null,
       }),
     ]) as unknown as [
@@ -335,19 +335,15 @@ describe("packagePickerItems", () => {
       { Icon: FC<{ className?: string }> },
       { Icon: FC<{ className?: string }> },
     ];
+    expect(brand.Icon).toBe(getAgentIcon("defillama"));
     const ownImage = render(<own.Icon className="size-3.5" />).container;
     expect(ownImage.querySelector("img")?.getAttribute("src")).toBe(
-      "https://example.test/llama.png",
+      "https://example.test/feed.png",
     );
-    // A broken image falls back to the brand mark.
+    // A broken image falls back to the box.
     fireEvent.error(ownImage.querySelector("img")!);
     expect(ownImage.querySelector("img")).toBeNull();
     expect(ownImage.querySelector("svg")).not.toBeNull();
-
-    const brandMark = render(<brand.Icon className="size-3.5" />).container;
-    expect(brandMark.querySelector("img")).toBeNull();
-    expect(brandMark.querySelector("svg")).not.toBeNull();
-    expect(brand.Icon).toBe(getAgentIcon("hyperliquid"));
     expect(box.Icon).toBe(PackageIcon);
   });
 
