@@ -1,10 +1,16 @@
 import {
+  aomiButton,
   ListGroup,
   StatusPill,
   type StatusTone,
 } from "@aomi-labs/widget/host-composition";
 import { useState } from "react";
-import { ChevronRight, Package as PackageIcon, Search } from "lucide-react";
+import {
+  ChevronRight,
+  Package as PackageIcon,
+  Plus,
+  Search,
+} from "lucide-react";
 
 import { UrlLink as Link } from "@/components/url-link";
 import { PageHeader, pageFrame } from "@/components/control-plane/page";
@@ -305,6 +311,14 @@ export function InventoryView({ only }: { only: "agents" | "packages" }) {
               ? "An agent is Aomi set up for your users: a voice, the packages it may use, wallet rules and the channels people reach it through. It holds no code."
               : "A package bundles skills, tools and guards. People turn it on in chat, and agents use it."}
           </p>
+        }
+        actions={
+          only === "packages" ? (
+            <Link href="/new" className={aomiButton({ variant: "primary" })}>
+              <Plus />
+              New package
+            </Link>
+          ) : null
         }
       />
       {only === "agents" ? (

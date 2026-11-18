@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cn } from "@aomi-labs/widget";
 import { Bot, Package as PackageIcon, RefreshCw, Search } from "lucide-react";
 import {
   aomiButton,
@@ -21,7 +22,10 @@ import {
 } from "./hooks";
 import { Cell, EmptyRow, Row, formatTime } from "./ui";
 
-const SELECT = `${aomiButton()} appearance-none pr-8 bg-[url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")] bg-[position:right_10px_center] bg-no-repeat`;
+const SELECT = cn(
+  aomiButton(),
+  `h-10 appearance-none pr-8 bg-[url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")] bg-[position:right_10px_center] bg-no-repeat`,
+);
 
 /** Make one release live: Roll back for an older number, Promote for a newer one. */
 function PromoteButton({
