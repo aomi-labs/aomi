@@ -235,6 +235,153 @@ async function expectSettledReply(
     .toEqual({ reply: true, settled: true });
 }
 
+type HostedChatEvent = {
+  type?: string;
+  turn_id?: string | null;
+  sender?: string;
+  content?: string;
+  message?: string;
+  state?: string;
+};
+
+async function expectHostedTurn(
+  page: Page,
+  response: Awaited<ReturnType<typeof sendPrompt>>,
+  message: string,
+) {
+  const started = (await response.json()) as { session_id?: string };
+  const sessionId = started.session_id;
+  if (!sessionId) throw new Error("Hosted chat returned no session id");
+
+  let outcome: "waiting" | "complete" | "failed" | "thread_route_incompatible" =
+    "waiting";
+  await expect
+    .poll(
+      async () => {
+        const { events = [] } = await browserJson<{ events?: HostedChatEvent[] }>(
+          page,
+          `/v1/agent/chat/${encodeURIComponent(sessionId)}`,
+        );
+        const turnId = events.find(
+          (event) =>
+            event.type === "message" &&
+            event.sender === "user" &&
+            event.content === message,
+        )?.turn_id;
+        const turn = turnId
+          ? events.filter((event) => event.turn_id === turnId)
+          : [];
+        if (
+          turn.some(
+            (event) =>
+              event.type === "error" &&
+              event.message?.includes("thread_route_incompatible"),
+          )
+        ) {
+          outcome = "thread_route_incompatible";
+        } else if (
+          turn.some(
+            (event) =>
+              event.type === "error" ||
+              (event.type === "turn_state_changed" &&
+                ["failed", "interrupted"].includes(event.state ?? "")),
+          ) ||
+          (await page
+            .getByText("This app hit an error and couldn't respond.", {
+              exact: true,
+            })
+            .isVisible())
+        ) {
+          outcome = "failed";
+        } else if (
+          turn.some(
+            (event) =>
+              event.type === "turn_state_changed" && event.state === "complete",
+          ) &&
+          turn.some(
+            (event) =>
+              event.type === "message" &&
+              event.sender === "agent" &&
+              Boolean(event.content?.trim()),
+          )
+        ) {
+          outcome = "complete";
+        }
+        return outcome;
+      },
+      { timeout: 110_000 },
+    )
+    .not.toBe("waiting");
+  expect(outcome, "the submitted Chat turn completed").toBe("complete");
+  await expect(page.getByTestId(testIds.stop)).toBeHidden({ timeout: 30_000 });
+  return sessionId;
+}
+
+test("hosted Chat continues the same conversation when switching Auto to a model and back", async ({
+  page,
+}) => {
+  test.setTimeout(420_000);
+  const { wallet, forbiddenRequests } = await signIn(page, "evm");
+  const models = page.getByRole("combobox", { name: "Auto", exact: true });
+  await expect(models).toBeEnabled();
+  const clue = `CEDAR-${Date.now().toString(36).toUpperCase()}`;
+  const firstPrompt = `Remember this code for the rest of this conversation: ${clue}. Reply OK.`;
+  const first = await sendPrompt(page, firstPrompt);
+  expect(first.request().postDataJSON().model).toBeUndefined();
+  const sessionId = await expectHostedTurn(page, first, firstPrompt);
+
+  await models.click();
+  await page
+    .getByRole("option", { name: "Claude Sonnet 5.5", exact: true })
+    .click();
+  const manual = page.getByRole("combobox", {
+    name: "Claude Sonnet 5.5",
+    exact: true,
+  });
+  await expect(manual).toBeEnabled();
+  const secondPrompt = "What code did I ask you to remember? Reply with the code.";
+  const second = await sendPrompt(page, secondPrompt);
+  expect(second.request().postDataJSON().model).toBe("anthropic:claude-sonnet-5-5");
+  expect(await expectHostedTurn(page, second, secondPrompt)).toBe(sessionId);
+  await expect(page.getByTestId(testIds.assistantMessage).last()).toContainText(
+    clue,
+  );
+
+  await manual.click();
+  await page.getByRole("option", { name: /^Auto\b/ }).click();
+  await expect(models).toBeEnabled();
+  const thirdPrompt = "Repeat the code once more.";
+  const third = await sendPrompt(page, thirdPrompt);
+  expect(third.request().postDataJSON().model).toBeUndefined();
+  expect(await expectHostedTurn(page, third, thirdPrompt)).toBe(sessionId);
+  await expect(page.getByTestId(testIds.assistantMessage).last()).toContainText(
+    clue,
+  );
+  expect(wallet.blocked).toEqual([]);
+  expect(forbiddenRequests).toEqual([]);
+});
+
+test("hosted Chat completes two guest turns on a mobile viewport", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 400, height: 844 });
+  await page.addLocatorHandler(
+    page.getByRole("button", { name: "Decline", exact: true }),
+    (decline) => decline.click(),
+  );
+  await page.goto(hostedPortalUrl(), { waitUntil: "domcontentloaded" });
+  const firstPrompt = "Please reply with a short greeting.";
+  const first = await sendPrompt(page, firstPrompt);
+  const sessionId = await expectHostedTurn(page, first, firstPrompt);
+  await expect(page.getByTestId(testIds.assistantMessage).last()).toBeVisible();
+
+  const secondPrompt = "Please say goodbye in one word.";
+  const second = await sendPrompt(page, secondPrompt);
+  expect(await expectHostedTurn(page, second, secondPrompt)).toBe(sessionId);
+  await expect(page.getByTestId(testIds.assistantMessage)).toHaveCount(2);
+});
+
 for (const family of ["evm", "svm"] as const) {
   test(`${family.toUpperCase()} wallet signs a real challenge and gets a settled hosted reply`, async ({
     page,
@@ -264,7 +411,7 @@ test("EVM session and chat history survive a reload, and sign-out ends both", as
   page,
   browser,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(360_000);
   await signIn(page, "evm");
   const before = await browserJson<Account>(page, "/v1/account");
   const probe = `Session persistence probe ${Date.now().toString(36)}. Reply with one word.`;
@@ -305,6 +452,13 @@ test("EVM session and chat history survive a reload, and sign-out ends both", as
       { timeout: 30_000 },
     )
     .toBe(true);
+
+  const followUp =
+    "Please reply to confirm this conversation is still available.";
+  const continued = await sendPrompt(page, followUp);
+  expect(await expectHostedTurn(page, continued, followUp)).toBe(sessionId);
+  await expect(page.getByTestId(testIds.userMessage).first()).toContainText(probe);
+  await expect(page.getByTestId(testIds.assistantMessage)).toHaveCount(2);
 
   // Another browser with no cookie never reads the thread.
   const stranger = await browser.newContext();
