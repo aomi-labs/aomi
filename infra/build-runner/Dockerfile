@@ -113,6 +113,8 @@ RUN bun /workspace/aomi/packages/smither/dist/cli.js --help >/dev/null \
 # Live-files sidecar: serves apps/<app> on the exposed sandbox port so the
 # BFF can show Files/file contents mid-run (dispatch launches it detached).
 COPY sidecar.ts /workspace/sidecar.ts
+COPY container.ts /workspace/container.ts
 
 ENV AOMI_SDK_ROOT=/workspace/aomi-sdk
+RUN git -C /workspace/aomi-sdk rev-parse HEAD > /workspace/sdk-revision
 WORKDIR /workspace/aomi/packages/smither

@@ -363,6 +363,12 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@25.6.0)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.33.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1)
 
+  apps/build-runner:
+    dependencies:
+      '@cloudflare/containers':
+        specifier: ^0.3.7
+        version: 0.3.7
+
   apps/edge:
     dependencies:
       '@aomi-labs/account':

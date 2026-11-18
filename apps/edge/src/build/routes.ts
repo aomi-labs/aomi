@@ -10,6 +10,7 @@
  * routes, whose manager calls carry the key's builder bearer. Every other
  * route, builder credits and the pass-through answer it 403.
  */
+import { runnerRequest } from "./runner";
 import { EdgeError } from "../kernel/errors";
 import { passThrough as passThroughTo, proxy, target } from "../kernel/proxy";
 import { BACKEND_API_HEADERS } from "../portal/headers";
@@ -85,6 +86,8 @@ const refuseKey: Handler = () => {
 export async function handleBuildRequest(request: Request, ctx: BuildContext): Promise<Response> {
   const url = new URL(request.url);
   const withKey = carriesApiKey(request);
+  if (ctx.env.BUILD_RUNNER && /^\/api\/build\/runs(?:\/|$)/.test(url.pathname))
+    return run("build.runner", withKey ? refuseKey : runnerRequest, request, ctx);
   if (url.pathname === BUILDER_CREDITS_PREFIX || url.pathname.startsWith(`${BUILDER_CREDITS_PREFIX}/`))
     return run("builder.credits", withKey ? refuseKey : credits, request, ctx);
   const routes = BUILD_ROUTES.filter((route) => matches(route, url.pathname));

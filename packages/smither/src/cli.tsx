@@ -1097,7 +1097,7 @@ async function runPlanCommand(argv: string[]): Promise<void> {
     // A fresh runner (new sandbox, no local run.json) continuing a run the
     // shared store already knows must execute with resume, or the engine
     // treats the pre-existing run id as a conflict instead of a replay.
-    if (!prepared.resume) {
+    if (!prepared.resume && prepared.backend.kind === "postgres") {
       const view = await readRunView(prepared.api, prepared.runId);
       if (view.status !== null) prepared = { ...prepared, resume: true };
     }
@@ -1171,6 +1171,8 @@ if (subcommand === "console") {
   await runSignalCommand(restArgv);
 } else if (subcommand === "run-plan") {
   await runPlanCommand(restArgv);
+  // The unattended command is settled; Smithers may still own runtime timers.
+  process.exit(Number(process.exitCode ?? 0));
 } else if (subcommand === "rollback") {
   const rollbackArgs = parseRollbackArgs(restArgv);
   if (rollbackArgs.help) {
