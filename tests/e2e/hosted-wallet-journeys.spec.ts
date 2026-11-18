@@ -248,10 +248,16 @@ async function expectHostedTurn(
   page: Page,
   response: Awaited<ReturnType<typeof sendPrompt>>,
   message: string,
+  expectedSessionId?: string,
 ) {
   const started = (await response.json()) as { session_id?: string };
   const sessionId = started.session_id;
   if (!sessionId) throw new Error("Hosted chat returned no session id");
+  if (expectedSessionId) {
+    expect(sessionId, "Chat accepted the turn in the same session").toBe(
+      expectedSessionId,
+    );
+  }
 
   let outcome: "waiting" | "complete" | "failed" | "thread_route_incompatible" =
     "waiting";
@@ -361,7 +367,7 @@ test("hosted Chat continues the same conversation when switching Auto to a model
   const secondPrompt = "What code did I ask you to remember? Reply with the code.";
   const second = await sendPrompt(page, secondPrompt);
   expect(second.request().postDataJSON().model).toBe("anthropic:claude-sonnet-5-5");
-  expect(await expectHostedTurn(page, second, secondPrompt)).toBe(sessionId);
+  await expectHostedTurn(page, second, secondPrompt, sessionId);
   await expect(page.getByTestId(testIds.assistantMessage).last()).toContainText(
     clue,
   );
@@ -375,7 +381,7 @@ test("hosted Chat continues the same conversation when switching Auto to a model
   const thirdPrompt = "Repeat the code once more.";
   const third = await sendPrompt(page, thirdPrompt);
   expect(third.request().postDataJSON().model).toBeUndefined();
-  expect(await expectHostedTurn(page, third, thirdPrompt)).toBe(sessionId);
+  await expectHostedTurn(page, third, thirdPrompt, sessionId);
   await expect(page.getByTestId(testIds.assistantMessage).last()).toContainText(
     clue,
   );
@@ -400,7 +406,7 @@ test("hosted Chat completes two guest turns on a mobile viewport", async ({
 
   const secondPrompt = "Please say goodbye in one word.";
   const second = await sendPrompt(page, secondPrompt);
-  expect(await expectHostedTurn(page, second, secondPrompt)).toBe(sessionId);
+  await expectHostedTurn(page, second, secondPrompt, sessionId);
   await expect(page.getByTestId(testIds.assistantMessage)).toHaveCount(2);
 });
 
@@ -478,7 +484,7 @@ test("EVM session and chat history survive a reload, and sign-out ends both", as
   const followUp =
     "Please reply to confirm this conversation is still available.";
   const continued = await sendPrompt(page, followUp);
-  expect(await expectHostedTurn(page, continued, followUp)).toBe(sessionId);
+  await expectHostedTurn(page, continued, followUp, sessionId);
   await expect(page.getByTestId(testIds.userMessage).first()).toContainText(probe);
   await expect(page.getByTestId(testIds.assistantMessage)).toHaveCount(2);
 
