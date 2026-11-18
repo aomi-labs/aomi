@@ -14,7 +14,9 @@ const CHANGE = "9a000000-0000-4000-8000-000000000009";
 const USDC = "eip155:8453/erc20:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
 const SOL = "solana:mainnet-beta/native";
 
-const NO_RULES = { apps: null, limits: [], not_after: null, owner_only: false };
+const NO_RULES = { mode: "blacklist", rules: [], linked_only: false };
+const SOL_RULE = `${SOL}@protocol:jupiter`;
+const USDC_RULE = `${USDC}@any`;
 
 const change = {
   id: CHANGE,
@@ -32,22 +34,36 @@ const body = {
   wallet_name: "Trading wallet",
   revision: 3,
   rules: {
-    apps: ["jupiter", "kamino", "uniswap"],
-    limits: [
-      { asset: SOL, amount: "500000000", symbol: "SOL", decimals: 9 },
-      { asset: USDC, amount: "200000000", symbol: "USDC", decimals: 6 },
+    mode: "whitelist",
+    rules: [
+      {
+        id: SOL_RULE,
+        asset: SOL,
+        amount: "500000000",
+        to: { kind: "protocol", id: "jupiter" },
+        symbol: "SOL",
+        decimals: 9,
+      },
+      {
+        id: USDC_RULE,
+        asset: USDC,
+        amount: "200000000",
+        to: { kind: "any_protocol" },
+        symbol: "USDC",
+        decimals: 6,
+      },
     ],
-    not_after: 1795219200,
-    owner_only: true,
+    linked_only: true,
   },
   sentences: [
-    "Can use Jupiter, Kamino, Uniswap",
-    "Up to 0.5 SOL a day on Solana",
+    "Whitelist: only what is listed is allowed",
+    "Up to 0.5 SOL a day on Jupiter (Solana)",
   ],
   admin: { kind: "aomi_managed" },
   stopped_until: null,
   usage: [
     {
+      rule: SOL_RULE,
       asset: SOL,
       used: "200000000",
       cap: "500000000",
@@ -57,18 +73,15 @@ const body = {
   ],
   window_ends_at: 1795046400,
   pending: null,
+  enforced_by: { [SOL_RULE]: ["Aomi"], [USDC_RULE]: ["Aomi"] },
   enforcement: [
     {
       provider: "swig",
       name: "Swig",
       network: "solana:mainnet-beta",
       state: "behind",
-      covers: {
-        apps: ["jupiter", "kamino"],
-        limits: [SOL],
-        not_after: false,
-        owner_only: false,
-      },
+      rules: [SOL_RULE],
+      holds: { [SOL]: "500000000" },
       left: { [SOL]: "300000000" },
       note: "Your rules changed since you signed.",
       ready: true,
@@ -140,6 +153,7 @@ describe("wallet rules", () => {
       usage: [],
       window_ends_at: null,
       pending: null,
+      enforced_by: {},
       enforcement: [],
       admin_wallets: [],
     });
@@ -199,13 +213,25 @@ describe("wallet rules", () => {
       ...body,
       rules: {
         ...NO_RULES,
-        limits: [{ asset: USDC, amount: huge, symbol: null }],
+        rules: [
+          {
+            asset: USDC,
+            amount: huge,
+            to: { kind: "any_protocol" },
+            symbol: null,
+          },
+        ],
       },
-      usage: [{ asset: USDC, used: huge, cap: huge, symbol: null }],
+      usage: [
+        { rule: USDC_RULE, asset: USDC, used: huge, cap: huge, symbol: null },
+      ],
     });
-    expect(read.rules.limits[0]).toEqual({
+    // A rule the server sent no id for gets the key it would have.
+    expect(read.rules.rules[0]).toEqual({
+      id: USDC_RULE,
       asset: USDC,
       amount: huge,
+      to: { kind: "any_protocol" },
       symbol: null,
       decimals: null,
     });
@@ -217,14 +243,34 @@ describe("wallet rules", () => {
     ["the old list of rules", { rules: [{ kind: "recipient_is_owner" }] }],
     [
       "a numeric amount",
-      { rules: { ...NO_RULES, limits: [{ asset: USDC, amount: 5 }] } },
+      {
+        rules: {
+          ...NO_RULES,
+          rules: [{ asset: USDC, amount: 5, to: { kind: "any_protocol" } }],
+        },
+      },
     ],
     [
       "an amount that is not digits",
-      { rules: { ...NO_RULES, limits: [{ asset: USDC, amount: "1.5" }] } },
+      {
+        rules: {
+          ...NO_RULES,
+          rules: [{ asset: USDC, amount: "1.5", to: { kind: "any_protocol" } }],
+        },
+      },
     ],
-    ["an end date that is not a number", { rules: { not_after: "soon" } }],
-    ["a flag that is not a boolean", { rules: { owner_only: "yes" } }],
+    [
+      "a destination it does not know",
+      {
+        rules: {
+          ...NO_RULES,
+          rules: [{ asset: USDC, amount: "1", to: { kind: "contract" } }],
+        },
+      },
+    ],
+    ["the first shape of the rules", { rules: { apps: null, limits: [] } }],
+    ["a mode it does not know", { rules: { mode: "greylist" } }],
+    ["a flag that is not a boolean", { rules: { linked_only: "yes" } }],
     ["an unknown admin", { admin: { kind: "multisig" } }],
   ])("rejects %s rather than dropping it from the next write", (_, extra) => {
     expect(() => parseWalletRules({ ...body, ...extra })).toThrow(
@@ -236,11 +282,11 @@ describe("wallet rules", () => {
     const none = parseWalletRules({ ...body, rules: NO_RULES }).rules;
     expect(none).toEqual(NO_RULES);
     expect(hasRules(none)).toBe(false);
-    expect(hasRules({ ...none, apps: [] })).toBe(true);
-    expect(hasRules({ ...none, owner_only: true })).toBe(true);
+    expect(hasRules({ ...none, mode: "whitelist" })).toBe(true);
+    expect(hasRules({ ...none, linked_only: true })).toBe(true);
   });
 
-  it("changes rules with CSRF, sending only asset and amount for a limit", async () => {
+  it("changes rules with CSRF, sending only a rule's asset, amount and destination", async () => {
     const { rules, calls } = backend({
       [`POST /v1/account/agent-wallets/${WALLET}/rules`]: () =>
         Response.json({
@@ -253,13 +299,16 @@ describe("wallet rules", () => {
     expect(calls[0]!.headers.get("x-aomi-csrf")).toBe("1");
     expect(calls[0]!.body).toEqual({
       rules: {
-        apps: ["jupiter", "kamino", "uniswap"],
-        limits: [
-          { asset: SOL, amount: "500000000" },
-          { asset: USDC, amount: "200000000" },
+        mode: "whitelist",
+        rules: [
+          {
+            asset: SOL,
+            amount: "500000000",
+            to: { kind: "protocol", id: "jupiter" },
+          },
+          { asset: USDC, amount: "200000000", to: { kind: "any_protocol" } },
         ],
-        not_after: 1795219200,
-        owner_only: true,
+        linked_only: true,
       },
     });
     expect(result.status).toBe("waiting");

@@ -197,9 +197,12 @@ describe("help", () => {
 });
 
 describe("command validation", () => {
-  it.each(["session", "wallet", "app", "byok"])("rejects retired command %s", async (name) => {
-    expect((await cli(name)).code).toBe(2);
-  });
+  it.each(["session", "wallet", "app", "byok"])(
+    "rejects retired command %s",
+    async (name) => {
+      expect((await cli(name)).code).toBe(2);
+    },
+  );
 
   it("is a usage error to mistype a command or pass a non-decimal chain", async () => {
     expect((await cli("thraeds")).code).toBe(2);
@@ -369,7 +372,6 @@ describe("sign-in", () => {
       "Bearer device-token",
     );
   });
-
 });
 
 describe("aomi rules", () => {
@@ -390,12 +392,16 @@ describe("aomi rules", () => {
     agent_wallet_id: WALLET,
     wallet_name: "Trading wallet",
     revision: 3,
-    rules: { apps: null, limits: [], not_after: null, owner_only: true },
-    sentences: ["Can use Jupiter, Kamino", "Up to 0.5 SOL a day on Solana"],
+    rules: { mode: "blacklist", rules: [], linked_only: true },
+    sentences: [
+      "Up to 0.5 SOL a day on Jupiter (Solana)",
+      "Sends only to your linked wallets",
+    ],
     admin: { kind: "aomi_managed" },
     stopped_until: null,
     usage: [
       {
+        rule: "solana:mainnet-beta/native@protocol:jupiter",
         asset: "solana:mainnet-beta/native",
         used: "200000000",
         cap: "500000000",
@@ -445,10 +451,10 @@ describe("aomi rules", () => {
     expect(code).toBe(0);
     expect(stdout.split("\n")).toEqual([
       `Trading wallet  ${WALLET}`,
-      "  Can use Jupiter, Kamino",
-      "  Up to 0.5 SOL a day on Solana",
-      "  used 0.2 / 0.5 SOL",
-      "  Admin: Aomi-managed",
+      "  Up to 0.5 SOL a day on Jupiter (Solana)",
+      "  Sends only to your linked wallets",
+      "  used 0.2 / 0.5 SOL · protocol:jupiter",
+      "  Rule change authority: self-approval",
       `  Pending ${CHANGE} · 23 h left`,
       "    ↑ USDC on Base: 200 → 400 a day",
       "",
@@ -493,7 +499,13 @@ describe("aomi rules", () => {
   });
 
   it("declines a change, and refuses one that is no longer waiting", async () => {
-    const declined = await cli("rules", "decline", CHANGE, "--private-key", KEY);
+    const declined = await cli(
+      "rules",
+      "decline",
+      CHANGE,
+      "--private-key",
+      KEY,
+    );
     expect(declined.code).toBe(0);
     expect(declined.stdout).toContain("Declined");
     routes[paths.change] = { ...change, state: "applied" };

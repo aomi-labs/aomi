@@ -10,13 +10,7 @@ import type { AomiRuleSet } from "@aomi-labs/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AccountOverviewFixture } from "@/test/account-overview-fixture";
 import { RuleChangePanel } from "./rule-change-card";
-import { RuleEnforcement } from "./rule-enforcement";
-import {
-  fromBaseUnits,
-  toBaseUnits,
-  untilDate,
-  usedPercent,
-} from "./rules-model";
+import { fromBaseUnits, toBaseUnits, usedPercent } from "./rules-model";
 import { WalletRules } from "./wallet-rules";
 
 const ADMIN = "0xAbCd00000000000000000000000000000000Ef12";
@@ -40,6 +34,8 @@ vi.mock("@/wallet/context", () => ({ useAomiWalletKit: () => kit }));
 
 const USDC = "eip155:8453/erc20:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
 const SOL = "solana:mainnet-beta/native";
+const USDC_RULE = `${USDC}@protocol:uniswap`;
+const FRIEND = "0x00000000000000000000000000000000000000aa";
 const WALLET = { id: "g-trading", name: "Trading wallet" };
 const hours = (count: number) =>
   Math.floor(Date.now() / 1000) + count * 3600 + 600;
@@ -61,16 +57,25 @@ const body = (extra: object = {}) => ({
   wallet_name: WALLET.name,
   revision: 3,
   rules: {
-    apps: ["jupiter", "kamino"],
-    limits: [{ asset: USDC, amount: "200000000", symbol: "USDC", decimals: 6 }],
-    not_after: 1795219200,
-    owner_only: true,
+    mode: "blacklist",
+    rules: [
+      {
+        id: USDC_RULE,
+        asset: USDC,
+        amount: "200000000",
+        to: { kind: "protocol", id: "uniswap" },
+        symbol: "USDC",
+        decimals: 6,
+      },
+    ],
+    linked_only: false,
   },
   sentences: [],
   admin: { kind: "aomi_managed" },
   stopped_until: null,
   usage: [
     {
+      rule: USDC_RULE,
       asset: USDC,
       used: "170000000",
       cap: "200000000",
@@ -80,6 +85,7 @@ const body = (extra: object = {}) => ({
   ],
   window_ends_at: 1795046400,
   pending: null,
+  enforced_by: { [USDC_RULE]: ["Aomi"] },
   enforcement: [],
   admin_wallets: [{ kind: "wallet", family: "evm", address: ADMIN }],
   ...extra,
@@ -90,7 +96,8 @@ const provider = (extra: object = {}) => ({
   name: "Vault",
   network: "solana:mainnet-beta",
   state: "off",
-  covers: { apps: [], limits: [], not_after: false, owner_only: false },
+  rules: [],
+  holds: {},
   left: {},
   note: null,
   ready: true,
@@ -168,16 +175,43 @@ async function renderRules() {
   });
   return screen.findByRole("region", { name: "Rules" });
 }
-const NO_RULES = { apps: null, limits: [], not_after: null, owner_only: false };
 const sentRules = (index: number) =>
   (writes()[index]!.body as { rules: AomiRuleSet }).rules;
-const row = (kind: string) =>
-  document.querySelector(`[data-rule="${kind}"]`) as HTMLElement;
-const setLimit = (value: string) => {
-  const input = screen.getByRole("textbox", { name: "USDC daily limit" });
-  fireEvent.change(input, { target: { value } });
-  fireEvent.blur(input);
+const HELD = {
+  asset: USDC,
+  amount: "200000000",
+  to: { kind: "protocol", id: "uniswap" },
 };
+const ruleRows = () =>
+  [...document.querySelectorAll('[data-rule="rule"]')] as HTMLElement[];
+const button = (name: string | RegExp) => screen.getByRole("button", { name });
+/** Fill the new-rule field the way a person does, then press + Rule. */
+async function addRule(
+  token: string,
+  amount: string,
+  to: string | { address: string },
+  chain?: string,
+) {
+  fireEvent.click(button("Token"));
+  fireEvent.click(await screen.findByRole("button", { name: token }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Amount a day" }), {
+    target: { value: amount },
+  });
+  if (chain) {
+    fireEvent.click(button("Chain"));
+    fireEvent.click(screen.getByRole("button", { name: chain }));
+  } else fireEvent.click(button("To"));
+  if (typeof to === "string") fireEvent.click(button(to));
+  else {
+    fireEvent.change(screen.getByRole("textbox", { name: "Send to address" }), {
+      target: { value: to.address },
+    });
+    fireEvent.click(button("Use address"));
+  }
+  await act(async () => {
+    fireEvent.click(button("Rule"));
+  });
+}
 
 describe("rules amounts", () => {
   it("converts human amounts with string math, past 2^53", () => {
@@ -207,101 +241,355 @@ describe("rules amounts", () => {
 });
 
 describe("Wallet rules", () => {
-  it("shows each rule as a sentence with its control, today's use and the admin", async () => {
+  it("shows the sends switch, the mode, and each rule with where it goes, today's use and who enforces it", async () => {
     const section = await renderRules();
-    expect(within(section).getByText("Enforced by Aomi")).toBeTruthy();
-    expect(row("apps")).toHaveTextContent("Can use Jupiter, Kamino");
-    const cap = document.querySelector(`[data-asset="${USDC}"]`) as HTMLElement;
-    expect(cap).toHaveTextContent("Up to 200 USDC a day");
-    expect(within(cap).getByText("Base")).toBeTruthy();
-    expect(within(cap).getByText("170 used")).toBeTruthy();
-    const bar = within(cap).getByRole("progressbar");
-    expect(bar).toHaveAttribute("aria-valuenow", "85");
-    expect(bar.firstElementChild).toHaveAttribute("data-usage-tone", "warning");
     expect(
-      within(cap).getByRole("textbox", { name: "USDC daily limit" }),
-    ).toHaveValue("200");
-    // The year appears once the fixture's date is in another year.
-    expect(row("not_after")).toHaveTextContent(
-      `Until ${untilDate(1795219200)}`,
+      within(section).getByRole("switch", {
+        name: "Only allow sending to linked wallets",
+      }),
+    ).not.toBeChecked();
+    expect(
+      within(section).getByRole("radio", { name: "Blacklist" }),
+    ).toBeChecked();
+    expect(section).toHaveTextContent(
+      "Everything is allowed, except what’s listed.",
     );
-    expect(screen.getByLabelText("End date")).toHaveValue("2026-11-21");
-    expect(row("owner_only")).toHaveTextContent("Sends only to your wallets");
+    const [rule] = ruleRows();
+    expect(rule).toHaveTextContent("Up to 200 USDC a day");
+    expect(within(rule!).getByText("Base")).toBeInTheDocument();
+    expect(await within(rule!).findByText("Uniswap")).toBeInTheDocument();
+    expect(rule).toHaveTextContent("170 used today");
     expect(
-      screen.getByRole("switch", { name: "Sends only to your wallets" }),
-    ).toHaveAttribute("aria-checked", "true");
-    expect(
-      screen.getByText("Tokens without a limit can't be spent"),
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        "Lower a number and it saves at once. Raise one and it needs approval. Limits reset at 00:00 UTC.",
-      ),
-    ).toBeTruthy();
-    expect(screen.getByText("Aomi-managed")).toBeTruthy();
-    expect(
-      screen.getByText(
-        "You approve with a click or a tap. Aomi holds the admin key.",
-      ),
-    ).toBeTruthy();
-    expect(screen.queryByText(/Stopped by the agent/)).toBeNull();
-    expect(document.querySelector("[data-pending-change]")).toBeNull();
-    expect(writes()).toEqual([]);
+      within(rule!).getByRole("progressbar", { name: "USDC used today" }),
+    ).toHaveAttribute("aria-valuenow", "85");
+    expect(rule).toHaveTextContent("Enforced by Aomi");
+    // No app list, no limit list, no end date, no templates.
+    expect(screen.queryByRole("button", { name: /App$/ })).toBeNull();
+    expect(screen.queryByText(/template/i)).toBeNull();
+    expect(screen.queryByLabelText("End date")).toBeNull();
   });
 
-  it("keeps the usage bar neutral under 80% and says when the agent stopped the wallet", async () => {
-    rules = body({
-      stopped_until: 1795046400,
-      usage: [{ ...body().usage[0], used: "100000000" }],
-    });
+  it("says who else enforces a rule, and that an empty list means opposite things in each mode", async () => {
+    rules = body({ enforced_by: { [USDC_RULE]: ["Aomi", "Vault"] } });
     await renderRules();
-    expect(screen.getByRole("progressbar").firstElementChild).toHaveAttribute(
-      "data-usage-tone",
-      "neutral",
-    );
+    expect(ruleRows()[0]).toHaveTextContent("Enforced by Aomi and Vault");
+
+    rules = body({
+      rules: { mode: "blacklist", rules: [], linked_only: false },
+    });
+    document.body.innerHTML = "";
+    await renderRules();
     expect(
-      screen.getByText("Stopped by the agent until 00:00 UTC"),
-    ).toBeTruthy();
+      await screen.findByText("No rules. This wallet can spend anything."),
+    ).toBeInTheDocument();
   });
 
-  it("shows an unknown token by its short address and raw amount", async () => {
-    const unknown = "eip155:1/erc20:0x1111111111111111111111111111111111112222";
+  it("says a whitelist with nothing listed spends nothing, and a zero amount blocks", async () => {
     rules = body({
-      rules: { ...NO_RULES, limits: [{ asset: unknown, amount: "5000" }] },
+      rules: {
+        mode: "whitelist",
+        rules: [
+          { ...HELD, id: USDC_RULE, amount: "0", symbol: "USDC", decimals: 6 },
+        ],
+        linked_only: false,
+      },
       usage: [],
     });
-    await renderRules();
+    const section = await renderRules();
     expect(
-      document.querySelector(`[data-asset="${unknown}"]`),
-    ).toHaveTextContent("Up to 5000 0x1111…2222 a day");
-    expect(screen.getByText("Ethereum")).toBeTruthy();
+      within(section).getByRole("radio", { name: "Whitelist" }),
+    ).toBeChecked();
+    expect(ruleRows()[0]).toHaveTextContent("No USDC");
+    expect(ruleRows()[0]).not.toHaveTextContent("used today");
   });
 
-  it("names and scales a limit from the catalog when the limit carries no names", async () => {
-    rules = body({
-      rules: { ...NO_RULES, limits: [{ asset: SOL, amount: "500000000" }] },
-      usage: [],
-    });
+  it("adds a rule from token / amount / chain / to, sending the full set and no server fields", async () => {
+    respond = (method) =>
+      method === "POST"
+        ? Response.json({ status: "applied", rules })
+        : undefined;
     await renderRules();
-    const cap = document.querySelector(`[data-asset="${SOL}"]`) as HTMLElement;
-    await waitFor(() => expect(cap).toHaveTextContent("Up to 0.5 SOL a day"));
-    const input = within(cap).getByRole("textbox", { name: "SOL daily limit" });
-    respond = (method, _path, sent) => {
-      if (method !== "POST") return undefined;
-      rules = body({
-        rules: (sent as { rules: AomiRuleSet }).rules,
-        usage: [],
-      });
-      return Response.json({ status: "applied", rules });
-    };
-    // "1" is one SOL, not one lamport.
-    fireEvent.change(input, { target: { value: "1" } });
-    fireEvent.blur(input);
+    // SOL is on one chain, so the chain fills itself; Solana offers its apps.
+    await addRule("SOL", "0.5", "Jupiter");
+    expect(sentRules(0)).toEqual({
+      mode: "blacklist",
+      rules: [
+        HELD,
+        {
+          asset: SOL,
+          amount: "500000000",
+          to: { kind: "protocol", id: "jupiter" },
+        },
+      ],
+      linked_only: false,
+    });
+    expect(await screen.findByText("Saved.")).toBeInTheDocument();
+  });
+
+  it("offers only the apps of the rule's chain, and any protocol", async () => {
+    await renderRules();
+    fireEvent.click(button("Token"));
+    fireEvent.click(await screen.findByRole("button", { name: "USDC" }));
+    fireEvent.click(button("To"));
+    const list = screen.getByRole("group", {
+      name: "To: a protocol, or an address",
+    });
+    expect(
+      within(list).getByRole("button", { name: "Any protocol" }),
+    ).toBeTruthy();
+    expect(within(list).getByRole("button", { name: "Uniswap" })).toBeTruthy();
+    expect(within(list).queryByRole("button", { name: "Jupiter" })).toBeNull();
+  });
+
+  it("puts a new amount in place of the rule for the same token and destination", async () => {
+    respond = (method) =>
+      method === "POST"
+        ? Response.json({
+            status: "waiting",
+            rules: body({ pending: change() }),
+          })
+        : undefined;
+    await renderRules();
+    await addRule("USDC", "400", "Uniswap");
+    expect(sentRules(0).rules).toEqual([{ ...HELD, amount: "400000000" }]);
+    // A raise waits: its card opens.
+    expect(
+      await screen.findByRole("region", {
+        name: "Rule change for Trading wallet",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("adds a rule for a send to one address, and refuses one that is not of the chain", async () => {
+    respond = (method) =>
+      method === "POST"
+        ? Response.json({ status: "applied", rules })
+        : undefined;
+    await renderRules();
+    fireEvent.click(button("Token"));
+    fireEvent.click(await screen.findByRole("button", { name: "USDC" }));
+    fireEvent.click(button("To"));
+    const address = screen.getByRole("textbox", { name: "Send to address" });
+    fireEvent.change(address, {
+      target: { value: "HZpj1111111111111111111111111111111111PvRpW" },
+    });
+    fireEvent.click(button("Use address"));
+    expect(
+      screen.getByText("That isn’t an address on Base."),
+    ).toBeInTheDocument();
+    expect(writes()).toHaveLength(0);
+
+    await addRule("USDC", "20", { address: FRIEND });
+    expect(sentRules(0).rules[1]).toEqual({
+      asset: USDC,
+      amount: "20000000",
+      to: { kind: "address", address: FRIEND },
+    });
+  });
+
+  it("asks for what is missing before it sends anything", async () => {
+    await renderRules();
+    await act(async () => {
+      fireEvent.click(button("Rule"));
+    });
+    expect(
+      screen.getByText("Fill in the token, amount, chain and to."),
+    ).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "USDC" }));
+    fireEvent.click(button("To"));
+    fireEvent.click(button("Uniswap"));
+    await act(async () => {
+      fireEvent.click(button("Rule"));
+    });
+    expect(
+      screen.getByText("Enter an amount. 0 blocks the token there."),
+    ).toBeInTheDocument();
+    expect(writes()).toHaveLength(0);
+  });
+
+  it("removes a rule, switches the mode and flips the sends switch, each as the full set", async () => {
+    respond = (method) =>
+      method === "POST"
+        ? Response.json({ status: "applied", rules })
+        : undefined;
+    await renderRules();
+    await act(async () => {
+      fireEvent.click(button("Remove the rule for USDC · Uniswap"));
+    });
+    expect(sentRules(0)).toEqual({
+      mode: "blacklist",
+      rules: [],
+      linked_only: false,
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("radio", { name: "Whitelist" }));
+    });
+    expect(sentRules(1)).toEqual({
+      mode: "whitelist",
+      rules: [HELD],
+      linked_only: false,
+    });
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("switch", {
+          name: "Only allow sending to linked wallets",
+        }),
+      );
+    });
+    expect(sentRules(2).linked_only).toBe(true);
+  });
+
+  it("reads the rules again when they changed under an edit", async () => {
+    respond = (method) =>
+      method === "POST" ? refused("rules_changed", 409) : undefined;
+    await renderRules();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("radio", { name: "Whitelist" }));
+    });
+    expect(
+      await screen.findByText("The rules changed. Review them again."),
+    ).toBeInTheDocument();
     await waitFor(() =>
-      expect(sentRules(0).limits).toEqual([
-        { asset: SOL, amount: "1000000000" },
-      ]),
+      expect(
+        calls.filter(
+          (call) => call.method === "GET" && call.path.endsWith("/rules"),
+        ).length,
+      ).toBeGreaterThan(1),
     );
+  });
+
+  it("offers Try again in the new-rule lists when the catalog cannot be read", async () => {
+    let fail = true;
+    respond = (_method, path) =>
+      path.endsWith("/rules/catalog") && fail
+        ? refused("internal_error", 500)
+        : undefined;
+    await renderRules();
+    fireEvent.click(button("Token"));
+    expect(
+      await screen.findByText("Couldn’t load the list."),
+    ).toBeInTheDocument();
+    fail = false;
+    await act(async () => {
+      fireEvent.click(button("Try again"));
+    });
+    expect(
+      await screen.findByRole("button", { name: "USDC" }),
+    ).toBeInTheDocument();
+  });
+
+  it("changes the rule change authority only on Save, and shows wallets once one is to be selected", async () => {
+    respond = (method) =>
+      method === "POST"
+        ? Response.json({
+            status: "waiting",
+            rules: body({
+              pending: change({
+                lines: [
+                  {
+                    text: "Admin: Aomi-managed → wallet 0xAbCd…Ef12",
+                    loosens: false,
+                  },
+                ],
+              }),
+            }),
+          })
+        : undefined;
+    await renderRules();
+    const authority = screen.getByRole("region", {
+      name: "Rule change authority",
+    });
+    expect(
+      within(authority).getByRole("radio", { name: /Self-approval/ }),
+    ).toBeChecked();
+    expect(within(authority).queryByRole("combobox")).toBeNull();
+    fireEvent.click(
+      within(authority).getByRole("radio", { name: /Selected wallet/ }),
+    );
+    expect(
+      within(authority).getByRole("combobox", { name: "Wallet" }),
+    ).toBeTruthy();
+    expect(writes()).toHaveLength(0);
+    // Cancel puts it back and sends nothing.
+    fireEvent.click(within(authority).getByRole("button", { name: "Cancel" }));
+    expect(within(authority).queryByRole("combobox")).toBeNull();
+    fireEvent.click(
+      within(authority).getByRole("radio", { name: /Selected wallet/ }),
+    );
+    await act(async () => {
+      fireEvent.click(within(authority).getByRole("button", { name: "Save" }));
+    });
+    expect(writes()[0]!.body).toEqual({
+      admin: { kind: "wallet", family: "evm", address: ADMIN },
+    });
+  });
+
+  it("shows no on-chain row where nothing is on chain and nothing can go there", async () => {
+    rules = body({ enforcement: [provider({ ready: false })] });
+    await renderRules();
+    expect(enforcementRow()).toBeNull();
+  });
+
+  it("puts the rules on chain with one signature, and never sends a policy", async () => {
+    kit.identity.svmAddress = "Own3r";
+    rules = body({ enforcement: [provider()] });
+    const on = body({
+      enforced_by: { [USDC_RULE]: ["Aomi", "Vault"] },
+      enforcement: [
+        provider({
+          state: "on",
+          ready: false,
+          rules: [USDC_RULE],
+          signer: { family: "svm", address: "Own3r" },
+        }),
+      ],
+    });
+    respond = (method, path) => {
+      if (method !== "POST") return undefined;
+      if (path === `${STEP}/prepare`)
+        return Response.json({
+          action: {
+            kind: "transaction",
+            network: "solana:mainnet-beta",
+            unsigned_base64: "AQAB",
+          },
+        });
+      if (path === `${STEP}/confirm`) return Response.json({ rules: on });
+      return undefined;
+    };
+    await renderRules();
+    expect(enforcementRow()).toHaveTextContent(
+      "Vault can also enforce these rules on chain.",
+    );
+    await act(async () => {
+      fireEvent.click(button("+ Vault"));
+    });
+    await waitFor(() =>
+      expect(ruleRows()[0]).toHaveTextContent("Enforced by Aomi and Vault"),
+    );
+    expect(kit.signAndSendSolanaTransaction).toHaveBeenCalledTimes(1);
+    expect(writes().map((call) => call.body)).toEqual([
+      { network: "solana:mainnet-beta", revision: 3, owner: "Own3r" },
+      { network: "solana:mainnet-beta", revision: 3, owner: "Own3r" },
+    ]);
+    expect(button("Remove from Vault")).toBeEnabled();
+  });
+
+  it("offers the update when the chain holds older rules, only to the wallet that owns it", async () => {
+    rules = body({
+      enforcement: [
+        provider({
+          state: "behind",
+          note: "Your rules changed since you signed.",
+          signer: { family: "svm", address: "Own3r" },
+        }),
+      ],
+    });
+    await renderRules();
+    expect(enforcementRow()).toHaveTextContent(
+      "Your rules changed since you signed. Connect Own3r to change this.",
+    );
+    expect(button("Update Vault")).toBeDisabled();
   });
 
   it("keeps a filed change when an older read answers late", async () => {
@@ -337,28 +625,6 @@ describe("Wallet rules", () => {
     expect(
       screen.getByLabelText("Rule change for Trading wallet"),
     ).toBeTruthy();
-  });
-
-  it("offers Try again in a picker when the catalog cannot be read", async () => {
-    let fail = true;
-    respond = (_method, path) =>
-      path === "/v1/account/rules/catalog" && fail
-        ? refused("unavailable", 503)
-        : undefined;
-    await renderRules();
-    fireEvent.click(screen.getByRole("button", { name: "App" }));
-    const picker = screen.getByRole("group", { name: "Allowed apps" });
-    // The rule's own apps stay removable; nothing claims to be loading.
-    expect(screen.queryByText("Loading apps…")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Limit" }));
-    const limit = screen.getByRole("group", { name: "New limit" });
-    expect(
-      await within(limit).findByText("Couldn’t load the tokens."),
-    ).toBeTruthy();
-    fail = false;
-    fireEvent.click(within(limit).getByRole("button", { name: "Try again" }));
-    expect(await within(limit).findByLabelText("Token")).toBeTruthy();
-    expect(picker).toBeTruthy();
   });
 
   it("stops offering a decision the moment the change expires", async () => {
@@ -417,78 +683,6 @@ describe("Wallet rules", () => {
     ).toBeTruthy();
   });
 
-  it("saves a lower limit at once with the full set and no display fields", async () => {
-    await renderRules();
-    respond = (method, _path, sent) => {
-      if (method !== "POST") return undefined;
-      rules = body({
-        revision: 4,
-        rules: (sent as { rules: object }).rules,
-      });
-      return Response.json({ status: "applied", rules });
-    };
-    setLimit("100");
-    await waitFor(() => expect(writes()).toHaveLength(1));
-    expect(writes()[0]).toEqual({
-      method: "POST",
-      path: "/v1/account/agent-wallets/g-trading/rules",
-      body: {
-        rules: {
-          apps: ["jupiter", "kamino"],
-          limits: [{ asset: USDC, amount: "100000000" }],
-          not_after: 1795219200,
-          owner_only: true,
-        },
-      },
-    });
-    expect(await screen.findByText("Saved.")).toBeTruthy();
-    expect(document.querySelector("[data-rule-change]")).toBeNull();
-  });
-
-  it("opens the rule change card when a raise has to wait, and approves it", async () => {
-    await renderRules();
-    respond = (method, path) => {
-      if (method !== "POST") return undefined;
-      if (path.endsWith("/approve")) {
-        rules = body({
-          revision: 4,
-          rules: {
-            ...body().rules,
-            limits: [{ ...body().rules.limits[0], amount: "400000000" }],
-          },
-        });
-        return Response.json(rules);
-      }
-      rules = body({ pending: change() });
-      return Response.json({ status: "waiting", rules });
-    };
-    setLimit("400");
-    const card = await screen.findByRole("region", {
-      name: "Rule change for Trading wallet",
-    });
-    expect(card).toHaveTextContent("Rule change · Trading wallet");
-    expect(card).toHaveTextContent("expires in 23 h");
-    const line = within(card).getByText("USDC on Base: 200 → 400 a day");
-    expect(line.closest("li")).toHaveAttribute("data-loosens", "true");
-    expect(screen.queryByText("Saved.")).toBeNull();
-    // The limit stays at 200 until the admin approves.
-    expect(
-      screen.getByRole("textbox", { name: "USDC daily limit" }),
-    ).toHaveValue("200");
-
-    fireEvent.click(within(card).getByRole("button", { name: "Approve" }));
-    expect(await screen.findByText("Approved.")).toBeTruthy();
-    expect(writes()[1]).toEqual({
-      method: "POST",
-      path: "/v1/account/rule-changes/ch-1/approve",
-      body: {},
-    });
-    expect(document.querySelector("[data-rule-change]")).toBeNull();
-    expect(
-      screen.getByRole("textbox", { name: "USDC daily limit" }),
-    ).toHaveValue("400");
-  });
-
   it("shows a change the agent filed as a banner, then Review or Decline", async () => {
     rules = body({
       pending: change({ proposed_by: "agent:telegram:7712345678" }),
@@ -544,7 +738,9 @@ describe("Wallet rules", () => {
     await renderRules();
     expect(screen.getByText("Ledger (0xAbCd…Ef12)")).toBeTruthy();
     expect(
-      screen.getByText("Approve by signing. Aomi can't loosen anything."),
+      screen.getByText(
+        "Only a signature from Ledger (0xAbCd…Ef12) changes this wallet’s rules.",
+      ),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Review" }));
     expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
@@ -650,464 +846,6 @@ describe("Wallet rules", () => {
     ).toHaveLength(2);
   });
 
-  it("reads the rules again when they changed under an edit", async () => {
-    await renderRules();
-    respond = (method) =>
-      method === "POST" ? refused("rules_changed", 409) : undefined;
-    setLimit("100");
-    expect(
-      await screen.findByText("The rules changed. Review them again."),
-    ).toBeTruthy();
-    await waitFor(() =>
-      expect(
-        calls.filter(
-          (call) => call.method === "GET" && call.path.endsWith("/rules"),
-        ),
-      ).toHaveLength(2),
-    );
-  });
-
-  it("starts from No rules and opens the same editor with Set rules", async () => {
-    rules = body({ revision: 0, rules: NO_RULES, usage: [] });
-    await renderRules();
-    expect(
-      screen.getByText(
-        "No rules. This wallet follows only who approves trades.",
-      ),
-    ).toBeTruthy();
-    expect(row("apps")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Set rules" }));
-    expect(row("apps")).toHaveTextContent("Can use any app");
-    expect(row("not_after")).toHaveTextContent("No end date");
-    expect(row("owner_only")).toHaveTextContent("Sends to any address");
-    expect(screen.getByText("No limits. Any token can be spent.")).toBeTruthy();
-    expect(
-      screen.queryByText("Tokens without a limit can't be spent"),
-    ).toBeNull();
-
-    respond = (method, _path, sent) => {
-      if (method !== "POST") return undefined;
-      rules = body({
-        revision: 1,
-        usage: [],
-        rules: (sent as { rules: object }).rules,
-      });
-      return Response.json({ status: "applied", rules });
-    };
-    fireEvent.click(
-      screen.getByRole("switch", { name: "Sends only to your wallets" }),
-    );
-    await waitFor(() =>
-      expect(writes()[0]?.body).toEqual({
-        rules: { ...NO_RULES, owner_only: true },
-      }),
-    );
-  });
-
-  it("says an app list already keeps sends to the owner's wallets", async () => {
-    rules = body({
-      rules: { ...NO_RULES, apps: ["jupiter"] },
-      usage: [],
-    });
-    await renderRules();
-    expect(row("owner_only")).toHaveTextContent("Sends only to your wallets");
-    expect(row("owner_only")).toHaveTextContent("With an app list");
-    const toggle = screen.getByRole("switch", {
-      name: "Sends only to your wallets",
-    });
-    expect(toggle).toHaveAttribute("aria-checked", "true");
-    expect(toggle).toBeDisabled();
-  });
-
-  it("shows no on-chain row where no provider can hold the rules", async () => {
-    await renderRules();
-    expect(enforcementRow()).toBeNull();
-    expect(document.querySelector("[data-checked-by]")).toBeNull();
-  });
-
-  it("says who checks each rule once a provider is on, and what the chain has left", async () => {
-    rules = body({
-      rules: {
-        apps: ["jupiter", "uniswap"],
-        limits: [
-          { asset: SOL, amount: "500000000", symbol: "SOL", decimals: 9 },
-          { asset: USDC, amount: "200000000", symbol: "USDC", decimals: 6 },
-        ],
-        not_after: 1795219200,
-        owner_only: false,
-      },
-      usage: [],
-      enforcement: [
-        provider({
-          state: "on",
-          ready: false,
-          covers: {
-            apps: ["jupiter"],
-            limits: [SOL],
-            not_after: false,
-            owner_only: false,
-          },
-          left: { [SOL]: "300000000" },
-          signer: { family: "svm", address: "RootWa11et" },
-        }),
-      ],
-    });
-    kit.identity.svmAddress = "RootWa11et";
-    const section = await renderRules();
-    expect(within(section).getByText("Enforced by Aomi + Vault")).toBeTruthy();
-    const checkedBy = (element: Element) =>
-      element.querySelector("[data-checked-by]")?.textContent;
-    expect(checkedBy(row("apps"))).toBe("Aomi + Vault");
-    const sol = document.querySelector(`[data-asset="${SOL}"]`)!;
-    expect(checkedBy(sol)).toBe("Aomi + Vault");
-    expect(sol).toHaveTextContent("0.3 left on Vault");
-    const usdc = document.querySelector(`[data-asset="${USDC}"]`)!;
-    expect(checkedBy(usdc)).toBe("Aomi");
-    expect(usdc).not.toHaveTextContent("left on");
-    expect(checkedBy(row("not_after"))).toBe("Aomi");
-    expect(checkedBy(row("owner_only"))).toBe("Aomi");
-    expect(enforcementRow()).toHaveTextContent("Vault · On");
-    expect(
-      within(enforcementRow()).queryByRole("button", { name: "Update" }),
-    ).toBeNull();
-    expect(
-      within(enforcementRow()).getByRole("button", { name: "Turn off" }),
-    ).toBeEnabled();
-  });
-
-  it("puts the rules on chain with one signature, and never sends a policy", async () => {
-    rules = body({ enforcement: [provider()] });
-    kit.identity.svmAddress = "RootWa11et";
-    const on = body({
-      enforcement: [
-        provider({
-          state: "on",
-          ready: false,
-          signer: { family: "svm", address: "RootWa11et" },
-        }),
-      ],
-    });
-    let confirms = 0;
-    respond = (method, path) => {
-      if (method !== "POST") return undefined;
-      if (path === `${STEP}/prepare`)
-        return Response.json({
-          action: {
-            kind: "transaction",
-            network: "solana:mainnet-beta",
-            unsigned_base64: "dHg=",
-          },
-        });
-      if (path === `${STEP}/confirm`) {
-        confirms += 1;
-        return Response.json({ rules: on });
-      }
-      return undefined;
-    };
-    const section = await renderRules();
-    expect(within(section).getByText("Enforced by Aomi")).toBeTruthy();
-    expect(enforcementRow()).toHaveTextContent("Vault · Off");
-    expect(document.querySelector("[data-checked-by]")).toBeNull();
-    fireEvent.click(
-      within(enforcementRow()).getByRole("button", { name: "Turn on" }),
-    );
-    await waitFor(() => expect(confirms).toBe(1));
-    expect(kit.signAndSendSolanaTransaction).toHaveBeenCalledWith({
-      unsignedTx: "dHg=",
-      description: "Enforce rules on chain",
-      cluster: "solana:mainnet",
-    });
-    expect(writes().map((call) => call.body)).toEqual([
-      { network: "solana:mainnet-beta", revision: 3, owner: "RootWa11et" },
-      { network: "solana:mainnet-beta", revision: 3, owner: "RootWa11et" },
-    ]);
-    expect(
-      await within(section).findByText("Enforced by Aomi + Vault"),
-    ).toBeTruthy();
-    expect(enforcementRow()).toHaveTextContent("Vault · On");
-  });
-
-  it("says why the rules cannot go on chain, and asks for the wallet that signs", async () => {
-    rules = body({
-      enforcement: [
-        provider({ ready: false, note: "Add a daily SOL limit first." }),
-      ],
-    });
-    await renderRules();
-    expect(enforcementRow()).toHaveTextContent(
-      "Add a daily SOL limit first. Connect a Solana wallet to change this.",
-    );
-    expect(within(enforcementRow()).queryByRole("button")).toBeNull();
-  });
-
-  it("offers the update when the chain is behind, only to the wallet that owns it", async () => {
-    rules = body({
-      enforcement: [
-        provider({
-          state: "behind",
-          note: "Your rules changed since you signed.",
-          signer: { family: "svm", address: "RootWa11etRootWa11etRootWa11et" },
-        }),
-      ],
-    });
-    kit.identity.svmAddress = "AnotherWa11et";
-    const section = await renderRules();
-    // Behind, the chain was not seen to hold the rules: no credit for it.
-    expect(within(section).getByText("Enforced by Aomi")).toBeTruthy();
-    expect(enforcementRow()).toHaveTextContent("Vault · Behind your rules");
-    expect(enforcementRow()).toHaveTextContent(
-      "Your rules changed since you signed. Connect RootWa…11et to change this.",
-    );
-    for (const name of ["Update", "Turn off"])
-      expect(
-        within(enforcementRow()).getByRole("button", { name }),
-      ).toBeDisabled();
-  });
-
-  it("takes the rules off the chain, waiting for the backend's node to see it", async () => {
-    const bound = provider({
-      state: "on",
-      ready: false,
-      signer: { family: "svm", address: "RootWa11et" },
-    });
-    kit.identity.svmAddress = "RootWa11et";
-    let confirms = 0;
-    const done = vi.fn();
-    respond = (method, path) => {
-      if (method !== "POST") return undefined;
-      if (path === `${STEP}/prepare`)
-        return Response.json({
-          action: {
-            kind: "transaction",
-            network: "solana:mainnet-beta",
-            unsigned_base64: "dHg=",
-          },
-        });
-      confirms += 1;
-      return confirms === 1
-        ? refused("chain_not_settled", 409)
-        : Response.json({ rules: body({ enforcement: [provider()] }) });
-    };
-    const { Aomi } = await import("@aomi-labs/client");
-    render(
-      <RuleEnforcement
-        client={new Aomi({ baseUrl: "https://portal.test" })}
-        walletId={WALLET.id}
-        revision={3}
-        entry={bound as never}
-        onRules={done}
-        onStale={() => undefined}
-        retryDelayMs={0}
-      />,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Turn off" }));
-    await waitFor(() => expect(done).toHaveBeenCalled());
-    expect(confirms).toBe(2);
-    expect(writes()[0]!.body).toEqual({
-      network: "solana:mainnet-beta",
-      revision: 3,
-      owner: "RootWa11et",
-      remove: true,
-    });
-    expect(done.mock.calls[0]![0].enforcement[0].state).toBe("off");
-  });
-
-  it("says nothing changed when the wallet declines, and reads the rules again", async () => {
-    rules = body({ enforcement: [provider()] });
-    kit.identity.svmAddress = "RootWa11et";
-    kit.signAndSendSolanaTransaction.mockRejectedValueOnce(
-      new Error("User rejected the request."),
-    );
-    respond = (method, path) =>
-      method === "POST" && path === `${STEP}/prepare`
-        ? Response.json({
-            action: {
-              kind: "transaction",
-              network: "solana:mainnet-beta",
-              unsigned_base64: "dHg=",
-            },
-          })
-        : undefined;
-    await renderRules();
-    const reads = () =>
-      calls.filter(
-        (call) => call.method === "GET" && call.path.endsWith("/rules"),
-      );
-    const before = reads().length;
-    fireEvent.click(
-      within(enforcementRow()).getByRole("button", { name: "Turn on" }),
-    );
-    expect(
-      await screen.findByText("Signature declined. Nothing changed."),
-    ).toBeTruthy();
-    expect(writes()).toHaveLength(1);
-    await waitFor(() => expect(reads().length).toBe(before + 1));
-  });
-
-  it("refuses an action for another network than the provider's", async () => {
-    rules = body({ enforcement: [provider()] });
-    kit.identity.svmAddress = "RootWa11et";
-    respond = (method, path) =>
-      method === "POST" && path === `${STEP}/prepare`
-        ? Response.json({
-            action: {
-              kind: "transaction",
-              network: "solana:devnet",
-              unsigned_base64: "dHg=",
-            },
-          })
-        : undefined;
-    await renderRules();
-    fireEvent.click(
-      within(enforcementRow()).getByRole("button", { name: "Turn on" }),
-    );
-    expect(
-      await screen.findByText("This wallet can't sign that transaction."),
-    ).toBeTruthy();
-    expect(kit.signAndSendSolanaTransaction).not.toHaveBeenCalled();
-    expect(writes()).toHaveLength(1);
-  });
-
-  it("sets a wallet's first rules from a template", async () => {
-    rules = body({ revision: 0, rules: NO_RULES, usage: [] });
-    await renderRules();
-    respond = (method, _path, sent) => {
-      if (method !== "POST") return undefined;
-      rules = body({
-        revision: 1,
-        usage: [],
-        rules: (sent as { rules: object }).rules,
-      });
-      return Response.json({ status: "applied", rules });
-    };
-    fireEvent.click(screen.getByRole("button", { name: "Use a template" }));
-    const picker = screen.getByRole("group", { name: "Rule templates" });
-    expect(within(picker).getByText("Only my wallets")).toBeTruthy();
-    expect(within(picker).getByText("Two-week trial")).toBeTruthy();
-    fireEvent.click(
-      within(picker).getByRole("button", { name: "Use USDC budget" }),
-    );
-    await waitFor(() =>
-      expect(writes()[0]?.body).toEqual({
-        rules: {
-          ...NO_RULES,
-          owner_only: true,
-          limits: [{ asset: USDC, amount: "100000000" }],
-        },
-      }),
-    );
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("group", { name: "Rule templates" }),
-      ).toBeNull(),
-    );
-    expect(document.querySelector(`[data-asset="${USDC}"]`)).not.toBeNull();
-  });
-
-  it("sends a template that gives more power to the approval card", async () => {
-    await renderRules();
-    respond = (method, _path, sent) => {
-      if (method !== "POST") return undefined;
-      expect((sent as { rules: AomiRuleSet }).rules).toEqual({
-        ...NO_RULES,
-        owner_only: true,
-      });
-      rules = body({
-        pending: change({
-          lines: [{ text: "Can use any app", loosens: true }],
-        }),
-      });
-      return Response.json({ status: "waiting", rules });
-    };
-    fireEvent.click(screen.getByRole("button", { name: "Use a template" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Use Only my wallets" }),
-    );
-    expect(await screen.findByText("Can use any app")).toBeTruthy();
-    expect(rules.rules.apps).toEqual(["jupiter", "kamino"]);
-  });
-
-  it("adds a limit for a catalog token in human units", async () => {
-    await renderRules();
-    fireEvent.click(screen.getByRole("button", { name: "Limit" }));
-    const picker = screen.getByRole("group", { name: "New limit" });
-    // USDC already has a limit: only SOL is left to pick.
-    expect(
-      within(picker)
-        .getAllByRole("option")
-        .map((option) => option.textContent),
-    ).toEqual(["SOL on Solana"]);
-    const add = within(picker).getByRole("button", { name: "Add limit" });
-    expect(add).toBeDisabled();
-    fireEvent.change(within(picker).getByLabelText("Daily amount"), {
-      target: { value: "0.5" },
-    });
-    fireEvent.click(add);
-    await waitFor(() => expect(writes()).toHaveLength(1));
-    expect(sentRules(0).limits).toEqual([
-      { asset: USDC, amount: "200000000" },
-      { asset: SOL, amount: "500000000" },
-    ]);
-  });
-
-  it("picks apps from the catalog, several at once, and removes one", async () => {
-    await renderRules();
-    fireEvent.click(screen.getByRole("button", { name: "App" }));
-    const picker = screen.getByRole("group", { name: "Allowed apps" });
-    expect(within(picker).getByLabelText("Jupiter")).toBeChecked();
-    fireEvent.click(within(picker).getByLabelText("Uniswap"));
-    fireEvent.click(within(picker).getByLabelText("Kamino"));
-    fireEvent.click(within(picker).getByRole("button", { name: "Save apps" }));
-    await waitFor(() => expect(writes()).toHaveLength(1));
-    expect(sentRules(0).apps).toEqual(["jupiter", "uniswap"]);
-  });
-
-  it("moves the end date and removes it", async () => {
-    await renderRules();
-    fireEvent.change(screen.getByLabelText("End date"), {
-      target: { value: "2026-12-01" },
-    });
-    await waitFor(() => expect(writes()).toHaveLength(1));
-    expect(sentRules(0).not_after).toBe(
-      Date.UTC(2026, 11, 1, 23, 59, 59) / 1000,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Remove end date" }));
-    await waitFor(() => expect(writes()).toHaveLength(2));
-    expect(sentRules(1)).toEqual({
-      apps: ["jupiter", "kamino"],
-      limits: [{ asset: USDC, amount: "200000000" }],
-      not_after: null,
-      owner_only: true,
-    });
-  });
-
-  it("changes the admin to one of the account's wallets and shows the card", async () => {
-    await renderRules();
-    fireEvent.click(screen.getByRole("button", { name: "Change" }));
-    const picker = screen.getByRole("radiogroup", {
-      name: "Who can loosen rules",
-    });
-    const [managed, wallet] = within(picker).getAllByRole("radio");
-    expect(managed).toBeChecked();
-    respond = (method) => {
-      if (method !== "POST") return undefined;
-      rules = body({
-        pending: change({
-          lines: [{ text: "Admin: Aomi-managed → 0xAbCd…Ef12", loosens: true }],
-        }),
-      });
-      return Response.json({ status: "waiting", rules });
-    };
-    fireEvent.click(wallet!);
-    const card = await screen.findByRole("region", {
-      name: "Rule change for Trading wallet",
-    });
-    expect(card).toHaveTextContent("Admin: Aomi-managed → 0xAbCd…Ef12");
-    expect(writes()[0]!.body).toEqual({
-      admin: { kind: "wallet", family: "evm", address: ADMIN },
-    });
-  });
-
   it("offers Try again when the rules cannot be read", async () => {
     respond = (_method, path) =>
       path.endsWith("/rules") ? refused("internal_error", 500) : undefined;
@@ -1119,7 +857,7 @@ describe("Wallet rules", () => {
     expect(await screen.findByText("Couldn’t load the rules.")).toBeTruthy();
     respond = () => undefined;
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByText("Aomi-managed")).toBeTruthy();
+    expect(await screen.findByText("Self-approval")).toBeTruthy();
   });
 });
 

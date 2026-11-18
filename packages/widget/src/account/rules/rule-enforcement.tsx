@@ -9,7 +9,6 @@ import {
   type AomiWalletRules,
 } from "@aomi-labs/client";
 import { AomiButton } from "@/ui/aomi/button";
-import { ListRow } from "@/ui/aomi/list-group";
 import { SheetAlert } from "@/wallet/picker/sheet-parts";
 import { useAomiWalletKit } from "@/wallet/context";
 import type { AomiWalletKit } from "@/wallet/types";
@@ -17,24 +16,6 @@ import { isExpectedWalletCancellation } from "@/wallet/picker/wallet-cancellatio
 import { connectedAddress, type RulesClient } from "./rule-change-card";
 import { rulesErrorCode, rulesFailure } from "./rules-model";
 
-/**
- * The providers that check a rule on chain now, by name. Only one whose
- * state is `on`: behind or unread, the chain was not seen to hold the rule.
- */
-export const enforcers = (
-  enforcement: readonly AomiRulesEnforcement[],
-  covers: (entry: AomiRulesEnforcement["covers"]) => boolean = () => true,
-): string[] =>
-  enforcement
-    .filter((entry) => entry.state === "on" && covers(entry.covers))
-    .map((entry) => entry.name);
-
-const STATE = {
-  off: "Off",
-  on: "On",
-  behind: "Behind your rules",
-  unverified: "Unverified",
-};
 const FAMILY = { evm: "an EVM", svm: "a Solana" };
 
 // The wallet and the backend read the chain through different nodes, so a
@@ -76,8 +57,10 @@ async function act(
 
 /**
  * Wallet › Manage › Rules: one on-chain provider that can check the same
- * rules a second time. The row is the same for every provider: its name and
- * state, what is wrong if anything, and one button. There is nothing to fill
+ * rules a second time, as the last row of the rule list. Which rules it
+ * stands behind is on each rule's own label; this row is where the owner
+ * puts the rules on chain, updates them there or takes them off. It is the
+ * same for every provider: a line of text and one button, or two. There is nothing to fill
  * in. The backend derives the policy from the rules, and the owner's own
  * wallet signs it.
  */
@@ -157,63 +140,55 @@ export function RuleEnforcement({
   };
 
   const bound = entry.state !== "off";
+  // Nothing is on chain and nothing can go there yet: no row.
+  if (!bound && !entry.ready) return null;
   return (
-    <>
-      <ListRow
-        data-rule-enforcement={entry.provider}
-        data-state={entry.state}
-        title={
-          <span className="flex flex-col">
-            <span className="type-meta text-aomi-muted font-normal">
-              Also enforced on chain
-            </span>
-            {entry.name} · {STATE[entry.state]}
-          </span>
-        }
-        description={
-          <span className="whitespace-normal">
-            {entry.note ??
-              (bound
-                ? `${entry.name} checks every trade, even if Aomi is wrong. Your wallet is its only admin.`
-                : `Have ${entry.name} check these rules too. Your wallet signs once and stays its only admin.`)}
-            {canSign
-              ? null
-              : ` Connect ${
-                  owner && owner !== connected
-                    ? shortAddress(owner)
-                    : `${FAMILY[family]} wallet`
-                } to change this.`}
-          </span>
-        }
-        trailing={
-          <span className="flex items-center gap-1">
-            {bound ? (
-              <AomiButton
-                variant="ghost"
-                size="sm"
-                disabled={busy || !canSign}
-                onClick={() => void run(true)}
-              >
-                Turn off
-              </AomiButton>
-            ) : null}
-            {entry.ready ? (
-              <AomiButton
-                size="sm"
-                disabled={busy || !canSign}
-                onClick={() => void run(false)}
-              >
-                {bound ? "Update" : "Turn on"}
-              </AomiButton>
-            ) : null}
-          </span>
-        }
-      />
+    <div
+      data-rule-enforcement={entry.provider}
+      data-state={entry.state}
+      className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3.5 py-3"
+    >
+      <p className="type-meta text-aomi-muted min-w-40 flex-1">
+        {entry.state === "on"
+          ? `${entry.name} also enforces the rules marked with it, on chain. Your wallet is its only admin.`
+          : (entry.note ??
+            (bound
+              ? `${entry.name} holds older rules.`
+              : `${entry.name} can also enforce these rules on chain. Your wallet signs once and stays its only admin.`))}
+        {canSign
+          ? null
+          : ` Connect ${
+              owner && owner !== connected
+                ? shortAddress(owner)
+                : `${FAMILY[family]} wallet`
+            } to change this.`}
+      </p>
+      <span className="flex items-center gap-1">
+        {bound ? (
+          <AomiButton
+            variant="ghost"
+            size="sm"
+            disabled={busy || !canSign}
+            onClick={() => void run(true)}
+          >
+            Remove from {entry.name}
+          </AomiButton>
+        ) : null}
+        {entry.ready ? (
+          <AomiButton
+            size="sm"
+            disabled={busy || !canSign}
+            onClick={() => void run(false)}
+          >
+            {bound ? `Update ${entry.name}` : `+ ${entry.name}`}
+          </AomiButton>
+        ) : null}
+      </span>
       {error ? (
-        <div className="px-3.5 pb-3">
+        <div className="w-full">
           <SheetAlert>{error}</SheetAlert>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }

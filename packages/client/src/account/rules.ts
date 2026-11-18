@@ -1,7 +1,7 @@
 /**
- * An agent wallet's rules: what the backend checks on every agent signature
- * (allowed apps, a daily limit per asset, an end date, sends only to your
- * wallets). A change that only takes power away applies at once; one that
+ * An agent wallet's rules: what the backend checks on every agent signature.
+ * A mode (whitelist or blacklist), a list of rules (a token, an amount a day
+ * and where it may go), and a switch for sends only to your linked wallets. A change that only takes power away applies at once; one that
  * gives power, or changes the admin, waits for the wallet's admin.
  *
  * Hand-written wire types until the generated client covers them:
@@ -26,41 +26,66 @@ import type {
 } from "../types";
 import { walletRequest, type RequestResponse } from "./wallets";
 
+/** Where a rule's money goes. */
+export type AomiRuleTo =
+  /** Any contract or program, known or not. Never a plain send. */
+  | { kind: "any_protocol" }
+  /** One app, by its catalog id. */
+  | { kind: "protocol"; id: string }
+  /** A plain send to this address. */
+  | { kind: "address"; address: string };
+
 /**
- * A spending limit on one asset per UTC day. `amount` is in base units, a
- * decimal string that can exceed 2^53. `symbol` and `decimals` are filled by
- * the server for display (`symbol` is null for a token it does not know); a
- * write does not send them.
+ * At most `amount` of `asset` may go to `to` per UTC day; `"0"` blocks it.
+ * `amount` is in base units, a decimal string that can exceed 2^53. `id`,
+ * `symbol` and `decimals` are filled by the server (`symbol` is null for a
+ * token it does not know); a write does not send them.
  */
-export type AomiRuleLimit = {
+export type AomiRule = {
+  /** The rule's key, `<asset>@<to>`: what its spend is counted under. */
+  id?: string;
   /**
    * `eip155:<chainId>/native`, `eip155:<chainId>/erc20:<0x address>`,
    * `solana:mainnet-beta/native` or `solana:mainnet-beta/token:<mint>`.
    */
   asset: string;
   amount: string;
+  to: AomiRuleTo;
   symbol?: string | null;
   decimals?: number | null;
 };
 
-/** What the agent may sign with a wallet; each field is one rule. */
+const MODES = ["whitelist", "blacklist"] as const;
+
+/**
+ * `blacklist`: everything may be spent, except as a rule caps it.
+ * `whitelist`: only what a rule lists may be spent.
+ */
+export type AomiRulesMode = (typeof MODES)[number];
+
+/** What the agent may sign with a wallet. */
 export type AomiRuleSet = {
-  /** The apps the agent may use; null allows any app. */
-  apps: string[] | null;
-  /** A token with no limit can't be spent once any limit is set. */
-  limits: AomiRuleLimit[];
-  /** The agent may sign until then (unix seconds); null is no end date. */
-  not_after: number | null;
-  /** Sends only go to the account's own wallets. */
-  owner_only: boolean;
+  mode: AomiRulesMode;
+  rules: AomiRule[];
+  /** Sends only go to the account's own linked wallets. */
+  linked_only: boolean;
 };
 
-/** False for a wallet whose every rule is off. */
+/** False for a wallet that is unrestricted. */
 export const hasRules = (rules: AomiRuleSet): boolean =>
-  rules.apps !== null ||
-  rules.limits.length > 0 ||
-  rules.not_after !== null ||
-  rules.owner_only;
+  rules.mode === "whitelist" || rules.rules.length > 0 || rules.linked_only;
+
+/** A rule's key as the server writes it: `<asset>@<to>`. */
+export function ruleKey(rule: Pick<AomiRule, "asset" | "to">): string {
+  const { to } = rule;
+  const where =
+    to.kind === "any_protocol"
+      ? "any"
+      : to.kind === "protocol"
+        ? `protocol:${to.id}`
+        : `address:${to.address.startsWith("0x") ? to.address.toLowerCase() : to.address}`;
+  return `${rule.asset}@${where}`;
+}
 
 /**
  * Who may loosen a wallet's rules. `aomi_managed`: the owner approves in the
@@ -74,8 +99,10 @@ export type AomiRulesAdminWallet = {
   address: string;
 };
 
-/** What a limited asset has spent in the current window, in base units. */
+/** What one rule has used in the current window, in base units. */
 export type AomiRuleUsage = {
+  /** The rule's key. */
+  rule: string;
   asset: string;
   used: string;
   cap: string;
@@ -115,16 +142,6 @@ export type AomiRuleChange = {
 
 const ENFORCEMENT_STATES = ["off", "on", "behind", "unverified"] as const;
 
-/** The rules a provider holds. The rest stay with Aomi alone. */
-export type AomiRulesCovers = {
-  /** App ids. */
-  apps: string[];
-  /** Asset ids of the limits. */
-  limits: string[];
-  not_after: boolean;
-  owner_only: boolean;
-};
-
 /**
  * One on-chain provider that can hold a wallet's rules, and whether it does.
  * A client shows it and signs what its steps hand back; it never needs to
@@ -145,7 +162,13 @@ export type AomiRulesEnforcement = {
    * `unverified`: the chain could not be read.
    */
   state: (typeof ENFORCEMENT_STATES)[number];
-  covers: AomiRulesCovers;
+  /**
+   * The keys of the rules it stands behind: every rule whose asset the chain
+   * caps, even when the chain holds one total for several of them.
+   */
+  rules: string[];
+  /** The daily total the chain holds, in base units by asset id. */
+  holds: Record<string, string>;
   /** What the chain will still let through, in base units by asset id. */
   left: Record<string, string>;
   /** Why the rules cannot go on chain, or what is wrong there. */
@@ -194,6 +217,8 @@ export type AomiWalletRules = {
   /** Unix seconds: when the daily windows reset (the next 00:00 UTC). */
   window_ends_at: number | null;
   pending: AomiRuleChange | null;
+  /** Who enforces each rule, by rule key: `Aomi` first, then each provider. */
+  enforced_by: Record<string, string[]>;
   /** The on-chain providers that can hold these rules; Aomi always checks. */
   enforcement: AomiRulesEnforcement[];
   /** The account's own wallets that may become the admin. */
@@ -238,7 +263,8 @@ export type AomiRulesCatalog = {
 export const RULES_ERROR_CODES = {
   appUnknown: "rules_app_unknown",
   assetInvalid: "rules_asset_invalid",
-  amountInvalid: "rules_amount_invalid",
+  /** A rule's address is not one of its asset's chain. */
+  addressInvalid: "rules_address_invalid",
   duplicate: "rules_duplicate",
   adminWalletNotLinked: "rules_admin_wallet_not_linked",
   connectionInvalid: "rules_connection_invalid",
@@ -308,7 +334,17 @@ function parseAdmin(value: unknown): AomiRulesAdmin {
   throw invalid(`unsupported admin: ${String(kind)}`);
 }
 
-const RULE_FIELDS = ["apps", "limits", "not_after", "owner_only"];
+const RULE_FIELDS = ["mode", "rules", "linked_only"];
+
+function parseTo(value: unknown): AomiRuleTo {
+  const record = asRecord(value);
+  const kind = record?.kind;
+  if (kind === "any_protocol") return { kind };
+  if (kind === "protocol") return { kind, id: text(record?.id, "rule.to.id") };
+  if (kind === "address")
+    return { kind, address: text(record?.address, "rule.to.address") };
+  throw invalid(`unsupported rule destination: ${String(kind)}`);
+}
 
 /**
  * The rule set; a missing one reads as no rules. A field this SDK does not
@@ -321,28 +357,25 @@ export function parseRuleSet(value: unknown): AomiRuleSet {
     (field) => !RULE_FIELDS.includes(field),
   );
   if (unknown) throw invalid(`unsupported rule: ${unknown}`);
-  const { apps, not_after, owner_only } = record;
-  if (owner_only !== undefined && typeof owner_only !== "boolean")
-    throw invalid("rules.owner_only must be a boolean");
+  const { mode, linked_only } = record;
+  if (mode !== undefined && !MODES.some((known) => known === mode))
+    throw invalid(`unsupported mode: ${String(mode)}`);
+  if (linked_only !== undefined && typeof linked_only !== "boolean")
+    throw invalid("rules.linked_only must be a boolean");
   return {
-    apps:
-      apps === undefined || apps === null
-        ? null
-        : list(apps, "rules.apps").map((app) => text(app, "rules.apps")),
-    limits: list(record.limits, "rules.limits").map((entry) => {
-      const limit = asRecord(entry);
-      return {
-        asset: text(limit?.asset, "limit.asset"),
-        amount: amount(limit?.amount, "limit.amount"),
-        symbol: stringValue(limit?.symbol) ?? null,
-        decimals: decimalsOf(limit?.decimals),
+    mode: mode === "whitelist" ? "whitelist" : "blacklist",
+    rules: list(record.rules ?? [], "rules.rules").map((entry) => {
+      const rule = asRecord(entry);
+      const parsed: AomiRule = {
+        asset: text(rule?.asset, "rule.asset"),
+        amount: amount(rule?.amount, "rule.amount"),
+        to: parseTo(rule?.to),
+        symbol: stringValue(rule?.symbol) ?? null,
+        decimals: decimalsOf(rule?.decimals),
       };
+      return { ...parsed, id: stringValue(rule?.id) ?? ruleKey(parsed) };
     }),
-    not_after:
-      not_after === undefined || not_after === null
-        ? null
-        : unixSeconds(not_after, "rules.not_after"),
-    owner_only: owner_only === true,
+    linked_only: linked_only === true,
   };
 }
 
@@ -371,9 +404,17 @@ export function parseRuleChange(value: unknown): AomiRuleChange {
   };
 }
 
+/** Base-unit amounts by asset id. */
+const amounts = (value: unknown, field: string): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(asRecord(value) ?? {}).map(([asset, held]) => [
+      asset,
+      amount(held, field),
+    ]),
+  );
+
 function parseEnforcement(value: unknown): AomiRulesEnforcement {
   const record = asRecord(value);
-  const covers = asRecord(record?.covers);
   const signer = asRecord(record?.signer);
   const state = ENFORCEMENT_STATES.find((known) => known === record?.state);
   if (!state)
@@ -385,18 +426,9 @@ function parseEnforcement(value: unknown): AomiRulesEnforcement {
     name: text(record?.name, "enforcement.name"),
     network: text(record?.network, "enforcement.network"),
     state,
-    covers: {
-      apps: names(covers?.apps, "enforcement.covers.apps"),
-      limits: names(covers?.limits, "enforcement.covers.limits"),
-      not_after: covers?.not_after === true,
-      owner_only: covers?.owner_only === true,
-    },
-    left: Object.fromEntries(
-      Object.entries(asRecord(record?.left) ?? {}).map(([asset, left]) => [
-        asset,
-        amount(left, "enforcement.left"),
-      ]),
-    ),
+    rules: names(record?.rules, "enforcement.rules"),
+    holds: amounts(record?.holds, "enforcement.holds"),
+    left: amounts(record?.left, "enforcement.left"),
     note: stringValue(record?.note) ?? null,
     ready: record?.ready === true,
     signer: {
@@ -422,6 +454,7 @@ export function parseWalletRules(value: unknown): AomiWalletRules {
     usage: list(record.usage, "usage").map((entry) => {
       const usage = asRecord(entry);
       return {
+        rule: text(usage?.rule, "usage.rule"),
         asset: text(usage?.asset, "usage.asset"),
         used: amount(usage?.used, "usage.used"),
         cap: amount(usage?.cap, "usage.cap"),
@@ -431,6 +464,14 @@ export function parseWalletRules(value: unknown): AomiWalletRules {
     }),
     window_ends_at: numberOrNull(record.window_ends_at),
     pending: asRecord(record.pending) ? parseRuleChange(record.pending) : null,
+    enforced_by: Object.fromEntries(
+      Object.entries(asRecord(record.enforced_by) ?? {}).map(
+        ([rule, names]) => [
+          rule,
+          list(names, "enforced_by").map((name) => text(name, "enforced_by")),
+        ],
+      ),
+    ),
     // A backend from before on-chain providers sends none.
     enforcement: list(record.enforcement ?? [], "enforcement").map(
       parseEnforcement,
@@ -469,12 +510,11 @@ export function parseRulesCatalog(value: unknown): AomiRulesCatalog {
   };
 }
 
-/** The rule set as a write sends it: no server-filled display fields. */
+/** The rule set as a write sends it: no server-filled fields. */
 const wireRules = (rules: AomiRuleSet): AomiRuleSet => ({
-  apps: rules.apps,
-  limits: rules.limits.map(({ asset, amount }) => ({ asset, amount })),
-  not_after: rules.not_after,
-  owner_only: rules.owner_only,
+  mode: rules.mode,
+  rules: rules.rules.map(({ asset, amount, to }) => ({ asset, amount, to })),
+  linked_only: rules.linked_only,
 });
 
 /** An agent wallet's rules, the catalog they pick from, and rule changes. */
