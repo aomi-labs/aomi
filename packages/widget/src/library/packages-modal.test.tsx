@@ -22,6 +22,27 @@ import {
   catalog,
 } from "@/test/package-fixtures";
 
+const host = vi.hoisted(() => ({
+  runtime: undefined as
+    | { currentThreadId: string; isRemoteThread: (id: string) => boolean }
+    | undefined,
+  connect: vi.fn(),
+}));
+vi.mock("@aomi-labs/react", async (original) => ({
+  ...(await original<typeof import("@aomi-labs/react")>()),
+  useOptionalAomiRuntime: () => host.runtime,
+}));
+vi.mock("@/wallet/context", async (original) => {
+  const actual = await original<typeof import("@/wallet/context")>();
+  return {
+    ...actual,
+    useAomiWalletKit: () => ({
+      ...actual.useAomiWalletKit(),
+      connect: host.connect,
+    }),
+  };
+});
+
 const PRIVATE: AomiPackage = {
   ...NOT_VERIFIED,
   package_id: 9100,
@@ -36,6 +57,7 @@ type Call = { method: string; path: string; body: unknown };
 function installBackend(initial: AomiPackage[]) {
   let rows = initial.map((row) => ({ ...row }));
   const calls: Call[] = [];
+  const listQueries: string[] = [];
   const update = (id: number, change: Partial<AomiPackage>) => {
     rows = rows.map((row) =>
       row.package_id === id ? { ...row, ...change } : row,
@@ -49,8 +71,10 @@ function installBackend(initial: AomiPackage[]) {
       const method = init?.method ?? "GET";
       const body = init?.body ? JSON.parse(String(init.body)) : undefined;
       calls.push({ method, path: url.pathname, body });
-      if (url.pathname === "/api/account/packages")
+      if (url.pathname === "/api/account/packages") {
+        listQueries.push(url.search);
         return Response.json(catalog(rows));
+      }
       if (url.pathname === "/api/account/packages/activate") {
         if ((body as { code: string }).code !== "good-code")
           return Response.json({ error: "code_invalid" }, { status: 404 });
@@ -93,6 +117,7 @@ function installBackend(initial: AomiPackage[]) {
   );
   return {
     calls,
+    listQueries,
     writes: () => calls.filter((call) => call.method !== "GET"),
     reads: () =>
       calls.filter((call) => call.path === "/api/account/packages").length,
@@ -126,6 +151,8 @@ describe("packages modal", () => {
   });
 
   afterEach(async () => {
+    host.runtime = undefined;
+    host.connect.mockReset();
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
@@ -300,5 +327,69 @@ describe("packages modal", () => {
     await renderModal();
     expect(screen.getByText("Sign in to add a private package")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Add with code/ })).toBeNull();
+  });
+
+  it("reads the open chat's agent only once the server stores that chat", async () => {
+    const backend = installBackend([VERIFIED]);
+    host.runtime = {
+      currentThreadId: "draft-chat",
+      isRemoteThread: () => false,
+    };
+    await renderModal();
+    expect(screen.getByRole("button", { name: "Open Jupiter details" }));
+    cleanup();
+    host.runtime = {
+      currentThreadId: "saved-chat",
+      isRemoteThread: (id) => id === "saved-chat",
+    };
+    await renderModal();
+    expect(backend.listQueries).toEqual(["", "?thread_id=saved-chat"]);
+  });
+
+  it("asks a signed-out visitor to sign in instead of showing the error", async () => {
+    seedAccountOverview(null);
+    installBackend([]);
+    vi.mocked(fetch).mockImplementation(async () =>
+      Response.json({ error: "unauthenticated" }, { status: 401 }),
+    );
+    await renderModal();
+    expect(screen.getByText("Sign in to see your Library")).toBeTruthy();
+    expect(screen.queryByText(/unauthenticated/)).toBeNull();
+    expect(screen.queryByText("Sign in to add a private package")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(
+      within(
+        screen.getByRole("navigation", { name: "Library sections" }),
+      ).queryAllByText("0"),
+    ).toEqual([]);
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(host.connect).toHaveBeenCalledOnce();
+  });
+
+  it("asks to sign in again when the session has ended", async () => {
+    installBackend([]);
+    vi.mocked(fetch).mockImplementation(async () =>
+      Response.json({ error: "unauthenticated" }, { status: 401 }),
+    );
+    await renderModal();
+    expect(screen.getByText("Your session ended")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Sign in again" }));
+    expect(host.connect).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
+  it("offers Retry only for a real failure, without the error code", async () => {
+    const backend = installBackend([VERIFIED]);
+    vi.mocked(fetch).mockImplementationOnce(async () =>
+      Response.json({ error: "session_not_found" }, { status: 404 }),
+    );
+    await renderModal();
+    expect(screen.getByText("Couldn’t load your Library")).toBeTruthy();
+    expect(screen.queryByText(/session_not_found/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(
+      await screen.findByRole("button", { name: "Open Jupiter details" }),
+    ).toBeTruthy();
+    expect(backend.reads()).toBe(1);
   });
 });

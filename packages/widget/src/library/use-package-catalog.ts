@@ -3,7 +3,7 @@
 import { useDisplayQuery, type DisplayQuery } from "@aomi-labs/react";
 import type { Aomi, AomiPackageCatalog } from "@aomi-labs/client";
 import { useAomi, useShellAomi } from "@/account/transport";
-import { explainLoadError } from "./model";
+import { loadFailure } from "./model";
 
 /**
  * The Library rows for a thread's agent (`aomi/main` without a thread). A
@@ -33,7 +33,9 @@ export function usePackageCatalog(accountUserId?: string, threadId?: string) {
   );
   return {
     catalog: query.data ?? null,
-    error: query.error ? explainLoadError(query.error) : null,
+    failure: query.error
+      ? loadFailure(query.error, accountUserId != null)
+      : null,
     refetch: () => query.refetch(),
   };
 }

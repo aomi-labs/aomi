@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Library } from "lucide-react";
 import { useShellAomi } from "@/account/transport";
 import { useAccountOverview } from "@/account/account-overview";
+import { useAomiWalletKit } from "@/wallet/context";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { AomiButton } from "@/ui/aomi/button";
 import {
@@ -31,6 +32,7 @@ import {
   matches,
   noticeSeen,
   type LibraryView,
+  type LoadFailure,
 } from "./model";
 import { CatalogRow } from "./catalog-row";
 import { SearchField, EmptyList } from "./navigation";
@@ -42,12 +44,18 @@ interface PackagesModalProps {
 export function PackagesModal({ onClose }: PackagesModalProps) {
   const aomi = useShellAomi();
   const accountUserId = useAccountOverview()?.user.user_id;
-  const threadId = useOptionalAomiRuntime()?.currentThreadId;
-  const {
-    catalog,
-    error: loadError,
-    refetch,
-  } = usePackageCatalog(accountUserId, threadId);
+  const runtime = useOptionalAomiRuntime();
+  // A chat the server has not stored yet has no agent to read; the Library
+  // then shows `aomi/main`, as it does without a chat.
+  const threadId =
+    runtime && runtime.isRemoteThread?.(runtime.currentThreadId)
+      ? runtime.currentThreadId
+      : undefined;
+  const { catalog, failure, refetch } = usePackageCatalog(
+    accountUserId,
+    threadId,
+  );
+  const wallet = useAomiWalletKit();
   const [view, setView] = useState<LibraryView>("all");
   const [family, setFamily] = useState<AomiPackageFamily | null>(null);
   const [query, setQuery] = useState("");
@@ -147,9 +155,13 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
     if (listRef.current) listRef.current.scrollTop = 0;
   }, [view, family, query]);
 
-  const loading = catalog === null && !loadError;
+  const loading = catalog === null && !failure;
   const count = (predicate: (row: AomiPackage) => boolean) =>
-    loading ? ("loading" as const) : rows.filter(predicate).length;
+    failure
+      ? undefined
+      : loading
+        ? ("loading" as const)
+        : rows.filter(predicate).length;
   const pick = (next: () => void) => {
     next();
     setSelectedId(null);
@@ -214,11 +226,13 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
           onQueryChange={(next) => pick(() => setQuery(next))}
           searchRef={searchRef}
         />
-        <AddWithCode
-          signedIn={signedIn}
-          disabled={busyId !== null}
-          onActivate={activate}
-        />
+        {failure === "sign_in" ? null : (
+          <AddWithCode
+            signedIn={signedIn}
+            disabled={busyId !== null}
+            onActivate={activate}
+          />
+        )}
         {actionError ? (
           <p
             role="alert"
@@ -228,13 +242,12 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
           </p>
         ) : null}
         <div ref={listRef} className="mt-2 min-h-0 flex-1 overflow-y-auto">
-          {loadError ? (
-            <div className="type-meta flex min-h-44 flex-col items-center justify-center gap-3 text-center">
-              <p className="text-aomi-muted">{loadError}</p>
-              <AomiButton variant="primary" onClick={() => void refetch()}>
-                Retry
-              </AomiButton>
-            </div>
+          {failure ? (
+            <LoadFailureNotice
+              failure={failure}
+              onSignIn={() => void wallet.connect?.()}
+              onRetry={() => void refetch()}
+            />
           ) : loading ? (
             <LoadingPane label="Loading library" className="h-full" />
           ) : visible.length === 0 ? (
@@ -320,6 +333,52 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
         }}
       />
     </ModalShell>
+  );
+}
+
+const FAILURE_COPY: Record<
+  LoadFailure,
+  { title: string; body: string; action: string }
+> = {
+  sign_in: {
+    title: "Sign in to see your Library",
+    body: "Your Library keeps the packages your agent can use, with your choices and keys.",
+    action: "Sign in",
+  },
+  session_ended: {
+    title: "Your session ended",
+    body: "Sign in again to see your Library.",
+    action: "Sign in again",
+  },
+  failed: {
+    title: "Couldn’t load your Library",
+    body: "Something went wrong. Please try again.",
+    action: "Retry",
+  },
+};
+
+/** Signed out or an ended session asks to sign in; only a real failure retries. */
+function LoadFailureNotice({
+  failure,
+  onSignIn,
+  onRetry,
+}: {
+  failure: LoadFailure;
+  onSignIn: () => void;
+  onRetry: () => void;
+}) {
+  const copy = FAILURE_COPY[failure];
+  return (
+    <div className="flex min-h-44 flex-col items-center justify-center gap-3 px-6 text-center">
+      <span className="type-row text-aomi-fg">{copy.title}</span>
+      <span className="type-meta text-aomi-muted max-w-sm">{copy.body}</span>
+      <AomiButton
+        variant="primary"
+        onClick={failure === "failed" ? onRetry : onSignIn}
+      >
+        {copy.action}
+      </AomiButton>
+    </div>
   );
 }
 

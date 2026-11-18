@@ -209,34 +209,31 @@ export function markNoticeSeen(row: AomiPackage): void {
   }
 }
 
-export function explainLoadError(cause: unknown): string {
-  const fallback = "Couldn’t load packages. Please try again.";
-  const raw = cause instanceof Error ? cause.message.trim() : "";
-  // A failed proxy can return its entire HTML error document. Never put that
-  // implementation detail into the modal (or let it stretch the layout).
-  if (!raw || raw.length > 240 || raw.startsWith("<")) return fallback;
-  return raw;
+/** The HTTP status an account call failed with; 0 when there is none. */
+function statusOf(cause: unknown): number {
+  return cause && typeof cause === "object" && "status" in cause
+    ? Number(cause.status)
+    : 0;
+}
+
+/** Why the Library did not load. Only `failed` is worth a retry. */
+export type LoadFailure = "sign_in" | "session_ended" | "failed";
+
+export function loadFailure(cause: unknown, signedIn: boolean): LoadFailure {
+  if (statusOf(cause) !== 401) return "failed";
+  return signedIn ? "session_ended" : "sign_in";
 }
 
 /** A mutation error in words, with the agent-listed refusal named. */
 export function explainMutationError(cause: unknown, agent: string): string {
-  const status =
-    cause && typeof cause === "object" && "status" in cause
-      ? Number(cause.status)
-      : 0;
+  const status = statusOf(cause);
   if (status === 409) return `${agent} uses this package, so it stays on.`;
   if (status === 401) return "Sign in to change your packages.";
-  const raw = cause instanceof Error ? cause.message.trim() : "";
-  return raw && raw.length <= 240 && !raw.startsWith("<")
-    ? raw
-    : "Couldn’t update the package. Please try again.";
+  return "Couldn’t update the package. Please try again.";
 }
 
 export function explainActivateError(cause: unknown): string {
-  const status =
-    cause && typeof cause === "object" && "status" in cause
-      ? Number(cause.status)
-      : 0;
+  const status = statusOf(cause);
   if (status === 404) return "That code isn’t valid. Check it and try again.";
   if (status === 401) return "Sign in to add a private package.";
   return "Couldn’t add the package. Please try again.";
