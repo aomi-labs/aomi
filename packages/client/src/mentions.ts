@@ -6,7 +6,7 @@ import { isAgentSlug } from "./agent-card";
 const HINTS_START = "<AOMI_UI_CAPABILITY_HINTS>";
 const HINTS_END = "</AOMI_UI_CAPABILITY_HINTS>";
 
-export type CapabilityKind = "agent" | "skill" | "chain" | "wallet";
+export type CapabilityKind = "agent" | "package" | "skill" | "chain" | "wallet";
 
 export type CapabilityHint = {
   kind: CapabilityKind;
@@ -29,6 +29,7 @@ function parseHint(raw: unknown): CapabilityHint | null {
   const id = candidate.id;
   if (
     (kind !== "agent" &&
+      kind !== "package" &&
       kind !== "skill" &&
       kind !== "chain" &&
       kind !== "wallet") ||
@@ -100,6 +101,7 @@ export function appendCapabilityHints(text: string, raw: unknown): string {
       .filter((hint) => hint.kind === kind)
       .map((hint) => hint.id);
   const agents = byKind("agent");
+  const packages = byKind("package");
   const skills = byKind("skill");
   const chains = byKind("chain");
   const lines = [
@@ -134,6 +136,12 @@ export function appendCapabilityHints(text: string, raw: unknown): string {
       "For work addressed to a selected agent, including requests to list its tools, call `task` with a work order in `tasks` using that target and the user's request as `prompt`.",
       "Copy the selected agent task target exactly. Display labels must not be used as task agent names; use the canonical agent slug.",
       "Agent-specific tools are loaded in the selected child, not in your own tool list. Do not infer agent availability from your own tool list; report an actual task failure if the selected agent cannot be loaded. Existing authorization and compatibility checks still apply.",
+    );
+  }
+  if (packages.length > 0) {
+    lines.push(`Preferred package ids: ${packages.join(", ")}.`);
+    lines.push(
+      "The tagged packages' tools are loaded for this turn; use them where they help.",
     );
   }
   if (skills.length > 0) {
@@ -177,6 +185,7 @@ export function stripCapabilityHints(text: string): string {
 
 const HINT_LINES = [
   ["agent", "Preferred agent ids: "],
+  ["package", "Preferred package ids: "],
   ["skill", "Preferred skill ids: "],
   ["chain", "Preferred execution chain ids: "],
   ["wallet", "Preferred wallet ids: "],
@@ -235,9 +244,10 @@ export const UNTAGGABLE_AGENTS: ReadonlySet<string> = new Set([
 const BARE_MENTION_LIMIT = 4;
 const TESTNET_QUERY =
   /test|sepolia|devnet|holesky|goerli|amoy|fuji|local|anvil/;
+/** Aomi's built-in skills are listed with the packages: to a person both are packages. */
 const MENTION_GROUPS = [
   { kind: "agent", label: "Agents" },
-  { kind: "skill", label: "Skills" },
+  { kind: "package", label: "Packages" },
   { kind: "chain", label: "Chains" },
   { kind: "wallet", label: "Wallets" },
 ] as const;
@@ -264,22 +274,26 @@ export function mentionGroups<T extends MentionItem>(
     Boolean(needle) && item.label.toLowerCase().startsWith(needle);
   const groups = MENTION_GROUPS.map((group) => {
     const groupItems = matching
-      .filter((item) => item.kind === group.kind)
+      .filter(
+        (item) =>
+          item.kind === group.kind ||
+          (group.kind === "package" && item.kind === "skill"),
+      )
       .sort((a, b) => Number(named(b)) - Number(named(a)));
     return {
       ...group,
       items: needle ? groupItems : groupItems.slice(0, BARE_MENTION_LIMIT),
     };
   });
-  const [agents, skills, chains, wallets] = groups as [
+  const [agents, packages, chains, wallets] = groups as [
     MentionGroup<T>,
     MentionGroup<T>,
     MentionGroup<T>,
     MentionGroup<T>,
   ];
   const others = chains.items.some(named)
-    ? [chains, agents, skills]
-    : [agents, skills, chains];
+    ? [chains, agents, packages]
+    : [agents, packages, chains];
   const ordered = needle ? [wallets, ...others] : [...others, wallets];
   return ordered.filter((group) => group.items.length > 0);
 }

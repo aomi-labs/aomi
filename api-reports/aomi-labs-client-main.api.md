@@ -2314,7 +2314,7 @@ export function capabilityHintPayload(selections: readonly CapabilitySelection[]
 } | undefined;
 
 // @public (undocumented)
-export type CapabilityKind = "agent" | "skill" | "chain" | "wallet";
+export type CapabilityKind = "agent" | "package" | "skill" | "chain" | "wallet";
 
 // @public
 export type CapabilitySelection = {

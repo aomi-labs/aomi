@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   appendCapabilityHints,
   extractCapabilityHints,
+  mentionGroups,
   stripCapabilityHints,
   skillLabel,
 } from "./mentions";
@@ -139,6 +140,41 @@ describe("tagged wallets", () => {
     expect(extractCapabilityHints(message)).toEqual([
       { kind: "wallet", id: "w_12" },
       { kind: "wallet", id: "w_3" },
+    ]);
+  });
+});
+
+describe("tagged packages", () => {
+  const message = appendCapabilityHints("▣ DefiLlama price of ETH", {
+    capabilities: [{ kind: "package", id: "aomi/defillama" }],
+  });
+
+  it("names the package ids on the line the runtime loads them from", () => {
+    expect(message).toContain("Preferred package ids: aomi/defillama.");
+    expect(extractCapabilityHints(message)).toEqual([
+      { kind: "package", id: "aomi/defillama" },
+    ]);
+    expect(stripCapabilityHints(message)).toBe("▣ DefiLlama price of ETH");
+  });
+
+  it("lists packages and Aomi's built-in skills in one Packages group", () => {
+    const item = (kind: "package" | "skill" | "chain", id: string) => ({
+      kind,
+      id,
+      label: id,
+      searchText: id,
+    });
+    const groups = mentionGroups(
+      [
+        item("package", "defillama"),
+        item("skill", "policy"),
+        item("chain", "eip155:1"),
+      ],
+      "",
+    );
+    expect(groups.map((group) => [group.label, group.items.length])).toEqual([
+      ["Packages", 2],
+      ["Chains", 1],
     ]);
   });
 });
