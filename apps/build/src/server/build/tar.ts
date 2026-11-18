@@ -19,7 +19,7 @@ export function extractFileFromTarGz(
 ): Buffer | null {
   let tar: Buffer;
   try {
-    tar = gunzipSync(tarGz);
+    tar = gunzipSync(tarGz, { maxOutputLength: 32 * 1024 * 1024 });
   } catch {
     return null;
   }
@@ -30,7 +30,10 @@ export function extractFileFromTarGz(
     if (!name) break; // Two empty blocks terminate the archive.
     const prefix = headerString(block, 345, 155);
     const fullName = prefix ? `${prefix}/${name}` : name;
-    const size = parseInt(headerString(block, 124, 12).trim() || "0", 8);
+    const octal = headerString(block, 124, 12).trim() || "0";
+    if (!/^[0-7]+$/.test(octal)) return null;
+    const size = parseInt(octal, 8);
+    if (size > tar.length - offset - 512) return null;
     const type = String.fromCharCode(block[156] ?? 48);
     offset += 512;
     const isFile = type === "0" || type === "\0";

@@ -47,11 +47,12 @@ export class BuildRun extends Container {
           !["none", "claude", "codex"].includes(input.builder)) return new Response(null, { status: 400 });
       run = { id: request.headers.get("x-run-id"), input, status: "running",
         createdAt: new Date().toISOString(), capability: crypto.randomUUID(), modelCapability: crypto.randomUUID(), expires: Date.now() + 30 * 60_000, attempts: 0 };
-      await this.ctx.storage.put("run", run);
       await this.schedule(1, "supervise");
+      await this.ctx.storage.put("run", run);
     }
     if (!run) return new Response(null, { status: 404 });
-    if ((path === "/artifact" || path === "/file") && request.method === "GET" && run.status === "completed") {
+    if ((path === "/artifact" || path === "/file") && request.method === "GET") {
+      if (run.status !== "completed") return Response.json({ error: "Build artifact is not ready" }, { status: 409 });
       const artifact = await this.env.ARTIFACTS.get(this.ctx.id.toString());
       if (path === "/file" && artifact) {
         const file = new URL(request.url).searchParams.get("path") ?? "";
@@ -59,7 +60,7 @@ export class BuildRun extends Container {
         return new Response(content, { status: content ? 200 : 404, headers: { "content-type": "text/plain; charset=utf-8" } });
       }
       return new Response(artifact?.body, { status: artifact ? 200 : 404,
-        headers: { "content-type": "application/gzip" } });
+        headers: { "content-type": "application/gzip", "content-disposition": 'attachment; filename="' + run.input.app + '.tar.gz"' } });
     }
     if (request.method === "DELETE" && path === "/status" && run.status === "running") {
       await this.finish(run, "failed", "Build cancelled");
