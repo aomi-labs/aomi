@@ -231,6 +231,17 @@ const world: FetchLike = async (request) => {
   if (url.origin === PAYMENT) return echo(request, body, "payment");
   if (url.origin === MANAGER) return echo(request, body, "manager");
   if (url.origin === BACKEND) {
+    if (url.pathname === "/api/packages/acme%2Ffeed/icon") {
+      echo(request, body, "backend");
+      return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), {
+        headers: {
+          "content-type": "image/png",
+          "cache-control": "public, max-age=300",
+          "x-content-type-options": "nosniff",
+          "set-cookie": "nope=1",
+        },
+      });
+    }
     if (url.pathname === "/api/thread/models")
       return Response.json(["gpt", 3, "claude"]);
     if (url.pathname === "/api/resource/skills")
@@ -351,7 +362,10 @@ describe("portal surface: sessions", () => {
       });
       expect(response.status).toBe(200);
     }
-    expect(seen.map((call) => call.url)).toEqual([`${AGENT}${path}`, `${AGENT}${path}`]);
+    expect(seen.map((call) => call.url)).toEqual([
+      `${AGENT}${path}`,
+      `${AGENT}${path}`,
+    ]);
     for (const call of seen) {
       expect((await upstreamBearer(call)).payload).toMatchObject({
         scope: "account:credentials:write",
@@ -1261,6 +1275,25 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
       "account:credits:fund payments:submit",
     );
     expect(seen[1].headers["payment-signature"]).toBe("sig");
+  });
+
+  it("serves a package icon from the backend credential-free", async () => {
+    const icon = await portal("/api/packages/acme%2Ffeed/icon", {
+      headers: { cookie: "session=user", authorization: "Bearer caller" },
+    });
+    expect(icon.status).toBe(200);
+    expect(icon.headers.get("content-type")).toBe("image/png");
+    expect(icon.headers.get("set-cookie")).toBeNull();
+    expect(new Uint8Array(await icon.arrayBuffer())).toEqual(
+      new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+    );
+    expect(seen[0].url).toBe(`${BACKEND}/api/packages/acme%2Ffeed/icon`);
+    expect(seen[0].headers.cookie).toBeUndefined();
+    expect(seen[0].headers.authorization).toBeUndefined();
+    const write = await portal("/api/packages/acme%2Ffeed/icon", {
+      method: "POST",
+    });
+    expect(write.status).toBe(405);
   });
 
   it("serves discovery and the public catalog credential-free", async () => {

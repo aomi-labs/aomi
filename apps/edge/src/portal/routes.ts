@@ -24,6 +24,7 @@ import { rankedPool } from "../kernel/pool";
 import { passThrough, proxy, target } from "../kernel/proxy";
 import { handleAuthRequest } from "../auth/routes";
 import { isPublicCatalogKind, publicCatalog } from "./catalog";
+import { PACKAGE_ICON, packageIcon } from "../kernel/package-icon";
 import type { PortalContext } from "./context";
 import { portalError } from "./errors";
 import {
@@ -429,6 +430,8 @@ export async function handlePortalRequest(
   if (pathname === "/.well-known/api-catalog") return discovery(request, ctx);
   const catalogKind = /^\/api\/public\/catalog\/([^/]+)$/.exec(pathname)?.[1];
   if (catalogKind) return catalog(request, catalogKind, ctx);
+  if (PACKAGE_ICON.test(pathname))
+    return packageIcon(request, ctx.env, ctx.fetchImpl, "portal");
   const rows = ROUTES.filter((row) => row.path.test(pathname));
   if (rows.length) return served(rows, request, ctx);
   return passThrough(

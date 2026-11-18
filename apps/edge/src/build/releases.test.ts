@@ -206,3 +206,15 @@ describe("release routes", () => {
     expect(await claims(seen[0])).toMatchObject({ auth_source: "session" });
   });
 });
+
+describe("package icons on Build", () => {
+  it("serves a package icon from the backend without the session", async () => {
+    const response = await build("/api/packages/alice%2Fprice/icon", {
+      headers: { cookie: "aomi_build_session=s", authorization: `Bearer ${PUBLISH_KEY}` },
+    });
+    expect(response.status).toBe(201);
+    expect(seen.map((call) => call.url)).toEqual(["https://backend.example/api/packages/alice%2Fprice/icon"]);
+    expect(seen[0]!.headers.get("cookie")).toBeNull();
+    expect(seen[0]!.headers.get("authorization")).toBeNull();
+  });
+});

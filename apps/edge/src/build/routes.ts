@@ -12,6 +12,7 @@
  * route, builder credits and the pass-through answer it 403.
  */
 import { EdgeError } from "../kernel/errors";
+import { PACKAGE_ICON, packageIcon } from "../kernel/package-icon";
 import { passThrough as passThroughTo, proxy, target } from "../kernel/proxy";
 import { BACKEND_API_HEADERS } from "../portal/headers";
 import { carriesApiKey, KEY_ROUTES } from "./api-keys";
@@ -166,6 +167,8 @@ export async function handleBuildRequest(
     url.pathname.startsWith(`${BUILDER_CREDITS_PREFIX}/`)
   )
     return run("builder.credits", withKey ? refuseKey : credits, request, ctx);
+  if (PACKAGE_ICON.test(url.pathname))
+    return packageIcon(request, ctx.env, ctx.fetchImpl, "build");
   const routes = BUILD_ROUTES.filter((route) => matches(route, url.pathname));
   if (routes.length) {
     const route = routes.find(
