@@ -28,7 +28,7 @@ describe("Solana skill artwork across Library and working trace", () => {
       const Icon = getSkillIcon(id);
       expect(Icon).toBeDefined();
       const step = interpretToolStep({
-        toolName: "activate_skills",
+        toolName: "activate_package",
         result: { activated: [id] },
       });
       const chip = step.chips.find((item) => item.icon === `skill:${id}`);

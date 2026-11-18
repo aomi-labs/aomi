@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { testIds } from "@/test-ids";
@@ -439,7 +440,7 @@ describe("active transaction presentation", () => {
         sender: "agent",
         content: "",
         tool_result: [
-          "activate_skill",
+          "activate_package",
           JSON.stringify({ activated: ["aave"] }),
         ],
       },
@@ -448,9 +449,9 @@ describe("active transaction presentation", () => {
     expect(screen.getByText("Aave")).toBeInTheDocument();
     expect(screen.queryByText("aave")).not.toBeInTheDocument();
 
-    const toggle = screen.getByRole("button", { name: "Skills" });
+    const toggle = screen.getByRole("button", { name: "Packages" });
     const content = container.querySelector(
-      '[data-activity-group-content="Skills"]',
+      '[data-activity-group-content="Packages"]',
     );
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(content).toHaveClass("grid-rows-[1fr]", "opacity-100");
@@ -462,43 +463,71 @@ describe("active transaction presentation", () => {
     expect(screen.getByText("Aave")).toBeInTheDocument();
   });
 
-  it("matches the trace's agent/skill label, icon and slash in the activity sidebar", () => {
-    const result = { activated: ["hoodit/portfolio", "lifi_swap"] };
+  it("lists one chip per package, counting packages rather than skills", () => {
+    runtime.pendingActions = [];
     runtime.events = [
       {
         type: "message",
-        event_id: "skills",
+        event_id: "packages",
         sequence: 1,
         turn_id: "turn-1",
         occurred_at: 1,
         sender: "agent",
         content: "",
-        tool_result: ["activate_skills", JSON.stringify(result)],
+        tool_result: [
+          "activate_package",
+          JSON.stringify({
+            activated: [
+              "aomi/defillama/prices",
+              "aomi/defillama/protocols",
+              "common_erc20",
+            ],
+          }),
+        ],
       },
     ];
+    render(<ActivitySidebar />);
+    const group = screen.getByRole("region", { name: "Packages" });
+    expect(
+      within(group).getByRole("heading", { name: "Packages" }).nextSibling,
+    ).toHaveTextContent("2");
+    expect(
+      [...group.querySelectorAll("[title]")].map((chip) => [
+        chip.textContent,
+        chip.getAttribute("title"),
+      ]),
+    ).toEqual([
+      ["DefiLlama", "Package: DefiLlama"],
+      ["ERC20", "Package: ERC20"],
+    ]);
+  });
+
+  it("matches the trace's package label and icon in the activity sidebar", () => {
+    const result = { activated: ["aomi/hoodit/portfolio", "lifi_swap"] };
+    runtime.events = [
+      {
+        type: "message",
+        event_id: "packages",
+        sequence: 1,
+        turn_id: "turn-1",
+        occurred_at: 1,
+        sender: "agent",
+        content: "",
+        tool_result: ["activate_package", JSON.stringify(result)],
+      },
+    ];
+    const HooditMark = ({ className }: { className?: string }) => (
+      <svg data-testid="hoodit-mark" className={className} />
+    );
     const attribution = {
-      agents: [
-        {
-          agent_id: 2937810,
-          agent: "aomi/hoodit",
-          display_name: "Hoodit",
-          metadata: { registered_via: "activate_toolsets" },
-        },
-      ],
-      skills: [
-        {
-          id: "hoodit/portfolio",
-          name: "Portfolio",
-          injectedTools: ["hoodit_get_portfolio"],
-        },
-      ],
+      packages: [{ id: "aomi/hoodit", label: "Hoodit", Icon: HooditMark }],
     };
     const { container } = render(
       <TraceAttributionContext.Provider value={attribution}>
         <ActivitySidebar />
         <ToolStepRow
           interpretation={interpretToolStep({
-            toolName: "activate_skills",
+            toolName: "activate_package",
             result,
             attribution,
           })}
@@ -508,23 +537,25 @@ describe("active transaction presentation", () => {
         />
       </TraceAttributionContext.Provider>,
     );
-    for (const title of [
-      "Toolset: Hoodit / Skill: Portfolio",
-      "Skill: LI.FI",
-    ]) {
-      const badges = screen.getAllByTitle(title);
-      expect(badges).toHaveLength(2);
-      const stableMarkup = (badge: Element) =>
-        badge.outerHTML.replace(/id="[^"]+"|url\(#[^)]+\)/g, "icon-id");
-      expect(stableMarkup(badges[0])).toBe(stableMarkup(badges[1]));
-    }
+    const stableMarkup = (badge: Element) =>
+      badge.outerHTML
+        .replace(/ title="[^"]*"/, "")
+        .replace(/id="[^"]+"|url\(#[^)]+\)/g, "icon-id");
+
+    // The trace names the skills a package brought; the sidebar names the package.
+    const traceBadge = screen.getByTitle("Hoodit · Skills: portfolio");
     const sidebarBadge = container.querySelector(
-      '[data-activity-group-content="Skills"] [title="Toolset: Hoodit / Skill: Portfolio"]',
+      '[data-activity-group-content="Packages"] [title="Package: Hoodit"]',
     );
-    expect(sidebarBadge).toHaveTextContent("Hoodit / Portfolio");
+    expect(sidebarBadge).toHaveTextContent("Hoodit");
     expect(
-      sidebarBadge?.querySelector('svg[viewBox="0 0 8 16"]'),
+      sidebarBadge?.querySelector('[data-testid="hoodit-mark"]'),
     ).not.toBeNull();
+    expect(stableMarkup(sidebarBadge!)).toBe(stableMarkup(traceBadge));
+
+    const lifi = screen.getAllByTitle("Package: LI.FI");
+    expect(lifi).toHaveLength(2);
+    expect(stableMarkup(lifi[0])).toBe(stableMarkup(lifi[1]));
   });
 
   it("uses icon states and only renders the formatted subagent result", () => {
@@ -1004,7 +1035,7 @@ describe("phone-width activity sheet", () => {
     expect(screen.getByTitle("Not yet signed")).toBeInTheDocument();
     expect(screen.getByText("Simulation passed")).toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { name: "Skills" }),
+      screen.queryByRole("heading", { name: "Packages" }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("complementary", { name: "Chat activity" }),

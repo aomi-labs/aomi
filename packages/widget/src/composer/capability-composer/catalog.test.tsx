@@ -1,5 +1,6 @@
-import { render, renderHook } from "@testing-library/react";
+import { fireEvent, render, renderHook } from "@testing-library/react";
 import type { FC } from "react";
+import { PackageIcon } from "lucide-react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   AgentCard,
@@ -7,6 +8,7 @@ import type {
   AomiPublicPackage,
 } from "@aomi-labs/client";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
+import { getAgentIcon } from "@/icons/agent-map";
 
 const fixture = vi.hoisted(() => ({
   model: "openai:gpt-6.1-sol",
@@ -313,29 +315,40 @@ describe("packagePickerItems", () => {
     ]);
   });
 
-  it("draws Aomi's brand mark, else the package's own icon", () => {
-    const [brand, own] = packagePickerItems([
+  it("draws the package's own icon, else Aomi's brand mark, else a box", () => {
+    const [own, brand, box] = packagePickerItems([
       pkg({ icon_url: "https://example.test/llama.png" }),
       pkg({
         package_id: 2,
+        id: "aomi/hyperliquid",
+        display_name: "Hyperliquid",
+        icon_url: null,
+      }),
+      pkg({
+        package_id: 3,
         id: "acme/feed",
         display_name: "Feed",
-        icon_url: "https://example.test/feed.png",
+        icon_url: null,
       }),
     ]) as unknown as [
       { Icon: FC<{ className?: string }> },
       { Icon: FC<{ className?: string }> },
+      { Icon: FC<{ className?: string }> },
     ];
-    expect(
-      render(<brand.Icon className="size-3.5" />).container.querySelector(
-        "img",
-      ),
-    ).toBeNull();
-    expect(
-      render(<own.Icon className="size-3.5" />)
-        .container.querySelector("img")
-        ?.getAttribute("src"),
-    ).toBe("https://example.test/feed.png");
+    const ownImage = render(<own.Icon className="size-3.5" />).container;
+    expect(ownImage.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.test/llama.png",
+    );
+    // A broken image falls back to the brand mark.
+    fireEvent.error(ownImage.querySelector("img")!);
+    expect(ownImage.querySelector("img")).toBeNull();
+    expect(ownImage.querySelector("svg")).not.toBeNull();
+
+    const brandMark = render(<brand.Icon className="size-3.5" />).container;
+    expect(brandMark.querySelector("img")).toBeNull();
+    expect(brandMark.querySelector("svg")).not.toBeNull();
+    expect(brand.Icon).toBe(getAgentIcon("hyperliquid"));
+    expect(box.Icon).toBe(PackageIcon);
   });
 
   it.each(["defillama", "aomi/def", "yields", "llama-yields", "pool"])(

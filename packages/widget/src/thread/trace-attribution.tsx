@@ -3,6 +3,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useControl } from "@aomi-labs/react";
 import { useSkillCatalog } from "@/composer/capabilities/skill-catalog";
+import { usePackagePickerItems } from "@/composer/capability-composer/catalog";
 import type { TraceAttribution } from "./attribution";
 
 export const TraceAttributionContext = createContext<TraceAttribution>({});
@@ -16,9 +17,10 @@ export function TraceAttributionProvider({
 }) {
   const { state } = useControl();
   const { skills } = useSkillCatalog();
+  const packages = usePackagePickerItems();
   const value = useMemo(
-    () => ({ agents: state.agentCards, skills: skills ?? [] }),
-    [state.agentCards, skills],
+    () => ({ agents: state.agentCards, skills: skills ?? [], packages }),
+    [state.agentCards, skills, packages],
   );
   return (
     <TraceAttributionContext.Provider value={value}>

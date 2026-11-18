@@ -4,6 +4,7 @@ import { cn } from "@/lib/cn";
 import type { FC } from "react";
 import type { ToolChip } from "@aomi-labs/client/trace";
 import { traceIcon } from "./trace-icons";
+import { useTraceAttribution } from "./trace-attribution";
 
 /** Base + per-chip stagger for the left-to-right chip cascade (ms). */
 const CHIP_BASE_DELAY_MS = 15;
@@ -17,8 +18,12 @@ export const ToolChipView: FC<{
   index?: number;
   animate?: boolean;
 }> = ({ chip, index = 0, animate = false }) => {
+  const { packages } = useTraceAttribution();
   if (!chip.icon) return null;
-  const Glyph = traceIcon(chip.icon);
+  // A hosted package shows the icon its composer chip and Library row show.
+  const Glyph =
+    packages?.find((item) => item.id === chip.packageId)?.Icon ??
+    traceIcon(chip.icon);
   return (
     <span
       title={chip.title}

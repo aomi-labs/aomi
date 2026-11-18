@@ -26,7 +26,7 @@ import { ChevronDown, X } from "lucide-react";
 import { useAomiRuntime } from "@aomi-labs/react";
 import { projectCommitLifecycle, reviewEligibility } from "@aomi-labs/client";
 import { useTraceAttribution } from "@/thread/trace-attribution";
-import { skillChip } from "@/thread/attribution";
+import { packageChip } from "@/thread/attribution";
 import { ToolChipView } from "@/thread/tool-chip";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import {
@@ -212,7 +212,7 @@ function ActivitySidebarContent() {
   );
   const hasActivity = Boolean(
     activity.agents.length ||
-    activity.skills.length ||
+    activity.packages.length ||
     activity.transactions.length ||
     activity.history.length ||
     pendingActions.length ||
@@ -257,9 +257,9 @@ function ActivitySidebarContent() {
           ))}
         </Group>
       )}
-      {activity.skills.length > 0 && (
-        <Group title="Skills" count={activity.skills.length}>
-          <InvokedSkills ids={activity.skills} />
+      {activity.packages.length > 0 && (
+        <Group title="Packages" count={activity.packages.length}>
+          <ActivePackages ids={activity.packages} />
         </Group>
       )}
       {hasTransactions && (
@@ -668,12 +668,12 @@ function GroupHeader({
   );
 }
 
-function InvokedSkills({ ids }: { ids: string[] }) {
+function ActivePackages({ ids }: { ids: string[] }) {
   const attribution = useTraceAttribution();
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-col items-start gap-2">
       {ids.map((id) => (
-        <ToolChipView key={id} chip={skillChip(id, attribution)} />
+        <ToolChipView key={id} chip={packageChip(id, attribution)} />
       ))}
     </div>
   );

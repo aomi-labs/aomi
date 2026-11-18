@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AppWindowIcon, PuzzleIcon } from "lucide-react";
+import { AppWindowIcon, PackageIcon, PuzzleIcon } from "lucide-react";
 import { getAgentIcon } from "@/icons/agent-map";
 import { getSkillIcon } from "@/icons/skills/skill-icons";
 import type { ToolChip } from "@aomi-labs/client/trace";
@@ -52,7 +52,7 @@ const attribution: TraceAttribution = {
 };
 
 describe("trace attribution", () => {
-  it("shows agent artwork and readable skill names without changing the raw identifier", () => {
+  it("shows one readable chip per package without changing the raw identifier", () => {
     const result = {
       activated: [
         "aomi/hoodit/markets",
@@ -61,17 +61,33 @@ describe("trace attribution", () => {
       ],
     };
     const step = interpretToolStep({
-      toolName: "activate_skills",
+      toolName: "activate_package",
       result,
       attribution,
     });
-    expect(step.chips.map((chip) => chip.label)).toEqual([
-      "Hoodit / Markets",
-      "Hyperliquid / Portfolio",
-      "Hoodit / Coin Scanner",
+    expect(step.title).toBe("Activate package");
+    expect(
+      step.chips.map(({ id, packageId, label, title }) => ({
+        id,
+        packageId,
+        label,
+        title,
+      })),
+    ).toEqual([
+      {
+        id: "package:aomi/hoodit",
+        packageId: "aomi/hoodit",
+        label: "Hoodit",
+        title: "Hoodit · Skills: markets, coin-scanner",
+      },
+      {
+        id: "package:aomi/hyperliquid",
+        packageId: "aomi/hyperliquid",
+        label: "Hyperliquid",
+        title: "Hyperliquid · Skills: portfolio",
+      },
     ]);
-    expect(drawn(step.chips[0])?.icon).toBe(getAgentIcon("hoodit"));
-    expect(drawn(step.chips[1])?.icon).toBe(getAgentIcon("hyperliquid"));
+    expect(drawn(step.chips[0])?.icon).toBe(PackageIcon);
     expect(result.activated[0]).toBe("aomi/hoodit/markets");
   });
 
@@ -291,25 +307,30 @@ describe("trace attribution", () => {
 
   it("retains attribution in serialized child-agent results and routed envelopes", () => {
     const step = interpretToolStep({
-      toolName: "activate_skills",
+      toolName: "activate_package",
       result: JSON.stringify({
         __aomi_tool_return: true,
         __aomi_tool_value: { activated: ["aomi/hoodit/markets"] },
       }),
       attribution,
     });
-    expect(step.chips[0].label).toBe("Hoodit / Markets");
+    expect(step.chips[0]).toMatchObject({
+      packageId: "aomi/hoodit",
+      label: "Hoodit",
+    });
   });
 
-  it("shows requested skills while pending and only accepted skills after completion", () => {
+  it("shows requested packages while pending and only accepted packages after completion", () => {
     const input = {
-      toolName: "activate_skills",
+      toolName: "activate_package",
       argsText: JSON.stringify({
-        skill_ids: ["aomi/hoodit/markets", "lifi_swap"],
+        ids: ["aomi/hoodit/markets", "lifi_swap"],
       }),
       attribution,
     };
-    expect(interpretToolStep(input).chips).toHaveLength(2);
+    expect(
+      interpretToolStep(input).chips.map((chip) => chip.packageId),
+    ).toEqual(["aomi/hoodit", "lifi_swap"]);
     expect(
       interpretToolStep({
         ...input,
@@ -321,9 +342,9 @@ describe("trace attribution", () => {
     ).toEqual(["LI.FI"]);
   });
 
-  it("keeps same-named skills from different agents distinct", () => {
+  it("keeps same-named skills from different packages distinct", () => {
     const step = interpretToolStep({
-      toolName: "activate_skills",
+      toolName: "activate_package",
       result: {
         activated: ["aomi/hoodit/portfolio", "aomi/hyperliquid/portfolio"],
       },
@@ -333,9 +354,9 @@ describe("trace attribution", () => {
     expect(new Set(step.chips.map((chip) => chip.id)).size).toBe(2);
   });
 
-  it("uses a generic agent icon for unknown and community publisher identities", () => {
+  it("uses the generic package icon for unknown and community publishers", () => {
     const step = interpretToolStep({
-      toolName: "activate_skills",
+      toolName: "activate_package",
       result: {
         activated: ["unknown/portfolio", "publisher/hyperliquid/trading"],
       },
@@ -351,25 +372,28 @@ describe("trace attribution", () => {
       },
     });
     expect(drawn(step.chips[0])).toMatchObject({
-      label: "Unknown / Portfolio",
-      icon: AppWindowIcon,
+      packageId: "unknown/portfolio",
+      label: "Portfolio",
+      icon: PackageIcon,
     });
     expect(drawn(step.chips[1])).toMatchObject({
-      label: "Community Exchange / Trading",
-      icon: AppWindowIcon,
+      packageId: "publisher/hyperliquid",
+      label: "Hyperliquid",
+      icon: PackageIcon,
     });
   });
 
-  it("does not borrow official artwork for an unverified skill namespace", () => {
+  it("does not borrow official artwork for a package outside the catalog", () => {
     const step = interpretToolStep({
-      toolName: "activate_skills",
+      toolName: "activate_package",
       result: { activated: ["aomi/hyperliquid/portfolio"] },
       attribution: { skills: [] },
     });
     expect(drawn(step.chips[0])).toMatchObject({
-      label: "Hyperliquid / Portfolio",
-      icon: AppWindowIcon,
+      label: "Hyperliquid",
+      icon: PackageIcon,
     });
+    expect(drawn(step.chips[0])?.icon).not.toBe(getAgentIcon("hyperliquid"));
   });
 
   it("does not guess when multiple agents or skills declare the same bare tool", () => {
@@ -392,9 +416,9 @@ describe("trace attribution", () => {
     expect(step.chips).toEqual([]);
   });
 
-  it("recognizes skill activation", () => {
+  it("recognizes package activation", () => {
     const step = interpretToolStep({
-      toolName: "activate_skills",
+      toolName: "activate_package",
       result: {
         activated: ["aerodrome"],
         rejected: [["common_erc20", "token_budget_trim"]],
@@ -402,50 +426,51 @@ describe("trace attribution", () => {
       },
     });
 
-    expect(step.title).toBe("Activate skill");
+    expect(step.title).toBe("Activate package");
     expect(labelsFor(step.chips)).toEqual(["Aerodrome"]);
+    expect(step.chips[0].title).toBe("Package: Aerodrome");
     expect(drawn(step.chips[0])?.icon).toBe(getSkillIcon("aerodrome"));
     expect(drawn(step.chips[0])?.icon).not.toBe(PuzzleIcon);
     expect(step.chips[0].icon).not.toBe(step.icon);
     expect(step.failed).toBe(false);
   });
 
-  it("uses the display name for LI.FI skill activation", () => {
+  it("uses the display name for LI.FI package activation", () => {
     const step = interpretToolStep({
-      toolName: "activate_skills",
+      toolName: "activate_package",
       result: {
         activated: ["common_erc20", "lifi_swap"],
         applied_scope: "current_serve_cycle",
       },
     });
 
-    expect(step.title).toBe("Activate skill");
+    expect(step.title).toBe("Activate package");
     expect(labelsFor(step.chips)).toEqual(["ERC20", "LI.FI"]);
     expect(drawn(step.chips[0])?.icon).toBe(getSkillIcon("common_erc20"));
     expect(drawn(step.chips[1])?.icon).toBe(getSkillIcon("lifi_swap"));
   });
 
-  it("shows active skills on a check without an empty placeholder badge", () => {
+  it("shows active packages on a check without an empty placeholder badge", () => {
     const step = interpretToolStep({
-      toolName: "activate_skills",
+      toolName: "activate_package",
       result: {
         activated: [],
         rejected: [],
         applied_scope: "thread",
-        active_skill_ids: ["aave", "common_erc20", "lifi_swap"],
+        active: ["aave", "common_erc20", "lifi_swap"],
       },
     });
 
-    expect(step.title).toBe("Check active skills");
+    expect(step.title).toBe("Check active packages");
     expect(labelsFor(step.chips)).toEqual(["Aave", "ERC20", "LI.FI"]);
     expect(drawn(step.chips[0])?.icon).toBe(getSkillIcon("aave"));
     expect(step.failed).toBe(false);
 
-    const noActiveSkills = interpretToolStep({
-      toolName: "activate_skills",
-      result: { activated: [], active_skill_ids: [] },
+    const noActivePackages = interpretToolStep({
+      toolName: "activate_package",
+      result: { activated: [], active: [] },
     });
-    expect(noActiveSkills.title).toBe("Check active skills");
-    expect(noActiveSkills.chips).toEqual([]);
+    expect(noActivePackages.title).toBe("Check active packages");
+    expect(noActivePackages.chips).toEqual([]);
   });
 });

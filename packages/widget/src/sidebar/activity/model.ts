@@ -10,7 +10,11 @@ import {
   summarizeSimulation,
 } from "@aomi-labs/client";
 import { selectTaskRuns } from "@aomi-labs/react";
-import { messageChainId, unwrapToolStep } from "@aomi-labs/client/trace";
+import {
+  messageChainId,
+  packageOf,
+  unwrapToolStep,
+} from "@aomi-labs/client/trace";
 import { svmTransactionLabel } from "./transaction-label";
 
 type RecordValue = Record<string, unknown>;
@@ -202,7 +206,7 @@ export function selectActivity(
       )?.turn_id ??
     [...ordered].reverse().find((event) => event.turn_id)?.turn_id ??
     null;
-  const skills = new Set<string>();
+  const packages = new Set<string>();
   const staged = new Map<string, ActivityTransaction>();
   /** Each pending id's card: a bundle's instruction ids share one. */
   const byId = new Map<string, ActivityTransaction>();
@@ -233,9 +237,9 @@ export function selectActivity(
             turnId: event.turn_id,
           });
       }
-    if (Array.isArray(result.activated)) {
+    if (name === "activate_package" && Array.isArray(result.activated)) {
       for (const id of result.activated)
-        if (typeof id === "string") skills.add(id);
+        if (typeof id === "string") packages.add(packageOf(id));
     }
     // The family comes from the payload: prepared records name it, Solana
     // records carry a cluster, EVM ones a chain id. A tool's name says
@@ -520,7 +524,7 @@ export function selectActivity(
   return {
     turnId,
     agents: Object.values(selectTaskRuns(ordered)),
-    skills: [...skills],
+    packages: [...packages],
     history: transactions.filter((tx) =>
       tx.action ? tx.action.state !== "pending" : tx.turnId !== turnId,
     ),

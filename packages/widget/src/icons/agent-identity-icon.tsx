@@ -10,8 +10,8 @@ export interface AgentIdentityIconProps {
   name: string;
   abbr?: string;
   /**
-   * The package's own icon, used when Aomi has no curated artwork for the
-   * brand. Shown only once it has loaded, so a missing one never flashes.
+   * The package's own icon, shown before curated artwork once it has loaded,
+   * so a missing one never flashes.
    */
   imageUrl?: string | null;
   size?: "row" | "detail";
@@ -54,7 +54,7 @@ export function AgentIdentityIcon({
   // `undefined` supports older hand-built callers. An empty brand is an
   // intentional custom-agent boundary and must never fall back to the wire name.
   const Icon = getAgentIcon(brandId === undefined ? name : brandId);
-  const image = useLoaded(Icon ? null : imageUrl);
+  const image = useLoaded(imageUrl);
   const detail = size === "detail";
 
   return (
@@ -65,10 +65,10 @@ export function AgentIdentityIcon({
         detail ? "size-12" : "size-9"
       }`}
     >
-      {Icon ? (
-        <Icon aria-hidden="true" className={detail ? "size-7" : "size-5"} />
-      ) : image ? (
+      {image ? (
         <img src={image} alt="" className="size-full object-cover" />
+      ) : Icon ? (
+        <Icon aria-hidden="true" className={detail ? "size-7" : "size-5"} />
       ) : (
         <span
           aria-hidden="true"

@@ -383,17 +383,28 @@ describe("activity projection", () => {
     expect(selectActivity([stage, user]).transactions).toHaveLength(0);
     expect(selectActivity([]).transactions).toHaveLength(0);
   });
-  it("deduplicates successful skill activation and excludes failed activations", () => {
-    const activated = tool(1, "activate_skill", {
+  it("deduplicates successful package activation and excludes failed activations", () => {
+    const activated = tool(1, "activate_package", {
       activated: ["common_erc20", "lifi_swap"],
     });
     expect(
       selectActivity([
         activated,
         activated,
-        tool(2, "activate_skill", { error: "failed", activated: ["other"] }),
-      ]).skills,
+        tool(2, "activate_package", { error: "failed", activated: ["other"] }),
+      ]).packages,
     ).toEqual(["common_erc20", "lifi_swap"]);
+  });
+  it("collects a hosted package once for all the skills it brought", () => {
+    expect(
+      selectActivity([
+        tool(1, "activate_package", {
+          activated: ["aomi/defillama/prices", "aomi/defillama/protocols"],
+        }),
+        tool(2, "activate_package", { activated: ["common_erc20"] }),
+        tool(3, "some_other_tool", { activated: ["aomi/other/skill"] }),
+      ]).packages,
+    ).toEqual(["aomi/defillama", "common_erc20"]);
   });
   it("never promotes truncated child tool previews to wallet transactions", () => {
     const event: Event = {
@@ -613,9 +624,9 @@ describe("message commits", () => {
 });
 
 describe("thread-wide activity", () => {
-  it("retains skills and subagents after a new user turn", () => {
+  it("retains packages and subagents after a new user turn", () => {
     const events: Event[] = [
-      tool(1, "activate_skill", { activated: ["aave", "common_erc20"] }),
+      tool(1, "activate_package", { activated: ["aave", "common_erc20"] }),
       {
         agent: "aomi/swap",
         ...meta(2),
@@ -642,10 +653,10 @@ describe("thread-wide activity", () => {
         sender: "user",
         content: "Next",
       } as Event,
-      tool(5, "activate_skill", { activated: ["aave"] }, "turn-2"),
+      tool(5, "activate_package", { activated: ["aave"] }, "turn-2"),
     ];
     const result = selectActivity(events);
-    expect(result.skills).toEqual(["aave", "common_erc20"]);
+    expect(result.packages).toEqual(["aave", "common_erc20"]);
     expect(result.agents).toHaveLength(1);
     expect(result.agents[0].label).toBe("Find route");
     expect(result.agents[0].status).toBe("completed");
@@ -704,7 +715,7 @@ describe("thread-wide activity", () => {
       }) as Event;
     const replaced: Event[] = [
       user(1, "turn-1"),
-      tool(2, "activate_skill", { activated: ["aave"] }),
+      tool(2, "activate_package", { activated: ["aave"] }),
       subagent(3, "turn-1", "old-agent"),
       tool(4, "evm_stage_tx", {
         ...tx,
@@ -725,14 +736,19 @@ describe("thread-wide activity", () => {
     };
     expect(
       selectActivity(projectConversationEvents([...replaced, branch])),
-    ).toMatchObject({ agents: [], skills: [], transactions: [], history: [] });
+    ).toMatchObject({
+      agents: [],
+      packages: [],
+      transactions: [],
+      history: [],
+    });
 
     const visible = selectActivity(
       projectConversationEvents([
         ...replaced,
         branch,
         user(7, "turn-2"),
-        tool(8, "activate_skill", { activated: ["lifi"] }, "turn-2"),
+        tool(8, "activate_package", { activated: ["lifi"] }, "turn-2"),
         subagent(9, "turn-2", "new-agent"),
         tool(
           10,
@@ -742,7 +758,7 @@ describe("thread-wide activity", () => {
         ),
       ]),
     );
-    expect(visible.skills).toEqual(["lifi"]);
+    expect(visible.packages).toEqual(["lifi"]);
     expect(visible.agents.map((agent) => agent.agentId)).toEqual(["new-agent"]);
     expect(visible.transactions.map((item) => item.turnId)).toEqual(["turn-2"]);
     expect(visible.history).toEqual([]);

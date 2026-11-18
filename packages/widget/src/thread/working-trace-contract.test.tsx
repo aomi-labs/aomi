@@ -80,7 +80,7 @@ describe("working trace contract", () => {
     ["brave_search", "Search web"],
     ["web_search", "Search web"],
     ["web_fetch", "Read page"],
-    ["activate_skills", "Activate skill"],
+    ["activate_package", "Activate package"],
     ["evm_get_contract", "Get contract details"],
     ["evm_call", "Call contract"],
     ["list_transactions", "List transactions"],

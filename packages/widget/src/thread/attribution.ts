@@ -8,10 +8,13 @@ import {
 import { resolveAgentIdentity } from "@aomi-labs/client";
 import { skillLabel } from "@/composer/capabilities/skill-label";
 import type { SkillSummary } from "@/composer/capabilities/skill-catalog";
+import type { PickerItem } from "@/composer/capability-composer/model";
 
 export type TraceAttribution = {
   agents?: readonly AgentCard[];
   skills?: readonly Pick<SkillSummary, "id" | "name" | "injectedTools">[];
+  /** Hosted packages with the icon the composer and the Library show. */
+  packages?: readonly Pick<PickerItem, "id" | "label" | "Icon">[];
 };
 
 function agentChip(name: string, catalog?: TraceAttribution): ToolChip {
@@ -47,6 +50,27 @@ export function skillChip(id: string, catalog?: TraceAttribution): ToolChip {
     ...(agent ? { labelParts: [agent.label, label] as const } : {}),
     title: agent ? `${agent.title} / Skill: ${label}` : `Skill: ${label}`,
     icon: agent?.icon ?? `skill:${id}`,
+  };
+}
+
+/** An activated package: a hosted one by its catalog name, a built-in by its
+ * skill name. `detail` (the skills it brought) goes on hover. */
+export function packageChip(
+  id: string,
+  catalog?: TraceAttribution,
+  detail?: string,
+): ToolChip {
+  const hosted = catalog?.packages?.find((item) => item.id === id);
+  const builtIn = catalog?.skills?.find((skill) => skill.id === id);
+  const label =
+    hosted?.label ??
+    skillLabel({ name: builtIn?.name || (id.split("/").at(-1) ?? id) });
+  return {
+    id: `package:${id}`,
+    packageId: id,
+    label,
+    title: detail ? `${label} · ${detail}` : `Package: ${label}`,
+    icon: id.includes("/") ? "package" : `skill:${id}`,
   };
 }
 
@@ -87,7 +111,11 @@ export function attributeToolStep(
       : [];
   const chips = [
     ...step.chips.map((chip) =>
-      chip.skillId ? skillChip(chip.skillId, catalog) : chip,
+      chip.packageId
+        ? packageChip(chip.packageId, catalog, chip.title)
+        : chip.skillId
+          ? skillChip(chip.skillId, catalog)
+          : chip,
     ),
     ...agentChips,
     ...skillChips,
