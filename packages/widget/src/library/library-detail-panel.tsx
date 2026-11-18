@@ -215,7 +215,7 @@ export function LibraryDetailPanel({
       aria-label={`${row.display_name} details`}
       className="bg-aomi-raised border-aomi-border flex min-h-0 flex-1 flex-col md:border-l"
     >
-      <div className="min-h-0 flex-1 overflow-y-auto pb-3 pt-5">
+      <div className="min-h-0 flex-1 overflow-y-auto pt-5">
         <div className="px-5 pb-5 pt-1">
           <PackageIcon row={row} size="detail" />
           <h2 className="type-title mt-4">{row.display_name}</h2>
@@ -229,7 +229,7 @@ export function LibraryDetailPanel({
           <p className="type-control text-aomi-muted mt-2">{row.description}</p>
         </div>
 
-        <div className="space-y-5 px-5">
+        <div className="space-y-5 px-5 pb-9">
           <AccessSection
             row={row}
             agent={agent}
@@ -285,6 +285,12 @@ export function LibraryDetailPanel({
             </DetailSection>
           ) : null}
         </div>
+        {/* While more is below, the last lines fade into the strip; at the
+            end the fade covers only the padding. */}
+        <div
+          aria-hidden
+          className="from-aomi-raised pointer-events-none sticky bottom-0 -mt-6 h-6 bg-gradient-to-t to-transparent"
+        />
       </div>
 
       <div className="shrink-0 px-5 pb-5 pt-3">
