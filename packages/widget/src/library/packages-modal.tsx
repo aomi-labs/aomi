@@ -115,7 +115,8 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   /** `noticeShown`: the inspector showed the notice beside its switch. */
   const toggle = (row: AomiPackage, enabled: boolean, noticeShown = false) => {
     if (enabled && noticeShown) markNoticeSeen(row);
-    if (enabled && !noticeShown && !noticeSeen(row)) setNoticeRow(row);
+    if (enabled && !noticeShown && !row.verified && !noticeSeen(row))
+      setNoticeRow(row);
     else setChoice(row, enabled);
   };
   const saveKeys = (row: AomiPackage, values: [string, string][]) =>

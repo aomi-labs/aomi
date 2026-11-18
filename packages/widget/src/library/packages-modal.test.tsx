@@ -361,6 +361,36 @@ describe("packages modal", () => {
     );
   });
 
+  it("asks before a not verified package only, and calls optional keys optional", async () => {
+    const binance: AomiPackage = {
+      ...NOT_VERIFIED,
+      slots: [
+        {
+          name: "BINANCE_API_KEY",
+          owner: "person",
+          description: "",
+          required: false,
+          status: "missing",
+        },
+      ],
+    };
+    const backend = installBackend([
+      { ...VERIFIED, enabled: false, choice: false, reason: "chosen_off" },
+      binance,
+    ]);
+    await renderModal();
+    fireEvent.click(rowSwitch("Jupiter"));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    await waitFor(() => expect(backend.writes()).toHaveLength(1));
+
+    fireEvent.click(rowSwitch("Hoodit trade"));
+    const notice = await screen.findByRole("alertdialog");
+    expect(
+      within(notice).getByText("Add your own key: BINANCE_API_KEY · optional"),
+    ).toBeTruthy();
+    expect(within(notice).queryByText(/Needs your key/)).toBeNull();
+  });
+
   it("shows a refused switch in place", async () => {
     installBackend([VERIFIED]);
     await renderModal();
