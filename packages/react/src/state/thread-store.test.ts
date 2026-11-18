@@ -31,6 +31,12 @@ describe("thread title presentation", () => {
     expect(store.getThreadMetadata("chat")?.title).toBe(
       "lets deposit 1 usdc to Aave on Base from MetaMask",
     );
+    store.updateThreadMetadata("chat", {
+      title: "▣ defillama whats the price of eth",
+    });
+    expect(store.getThreadMetadata("chat")?.title).toBe(
+      "defillama whats the price of eth",
+    );
     store.updateThreadMetadata("chat", { title: "Cambrian token prices" });
     expect(store.getThreadMetadata("chat")?.title).toBe(
       "Cambrian token prices",

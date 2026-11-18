@@ -91,12 +91,12 @@ export class ThreadStore {
   /**
    * Titles read as plain text. Old server titles may contain a flattened,
    * truncated model-only envelope, and a title taken from the first message
-   * keeps its @-mention markers ("✦ Aave", "◇ Base"); both go.
+   * keeps its @-mention markers ("▣ defillama", "◇ Base"); both go.
    */
   private static cleanTitle(title: string): string {
     const start = title.indexOf("<AOMI_UI_CAPABILITY_HINTS>");
     const text = (start < 0 ? title : title.slice(0, start).trimEnd())
-      .replace(/[✦▦◇◈]\s*/gu, "")
+      .replace(/[▣✦▦◇◈]\s*/gu, "")
       .trim();
     // A title that was only the envelope keeps a visible label.
     return text || (title ? DEFAULT_THREAD_TITLE : title);
