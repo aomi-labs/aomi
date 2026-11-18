@@ -1,4 +1,4 @@
-import { Package as PackageIcon, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { aomiButton, StatusPill } from "@aomi-labs/widget/host-composition";
 
 import { UrlLink as Link } from "@/components/url-link";
@@ -12,7 +12,7 @@ import { releaseLabel, shortName, type Agent, type Package } from "./client";
 import { useAgents, useAllReleases, usePackages, usePublisher } from "./hooks";
 import { agentStatus, channelLabel, packageStatus } from "./inventory-view";
 import { fromDate, toolCalls, useUsage } from "./usage-view";
-import { Card, Cell, EmptyRow, Mono, Row, Tile, plural } from "./ui";
+import { Card, Cell, EmptyRow, Mono, PackageMark, Row, Tile, plural } from "./ui";
 
 const ROW_LINK =
   "after:absolute after:inset-0 after:content-[''] hover:underline";
@@ -147,7 +147,7 @@ export function OverviewView() {
                     key={pkg.id}
                     leading={
                       <Tile>
-                        <PackageIcon />
+                        <PackageMark id={pkg.id} />
                       </Tile>
                     }
                     label={

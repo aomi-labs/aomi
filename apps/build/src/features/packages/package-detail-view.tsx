@@ -7,7 +7,6 @@ import {
 import {
   ExternalLink,
   Github,
-  Package as PackageIcon,
   Rocket,
   WandSparkles,
 } from "lucide-react";
@@ -24,6 +23,7 @@ import { releaseLabel, shortName, type Package } from "./client";
 import { usePackage, useSecret } from "./hooks";
 import { ReleaseHistory } from "./release-history";
 import {
+  PackageMark,
   Card,
   Cell,
   Columns,
@@ -293,8 +293,8 @@ export function PackageDetailView({ name }: { name: string }) {
     <div className={pageFrame}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3.5">
-          <span className="bg-aomi-accent-subtle text-aomi-accent-strong flex size-11 shrink-0 items-center justify-center rounded-[12px]">
-            <PackageIcon className="size-5" aria-hidden />
+          <span className="bg-aomi-accent-subtle text-aomi-accent-strong flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-[12px]">
+            <PackageMark id={data.package.id} className="size-5" />
           </span>
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">

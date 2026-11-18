@@ -26,6 +26,7 @@ import {
 import { shortName, type Agent, type Publisher } from "./client";
 import { useAgents, usePackages, usePublisher } from "./hooks";
 import {
+  PackageMark,
   Card,
   Cell,
   EmptyRow,
@@ -371,7 +372,7 @@ function PackageList({ publisher }: { publisher: Publisher }) {
                   key={pkg.id}
                   leading={
                     <Tile>
-                      <PackageIcon />
+                      <PackageMark id={pkg.id} />
                     </Tile>
                   }
                   label={
