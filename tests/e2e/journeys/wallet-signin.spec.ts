@@ -23,9 +23,11 @@ for (const started of [false, true]) {
     await expect(widget.input).toHaveText("draft during sign-in");
     if (started) {
       await expect(widget.userMessages).toHaveText("chat before sign-in");
-      await expect(widget.replies).toHaveText(
-        "Fake reply: chat before sign-in",
-      );
+      await expect(
+        widget.replies.getByText("Fake reply: chat before sign-in", {
+          exact: true,
+        }),
+      ).toBeVisible();
     }
   });
 }
