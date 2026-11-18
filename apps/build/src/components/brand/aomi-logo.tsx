@@ -3,10 +3,7 @@ import { UrlLink as Link } from "@/components/url-link";
 
 type AomiLogoProps = {
   href?: string;
-  markOnly?: boolean;
-  showBuildLabel?: boolean;
   className?: string;
-  markClassName?: string;
   onClick?: () => void;
 };
 
@@ -31,39 +28,28 @@ export function AomiMark({ className }: { className?: string }) {
   );
 }
 
-export function AomiLogo({
-  href = "/",
-  markOnly = false,
-  showBuildLabel = true,
-  className,
-  markClassName,
-  onClick,
-}: AomiLogoProps) {
+/** The 17px lockup: mark, serif wordmark and the BUILD chip. */
+export function AomiLogo({ href = "/", className, onClick }: AomiLogoProps) {
   const content = (
-    <div
+    <span
       className={cn(
-        "flex min-w-0 items-center text-[11px]",
-        markOnly ? "justify-center" : "gap-[0.34em]",
+        "text-aomi-fg flex min-w-0 items-center gap-2 text-[17px]",
         className,
       )}
     >
-      <AomiMark className={cn("size-[1em]", markClassName)} />
-      {!markOnly && (
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span
-            className="text-foreground truncate text-[1em] font-semibold leading-none tracking-[-0.025em]"
-            style={{ fontFamily: "var(--aomi-font-wordmark)" }}
-          >
-            aomi
-          </span>
-          {showBuildLabel ? (
-            <span className="bg-surface-2 text-subtle flex h-[11px] shrink-0 items-center rounded-sm px-1 text-[7px] font-medium uppercase leading-none tracking-wide">
-              Build
-            </span>
-          ) : null}
-        </div>
-      )}
-    </div>
+      <span className="inline-flex items-center gap-1.5">
+        <AomiMark className="size-[17px]" />
+        <span
+          className="font-semibold leading-none tracking-[-0.025em]"
+          style={{ fontFamily: "var(--aomi-font-wordmark)" }}
+        >
+          aomi
+        </span>
+      </span>
+      <span className="bg-aomi-surface-2 text-aomi-muted inline-flex h-[17px] shrink-0 items-center rounded-md px-1.5 text-[10px] font-medium uppercase tracking-[0.025em]">
+        Build
+      </span>
+    </span>
   );
 
   if (!href) return content;
@@ -73,7 +59,7 @@ export function AomiLogo({
       href={href}
       preload={false}
       onClick={onClick}
-      className="focus-visible:ring-ring rounded-md outline-none transition-opacity hover:opacity-90 focus-visible:ring-1"
+      className="focus-visible:ring-ring rounded-control -ml-1.5 px-1.5 py-1 outline-none focus-visible:ring-1"
     >
       {content}
     </Link>

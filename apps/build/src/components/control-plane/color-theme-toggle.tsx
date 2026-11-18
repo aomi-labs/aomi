@@ -7,7 +7,7 @@ import {
   type ColorTheme,
 } from "@/lib/color-theme";
 
-export function ColorThemeToggle() {
+export function ColorThemeToggle({ className }: { className?: string }) {
   const [theme, setTheme] = useState<ColorTheme | null>(null);
 
   useEffect(() => {
@@ -29,10 +29,10 @@ export function ColorThemeToggle() {
       onClick={toggleTheme}
       aria-label={label}
       title={label}
-      className="icon-button focus-visible:ring-ring inline-flex h-8 w-8 items-center justify-center rounded-full transition focus-visible:ring-1"
+      className={className}
     >
-      <Sun className="hidden size-4 dark:block" aria-hidden />
-      <Moon className="size-4 dark:hidden" aria-hidden />
+      <Sun className="hidden dark:block" aria-hidden />
+      <Moon className="dark:hidden" aria-hidden />
     </button>
   );
 }

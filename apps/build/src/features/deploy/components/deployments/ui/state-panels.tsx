@@ -4,7 +4,7 @@ import { githubSigninUrl } from "@/features/deploy/client";
 
 export function LoadingPanel({ label }: { label: string }) {
   return (
-    <div className="text-dim flex min-h-[260px] items-center justify-center px-4 py-10 text-center text-sm">
+    <div className="text-aomi-muted flex min-h-[260px] items-center justify-center px-4 py-10 text-center text-[14px]">
       {label}
     </div>
   );
@@ -12,7 +12,7 @@ export function LoadingPanel({ label }: { label: string }) {
 
 export function ErrorPanel({ message }: { message: string }) {
   return (
-    <div className="text-destructive flex min-h-[260px] items-center justify-center px-4 py-10 text-center text-sm">
+    <div className="text-aomi-danger flex min-h-[260px] items-center justify-center px-4 py-10 text-center text-[14px]">
       {message}
     </div>
   );
@@ -20,7 +20,7 @@ export function ErrorPanel({ message }: { message: string }) {
 
 export function EmptyPanel({ children }: { children: ReactNode }) {
   return (
-    <div className="text-dim flex min-h-[260px] flex-col items-center justify-center gap-2 px-4 py-10 text-center text-sm">
+    <div className="text-aomi-muted flex min-h-[260px] flex-col items-center justify-center gap-2 px-4 py-10 text-center text-[14px]">
       {children}
     </div>
   );
@@ -40,12 +40,12 @@ export function GitHubSignInPanel({ error }: { error?: string | null }) {
 
   return (
     <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 px-4 py-10 text-center">
-      <div className="border-border flex size-10 items-center justify-center rounded-full border">
+      <div className="border-aomi-border flex size-10 items-center justify-center rounded-full border">
         <Github className="size-5" aria-hidden />
       </div>
       <div>
-        <div className="text-base font-semibold">Sign in with GitHub</div>
-        <div className="text-dim mt-1 max-w-md text-sm leading-6">
+        <div className="type-title">Sign in with GitHub</div>
+        <div className="text-aomi-muted mt-1 max-w-md text-[14px]">
           Deployment history is scoped to repositories connected to your GitHub
           account.
         </div>
@@ -57,8 +57,9 @@ export function GitHubSignInPanel({ error }: { error?: string | null }) {
       )}
       <a
         href={githubSigninUrl}
-        className="bg-primary text-primary-foreground inline-flex h-9 items-center justify-center rounded-md px-3 text-sm font-medium hover:opacity-90"
+        className="bg-aomi-fg text-aomi-bg rounded-control type-control inline-flex h-10 items-center justify-center gap-2 px-4 font-medium hover:opacity-90"
       >
+        <Github className="size-4" aria-hidden />
         Continue with GitHub
       </a>
     </div>

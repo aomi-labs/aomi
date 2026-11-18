@@ -49,7 +49,7 @@ const COMMANDS: CommandItem[] = [
   {
     id: "transactions",
     label: "Transactions",
-    hint: "Operate → Transactions",
+    hint: "Activity → Transactions",
     href: "/operate/transactions",
     icon: WalletCards,
     keywords: "tx spend",
