@@ -421,7 +421,7 @@ function SignsWithRows({
               key={slot.family}
               type="button"
               aria-expanded={false}
-              aria-label={`${slot.family.toUpperCase()} signs with ${rowTitle(current).title}`}
+              aria-label={`${slot.family.toUpperCase()} default wallet: ${rowTitle(current).title}`}
               onClick={() => setOpenFamily(slot.family)}
               className="hover:bg-aomi-hover/60 flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors"
             >

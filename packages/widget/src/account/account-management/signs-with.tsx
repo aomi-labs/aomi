@@ -21,8 +21,9 @@ import {
 const ready = (row: WalletRow) => row.kind === "agent" || row.connected;
 
 /**
- * The top of Wallets & access: which address signs for each family right
- * now. Each slot opens a picker over every address of that family.
+ * The top of Wallets & access: the address a request starts from for each
+ * family. It is a default, not a limit: Aomi may act from the account's other
+ * wallets. Each slot opens a picker over every address of that family.
  */
 export function SignsWithStrip({
   rows,
@@ -77,7 +78,7 @@ function EmptySlot({
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="type-meta text-aomi-muted flex items-center gap-1.5">
           <FamilyTag family={family} />
-          signs with
+          default wallet
         </span>
         <span className="type-control text-aomi-muted flex items-center gap-1.5 truncate">
           {onAddWallet ? <Plus className="size-3.5 shrink-0" /> : null}
@@ -136,7 +137,7 @@ function FamilySlot({
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="type-meta text-aomi-muted flex items-center gap-1.5">
             <FamilyTag family={family} />
-            signs with
+            default wallet
           </span>
           <span className="flex min-w-0 items-center gap-1.5 opacity-60">
             <BrandMark
@@ -236,14 +237,14 @@ function FamilySlot({
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={`${tag} signs with ${rowTitle(current).title}`}
+          aria-label={`${tag} default wallet: ${rowTitle(current).title}`}
           disabled={disabled}
           className="hover:bg-aomi-hover focus-visible:bg-aomi-hover flex min-w-0 items-center gap-2 px-3.5 py-2.5 text-left outline-none transition-colors"
         >
           <span className="flex min-w-0 flex-1 flex-col gap-1">
             <span className="type-meta text-aomi-muted flex items-center gap-1.5">
               <FamilyTag family={family} />
-              signs with
+              default wallet
             </span>
             <span
               className={cn(
