@@ -1297,22 +1297,6 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     expect(seen[1].headers["payment-signature"]).toBe("sig");
   });
 
-  it("lets a guest read the Library rows but not change them", async () => {
-    const read = await portal("/api/account/packages", {
-      headers: { cookie: "session=guest" },
-      origin: PORTAL,
-    });
-    expect(read.status).toBe(200);
-    expect(seen[0].url).toBe(`${BACKEND}/api/account/packages`);
-    const write = await portal("/api/account/packages/7/choice", {
-      method: "PUT",
-      headers: { cookie: "session=guest", "content-type": "application/json" },
-      origin: PORTAL,
-      body: JSON.stringify({ enabled: false }),
-    });
-    expect(write.status).toBe(403);
-  });
-
   it("projects the public package catalog to public fields only", async () => {
     const response = await portal("/api/public/catalog/packages", {
       headers: { cookie: "session=user" },

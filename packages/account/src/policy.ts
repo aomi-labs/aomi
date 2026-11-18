@@ -819,9 +819,6 @@ export const ROUTES: readonly Route[] = [
     ...backend(/^\/api\/thread\/wallet$/, { PUT: "agent:write" }),
     on: "agentRest",
   },
-  // The Library rows: whoever can chat reads the packages their chat runs (a
-  // guest, the defaults); only an account changes them.
-  backend(/^\/api\/account\/packages$/, { GET: chat }),
   // The backend's account record and its routes; transaction safety moved
   // to /v1/account.
   backend(/^\/api\/account(?:\/(?!transaction-safety(?:\/|$)).*)?$/, {
