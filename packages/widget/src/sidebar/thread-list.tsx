@@ -47,6 +47,11 @@ function useCloseMobileSidebar() {
   };
 }
 
+
+/** A sidebar row's shape and states; `data-active` marks the current one. */
+export const sidebarRowClass =
+  "hover:bg-aomi-hover/60 focus-visible:bg-aomi-hover/60 data-active:bg-aomi-accent-subtle data-active:ring-aomi-accent/20 data-active:ring-1 data-active:ring-inset rounded-[12px] transition-all focus-visible:outline-none";
+
 export const ThreadList: FC = () => {
   return (
     <ThreadListPrimitive.Root
@@ -219,7 +224,10 @@ const ThreadListItem: FC = () => {
         metadata?.awaitingApproval?.length ? "" : undefined
       }
       data-testid={testIds.threadItem}
-      className="aui-thread-list-item group/thread hover:bg-aomi-hover/60 focus-visible:bg-aomi-hover/60 data-active:bg-aomi-accent-subtle data-active:ring-aomi-accent/20 data-active:ring-1 data-active:ring-inset flex w-full min-w-0 flex-wrap items-center rounded-[12px] pr-2 transition-all focus-visible:outline-none"
+      className={cn(
+        "aui-thread-list-item group/thread flex w-full min-w-0 flex-wrap items-center pr-2",
+        sidebarRowClass,
+      )}
       onPointerEnter={cancelClose}
       onPointerLeave={scheduleClose}
     >

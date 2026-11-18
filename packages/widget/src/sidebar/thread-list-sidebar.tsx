@@ -1,8 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/cn";
 import * as React from "react";
-import { Check, ChevronDown } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -10,40 +8,12 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/ui/sidebar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { ThreadList } from "./thread-list";
 import { ConnectButton } from "@/wallet/connect-button";
 import { AomiLogo } from "@/ui/aomi-logo";
-import { AomiMark } from "@/ui/aomi-mark";
+import { ProductSwitcher, type SidebarProduct } from "./product-switcher";
 import type { WalletAccountMenuOptions } from "@/account/account-menu-types";
 import { testIds } from "@/test-ids";
-
-/** One entry in the wordmark dropdown (an Aomi surface the user can switch to). */
-export type SidebarProduct = {
-  id: string;
-  /** Badge rendered next to the wordmark when this product is the current one. */
-  badge: string;
-  label: string;
-  description?: string;
-  href: string;
-};
-
-export const DEFAULT_SIDEBAR_PRODUCTS: SidebarProduct[] = [
-  {
-    id: "chat",
-    badge: "Chat",
-    label: "Aomi Chat",
-    description: "Talk to onchain agents",
-    href: "https://aomi.chat",
-  },
-  {
-    id: "build",
-    badge: "Build",
-    label: "Aomi Build",
-    description: "Build and deploy agents",
-    href: "https://build.aomi.dev",
-  },
-];
 
 type ThreadListSidebarProps = React.ComponentProps<typeof Sidebar> & {
   /** Position of the wallet button: "header" (top), "footer" (bottom), or null (hidden) */
@@ -56,88 +26,6 @@ type ThreadListSidebarProps = React.ComponentProps<typeof Sidebar> & {
   /** Which product this widget instance is; controls the badge and the checkmark. */
   currentProductId?: string;
 };
-
-function ProductSwitcher({
-  products,
-  currentProductId,
-}: {
-  products: SidebarProduct[];
-  currentProductId: string;
-}) {
-  const [open, setOpen] = React.useState(false);
-  const current =
-    products.find((product) => product.id === currentProductId) ?? products[0];
-
-  const wordmark = (
-    <>
-      <AomiLogo
-        className="aomi-sidebar-header-logo text-[17px]"
-        markClassName="aomi-sidebar-header-icon"
-      />
-      {current?.badge && (
-        <span className="bg-aomi-surface-2 text-aomi-muted flex h-[17px] items-center rounded-sm px-1.5 text-[10px] font-medium uppercase leading-none tracking-wide">
-          {current.badge}
-        </span>
-      )}
-    </>
-  );
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label="Switch Aomi product"
-          className="hover:bg-aomi-hover/60 -ml-1.5 flex items-center gap-2 rounded-lg px-1.5 py-1 outline-none transition-colors"
-        >
-          {wordmark}
-          <ChevronDown
-            className={cn(
-              "text-aomi-muted size-3.5 transition-transform",
-              open && "rotate-180",
-            )}
-          />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        side="bottom"
-        sideOffset={6}
-        className="border-aomi-overlay-border bg-aomi-raised w-60 rounded-xl border p-1.5"
-      >
-        {products.map((product) => {
-          const isCurrent = product.id === current?.id;
-          return (
-            <a
-              key={product.id}
-              href={product.href}
-              {...(isCurrent
-                ? {}
-                : { target: "_blank", rel: "noopener noreferrer" })}
-              onClick={() => setOpen(false)}
-              className="text-aomi-fg hover:bg-aomi-hover focus-visible:bg-aomi-hover flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start outline-none transition-colors"
-            >
-              <AomiMark className="size-4 shrink-0" />
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate text-sm font-medium">
-                  {product.label}
-                </span>
-                {product.description && (
-                  <span className="text-aomi-muted truncate text-xs">
-                    {product.description}
-                  </span>
-                )}
-              </span>
-              {isCurrent && (
-                <Check className="text-aomi-muted ml-auto size-4 shrink-0" />
-              )}
-            </a>
-          );
-        })}
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 export function ThreadListSidebar({
   walletPosition = "footer",

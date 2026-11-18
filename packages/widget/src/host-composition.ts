@@ -51,7 +51,10 @@ export {
 export { WalletPicker } from "./wallet/picker/wallet-picker";
 export { AomiSheet } from "./ui/aomi/aomi-sheet";
 export { LoadingPane } from "./ui/aomi/loading-pane";
-export { AomiButton } from "./ui/aomi/button";
+export { AomiButton, aomiButton } from "./ui/aomi/button";
+export { ListGroup } from "./ui/aomi/list-group";
+export { SectionHeader } from "./ui/aomi/section-header";
+export { StatusPill, type StatusTone } from "./ui/aomi/status-pill";
 export {
   FootnoteLink,
   SheetAlert,
@@ -126,8 +129,10 @@ export {
 } from "./controls/network-select";
 export {
   DEFAULT_SIDEBAR_PRODUCTS,
+  ProductSwitcher,
   type SidebarProduct,
-} from "./sidebar/thread-list-sidebar";
+} from "./sidebar/product-switcher";
+export { sidebarRowClass } from "./sidebar/thread-list";
 export { useActivityPanel } from "./sidebar/activity/activity-panel-context";
 export { NotificationToaster } from "./frame/notification";
 export { AomiLogo, type AomiLogoProps } from "./ui/aomi-logo";

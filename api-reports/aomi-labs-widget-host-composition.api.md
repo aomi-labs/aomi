@@ -118,6 +118,12 @@ export type AomiAccount = {
 export function AomiButton(input: AomiButtonProps): JSX.Element;
 
 // @public
+export const aomiButton: (props?: ({
+    variant?: "primary" | "secondary" | "ghost" | "danger" | "danger-fill" | null | undefined;
+    size?: "icon" | "md" | "sm" | "icon-sm" | null | undefined;
+} & ClassProp) | undefined) => string;
+
+// @public
 export function AomiLogo(input: AomiLogoProps): JSX.Element;
 
 // @public (undocumented)
@@ -456,6 +462,9 @@ export function isFullTestnet(config?: FullTestnetConfig): boolean;
 export type LinkedAuthAccount = AccountGraphLinkedAccount;
 
 // @public
+export function ListGroup(input: ComponentProps<"div">): JSX.Element;
+
+// @public
 export function LoadingPane(input: {
     label: string;
     className?: string;
@@ -507,6 +516,12 @@ export function PackagesModal(input: PackagesModalProps): JSX.Element;
 export function parseRpcOverrides(raw: string): Record<number, string>;
 
 // @public
+export function ProductSwitcher(input: {
+    products: SidebarProduct[];
+    currentProductId: string;
+}): JSX.Element;
+
+// @public
 export function requestSettingsOpen(tab: SettingsTab): void;
 
 // @public
@@ -531,6 +546,18 @@ export type RuleChangePanelProps = {
     changeId: string;
     onClose: () => void;
 };
+
+// @public
+export function SectionHeader(input: {
+    title: string;
+    as?: "h2" | "h3";
+    id?: string;
+    count?: ReactNode;
+    help?: string;
+    detail?: ReactNode;
+    action?: ReactNode;
+    className?: string;
+}): JSX.Element;
 
 // @public @deprecated (undocumented)
 export function sessionScopedFetch<T>(path: string, options?: RequestInit & {
@@ -603,6 +630,9 @@ export type SidebarProduct = {
 };
 
 // @public
+export const sidebarRowClass = "hover:bg-aomi-hover/60 focus-visible:bg-aomi-hover/60 data-active:bg-aomi-accent-subtle data-active:ring-aomi-accent/20 data-active:ring-1 data-active:ring-inset rounded-[12px] transition-all focus-visible:outline-none";
+
+// @public
 export function signOutAndDisconnect(adapter: AomiWalletKit): Promise<void>;
 
 // @public (undocumented)
@@ -615,6 +645,17 @@ export function StatementSection(input: {
 
 // @public
 export function StatementView(): JSX.Element;
+
+// @public
+export function StatusPill(input: {
+    tone?: StatusTone;
+    dot?: boolean;
+    className?: string;
+    children: ReactNode;
+}): JSX.Element;
+
+// @public (undocumented)
+export type StatusTone = "neutral" | "accent" | "success" | "warning" | "danger";
 
 // @public (undocumented)
 export function SvmWalletBindingGate(): JSX.Element | null;

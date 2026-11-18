@@ -22,10 +22,8 @@ import { WidgetScope } from "../ui/widget-scope";
 import { WalletPickerProvider } from "@/wallet/picker/wallet-picker-context";
 import { WalletPicker } from "@/wallet/picker/wallet-picker";
 import { Thread } from "@/thread/thread";
-import {
-  ThreadListSidebar,
-  type SidebarProduct,
-} from "@/sidebar/thread-list-sidebar";
+import { ThreadListSidebar } from "@/sidebar/thread-list-sidebar";
+import type { SidebarProduct } from "@/sidebar/product-switcher";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/ui/sidebar";
 import { NotificationToaster } from "./notification";
 import { ControlBar, type ControlBarProps } from "@/controls";
