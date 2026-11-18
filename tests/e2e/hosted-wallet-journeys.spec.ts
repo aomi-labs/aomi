@@ -322,22 +322,38 @@ test("hosted Chat continues the same conversation when switching Auto to a model
 }) => {
   test.setTimeout(420_000);
   const { wallet, forbiddenRequests } = await signIn(page, "evm");
-  const models = page.getByRole("combobox", { name: "Auto", exact: true });
-  await expect(models).toBeEnabled();
+  const modelControl = page
+    .getByTestId(testIds.composer)
+    .getByRole("combobox")
+    .filter({
+      hasText: /^(?:Auto\b|Select model\b|GPT[-\s]|Claude\b|Gemini\b|DeepSeek\b|GLM\b|Kimi\b)/i,
+    });
+  const auto = modelControl.filter({ hasText: /^Auto\b/ });
+  await expect(modelControl)
+    .toBeEnabled({ timeout: 30_000 })
+    .catch(async (error: unknown) => {
+      const labels = await page
+        .getByTestId(testIds.composer)
+        .getByRole("combobox")
+        .allTextContents();
+      console.info("Composer combobox labels:", labels);
+      throw error;
+    });
+  await modelControl.click();
+  await page.getByRole("option").filter({ hasText: /^Auto\b/ }).click();
+  await expect(auto).toBeEnabled();
   const clue = `CEDAR-${Date.now().toString(36).toUpperCase()}`;
   const firstPrompt = `Remember this code for the rest of this conversation: ${clue}. Reply OK.`;
   const first = await sendPrompt(page, firstPrompt);
   expect(first.request().postDataJSON().model).toBeUndefined();
   const sessionId = await expectHostedTurn(page, first, firstPrompt);
 
-  await models.click();
+  await auto.click();
   await page
-    .getByRole("option", { name: "Claude Sonnet 5.5", exact: true })
+    .getByRole("option")
+    .filter({ hasText: /^Claude Sonnet 5\.5$/ })
     .click();
-  const manual = page.getByRole("combobox", {
-    name: "Claude Sonnet 5.5",
-    exact: true,
-  });
+  const manual = modelControl.filter({ hasText: /^Claude Sonnet 5\.5$/ });
   await expect(manual).toBeEnabled();
   const secondPrompt = "What code did I ask you to remember? Reply with the code.";
   const second = await sendPrompt(page, secondPrompt);
@@ -348,8 +364,8 @@ test("hosted Chat continues the same conversation when switching Auto to a model
   );
 
   await manual.click();
-  await page.getByRole("option", { name: /^Auto\b/ }).click();
-  await expect(models).toBeEnabled();
+  await page.getByRole("option").filter({ hasText: /^Auto\b/ }).click();
+  await expect(auto).toBeEnabled();
   const thirdPrompt = "Repeat the code once more.";
   const third = await sendPrompt(page, thirdPrompt);
   expect(third.request().postDataJSON().model).toBeUndefined();
