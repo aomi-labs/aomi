@@ -173,16 +173,28 @@ vi.mock("@aomi-labs/widget/host-composition", async () => {
     },
     HeaderControls: ({
       onOpenSettings,
+      onOpenPackages,
       showSettings,
+      showLibrary,
     }: {
       onOpenSettings: () => void;
+      onOpenPackages: () => void;
       showSettings: boolean;
-    }) =>
-      showSettings ? (
-        <button type="button" onClick={onOpenSettings}>
-          Open settings
-        </button>
-      ) : null,
+      showLibrary: boolean;
+    }) => (
+      <>
+        {showLibrary ? (
+          <button type="button" onClick={onOpenPackages}>
+            Open capability library
+          </button>
+        ) : null}
+        {showSettings ? (
+          <button type="button" onClick={onOpenSettings}>
+            Open settings
+          </button>
+        ) : null}
+      </>
+    ),
     PackagesModal: () => <div data-testid="packages-modal" />,
     SettingsModal: ({
       initialTab,
@@ -270,6 +282,23 @@ describe("PortalAomiFrame account bootstrap", () => {
     expect(
       screen.queryByRole("button", { name: "Open settings" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows the Library only to a signed-in account", () => {
+    walletKitState.current = { accountStatus: "ready" };
+    const view = render(<PortalAomiFrame />);
+    expect(
+      screen.queryByRole("button", { name: "Open capability library" }),
+    ).not.toBeInTheDocument();
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: { id: "acct-a" },
+    };
+    view.rerender(<PortalAomiFrame />);
+    act(() => {
+      screen.getByRole("button", { name: "Open capability library" }).click();
+    });
+    expect(screen.getByTestId("packages-modal")).toBeInTheDocument();
   });
 
   it("reads installed packages from the frame's account display cache", () => {
