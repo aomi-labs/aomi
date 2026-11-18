@@ -79,16 +79,15 @@ export function walletPickerItems(rows: readonly WalletRow[]): PickerItem[] {
   });
 }
 
-/** A package's icon at picker size: its own image, else its brand mark or a box. */
+/** A package's icon at picker size: Aomi's curated brand mark, else its own image, else a box. */
 function packageIcon(row: AomiPublicPackage): FC<{ className?: string }> {
-  const Fallback =
-    getAgentIcon(row.id.split("/").at(-1) ?? row.id) ?? PackageIcon;
+  const brand = getAgentIcon(row.id.split("/").at(-1) ?? row.id);
   const src = row.icon_url;
-  if (!src) return Fallback;
+  if (brand || !src) return brand ?? PackageIcon;
   return function PackageImage({ className }) {
     const [failed, setFailed] = useState(false);
     return failed ? (
-      <Fallback className={className} />
+      <PackageIcon className={className} />
     ) : (
       <img
         src={src}

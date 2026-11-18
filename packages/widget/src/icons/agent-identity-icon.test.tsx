@@ -53,3 +53,17 @@ it("keeps the initials when the icon is not served", () => {
   expect(screen.getByText("TR")).toBeInTheDocument();
   expect(container.querySelector("img")).toBeNull();
 });
+
+it("prefers Aomi's curated artwork to the package's own icon", () => {
+  stubImages();
+  const { container } = render(
+    <AgentIdentityIcon
+      brandId="defillama"
+      name="defillama"
+      imageUrl="/api/packages/aomi%2Fdefillama/icon"
+    />,
+  );
+  expect(images).toHaveLength(0);
+  expect(container.querySelector("img")).toBeNull();
+  expect(container.querySelector("svg")).not.toBeNull();
+});

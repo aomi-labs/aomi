@@ -313,14 +313,29 @@ describe("packagePickerItems", () => {
     ]);
   });
 
-  it("draws the package's own icon", () => {
-    const [{ Icon }] = packagePickerItems([
+  it("draws Aomi's brand mark, else the package's own icon", () => {
+    const [brand, own] = packagePickerItems([
       pkg({ icon_url: "https://example.test/llama.png" }),
-    ]) as unknown as [{ Icon: FC<{ className?: string }> }];
-    const { container } = render(<Icon className="size-3.5" />);
-    expect(container.querySelector("img")?.getAttribute("src")).toBe(
-      "https://example.test/llama.png",
-    );
+      pkg({
+        package_id: 2,
+        id: "acme/feed",
+        display_name: "Feed",
+        icon_url: "https://example.test/feed.png",
+      }),
+    ]) as unknown as [
+      { Icon: FC<{ className?: string }> },
+      { Icon: FC<{ className?: string }> },
+    ];
+    expect(
+      render(<brand.Icon className="size-3.5" />).container.querySelector(
+        "img",
+      ),
+    ).toBeNull();
+    expect(
+      render(<own.Icon className="size-3.5" />)
+        .container.querySelector("img")
+        ?.getAttribute("src"),
+    ).toBe("https://example.test/feed.png");
   });
 
   it.each(["defillama", "aomi/def", "yields", "llama-yields", "pool"])(
