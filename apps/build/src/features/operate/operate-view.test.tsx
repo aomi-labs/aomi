@@ -213,7 +213,7 @@ describe("OperateView transactions", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("Outstanding").nextElementSibling).toHaveClass(
-      "text-amber-500",
+      "text-aomi-warning",
     );
     // Lifecycle footer.
     expect(
@@ -509,7 +509,7 @@ describe("OperateView transactions", () => {
     expect(screen.getByText("Current outstanding")).toBeInTheDocument();
     expect(
       screen.getByText("Current outstanding").nextElementSibling,
-    ).toHaveClass("text-emerald-500");
+    ).toHaveClass("text-aomi-success");
     expect(
       screen.getByText("all periods · recipient bucket"),
     ).toBeInTheDocument();

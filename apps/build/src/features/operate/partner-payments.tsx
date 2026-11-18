@@ -53,8 +53,8 @@ function SummaryTiles({
       sub: "all periods · recipient bucket",
       valueClass:
         Number(summary.outstandingUsd ?? 0) > 0
-          ? "text-amber-500"
-          : "text-emerald-500",
+          ? "text-aomi-warning"
+          : "text-aomi-success",
     },
   ];
   return (
@@ -62,13 +62,13 @@ function SummaryTiles({
       {tiles.map((tile) => (
         <div
           key={tile.label}
-          className="border-border bg-surface rounded-md border px-3 py-2.5"
+          className="border-border bg-surface rounded-control border px-3 py-2.5"
         >
-          <div className="text-dim text-xs">{tile.label}</div>
+          <div className="text-aomi-muted text-xs">{tile.label}</div>
           <div className={`text-lg font-semibold ${tile.valueClass}`}>
             {tile.value}
           </div>
-          <div className="text-dim text-xs">{tile.sub}</div>
+          <div className="text-aomi-muted text-xs">{tile.sub}</div>
         </div>
       ))}
     </div>
@@ -93,11 +93,11 @@ function ConfiguredPrices({ resources }: { resources: Row[] }) {
               <tr key={`${resource.agentId}-${resource.tool}-${index}`}>
                 <td className={TD}>
                   <div className="font-mono text-xs">{resource.tool}</div>
-                  <div className="text-dim text-xs">{resource.agent}</div>
+                  <div className="text-aomi-muted text-xs">{resource.agent}</div>
                 </td>
                 <td className={`${TD} whitespace-nowrap font-mono text-xs`}>
                   {Number(resource.flatCredits ?? 0).toFixed(2)} credits
-                  <div className="text-dim">
+                  <div className="text-aomi-muted">
                     {usdLabel(resource.flatUsd)} / success
                   </div>
                 </td>
@@ -108,7 +108,7 @@ function ConfiguredPrices({ resources }: { resources: Row[] }) {
                   >
                     {truncateAddress(resource.recipient)}
                   </div>
-                  <div className="text-dim text-xs">
+                  <div className="text-aomi-muted text-xs">
                     {caipChainLabel(resource.chain)}
                   </div>
                 </td>
@@ -140,18 +140,18 @@ function PaymentActivity({ events }: { events: Row[] }) {
           <tbody className="divide-border divide-y">
             {events.map((event) => (
               <tr key={event.id}>
-                <td className={`${TD} text-dim whitespace-nowrap text-xs`}>
+                <td className={`${TD} text-aomi-muted whitespace-nowrap text-xs`}>
                   {secondsLabel(event.occurredAt)}
                 </td>
                 <td className={TD}>
                   <div className="text-xs">{eventLabel(event)}</div>
-                  <div className="text-dim text-xs">
+                  <div className="text-aomi-muted text-xs">
                     {event.agent ?? truncateAddress(event.recipient)}
                   </div>
                 </td>
                 <td className={`${TD} whitespace-nowrap font-mono text-xs`}>
                   {usdLabel(event.usd)}
-                  <div className="text-dim">
+                  <div className="text-aomi-muted">
                     {Number(event.credits ?? 0).toFixed(2)} credits
                   </div>
                 </td>
@@ -164,7 +164,7 @@ function PaymentActivity({ events }: { events: Row[] }) {
               <tr>
                 <td
                   colSpan={4}
-                  className="text-dim px-3 py-6 text-center text-xs"
+                  className="text-aomi-muted px-3 py-6 text-center text-xs"
                 >
                   Pricing is live. Payment activity appears after a successful
                   priced call.
@@ -214,10 +214,10 @@ export function PartnerPayments({
             Partner payments
           </div>
           {period ? (
-            <div className="text-dim text-xs">Statement · {period}</div>
+            <div className="text-aomi-muted text-xs">Statement · {period}</div>
           ) : null}
         </div>
-        <p className="text-dim mt-1 text-xs leading-5">
+        <p className="text-aomi-muted mt-1 text-xs leading-5">
           Partner payments are liabilities owed to tool beneficiaries, not
           builder revenue. Settlements are reconciled at recipient-bucket scope
           because one receipt can clear fees from more than one agent. Accrued

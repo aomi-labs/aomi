@@ -157,7 +157,7 @@ function channelsUrl(extra: Record<string, string> = {}): string {
 // ── shared glyphs (recipes shared with providers-view.tsx) ──────────────────
 
 const TH =
-  "px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.07em] text-dim";
+  "px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.07em] text-aomi-muted";
 
 function RadioGlyph({
   checked,
@@ -171,12 +171,12 @@ function RadioGlyph({
       aria-hidden
       className={cn(
         "flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors",
-        checked ? "border-accent-selected" : "border-border-hover",
+        checked ? "border-aomi-accent" : "border-aomi-muted/60",
         disabled && "opacity-40",
       )}
     >
       {checked ? (
-        <span className="bg-accent-selected size-2 rounded-full" />
+        <span className="bg-aomi-accent size-2 rounded-full" />
       ) : null}
     </span>
   );
@@ -198,7 +198,7 @@ function AgentTable({
   disabled?: boolean;
 }) {
   return (
-    <div className="border-border bg-surface-1 overflow-hidden rounded-sm border">
+    <div className="border-border bg-aomi-raised overflow-hidden rounded-md border">
       <table className="w-full table-fixed text-[13px]">
         <thead className="border-border border-b">
           <tr>
@@ -214,8 +214,8 @@ function AgentTable({
               className={cn(
                 "transition-colors",
                 agentId === agent.agentId
-                  ? "bg-accent"
-                  : "hover:bg-surface-2/60",
+                  ? "bg-aomi-accent-subtle"
+                  : "hover:bg-aomi-surface-2/60",
               )}
             >
               <td className="px-3 py-2.5">
@@ -235,13 +235,13 @@ function AgentTable({
               <td className="text-foreground truncate px-3 py-2.5">
                 {agent.name}
               </td>
-              <td className="text-dim truncate px-3 py-2.5 font-mono text-xs">
+              <td className="text-aomi-muted truncate px-3 py-2.5 font-mono text-xs">
                 {agent.projectLabel}
               </td>
             </tr>
           ))}
           {ghost ? (
-            <tr className="text-dim">
+            <tr className="text-aomi-muted">
               <td />
               <td className="px-3 py-2.5">{ghost.displayName}</td>
               <td>no longer available</td>
@@ -249,7 +249,7 @@ function AgentTable({
           ) : null}
           {!options.length && !ghost ? (
             <tr>
-              <td colSpan={3} className="text-dim px-3 py-6 text-center">
+              <td colSpan={3} className="text-aomi-muted px-3 py-6 text-center">
                 No deployed agents available for this account.
               </td>
             </tr>
@@ -273,7 +273,7 @@ function ProviderRail({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="border-accent-selected/40 bg-surface-1 flex items-center gap-2 rounded-full border px-4 py-2">
+      <div className="border-aomi-accent/40 bg-aomi-raised flex items-center gap-2 rounded-full border px-4 py-2">
         <svg
           viewBox="0 0 24 24"
           className="size-4 text-[#2AABEE]"
@@ -285,11 +285,11 @@ function ProviderRail({
         <span className="text-foreground text-[13px] font-medium">
           Telegram
         </span>
-        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+        <span className="rounded-full bg-aomi-success/10 px-2 py-0.5 text-[10px] font-medium text-aomi-success dark:text-aomi-success">
           {channelCount} {channelCount === 1 ? "channel" : "channels"}
         </span>
       </div>
-      <div className="border-border bg-surface-1 flex items-center gap-2 rounded-full border px-4 py-2 opacity-55">
+      <div className="border-border bg-aomi-raised flex items-center gap-2 rounded-full border px-4 py-2 opacity-55">
         <svg
           viewBox="0 0 24 24"
           className="size-4 text-[#5865F2]"
@@ -299,11 +299,11 @@ function ProviderRail({
           <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.058a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03Z" />
         </svg>
         <span className="text-[13px]">Discord</span>
-        <span className="border-border text-dim rounded-full border px-2 py-0.5 text-[10px] font-medium">
+        <span className="border-border text-aomi-muted rounded-full border px-2 py-0.5 text-[10px] font-medium">
           Soon
         </span>
       </div>
-      <div className="border-border bg-surface-1 flex items-center gap-2 rounded-full border px-4 py-2 opacity-55">
+      <div className="border-border bg-aomi-raised flex items-center gap-2 rounded-full border px-4 py-2 opacity-55">
         <svg viewBox="0 0 24 24" className="size-4" aria-hidden>
           <path
             fill="#E01E5A"
@@ -323,7 +323,7 @@ function ProviderRail({
           />
         </svg>
         <span className="text-[13px]">Slack</span>
-        <span className="border-border text-dim rounded-full border px-2 py-0.5 text-[10px] font-medium">
+        <span className="border-border text-aomi-muted rounded-full border px-2 py-0.5 text-[10px] font-medium">
           Soon
         </span>
       </div>
@@ -363,7 +363,7 @@ function ChannelCommandFields({
     help: string,
   ) => (
     <div className="space-y-2 text-xs">
-      <label htmlFor={`${id}-${key}`} className="text-dim block text-[13px]">
+      <label htmlFor={`${id}-${key}`} className="text-aomi-muted block text-[13px]">
         {label}
       </label>
       <input
@@ -373,9 +373,9 @@ function ChannelCommandFields({
         value={draft[key]}
         disabled={disabled}
         onChange={(event) => onChange({ ...draft, [key]: event.target.value })}
-        className="border-border bg-surface text-foreground h-9 w-full rounded-md border px-3 text-xs"
+        className="border-border bg-surface text-foreground h-9 w-full rounded-control border px-3 text-xs"
       />
-      <p className="text-dim text-[11px]">{help}</p>
+      <p className="text-aomi-muted text-[11px]">{help}</p>
     </div>
   );
   return (
@@ -408,7 +408,7 @@ function ChannelCommandFields({
       </div>
       {commandList(draft.commands).length > 0 &&
       !draft.commandEndpoint.trim() ? (
-        <p className="text-warning text-xs">
+        <p className="text-aomi-warning text-xs">
           Custom commands need a command endpoint.
         </p>
       ) : null}
@@ -424,8 +424,8 @@ function StatusPill({ status }: { status: string }) {
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium",
         active
-          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-          : "border-border text-dim border",
+          ? "bg-aomi-success/10 text-aomi-success dark:text-aomi-success"
+          : "border-border text-aomi-muted border",
       )}
     >
       {active ? <Check className="size-3" aria-hidden /> : null}
@@ -498,12 +498,12 @@ function ChannelCard({
   return (
     <div
       className={cn(
-        "border-border bg-surface-1 rounded-md border",
-        editing && "border-border-hover",
+        "border-border bg-aomi-raised rounded-control border",
+        editing && "border-aomi-muted/60",
       )}
     >
       <div className="flex flex-wrap items-center gap-4 px-5 py-5">
-        <div className="bg-accent text-accent-selected flex size-9 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold">
+        <div className="bg-aomi-accent-subtle text-aomi-accent flex size-9 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold">
           {monogram(channel)}
         </div>
         <div className="min-w-0 space-y-1.5">
@@ -512,22 +512,22 @@ function ChannelCard({
               {displayName}
             </span>
             {channel.label && channel.platformUsername ? (
-              <span className="text-dim text-xs">
+              <span className="text-aomi-muted text-xs">
                 @{channel.platformUsername}
               </span>
             ) : null}
             <StatusPill status={channel.status} />
           </div>
-          <div className="text-dim font-mono text-[11px]">
+          <div className="text-aomi-muted font-mono text-[11px]">
             {maskedToken(channel)}
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2.5">
-          <span className="text-dim text-xs">
+          <span className="text-aomi-muted text-xs">
             {threadModeLabel(channel.threadMode)}
           </span>
           {editing ? (
-            <span className="text-accent-selected text-xs font-medium">
+            <span className="text-aomi-accent text-xs font-medium">
               Editing
             </span>
           ) : (
@@ -536,7 +536,7 @@ function ChannelCard({
                 type="button"
                 onClick={onBeginEdit}
                 disabled={removing}
-                className="border-border hover:bg-accent-hover text-foreground h-8 rounded-full border px-3.5 text-xs font-medium disabled:opacity-50"
+                className="border-border hover:bg-aomi-hover text-foreground h-8 rounded-full border px-3.5 text-xs font-medium disabled:opacity-50"
               >
                 Change agent
               </button>
@@ -545,7 +545,7 @@ function ChannelCard({
                 onClick={onRemove}
                 disabled={removing}
                 aria-label={`Remove ${displayName}`}
-                className="border-border hover:bg-accent-hover text-dim flex size-8 items-center justify-center rounded-full border disabled:opacity-50"
+                className="border-border hover:bg-aomi-hover text-aomi-muted flex size-8 items-center justify-center rounded-full border disabled:opacity-50"
               >
                 <Trash2 className="size-3.5" aria-hidden />
               </button>
@@ -604,7 +604,7 @@ function ChannelCard({
                       })
                       .finally(() => setRevealing(false));
                   }}
-                  className="border-border hover:bg-accent-hover text-foreground h-8 rounded-full border px-3.5 text-xs font-medium disabled:opacity-50"
+                  className="border-border hover:bg-aomi-hover text-foreground h-8 rounded-full border px-3.5 text-xs font-medium disabled:opacity-50"
                 >
                   {revealing ? "Revealing..." : "Reveal command secret"}
                 </button>
@@ -615,10 +615,10 @@ function ChannelCard({
                     value={secret}
                     aria-label="Command secret"
                     onFocus={(event) => event.currentTarget.select()}
-                    className="border-border bg-surface text-foreground h-8 min-w-0 flex-1 rounded-md border px-3 font-mono text-xs"
+                    className="border-border bg-surface text-foreground h-8 min-w-0 flex-1 rounded-control border px-3 font-mono text-xs"
                   />
                 ) : (
-                  <span className="text-dim text-[11px]">
+                  <span className="text-aomi-muted text-[11px]">
                     Signs every command request as x-aomi-signature.
                   </span>
                 )}
@@ -626,7 +626,7 @@ function ChannelCard({
             </ChannelCommandFields>
           </div>
           <div className="mt-6 flex items-center justify-between gap-4">
-            <span className="text-dim text-xs">One agent per channel</span>
+            <span className="text-aomi-muted text-xs">One agent per channel</span>
             <div className="flex items-center gap-3">
               {error ? (
                 <span className="text-danger text-xs">{error}</span>
@@ -642,7 +642,7 @@ function ChannelCard({
                   setError(null);
                   onCancel();
                 }}
-                className="border-border hover:bg-accent-hover text-foreground h-8 rounded-full border px-3.5 text-xs font-medium disabled:opacity-50"
+                className="border-border hover:bg-aomi-hover text-foreground h-8 rounded-full border px-3.5 text-xs font-medium disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -667,7 +667,7 @@ function ChannelCard({
                     })
                     .finally(() => setSaving(false));
                 }}
-                className="bg-foreground text-background disabled:bg-surface-3 disabled:text-dim h-8 rounded-full px-4 text-xs font-medium disabled:cursor-not-allowed"
+                className="bg-foreground text-background disabled:bg-aomi-overlay-border disabled:text-aomi-muted h-8 rounded-full px-4 text-xs font-medium disabled:cursor-not-allowed"
               >
                 {saving ? "Saving..." : "Save"}
               </button>
@@ -676,14 +676,14 @@ function ChannelCard({
         </div>
       ) : (
         <div className="border-border flex flex-wrap gap-2 border-t px-5 py-3.5">
-          <span className="border-accent-selected/40 bg-accent text-accent-selected inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
+          <span className="border-aomi-accent/40 bg-aomi-accent-subtle text-aomi-accent inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
             {channel.agent.displayName}
             {channel.agent.projectLabel ? (
               <span className="opacity-60">· {channel.agent.projectLabel}</span>
             ) : null}
           </span>
           <span
-            className="text-dim w-full truncate pt-1 font-mono text-[11px]"
+            className="text-aomi-muted w-full truncate pt-1 font-mono text-[11px]"
             data-testid="channel-command-summary"
           >
             Mini App:{" "}
@@ -727,7 +727,7 @@ function ChannelCard({
                     })
                     .finally(() => setChecking(false));
                 }}
-                className="border-border hover:bg-accent-hover text-foreground h-7 rounded-full border px-3 text-[11px] font-medium disabled:opacity-50"
+                className="border-border hover:bg-aomi-hover text-foreground h-7 rounded-full border px-3 text-[11px] font-medium disabled:opacity-50"
               >
                 {checking ? "Checking..." : "Check webhook"}
               </button>
@@ -736,7 +736,7 @@ function ChannelCard({
                   className={cn(
                     "text-[11px]",
                     webhook.urlMatches || webhook.reasserted
-                      ? "text-dim"
+                      ? "text-aomi-muted"
                       : "text-danger",
                   )}
                   data-testid="channel-webhook-status"
@@ -752,7 +752,7 @@ function ChannelCard({
                     : ""}
                 </span>
               ) : warning ? (
-                <span className="text-warning text-[11px]">
+                <span className="text-aomi-warning text-[11px]">
                   Saved, but the webhook was not re-asserted: {warning}
                 </span>
               ) : null}
@@ -800,37 +800,37 @@ function AddChannelCard({
       commandDraft.commandEndpoint.trim().length > 0);
 
   return (
-    <div className="border-border-hover bg-surface-1 rounded-md border">
+    <div className="border-aomi-muted/60 bg-aomi-raised rounded-control border">
       <div className="border-border border-b p-5">
         <h2 className="text-foreground text-sm font-medium">
           Add a Telegram bot
         </h2>
-        <p className="text-dim mt-1 text-xs">
+        <p className="text-aomi-muted mt-1 text-xs">
           Paste the token from BotFather and pick the agent this bot serves.
         </p>
       </div>
       <div className="space-y-5 p-5">
         <div className="grid gap-5 md:grid-cols-2">
           <label className="block space-y-2 text-xs">
-            <span className="text-dim block text-[13px]">Bot token</span>
+            <span className="text-aomi-muted block text-[13px]">Bot token</span>
             <input
               type="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}
               placeholder="Paste BotFather token"
               disabled={busy}
-              className="border-border bg-surface text-foreground h-9 w-full rounded-md border px-3 text-xs"
+              className="border-border bg-surface text-foreground h-9 w-full rounded-control border px-3 text-xs"
             />
           </label>
           <label className="block space-y-2 text-xs">
-            <span className="text-dim block text-[13px]">Label (optional)</span>
+            <span className="text-aomi-muted block text-[13px]">Label (optional)</span>
             <input
               type="text"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="Trading assistant"
               disabled={busy}
-              className="border-border bg-surface text-foreground h-9 w-full rounded-md border px-3 text-xs"
+              className="border-border bg-surface text-foreground h-9 w-full rounded-control border px-3 text-xs"
             />
           </label>
         </div>
@@ -861,7 +861,7 @@ function AddChannelCard({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="border-border hover:bg-accent-hover text-foreground h-8 rounded-full border px-3.5 text-xs font-medium disabled:opacity-50"
+            className="border-border hover:bg-aomi-hover text-foreground h-8 rounded-full border px-3.5 text-xs font-medium disabled:opacity-50"
           >
             Cancel
           </button>
@@ -889,7 +889,7 @@ function AddChannelCard({
                 })
                 .finally(() => setBusy(false));
             }}
-            className="bg-foreground text-background disabled:bg-surface-3 disabled:text-dim h-8 rounded-full px-4 text-xs font-medium disabled:cursor-not-allowed"
+            className="bg-foreground text-background disabled:bg-aomi-overlay-border disabled:text-aomi-muted h-8 rounded-full px-4 text-xs font-medium disabled:cursor-not-allowed"
           >
             {busy ? "Registering..." : "Register channel"}
           </button>
@@ -1073,7 +1073,7 @@ export function ChannelsView() {
       <TelegramHowItWorks />
 
       {removeError ? (
-        <div className="border-danger/30 bg-danger/5 text-danger rounded-md border px-3 py-2 text-sm">
+        <div className="border-danger/30 bg-danger/5 text-danger rounded-control border px-3 py-2 text-sm">
           {removeError}
         </div>
       ) : null}
@@ -1087,11 +1087,11 @@ export function ChannelsView() {
       ) : null}
 
       {loading ? (
-        <div className="border-border bg-surface-1 text-dim rounded-md border px-4 py-14 text-center text-sm">
+        <div className="border-border bg-aomi-raised text-aomi-muted rounded-control border px-4 py-14 text-center text-sm">
           Loading channels...
         </div>
       ) : queryError ? (
-        <div className="border-danger/30 bg-danger/5 text-danger rounded-md border px-4 py-3 text-sm">
+        <div className="border-danger/30 bg-danger/5 text-danger rounded-control border px-4 py-3 text-sm">
           {queryError}
         </div>
       ) : (
@@ -1123,7 +1123,7 @@ export function ChannelsView() {
             />
           ))}
           {channels.length === 0 && !adding ? (
-            <div className="border-border bg-surface-1 text-dim rounded-md border px-4 py-14 text-center text-sm">
+            <div className="border-border bg-aomi-raised text-aomi-muted rounded-control border px-4 py-14 text-center text-sm">
               No Telegram bots yet. Add one to start receiving messages.
             </div>
           ) : null}

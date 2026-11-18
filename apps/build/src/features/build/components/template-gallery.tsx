@@ -23,7 +23,7 @@ function TemplateCard({
     <button
       type="button"
       onClick={() => onSelect(template)}
-      className="panel-row hover:border-border-hover hover:bg-accent-hover/40 text-left transition-colors"
+      className="panel-row hover:border-aomi-muted/60 hover:bg-aomi-hover/40 text-left transition-colors"
     >
       <p
         className={cn(
@@ -35,7 +35,7 @@ function TemplateCard({
       </p>
       <p
         className={cn(
-          "text-subtle mt-0.5 line-clamp-2 leading-4",
+          "text-aomi-muted mt-0.5 line-clamp-2 leading-4",
           dense ? "text-[10px]" : "text-[11px]",
         )}
       >
@@ -82,8 +82,8 @@ export function TemplateGallery({ templates, onSelect }: TemplateGalleryProps) {
 
   return (
     <div className="mt-5 w-full">
-      <div className="text-subtle mb-2.5 flex items-center gap-2 text-[12px] font-medium">
-        <LayoutTemplate className="text-dim size-3.5" />
+      <div className="text-aomi-muted mb-2.5 flex items-center gap-2 text-[12px] font-medium">
+        <LayoutTemplate className="text-aomi-muted size-3.5" />
         Start from a template
       </div>
 
@@ -102,7 +102,7 @@ export function TemplateGallery({ templates, onSelect }: TemplateGalleryProps) {
           <button
             type="button"
             onClick={() => setBrowseOpen(true)}
-            className="text-dim hover:text-foreground inline-flex items-center gap-1 px-1 text-[11px] transition-colors"
+            className="text-aomi-muted hover:text-foreground inline-flex items-center gap-1 px-1 text-[11px] transition-colors"
           >
             Browse all ({templates.length})
           </button>
@@ -113,7 +113,7 @@ export function TemplateGallery({ templates, onSelect }: TemplateGalleryProps) {
         <div className="fixed inset-0 z-50 flex justify-end">
           <button
             type="button"
-            className="absolute inset-0 bg-[var(--aomi-overlay)]"
+            className="absolute inset-0 bg-black/20"
             aria-label="Close templates"
             onClick={() => setBrowseOpen(false)}
           />
@@ -121,21 +121,21 @@ export function TemplateGallery({ templates, onSelect }: TemplateGalleryProps) {
             role="dialog"
             aria-modal="true"
             aria-label="All templates"
-            className="border-border bg-background relative flex h-full w-full max-w-md flex-col border-l shadow-lg sm:max-w-lg"
+            className="border-border bg-background relative flex h-full w-full max-w-md flex-col border-l shadow-popover sm:max-w-lg"
           >
             <div className="border-border flex items-center justify-between gap-3 border-b px-4 py-3">
               <div>
                 <p className="text-foreground text-[13px] font-medium">
                   All templates
                 </p>
-                <p className="text-dim text-[11px]">
+                <p className="text-aomi-muted text-[11px]">
                   Pick one to seed the composer
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setBrowseOpen(false)}
-                className="text-dim hover:text-foreground inline-flex size-8 items-center justify-center rounded-md"
+                className="text-aomi-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-control"
                 aria-label="Close"
               >
                 <X className="size-4" />

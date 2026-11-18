@@ -154,7 +154,7 @@ export function CommandPalette() {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-[var(--aomi-overlay)] px-4 pt-[12vh]">
+    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-black/20 px-4 pt-[12vh]">
       <button
         type="button"
         className="absolute inset-0 cursor-default"
@@ -164,7 +164,7 @@ export function CommandPalette() {
       <div
         role="dialog"
         aria-label="Command palette"
-        className="border-border bg-surface-1 relative z-10 w-full max-w-lg overflow-hidden rounded-lg border shadow-xl"
+        className="border-border bg-aomi-raised relative z-10 w-full max-w-lg overflow-hidden rounded-card border shadow-modal"
       >
         <div className="border-border border-b px-3 py-2">
           <input
@@ -187,12 +187,12 @@ export function CommandPalette() {
               }
             }}
             placeholder="Jump to packages, agents, keys…"
-            className="text-foreground placeholder:text-dim h-9 w-full bg-transparent text-sm outline-none"
+            className="text-foreground placeholder:text-aomi-muted h-9 w-full bg-transparent text-sm outline-none"
           />
         </div>
         <ul className="max-h-80 overflow-y-auto p-1" role="listbox">
           {filtered.length === 0 ? (
-            <li className="text-dim px-3 py-6 text-center text-sm">
+            <li className="text-aomi-muted px-3 py-6 text-center text-sm">
               No matches.
             </li>
           ) : (
@@ -205,18 +205,18 @@ export function CommandPalette() {
                     type="button"
                     onMouseEnter={() => setActive(index)}
                     onClick={() => run(item.href)}
-                    className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm ${
+                    className={`flex w-full items-center gap-3 rounded-control px-3 py-2 text-left text-sm ${
                       selected
-                        ? "bg-accent-hover text-foreground"
-                        : "text-foreground hover:bg-accent-hover"
+                        ? "bg-aomi-hover text-foreground"
+                        : "text-foreground hover:bg-aomi-hover"
                     }`}
                   >
-                    <Icon className="text-dim size-4 shrink-0" />
+                    <Icon className="text-aomi-muted size-4 shrink-0" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">
                         {item.label}
                       </span>
-                      <span className="text-dim block truncate text-xs">
+                      <span className="text-aomi-muted block truncate text-xs">
                         {item.hint}
                       </span>
                     </span>
@@ -226,7 +226,7 @@ export function CommandPalette() {
             })
           )}
         </ul>
-        <div className="border-border text-dim border-t px-3 py-2 text-[11px]">
+        <div className="border-border text-aomi-muted border-t px-3 py-2 text-[11px]">
           ↑↓ to move · Enter to open · Esc to close
         </div>
       </div>

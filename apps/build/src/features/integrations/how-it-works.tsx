@@ -27,12 +27,12 @@ function BotFatherGuide({ commands }: { commands: string }) {
   const [copied, setCopied] = useState(false);
 
   const incoming =
-    "w-fit max-w-[80%] rounded-2xl rounded-bl-md bg-[#182533] px-3.5 py-2 text-[#f5f5f5]";
+    "w-fit max-w-[80%] rounded-shell rounded-bl-control bg-[#182533] px-3.5 py-2 text-[#f5f5f5]";
   const outgoing =
-    "ml-auto w-fit max-w-[80%] rounded-2xl rounded-br-md bg-[#2b5278] px-3.5 py-2 text-[#f5f5f5]";
+    "ml-auto w-fit max-w-[80%] rounded-shell rounded-br-control bg-[#2b5278] px-3.5 py-2 text-[#f5f5f5]";
 
   return (
-    <div className="overflow-hidden rounded-md bg-[#0e1621] text-xs">
+    <div className="overflow-hidden rounded-control bg-[#0e1621] text-xs">
       <div className="flex items-center gap-3 bg-[#17212b] px-4 py-2.5">
         <span className="flex size-8 items-center justify-center rounded-full bg-[#3390ec]">
           <Bot className="size-4.5 text-white" aria-hidden />
@@ -127,14 +127,14 @@ export function TelegramHowItWorks() {
           <ol className="space-y-5">
             {steps.map((step, index) => (
               <li key={index} className="flex gap-3">
-                <span className="bg-accent text-accent-selected flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold">
+                <span className="bg-aomi-accent-subtle text-aomi-accent flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold">
                   {index + 1}
                 </span>
                 <div className="space-y-1 pt-0.5">
                   <div className="text-foreground text-[13px] font-medium">
                     {step.title}
                   </div>
-                  <p className="text-dim text-xs leading-5">{step.body}</p>
+                  <p className="text-aomi-muted text-xs leading-5">{step.body}</p>
                 </div>
               </li>
             ))}

@@ -31,11 +31,11 @@ export default function DevIndexPage() {
     <main className="bg-background min-h-screen">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-10">
         <div className="space-y-3">
-          <p className="text-dim text-[12px] uppercase tracking-wide">Dev</p>
+          <p className="text-aomi-muted text-[12px] uppercase tracking-wide">Dev</p>
           <h1 className="font-display text-foreground text-2xl font-normal tracking-tight">
             Feature harnesses
           </h1>
-          <p className="text-subtle max-w-2xl text-sm">
+          <p className="text-aomi-muted max-w-2xl text-sm">
             Fixture-driven previews of real pages — no GitHub session or backend
             needed. Not linked from the product shell.
           </p>
@@ -45,25 +45,25 @@ export default function DevIndexPage() {
             <Link
               key={harness.href}
               href={harness.href}
-              className="border-border bg-surface-1 hover:border-border-hover rounded-md border px-5 py-4 transition-colors"
+              className="border-border bg-aomi-raised hover:border-aomi-muted/60 rounded-control border px-5 py-4 transition-colors"
             >
               <div className="text-foreground text-sm font-medium">
                 {harness.name}
               </div>
-              <p className="text-dim mt-1 text-xs leading-5">
+              <p className="text-aomi-muted mt-1 text-xs leading-5">
                 {harness.description}
               </p>
-              <p className="text-dim mt-2 font-mono text-[11px]">
+              <p className="text-aomi-muted mt-2 font-mono text-[11px]">
                 {harness.href}
               </p>
             </Link>
           ))}
         </div>
         <div className="space-y-2">
-          <p className="text-dim text-[10px] font-semibold uppercase tracking-[0.07em]">
+          <p className="text-aomi-muted text-[10px] font-semibold uppercase tracking-[0.07em]">
             Naming
           </p>
-          <dl className="text-dim space-y-1 text-xs leading-5">
+          <dl className="text-aomi-muted space-y-1 text-xs leading-5">
             <div className="flex gap-2">
               <dt className="text-foreground w-36 shrink-0 font-mono text-[11px]">
                 &lt;feature&gt;-preview

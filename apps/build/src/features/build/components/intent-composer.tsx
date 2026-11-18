@@ -127,7 +127,7 @@ export const IntentComposer = forwardRef<
           placeholder={isLoading ? "Building… Esc to stop" : placeholder}
           rows={compact ? 2 : 3}
           className={cn(
-            "text-foreground placeholder:text-dim w-full resize-none bg-transparent text-[14px] leading-relaxed outline-none disabled:opacity-50",
+            "text-foreground placeholder:text-aomi-muted w-full resize-none bg-transparent text-[14px] leading-relaxed outline-none disabled:opacity-50",
             compact ? "min-h-[48px]" : "min-h-[72px]",
           )}
         />
@@ -148,7 +148,7 @@ export const IntentComposer = forwardRef<
             <button
               type="button"
               onClick={onStop}
-              className="border-border bg-surface-2 text-foreground hover:bg-accent/50 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-all duration-150"
+              className="border-border bg-aomi-surface-2 text-foreground hover:bg-aomi-accent-subtle/50 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-all duration-150"
               aria-label="Stop generation"
               title="Stop (Esc)"
             >
@@ -162,8 +162,8 @@ export const IntentComposer = forwardRef<
               className={cn(
                 "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-150",
                 canSend
-                  ? "bg-primary text-primary-foreground hover:bg-brand-hover shadow-sm hover:scale-[1.03]"
-                  : "bg-surface-3 text-dim",
+                  ? "bg-aomi-fg text-aomi-bg hover:bg-aomi-fg/90 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:scale-[1.03]"
+                  : "bg-aomi-overlay-border text-aomi-muted",
               )}
               aria-label="Send message"
             >
@@ -188,7 +188,7 @@ export const IntentComposer = forwardRef<
             >
               {pill.label}
               {pill.hint ? (
-                <span className="text-dim text-[11px]">{pill.hint}</span>
+                <span className="text-aomi-muted text-[11px]">{pill.hint}</span>
               ) : null}
             </button>
           ))}
@@ -196,7 +196,7 @@ export const IntentComposer = forwardRef<
       ) : null}
 
       {footerHint ? (
-        <p className="text-dim mt-2.5 text-center text-[11px] leading-relaxed">
+        <p className="text-aomi-muted mt-2.5 text-center text-[11px] leading-relaxed">
           {footerHint}
         </p>
       ) : null}

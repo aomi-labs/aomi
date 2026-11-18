@@ -51,7 +51,7 @@ export function GitHubSignInPanel({ error }: { error?: string | null }) {
         </div>
       </div>
       {errorMessage && (
-        <div className="border-warning/40 bg-warning/10 text-warning max-w-xl rounded-md border px-3 py-2 text-left text-sm leading-6">
+        <div className="border-aomi-warning/40 bg-aomi-warning/10 text-aomi-warning max-w-xl rounded-control border px-3 py-2 text-left text-sm leading-6">
           {errorMessage}
         </div>
       )}

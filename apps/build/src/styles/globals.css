@@ -1,192 +1,17 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "./aomi-design-tokens.css";
-/* The Portal's theme: the shared `aomi-*` roles, radii and `type-*` scale. */
+/* The Portal's theme, as the Portal imports it: one set of `aomi-*` roles,
+   radii (`rounded-control/card/shell`), shadows and the `type-*` scale. */
 @import "../../../../packages/widget/src/themes/default.css";
-
-@custom-variant dark (&:is(.dark *));
-
-:root {
-  /* Aomi Build compatibility roles, backed by the shared design tokens. */
-  --background: var(--aomi-bg);
-  --surface-1: var(--aomi-raised);
-  --surface-2: var(--aomi-surface-2);
-  --surface-3: var(--aomi-border-strong);
-  --composer: var(--aomi-chat-composer-bg);
-  --composer-border: var(--aomi-border-strong);
-
-  --border: var(--aomi-border);
-  --border-hover: var(--aomi-border-strong);
-  --border-active: var(--aomi-accent-interactive);
-
-  --brand: var(--aomi-primary);
-  --brand-hover: var(--aomi-primary-hover);
-  --brand-dim: var(--aomi-primary-subtle);
-  --link: var(--aomi-info-500);
-
-  --text-primary: var(--aomi-text);
-  --text-subtle: var(--aomi-text-muted);
-  --text-dim: var(--aomi-text-subtle);
-  --text-muted: var(--aomi-text-muted);
-  --text-hint: var(--aomi-text-subtle);
-
-  --foreground: var(--aomi-text);
-  --card: var(--aomi-raised);
-  --card-foreground: var(--aomi-text);
-  --popover: var(--aomi-surface-raised);
-  --popover-foreground: var(--aomi-text);
-  --primary: var(--aomi-primary);
-  --primary-foreground: var(--aomi-text-on-brand);
-  --secondary: var(--aomi-primary-subtle);
-  --secondary-foreground: var(--aomi-text);
-  --muted: var(--aomi-bg-subtle);
-  --muted-foreground: var(--aomi-text-muted);
-  --accent: var(--aomi-accent-subtle);
-  /* Hover for rows/cards on plain surfaces; rail items sitting on the
-     cool-100 sidebar use --aomi-state-hover directly for a fuller step. */
-  --accent-hover: var(--aomi-primary-subtle);
-  --accent-selected: var(--aomi-accent-selected);
-  --accent-selected-foreground: var(--aomi-accent-selected-text);
-  --accent-foreground: var(--aomi-text);
-  --destructive: var(--aomi-danger-500);
-  --destructive-foreground: var(--aomi-cool-0);
-  --input: var(--aomi-raised);
-  --ring: var(--aomi-accent-interactive);
-  --chart-1: var(--aomi-pink-500);
-  --chart-2: var(--aomi-pink-300);
-  --chart-3: var(--aomi-sky-500);
-  --chart-4: var(--aomi-success-500);
-  --chart-5: var(--aomi-warning-500);
-  --sidebar: var(--aomi-surface);
-  --sidebar-foreground: var(--aomi-text);
-  --sidebar-primary: var(--aomi-raised);
-  --sidebar-primary-foreground: var(--aomi-text);
-  --sidebar-accent: var(--aomi-primary-subtle);
-  --sidebar-accent-foreground: var(--aomi-text);
-  --sidebar-border: var(--aomi-border);
-  --sidebar-ring: var(--aomi-accent-interactive);
-
-  --positive: var(--aomi-success-500);
-  --negative: var(--aomi-danger-500);
-  --warning: var(--aomi-warning-500);
-}
+@source "../../../../packages/widget/src/**/*.{ts,tsx}";
 
 @theme inline {
-  --font-sans: var(--aomi-font-sans);
-  --font-mono: var(--aomi-font-mono);
-  --font-display: var(--font-pt-serif), var(--aomi-font-display);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-accent-selected: var(--accent-selected);
-  /* Text/icon color that sits ON the solid accent fill. Without this the
-     `text-accent-selected-foreground` utility does not exist and labels on
-     accent buttons silently fall back to the body ink. */
-  --color-accent-selected-foreground: var(--accent-selected-foreground);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  /* Aomi design-system utilities — same names as the widget theme. */
-  --color-aomi-bg: var(--aomi-bg);
-  --color-aomi-surface: var(--aomi-surface);
-  --color-aomi-surface-2: var(--aomi-surface-2);
-  --color-aomi-raised: var(--aomi-raised);
-  --color-aomi-border: var(--aomi-border);
-  --color-aomi-fg: var(--aomi-fg);
-  --color-aomi-muted: var(--aomi-muted);
-  --color-aomi-accent: var(--aomi-accent-interactive);
-  --color-aomi-accent-strong: var(--aomi-accent-strong);
-  --color-aomi-accent-subtle: var(--aomi-accent-subtle);
-  --color-aomi-on-accent: var(--aomi-on-accent);
-  --color-aomi-hover: var(--aomi-hover);
-  --color-aomi-danger-strong: var(--aomi-danger-strong);
-  --color-aomi-on-danger: var(--aomi-on-danger);
-  --color-aomi-ring: var(--aomi-ring);
-  --color-aomi-accent-tint: var(--aomi-accent-tint);
-  --color-aomi-accent-outline: var(--aomi-accent-outline);
-  --color-aomi-overlay-border: var(--aomi-overlay-border);
-  --radius-sm: var(--aomi-radius-sm);
-  --radius-md: var(--aomi-radius-md);
-  --radius-lg: var(--aomi-radius-lg);
-  --radius-xl: var(--aomi-radius-xl);
-  --radius-2xl: var(--aomi-radius-2xl);
-  --radius-full: var(--aomi-radius-pill);
-  --shadow-sm: var(--aomi-shadow-sm);
-  --shadow-md: var(--aomi-shadow-md);
-  --shadow-lg: var(--aomi-shadow-lg);
-  --ease-standard: var(--aomi-ease-standard);
-  --ease-emphasized: var(--aomi-ease-emphasized);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-brand: var(--brand);
-  --color-brand-hover: var(--brand-hover);
-  --color-brand-dim: var(--brand-dim);
-  --color-link: var(--link);
-  --color-positive: var(--positive);
-  --color-negative: var(--negative);
-  --color-warning: var(--warning);
-  /* Route legacy Tailwind status utilities through Aomi semantic roles. */
-  --color-red-50: color-mix(in srgb, var(--negative) 10%, transparent);
-  --color-red-100: color-mix(in srgb, var(--negative) 20%, transparent);
-  --color-red-500: var(--negative);
-  --color-red-700: var(--negative);
-  --color-emerald-50: color-mix(in srgb, var(--positive) 10%, transparent);
-  --color-emerald-500: var(--positive);
-  --color-emerald-700: var(--positive);
-  --color-green-500: var(--positive);
-  --color-green-600: var(--positive);
-  --color-green-700: var(--positive);
-  --color-amber-50: color-mix(in srgb, var(--warning) 10%, transparent);
-  --color-amber-500: var(--warning);
-  --color-amber-600: var(--warning);
-  --color-amber-700: var(--warning);
-  --color-amber-800: var(--warning);
-  --color-amber-900: var(--warning);
-  --color-blue-500: var(--aomi-info-500);
-  --color-composer: var(--composer);
-  --color-composer-border: var(--composer-border);
-  --color-surface-1: var(--surface-1);
-  --color-surface-2: var(--surface-2);
-  --color-surface-3: var(--surface-3);
-  /* Text ladder — distinct from bg-secondary/bg-muted shadcn tokens */
-  --color-subtle: var(--text-subtle);
-  --color-dim: var(--text-dim);
-  --color-hint: var(--text-hint);
-  --color-border-hover: var(--border-hover);
+  --font-display: var(--font-pt-serif);
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family: var(--aomi-font-sans);
+    @apply bg-aomi-bg text-aomi-fg antialiased;
     font-size: 14px;
     line-height: 20px;
   }
@@ -196,38 +21,16 @@
   h4,
   h5,
   h6 {
-    @apply text-foreground font-medium;
+    @apply font-medium;
     line-height: 1.3;
   }
   html {
-    color-scheme: light;
     scroll-behavior: smooth;
-  }
-  html.dark {
-    color-scheme: dark;
-  }
-  html.light {
-    color-scheme: light;
   }
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
     }
-  }
-  button,
-  a,
-  [role="button"] {
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-  }
-  .skip-link {
-    @apply bg-background text-foreground absolute -top-10 left-4 z-50 rounded-md px-4 py-2;
-    scroll-margin-top: 2rem;
-  }
-  .skip-link:focus {
-    @apply top-4;
-  }
-  @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
@@ -236,36 +39,30 @@
       transition-duration: 0.01ms !important;
     }
   }
-}
+  button,
+  a,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--aomi-border-strong);
-  border-radius: var(--aomi-radius-sm);
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--aomi-text-subtle);
-}
-
-:focus-visible {
-  outline: 1px solid var(--ring);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-:focus:not(:focus-visible) {
-  outline: none;
-}
-/* The composer card already signals focus via :focus-within on its border,
-   so the field inside must not draw its own focus outline. */
-.composer-surface :focus-visible {
-  outline: none;
+  /* The Portal's scrollbar: a thumb with no track, shown on hover. */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 999px;
+  }
+  *:hover::-webkit-scrollbar-thumb,
+  *:focus-within::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--aomi-muted) 18%, transparent);
+  }
 }
 
 @keyframes fade-up {
@@ -279,140 +76,80 @@
   }
 }
 .animate-fade-up {
-  animation: fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: fade-up 0.4s var(--aomi-ease-out) both;
 }
 
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.animate-in {
-  animation: fade-in 0.15s ease forwards;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-fade-up,
-  .animate-in {
-    animation: none;
-  }
-}
-
-/* Shared surface utilities */
+/* Build's own surfaces, built only from the shared tokens. */
 .panel {
-  @apply border-border bg-card rounded-lg border;
+  @apply border-aomi-border bg-aomi-raised rounded-card border;
 }
 .panel-inset {
-  @apply border-border bg-surface-1 rounded-lg border;
+  @apply border-aomi-border bg-aomi-surface rounded-card border;
 }
 .panel-row {
-  @apply border-border bg-surface-1 rounded-md border px-3 py-2 transition-all duration-150;
+  @apply border-aomi-border bg-aomi-raised rounded-control border px-3 py-2 transition-colors duration-150;
 }
 .panel-row:hover {
-  background: var(--accent-hover);
-  border-color: var(--border-hover);
-}
-.panel-row:active {
-  background: var(--accent);
+  @apply bg-aomi-hover;
 }
 .composer-surface {
-  @apply bg-composer rounded-2xl border shadow-sm transition-all duration-150;
-  border-color: var(--composer-border);
+  @apply border-aomi-border bg-aomi-surface rounded-shell border transition-colors duration-150;
 }
 .composer-surface:focus-within {
-  border-color: var(--ring);
-  box-shadow: var(--aomi-shadow-sm);
+  @apply border-aomi-accent;
+}
+/* The composer card signals focus on its border, so its field draws none. */
+.composer-surface :focus-visible {
+  outline: none;
 }
 
-/* Interactive list items (sidebar, build rail) */
+/* A selectable row in a panel (settings nav, Create with AI rail). */
 .interactive-item {
-  @apply text-subtle flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition-all duration-150;
+  @apply text-aomi-muted rounded-control flex items-center gap-2 px-2.5 py-1.5 text-[13px] transition-colors duration-150;
 }
 .interactive-item:hover {
-  background: var(--aomi-state-hover);
-  color: var(--text-primary);
+  @apply bg-aomi-hover text-aomi-fg;
 }
 .interactive-item[data-active="true"] {
-  background: var(--accent-selected);
-  color: var(--accent-selected-foreground);
+  @apply bg-aomi-surface-2 text-aomi-fg font-medium;
 }
 
-/* Icon buttons (top bar chrome). */
 .icon-button {
-  color: var(--text-dim);
+  @apply text-aomi-muted;
 }
 .icon-button:hover {
-  background: var(--accent-hover);
-  color: var(--text-primary);
+  @apply bg-aomi-hover text-aomi-fg;
 }
 
-/* Action pills (below composer) — filled ink pills, the primary voice.
-   Dark theme inverts through the primary role (white pill, ink text). */
+/* Filled ink pills below the composer. */
 .action-pill {
-  @apply inline-flex items-center gap-1.5 rounded-full border border-transparent px-3.5 py-1.5 text-[12px] transition-all duration-150;
-  background: var(--aomi-primary);
-  color: var(--aomi-text-on-brand);
-}
-.action-pill:hover {
-  background: var(--aomi-primary-hover);
+  @apply bg-aomi-fg text-aomi-bg inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] transition-opacity duration-150 hover:opacity-90;
 }
 .action-pill span {
-  color: color-mix(in srgb, var(--aomi-text-on-brand) 72%, transparent);
+  color: color-mix(in srgb, var(--aomi-bg) 72%, transparent);
 }
 
-/* Context chip above composer */
 .context-chip {
-  @apply text-subtle hover:text-foreground inline-flex items-center gap-1 rounded-md px-2 py-1 text-[12px] transition-colors duration-150;
-}
-.context-chip:hover {
-  background: var(--aomi-state-hover);
+  @apply text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg rounded-control inline-flex items-center gap-1 px-2 py-1 text-[12px] transition-colors duration-150;
 }
 .context-chip--open,
 .context-chip--open:hover {
-  background: var(--accent-selected);
-  color: var(--accent-selected-foreground);
-}
-.context-chip--open span {
-  color: var(--accent-selected-foreground);
+  @apply bg-aomi-accent-subtle text-aomi-fg;
 }
 
-/* Selected row in dropdown menus — solid accent bar, on-brand text. */
 .menu-item--selected {
-  background: var(--accent-selected);
-}
-.menu-item--selected,
-.menu-item--selected * {
-  color: var(--accent-selected-foreground);
-}
-
-/* Sidebar row (the Portal's sidebar recipe) */
-.nav-link {
-  @apply text-aomi-muted flex items-center gap-2.5 rounded-xl px-3 py-2 text-[14px] leading-5 transition-colors duration-150;
-}
-.nav-link:hover {
-  background: var(--aomi-hover);
-  color: var(--aomi-fg);
-}
-.nav-link[data-active="true"] {
-  @apply text-aomi-fg bg-aomi-accent-subtle font-medium;
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--aomi-accent) 20%, transparent);
+  @apply bg-aomi-accent-subtle text-aomi-fg;
 }
 
 /* Markdown thread (agent responses) */
 .md-thread {
-  @apply text-foreground text-[13px] leading-relaxed;
+  @apply text-aomi-fg text-[13px] leading-relaxed;
 }
 .md-thread p {
   @apply mb-3 last:mb-0;
 }
 .md-thread strong {
-  @apply text-foreground font-semibold;
+  @apply font-semibold;
 }
 .md-thread ul {
   @apply mb-3 list-disc space-y-1 pl-5;
@@ -421,70 +158,17 @@
   @apply mb-3 list-decimal space-y-1 pl-5;
 }
 .md-thread li {
-  @apply text-subtle;
+  @apply text-aomi-muted;
 }
 .md-thread a {
-  @apply text-link hover:underline;
+  @apply text-aomi-accent-strong hover:underline;
 }
 .md-thread code:not(pre code) {
-  @apply bg-surface-2 text-foreground rounded px-1 py-0.5 font-mono text-[12px];
+  @apply bg-aomi-surface-2 rounded-md px-1 py-0.5 font-mono text-[12px];
 }
 .md-thread pre {
-  @apply border-border bg-surface-2 text-foreground mb-3 overflow-x-auto rounded-lg border p-3 font-mono text-[12px] leading-relaxed;
+  @apply border-aomi-border bg-aomi-surface-2 rounded-control mb-3 overflow-x-auto border p-3 font-mono text-[12px] leading-relaxed;
 }
 .md-thread pre code {
   @apply bg-transparent p-0;
 }
-
-/* Temporary compatibility map for the backend-wired deployment console copied
-   from the white legacy app. New Aomi Build UI should use semantic tokens
-   directly; this lets the existing raw zinc classes inherit Gordian's mock
-   control-plane palette while we migrate components incrementally. */
-@layer utilities {
-  .bg-white {
-    background-color: var(--surface-1) !important;
-  }
-  .bg-zinc-50,
-  .bg-zinc-100 {
-    background-color: var(--surface-2) !important;
-  }
-  .bg-zinc-900,
-  .bg-zinc-950 {
-    background-color: var(--primary) !important;
-  }
-  .hover\:bg-zinc-50:hover,
-  .hover\:bg-zinc-800:hover {
-    background-color: var(--accent-hover) !important;
-  }
-  .text-zinc-950,
-  .text-zinc-900,
-  .text-zinc-800,
-  .text-zinc-700 {
-    color: var(--foreground) !important;
-  }
-  .text-zinc-600,
-  .text-zinc-500 {
-    color: var(--text-subtle) !important;
-  }
-  .text-zinc-400,
-  .text-zinc-300 {
-    color: var(--text-dim) !important;
-  }
-  .text-white {
-    color: var(--primary-foreground) !important;
-  }
-  .border-zinc-100,
-  .border-zinc-200,
-  .border-zinc-300 {
-    border-color: var(--border) !important;
-  }
-  .divide-zinc-100 > :not(:last-child) {
-    border-color: var(--border) !important;
-  }
-  .shadow-sm {
-    box-shadow: var(--aomi-shadow-sm) !important;
-  }
-}
-
-/* Shared checkout uses the same widget payment surface in Build and Chat. */
-@source "../../../../packages/widget/src/account/usage/credits";

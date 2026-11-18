@@ -11,7 +11,7 @@ import {
 
 function StatusBadge({ status }: { status: SettingsSection["status"] }) {
   return (
-    <span className="border-border text-dim shrink-0 rounded-sm border px-1 py-0.5 text-[9px] uppercase tracking-wide">
+    <span className="border-border text-aomi-muted shrink-0 rounded-md border px-1 py-0.5 text-[9px] uppercase tracking-wide">
       {settingsStatusLabel(status)}
     </span>
   );
@@ -24,7 +24,7 @@ export function SettingsNav() {
   return (
     <nav className="space-y-0.5" aria-label="Settings sections">
       <div className="mb-3 px-2.5">
-        <p className="text-dim text-[12px] uppercase tracking-wide">Account</p>
+        <p className="text-aomi-muted text-[12px] uppercase tracking-wide">Account</p>
       </div>
 
       <Link

@@ -89,11 +89,11 @@ export function ComposerModelPicker({
           id={menuId}
           role="listbox"
           aria-label="Models"
-          className="border-border bg-popover text-popover-foreground absolute bottom-full left-0 z-50 mb-2 w-[220px] overflow-hidden rounded-xl border shadow-lg"
+          className="border-border bg-popover text-popover-foreground absolute bottom-full left-0 z-50 mb-2 w-[220px] overflow-hidden rounded-shell border shadow-popover"
         >
           <div className="border-border/60 border-b px-3 py-2">
             <p className="text-foreground text-[12px] font-medium">Model</p>
-            <p className="text-dim text-[11px] leading-snug">
+            <p className="text-aomi-muted text-[11px] leading-snug">
               Preview — remote models not connected yet
             </p>
           </div>
@@ -111,10 +111,10 @@ export function ComposerModelPicker({
                       setOpen(false);
                     }}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors duration-150",
+                      "flex w-full items-center gap-2 rounded-card px-2.5 py-2 text-left text-[13px] transition-colors duration-150",
                       option.available
-                        ? "text-foreground hover:bg-accent-hover"
-                        : "text-dim cursor-not-allowed opacity-70",
+                        ? "text-foreground hover:bg-aomi-hover"
+                        : "text-aomi-muted cursor-not-allowed opacity-70",
                       selected && "menu-item--selected",
                     )}
                   >
@@ -129,7 +129,7 @@ export function ComposerModelPicker({
                     <span
                       className={cn(
                         "shrink-0 text-[11px]",
-                        option.available ? "text-dim" : "text-hint",
+                        option.available ? "text-aomi-muted" : "text-aomi-muted",
                       )}
                     >
                       {option.hint}

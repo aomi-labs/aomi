@@ -14,7 +14,7 @@ import {
 } from "@/features/deploy/components/deployments/ui/state-panels";
 
 const button =
-  "border-border hover:bg-accent-hover inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border px-3 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50";
+  "border-border hover:bg-aomi-hover inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-control border px-3 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50";
 
 const accessLabel: Record<GitHubRepositoryAccessStatus, string> = {
   ok: "Access OK",
@@ -33,11 +33,11 @@ const accessDescription: Record<GitHubRepositoryAccessStatus, string> = {
 };
 
 function badgeClass(status: GitHubRepositoryAccessStatus) {
-  if (status === "ok") return "border-positive/40 bg-positive/10 text-positive";
+  if (status === "ok") return "border-aomi-success/40 bg-aomi-success/10 text-aomi-success";
   if (status === "missing_permissions" || status === "not_installed") {
-    return "border-warning/40 bg-warning/10 text-warning";
+    return "border-aomi-warning/40 bg-aomi-warning/10 text-aomi-warning";
   }
-  return "border-destructive/40 bg-destructive/10 text-destructive";
+  return "border-aomi-danger/40 bg-aomi-danger/10 text-aomi-danger";
 }
 
 function RepositoryRow({
@@ -50,13 +50,13 @@ function RepositoryRow({
   onGrant: () => void;
 }) {
   return (
-    <li className="border-border bg-surface-1 rounded-lg border p-4">
+    <li className="border-border bg-aomi-raised rounded-card border p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-foreground truncate font-mono text-sm font-medium">
             {repository.githubRepo}
           </div>
-          <div className="text-dim mt-1 text-xs">{repository.platform}</div>
+          <div className="text-aomi-muted mt-1 text-xs">{repository.platform}</div>
         </div>
         <span
           className={`inline-flex h-6 shrink-0 items-center rounded-full border px-2 text-[10px] font-medium uppercase tracking-[0.05em] ${badgeClass(repository.status)}`}
@@ -64,7 +64,7 @@ function RepositoryRow({
           {accessLabel[repository.status]}
         </span>
       </div>
-      <p className="text-dim mt-3 text-[13px]">
+      <p className="text-aomi-muted mt-3 text-[13px]">
         {accessDescription[repository.status]}
       </p>
       {repository.status !== "error" &&
@@ -126,7 +126,7 @@ export function SettingsGitHubAppPanel() {
           <h2 className="font-display text-foreground text-lg font-normal tracking-tight">
             GitHub repository access
           </h2>
-          <p className="text-subtle text-sm leading-6">
+          <p className="text-aomi-muted text-sm leading-6">
             Aomi checks only repositories connected as your projects. Deployment
             infrastructure is managed by Aomi.
           </p>
@@ -155,14 +155,14 @@ export function SettingsGitHubAppPanel() {
       {state.status === "signed_out" && <GitHubSignInPanel error={null} />}
       {state.status === "error" && <ErrorPanel message={state.error} />}
       {state.status === "ready" && state.report.repositories.length === 0 && (
-        <p className="text-dim text-sm">
+        <p className="text-aomi-muted text-sm">
           No repositories are connected yet. Access is requested when you create
           or import an agent.
         </p>
       )}
       {state.status === "ready" && state.report.repositories.length > 0 && (
         <div className="space-y-3">
-          <p className="text-dim text-sm">
+          <p className="text-aomi-muted text-sm">
             {state.report.status === "ok"
               ? `All ${state.report.repositories.length} connected repositories are accessible.`
               : "Some connected repositories need attention."}
@@ -180,7 +180,7 @@ export function SettingsGitHubAppPanel() {
         </div>
       )}
       {actionError && (
-        <p role="alert" className="text-destructive text-sm">
+        <p role="alert" className="text-aomi-danger text-sm">
           {actionError}
         </p>
       )}

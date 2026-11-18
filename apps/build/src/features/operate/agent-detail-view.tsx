@@ -32,7 +32,7 @@ function BarChart({
   if (!series.some((item) => item.values.length)) {
     return (
       <div
-        className="text-dim flex items-center justify-center text-xs"
+        className="text-aomi-muted flex items-center justify-center text-xs"
         style={{ height }}
       >
         No data in this window.
@@ -86,7 +86,7 @@ export function LatencyChart({
   if (!samples.length) {
     return (
       <div
-        className="text-dim flex items-center justify-center text-xs"
+        className="text-aomi-muted flex items-center justify-center text-xs"
         style={{ height }}
       >
         No latency samples in the selected {window} window.
@@ -120,7 +120,7 @@ export function LatencyChart({
       <svg
         viewBox={`0 0 100 ${height}`}
         preserveAspectRatio="none"
-        className="text-dim w-full"
+        className="text-aomi-muted w-full"
         style={{ height }}
         aria-hidden
       >
@@ -168,14 +168,14 @@ function Tile({
   tone?: "bad" | "warn";
 }) {
   return (
-    <div className="border-border bg-surface rounded-md border px-3 py-2.5">
-      <div className="text-dim text-xs">{label}</div>
+    <div className="border-border bg-surface rounded-control border px-3 py-2.5">
+      <div className="text-aomi-muted text-xs">{label}</div>
       <div
-        className={`text-lg font-semibold ${tone === "bad" ? "text-red-500" : tone === "warn" ? "text-amber-500" : "text-foreground"}`}
+        className={`text-lg font-semibold ${tone === "bad" ? "text-aomi-danger" : tone === "warn" ? "text-aomi-warning" : "text-foreground"}`}
       >
         {value}
       </div>
-      {sub ? <div className="text-dim text-xs">{sub}</div> : null}
+      {sub ? <div className="text-aomi-muted text-xs">{sub}</div> : null}
     </div>
   );
 }
@@ -190,9 +190,9 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-border bg-surface rounded-md border">
+    <div className="border-border bg-surface rounded-control border">
       <div className="border-border flex items-center justify-between border-b px-3 py-2">
-        <span className="text-dim text-xs font-medium uppercase">{title}</span>
+        <span className="text-aomi-muted text-xs font-medium uppercase">{title}</span>
         {right}
       </div>
       <div className="px-3 py-3">{children}</div>
@@ -201,16 +201,16 @@ function Panel({
 }
 
 const STATUS_CHIP: Record<TxRecord["status"], string> = {
-  confirmed: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
-  submitted: "bg-amber-500/10 text-amber-500 border-amber-500/30",
-  failed: "bg-red-500/10 text-red-500 border-red-500/30",
-  created: "bg-surface-subtle text-dim border-border",
+  confirmed: "bg-aomi-success/10 text-aomi-success border-aomi-success/30",
+  submitted: "bg-aomi-warning/10 text-aomi-warning border-aomi-warning/30",
+  failed: "bg-aomi-danger/10 text-aomi-danger border-aomi-danger/30",
+  created: "bg-surface-subtle text-aomi-muted border-border",
 };
 
 const STATUS_DOT: Record<string, string> = {
-  healthy: "bg-emerald-500",
-  not_loaded: "bg-amber-500",
-  inactive: "bg-zinc-400",
+  healthy: "bg-aomi-success",
+  not_loaded: "bg-aomi-warning",
+  inactive: "bg-aomi-surface-2",
 };
 
 function clockOf(tx: TxRecord): string {
@@ -260,7 +260,7 @@ export function AgentDetailView({
             type="button"
             aria-label="Back to observability"
             onClick={onBack}
-            className="border-border bg-surface hover:bg-accent-hover rounded-md border p-2"
+            className="border-border bg-surface hover:bg-aomi-hover rounded-control border p-2"
           >
             <ArrowLeft className="size-4" />
           </button>
@@ -270,27 +270,27 @@ export function AgentDetailView({
               {example ? (
                 <span
                   title="Live data for this view isn't connected yet — showing example data."
-                  className="border-border bg-surface-subtle text-dim rounded-full border px-2 py-0.5 text-xs"
+                  className="border-border bg-surface-subtle text-aomi-muted rounded-full border px-2 py-0.5 text-xs"
                 >
                   Example data
                 </span>
               ) : null}
               <span className="flex items-center gap-1.5 text-xs">
                 <span
-                  className={`size-2 rounded-full ${STATUS_DOT[meta.status] ?? "bg-zinc-400"}`}
+                  className={`size-2 rounded-full ${STATUS_DOT[meta.status] ?? "bg-aomi-surface-2"}`}
                 />{" "}
                 {meta.status}
               </span>
               {meta.families.map((family) => (
                 <span
                   key={family}
-                  className="border-border bg-surface-subtle text-dim rounded-full border px-2 py-0.5 text-[10px] uppercase"
+                  className="border-border bg-surface-subtle text-aomi-muted rounded-full border px-2 py-0.5 text-[10px] uppercase"
                 >
                   {family}
                 </span>
               ))}
             </div>
-            <div className="text-dim text-xs">
+            <div className="text-aomi-muted text-xs">
               {meta.releaseTag ?? "No release"} · SDK {meta.sdkVersion ?? "—"} ·{" "}
               {meta.repo}
             </div>
@@ -298,7 +298,7 @@ export function AgentDetailView({
         </div>
         <div className="flex items-center gap-2">
           <div
-            className="border-border bg-surface flex rounded-md border text-xs"
+            className="border-border bg-surface flex rounded-control border text-xs"
             role="group"
             aria-label="Activity time range"
           >
@@ -309,7 +309,7 @@ export function AgentDetailView({
                 aria-pressed={range === window}
                 disabled={!onWindowChange}
                 onClick={() => onWindowChange?.(range)}
-                className={`px-3 py-1.5 ${range === window ? "bg-accent-hover text-foreground rounded-md" : "text-dim"}`}
+                className={`px-3 py-1.5 ${range === window ? "bg-aomi-hover text-foreground rounded-control" : "text-aomi-muted"}`}
               >
                 {range}
               </button>
@@ -320,7 +320,7 @@ export function AgentDetailView({
               href={dashboardHref}
               target="_blank"
               rel="noreferrer"
-              className="border-border bg-surface hover:bg-accent-hover flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs"
+              className="border-border bg-surface hover:bg-aomi-hover flex items-center gap-1.5 rounded-control border px-3 py-1.5 text-xs"
             >
               Grafana <ExternalLink className="size-3" />
             </a>
@@ -340,21 +340,21 @@ export function AgentDetailView({
             return (
               <div key={stage.label} className="flex items-center">
                 {i > 0 ? (
-                  <div className="text-dim px-3 text-center text-xs">
+                  <div className="text-aomi-muted px-3 text-center text-xs">
                     <div>→</div>
                     <div>{prev ? `${conv}%` : "—"}</div>
                   </div>
                 ) : null}
-                <div className="border-border bg-surface-subtle min-w-28 rounded-md border px-4 py-3 text-center">
+                <div className="border-border bg-surface-subtle min-w-28 rounded-control border px-4 py-3 text-center">
                   <div className="text-2xl font-semibold">
                     {stage.value ?? "—"}
                   </div>
-                  <div className="text-dim text-xs">{stage.label}</div>
+                  <div className="text-aomi-muted text-xs">{stage.label}</div>
                 </div>
               </div>
             );
           })}
-          <div className="text-dim ml-auto flex flex-col justify-center pl-4 text-xs">
+          <div className="text-aomi-muted ml-auto flex flex-col justify-center pl-4 text-xs">
             {detail.funnelNote.map((note) => (
               <div key={note}>{note}</div>
             ))}
@@ -380,12 +380,12 @@ export function AgentDetailView({
         <Panel
           title={`Activity · ${window}`}
           right={
-            <span className="text-dim flex items-center gap-3 text-xs">
+            <span className="text-aomi-muted flex items-center gap-3 text-xs">
               <span className="flex items-center gap-1">
-                <span className="size-2 rounded-sm bg-emerald-500/80" /> chats
+                <span className="size-2 rounded-md bg-aomi-success/80" /> chats
               </span>
               <span className="flex items-center gap-1">
-                <span className="bg-foreground/30 size-2 rounded-sm" /> tool
+                <span className="bg-foreground/30 size-2 rounded-md" /> tool
                 calls
               </span>
             </span>
@@ -397,10 +397,10 @@ export function AgentDetailView({
                 values: detail.toolCallsHourly,
                 className: "fill-foreground/25",
               },
-              { values: detail.chatsHourly, className: "fill-emerald-500/80" },
+              { values: detail.chatsHourly, className: "fill-aomi-success/80" },
             ]}
           />
-          <div className="text-dim mt-1 flex justify-between text-[10px]">
+          <div className="text-aomi-muted mt-1 flex justify-between text-[10px]">
             {[1, 0.75, 0.5, 0.25, 0]
               .map((fraction) => ago(seconds * fraction))
               .map((label) => (
@@ -410,10 +410,10 @@ export function AgentDetailView({
         </Panel>
         <Panel
           title="P95 turn latency"
-          right={<span className="text-dim text-xs">seconds · {window}</span>}
+          right={<span className="text-aomi-muted text-xs">seconds · {window}</span>}
         >
           <LatencyChart values={detail.p95Hourly} window={window} />
-          <div className="text-dim mt-1 flex justify-between text-[10px]">
+          <div className="text-aomi-muted mt-1 flex justify-between text-[10px]">
             <span>{ago((seconds * 23) / 24)}</span>
             <span>
               peak{" "}
@@ -423,7 +423,7 @@ export function AgentDetailView({
             </span>
             <span>Now</span>
           </div>
-          <p className="text-dim mt-2 text-xs">
+          <p className="text-aomi-muted mt-2 text-xs">
             {latencySamples.length} sample
             {latencySamples.length === 1 ? "" : "s"} · Gaps mean no
             measurements.
@@ -432,18 +432,18 @@ export function AgentDetailView({
         <Panel
           title="Credits per day"
           right={
-            <span className="text-dim text-xs">7d · from usage ledger</span>
+            <span className="text-aomi-muted text-xs">7d · from usage ledger</span>
           }
         >
           <BarChart
             series={[
               {
                 values: detail.creditsDaily.values,
-                className: "fill-amber-500/70",
+                className: "fill-aomi-warning/70",
               },
             ]}
           />
-          <div className="text-dim mt-1 flex justify-between text-[10px]">
+          <div className="text-aomi-muted mt-1 flex justify-between text-[10px]">
             <span>{detail.creditsDaily.days[0] ?? "—"}</span>
             <span>
               {detail.creditsDaily.days.at(-1) ?? "—"} ·{" "}
@@ -457,14 +457,14 @@ export function AgentDetailView({
       <Panel
         title={`Tools · ${window}`}
         right={
-          <span className="text-dim text-xs">
+          <span className="text-aomi-muted text-xs">
             {detail.toolsSummary} · click a row to open its trace in Logs
           </span>
         }
       >
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="text-dim text-left text-xs uppercase">
+            <thead className="text-aomi-muted text-left text-xs uppercase">
               <tr>
                 <th className="py-1.5 pr-3">Tool</th>
                 <th className="py-1.5 pr-3">Calls</th>
@@ -486,17 +486,17 @@ export function AgentDetailView({
                     <td className="py-2 pr-3">{row.calls ?? "—"}</td>
                     <td className="py-2 pr-3">{row.errors ?? "—"}</td>
                     <td
-                      className={`py-2 pr-3 font-medium ${row.bad ? "text-red-500" : ""}`}
+                      className={`py-2 pr-3 font-medium ${row.bad ? "text-aomi-danger" : ""}`}
                     >
                       {row.errorRate}
                     </td>
                     <td className="py-2 pr-3">{row.p95}</td>
-                    <td className="text-dim py-2 text-xs">{row.last}</td>
+                    <td className="text-aomi-muted py-2 text-xs">{row.last}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="text-dim py-6 text-center text-sm">
+                  <td colSpan={6} className="text-aomi-muted py-6 text-center text-sm">
                     No tool calls in this window.
                   </td>
                 </tr>
@@ -511,7 +511,7 @@ export function AgentDetailView({
         <Panel
           title="Recent transactions"
           right={
-            <span className="text-dim text-xs">
+            <span className="text-aomi-muted text-xs">
               {detail.fees24h} · click a row to open it in Transactions
             </span>
           }
@@ -519,7 +519,7 @@ export function AgentDetailView({
           {recentTx.length ? (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="text-dim text-left text-xs uppercase">
+                <thead className="text-aomi-muted text-left text-xs uppercase">
                   <tr>
                     <th className="py-1.5 pr-3">Time</th>
                     <th className="py-1.5 pr-3">Action</th>
@@ -536,7 +536,7 @@ export function AgentDetailView({
                       onClick={() => onOpenTx(tx.id)}
                       className="hover:bg-surface-subtle cursor-pointer"
                     >
-                      <td className="text-dim py-2 pr-3 text-xs">
+                      <td className="text-aomi-muted py-2 pr-3 text-xs">
                         {clockOf(tx)}
                       </td>
                       <td className="max-w-64 truncate py-2 pr-3">
@@ -562,7 +562,7 @@ export function AgentDetailView({
               </table>
             </div>
           ) : (
-            <div className="text-dim py-6 text-center text-sm">
+            <div className="text-aomi-muted py-6 text-center text-sm">
               No transactions — read-only agent.
             </div>
           )}
@@ -573,7 +573,7 @@ export function AgentDetailView({
             <dl className="space-y-1.5 text-sm">
               {detail.lifecycle.map(([k, v]) => (
                 <div key={k} className="flex justify-between">
-                  <dt className="text-dim">{k}</dt>
+                  <dt className="text-aomi-muted">{k}</dt>
                   <dd className="font-medium">{v}</dd>
                 </div>
               ))}
@@ -590,18 +590,18 @@ export function AgentDetailView({
                     <span className="min-w-0 truncate font-mono text-xs">
                       {release.tag}
                     </span>
-                    <span className="text-dim text-xs">{release.when}</span>
+                    <span className="text-aomi-muted text-xs">{release.when}</span>
                     {release.current ? (
-                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-500">
+                      <span className="rounded-full border border-aomi-success/30 bg-aomi-success/10 px-2 py-0.5 text-xs text-aomi-success">
                         current
                       </span>
                     ) : (
-                      <span className="text-dim text-xs">{release.note}</span>
+                      <span className="text-aomi-muted text-xs">{release.note}</span>
                     )}
                   </div>
                 ))
               ) : (
-                <div className="text-dim py-2 text-center text-sm">
+                <div className="text-aomi-muted py-2 text-center text-sm">
                   No release history.
                 </div>
               )}
@@ -614,7 +614,7 @@ export function AgentDetailView({
       <Panel
         title="Recent events"
         right={
-          <span className="text-dim text-xs">
+          <span className="text-aomi-muted text-xs">
             agent-filtered · full stream in Logs
           </span>
         }
@@ -627,17 +627,17 @@ export function AgentDetailView({
                 className="flex items-baseline justify-between gap-3 text-sm"
               >
                 <span
-                  className={`min-w-0 truncate ${entry.status === "error" ? "text-red-500" : ""}`}
+                  className={`min-w-0 truncate ${entry.status === "error" ? "text-aomi-danger" : ""}`}
                 >
                   {entry.summary}
                 </span>
-                <span className="text-dim shrink-0 text-xs">
+                <span className="text-aomi-muted shrink-0 text-xs">
                   {entry.eventType} · {entry.at}
                 </span>
               </div>
             ))
           ) : (
-            <div className="text-dim py-4 text-center text-sm">
+            <div className="text-aomi-muted py-4 text-center text-sm">
               No recent events.
             </div>
           )}

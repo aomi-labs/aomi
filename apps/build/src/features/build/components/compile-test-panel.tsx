@@ -18,12 +18,12 @@ export function CompileTestPanel({
   onTest,
 }: CompileTestPanelProps) {
   return (
-    <div className="border-border bg-surface-1 mx-auto my-2 max-w-3xl space-y-3 rounded-lg border p-4">
+    <div className="border-border bg-aomi-raised mx-auto my-2 max-w-3xl space-y-3 rounded-card border p-4">
       <div>
         <p className="text-foreground text-[13px] font-medium">
           Verify before you ship
         </p>
-        <p className="text-dim mt-0.5 text-[12px] leading-5">
+        <p className="text-aomi-muted mt-0.5 text-[12px] leading-5">
           Compile the generated package and run its checks.
         </p>
       </div>
@@ -33,10 +33,10 @@ export function CompileTestPanel({
           onClick={onCompile}
           disabled={compileDone || busy !== null}
           className={cn(
-            "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-[12px] font-medium transition-colors",
+            "inline-flex h-8 items-center gap-1.5 rounded-control px-3 text-[12px] font-medium transition-colors",
             compileDone
-              ? "border-positive/40 text-positive border bg-transparent"
-              : "bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50",
+              ? "border-aomi-success/40 text-aomi-success border bg-transparent"
+              : "bg-aomi-fg text-aomi-bg hover:opacity-90 disabled:opacity-50",
           )}
         >
           {compileDone ? (
@@ -55,10 +55,10 @@ export function CompileTestPanel({
           onClick={onTest}
           disabled={!compileDone || testDone || busy !== null}
           className={cn(
-            "inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12px] font-medium transition-colors",
+            "inline-flex h-8 items-center gap-1.5 rounded-control border px-3 text-[12px] font-medium transition-colors",
             testDone
-              ? "border-positive/40 text-positive"
-              : "border-border text-foreground hover:bg-accent/40 disabled:opacity-40",
+              ? "border-aomi-success/40 text-aomi-success"
+              : "border-border text-foreground hover:bg-aomi-accent-subtle/40 disabled:opacity-40",
           )}
         >
           {testDone ? (
@@ -74,7 +74,7 @@ export function CompileTestPanel({
         </button>
       </div>
       {compileDone && testDone ? (
-        <p className="text-positive text-[12px]">
+        <p className="text-aomi-success text-[12px]">
           Looking good — ship when you’re ready.
         </p>
       ) : null}

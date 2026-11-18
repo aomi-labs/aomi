@@ -28,29 +28,29 @@ function FileTreeNode({
         }
         className={cn(
           "flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-[12px] transition-colors",
-          clickable ? "hover:bg-accent/40 cursor-pointer" : "cursor-default",
+          clickable ? "hover:bg-aomi-accent-subtle/40 cursor-pointer" : "cursor-default",
         )}
         style={{ paddingLeft: depth * 12 + 6 }}
         title={node.path}
       >
         {isFolder ? (
           open ? (
-            <ChevronDown className="text-dim size-3 shrink-0" />
+            <ChevronDown className="text-aomi-muted size-3 shrink-0" />
           ) : (
-            <ChevronRight className="text-dim size-3 shrink-0" />
+            <ChevronRight className="text-aomi-muted size-3 shrink-0" />
           )
         ) : (
           <span className="inline-block w-3 shrink-0" />
         )}
         {isFolder ? (
-          <Folder className="text-warning size-3.5 shrink-0" />
+          <Folder className="text-aomi-warning size-3.5 shrink-0" />
         ) : (
-          <File className="text-link size-3.5 shrink-0" />
+          <File className="text-aomi-accent-strong size-3.5 shrink-0" />
         )}
         <span
           className={cn(
             "truncate",
-            isFolder ? "text-foreground" : "text-subtle",
+            isFolder ? "text-foreground" : "text-aomi-muted",
           )}
         >
           {name}
@@ -85,7 +85,7 @@ export function FileTreePreview({
   if (!tree.length) {
     return (
       <div className={cn("panel-inset p-4 text-center", className)}>
-        <p className="text-dim text-[12px]">
+        <p className="text-aomi-muted text-[12px]">
           Files appear when generate runs.
         </p>
       </div>
@@ -94,7 +94,7 @@ export function FileTreePreview({
 
   return (
     <div className={cn("panel-inset overflow-hidden p-2", className)}>
-      <p className="text-dim mb-2 px-1.5 text-[11px] font-medium tracking-wide uppercase">
+      <p className="text-aomi-muted mb-2 px-1.5 text-[11px] font-medium tracking-wide uppercase">
         Generated files
       </p>
       {tree.map((node) => (

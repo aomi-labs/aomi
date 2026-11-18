@@ -6,12 +6,12 @@ export function IntegrationsView() {
   return (
     <div className={pageFrame}>
       <div className="space-y-3">
-        <p className="text-dim text-[12px] uppercase tracking-wide">Account</p>
+        <p className="text-aomi-muted text-[12px] uppercase tracking-wide">Account</p>
         <div className="flex items-center gap-2">
-          <Plug className="text-dim size-5" aria-hidden />
+          <Plug className="text-aomi-muted size-5" aria-hidden />
           <h1 className={pageTitle}>Integrations</h1>
         </div>
-        <p className="text-subtle max-w-2xl text-sm">
+        <p className="text-aomi-muted max-w-2xl text-sm">
           Connect the channels where your users already work. Each channel is
           configured once and serves one Aomi agent.
         </p>

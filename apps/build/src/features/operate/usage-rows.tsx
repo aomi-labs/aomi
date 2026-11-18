@@ -29,7 +29,7 @@ function Statement({
   const period = statementPeriodLabel(statement.range);
   return (
     <div className="space-y-4">
-      <p className="text-dim text-xs leading-5">
+      <p className="text-aomi-muted text-xs leading-5">
         Revenue, platform fees, and charges for your agents in this statement
         period. End-user spend is reported separately under{" "}
         <Link
@@ -68,15 +68,15 @@ function Statement({
           ].map((tile) => (
             <div
               key={tile.label}
-              className="border-border bg-surface rounded-md border px-3 py-2.5"
+              className="border-border bg-surface rounded-control border px-3 py-2.5"
             >
-              <div className="text-dim text-xs">{tile.label}</div>
+              <div className="text-aomi-muted text-xs">{tile.label}</div>
               <div
-                className={`text-lg font-semibold ${tile.net ? "text-emerald-500" : "text-foreground"}`}
+                className={`text-lg font-semibold ${tile.net ? "text-aomi-success" : "text-foreground"}`}
               >
                 {tile.value}
               </div>
-              <div className="text-dim text-xs">{tile.sub}</div>
+              <div className="text-aomi-muted text-xs">{tile.sub}</div>
             </div>
           ))}
         </div>
@@ -89,7 +89,7 @@ function Statement({
       <Card
         title="Revenue"
         right={
-          period ? <span className="text-dim text-xs">{period}</span> : null
+          period ? <span className="text-aomi-muted text-xs">{period}</span> : null
         }
       >
         <div className="overflow-x-auto">
@@ -106,7 +106,7 @@ function Statement({
             </thead>
             <tbody className="divide-border divide-y">
               {revenue.map((row, i) => (
-                <tr key={i} className={row.gross === 0 ? "text-dim" : ""}>
+                <tr key={i} className={row.gross === 0 ? "text-aomi-muted" : ""}>
                   <td className={`${TD} font-medium`}>
                     {subjectLabel(row.subject)}
                   </td>
@@ -145,7 +145,7 @@ function Statement({
                   <tr key={i}>
                     <td className={TD}>{subjectLabel(row.item)}</td>
                     <td className={TD}>{row.agent}</td>
-                    <td className={`${TD} text-dim text-xs`}>{row.events}</td>
+                    <td className={`${TD} text-aomi-muted text-xs`}>{row.events}</td>
                     <td className={`${TD} font-mono text-xs`}>
                       {usdLabel(row.amount)}
                     </td>
@@ -158,7 +158,7 @@ function Statement({
 
         <Card
           title="Model usage detail"
-          right={<span className="text-dim text-xs">by provider/model</span>}
+          right={<span className="text-aomi-muted text-xs">by provider/model</span>}
         >
           <div className="px-3 py-2">
             <div className="space-y-2">
@@ -170,13 +170,13 @@ function Statement({
                   <span className="min-w-0 truncate font-mono text-xs">
                     {row.provider}/{row.model}
                   </span>
-                  <span className="text-dim font-mono text-xs">
+                  <span className="text-aomi-muted font-mono text-xs">
                     {Number(row.creditsUsed ?? 0).toFixed(4)}
                   </span>
                 </div>
               ))}
             </div>
-            <p className="text-dim mt-2 text-xs leading-4">
+            <p className="text-aomi-muted mt-2 text-xs leading-4">
               Token-level usage explains the base cost. Agents using
               customer-provided keys (BYOK) incur no model charges.
             </p>
@@ -201,7 +201,7 @@ function Statement({
             <tbody className="divide-border divide-y">
               {entries.map((row, i) => (
                 <tr key={i}>
-                  <td className={`${TD} text-dim whitespace-nowrap`}>
+                  <td className={`${TD} text-aomi-muted whitespace-nowrap`}>
                     {row.day}
                   </td>
                   <td className={TD}>{row.agent}</td>
@@ -232,7 +232,7 @@ function Statement({
 function Meter({ daily, breakdown }: { daily: Row[]; breakdown: Row[] }) {
   return (
     <div className="space-y-3">
-      <p className="text-dim text-xs leading-5">
+      <p className="text-aomi-muted text-xs leading-5">
         Model and token credits by agent and day.{" "}
         <Link
           href="/settings/billing"
@@ -243,9 +243,9 @@ function Meter({ daily, breakdown }: { daily: Row[]; breakdown: Row[] }) {
         covers payment setup in Chat.
       </p>
       <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
-        <div className="border-border overflow-x-auto rounded-md border">
+        <div className="border-border overflow-x-auto rounded-control border">
           <table className="divide-border min-w-full divide-y text-sm">
-            <thead className="bg-surface-subtle text-dim text-left text-xs uppercase">
+            <thead className="bg-surface-subtle text-aomi-muted text-left text-xs uppercase">
               <tr>
                 <th className="px-3 py-2">Day</th>
                 <th className="px-3 py-2">Agent</th>
@@ -275,8 +275,8 @@ function Meter({ daily, breakdown }: { daily: Row[]; breakdown: Row[] }) {
             </tbody>
           </table>
         </div>
-        <div className="border-border bg-surface rounded-md border p-3">
-          <div className="text-dim mb-2 text-xs uppercase">Breakdown</div>
+        <div className="border-border bg-surface rounded-control border p-3">
+          <div className="text-aomi-muted mb-2 text-xs uppercase">Breakdown</div>
           <div className="space-y-2">
             {breakdown.map((row, index) => (
               <div
@@ -286,7 +286,7 @@ function Meter({ daily, breakdown }: { daily: Row[]; breakdown: Row[] }) {
                 <span className="min-w-0 truncate">
                   {row.provider}/{row.model}
                 </span>
-                <span className="text-dim">
+                <span className="text-aomi-muted">
                   {Number(row.creditsUsed ?? 0).toFixed(4)}
                 </span>
               </div>

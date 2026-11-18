@@ -8,10 +8,10 @@ export default function SettingsPage() {
     <div className="flex flex-col gap-6">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <SettingsIcon className="text-dim size-5" aria-hidden />
+          <SettingsIcon className="text-aomi-muted size-5" aria-hidden />
           <h1 className={pageTitle}>Settings</h1>
         </div>
-        <p className="text-dim mt-1.5 max-w-3xl text-sm leading-5">
+        <p className="text-aomi-muted mt-1.5 max-w-3xl text-sm leading-5">
           Account controls for this GitHub session. Live sections work today;
           others stay listed as Soon.
         </p>

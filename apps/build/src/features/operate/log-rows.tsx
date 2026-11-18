@@ -30,12 +30,12 @@ export const EMPTY_LOGS_PAGE_FILTER: LogsPageFilter = {
 };
 
 const SELECT_CLS =
-  "border-border bg-surface text-foreground h-8 rounded-md border px-2 text-xs";
+  "border-border bg-surface text-foreground h-8 rounded-control border px-2 text-xs";
 
 const DOT: Record<string, string> = {
-  ok: "bg-emerald-500",
-  error: "bg-red-500",
-  info: "bg-zinc-500",
+  ok: "bg-aomi-success",
+  error: "bg-aomi-danger",
+  info: "bg-aomi-surface-2",
 };
 
 function statusOf(row: LogRow): "ok" | "error" | "info" {
@@ -82,7 +82,7 @@ function ExpandedDetail({ row }: { row: LogRow }) {
   return (
     <div className="border-border bg-surface-subtle/60 grid gap-x-6 gap-y-2 border-t px-8 py-3 lg:grid-cols-2">
       <div>
-        <div className="text-dim mb-1 text-[10px] uppercase tracking-wide">
+        <div className="text-aomi-muted mb-1 text-[10px] uppercase tracking-wide">
           Arguments
         </div>
         <pre className="whitespace-pre-wrap font-mono text-xs leading-5">
@@ -90,16 +90,16 @@ function ExpandedDetail({ row }: { row: LogRow }) {
         </pre>
       </div>
       <div>
-        <div className="text-dim mb-1 text-[10px] uppercase tracking-wide">
+        <div className="text-aomi-muted mb-1 text-[10px] uppercase tracking-wide">
           {status === "error" ? "Error" : "Result"}
         </div>
         <pre
-          className={`whitespace-pre-wrap font-mono text-xs leading-5 ${status === "error" ? "text-red-500" : ""}`}
+          className={`whitespace-pre-wrap font-mono text-xs leading-5 ${status === "error" ? "text-aomi-danger" : ""}`}
         >
           {pretty(String(row.result ?? ""))}
         </pre>
       </div>
-      <div className="text-dim text-xs lg:col-span-2">
+      <div className="text-aomi-muted text-xs lg:col-span-2">
         {row.retries ? `${row.retries} retries · ` : ""}
         {row.threadId ? `${row.threadId} · ` : ""}
         {row.agent}
@@ -126,7 +126,7 @@ function PaymentDetail({
   return (
     <div className="border-border bg-surface-subtle/60 grid gap-3 border-t px-8 py-3 text-xs sm:grid-cols-3">
       <div>
-        <div className="text-dim text-[10px] uppercase tracking-wide">
+        <div className="text-aomi-muted text-[10px] uppercase tracking-wide">
           Amount
         </div>
         <div className="mt-1 font-mono">
@@ -134,7 +134,7 @@ function PaymentDetail({
         </div>
       </div>
       <div>
-        <div className="text-dim text-[10px] uppercase tracking-wide">
+        <div className="text-aomi-muted text-[10px] uppercase tracking-wide">
           Beneficiary
         </div>
         <div className="mt-1 font-mono" title={String(details.recipient ?? "")}>
@@ -142,7 +142,7 @@ function PaymentDetail({
         </div>
       </div>
       <div>
-        <div className="text-dim text-[10px] uppercase tracking-wide">
+        <div className="text-aomi-muted text-[10px] uppercase tracking-wide">
           Settlement
         </div>
         <div
@@ -155,10 +155,10 @@ function PaymentDetail({
       </div>
       {billingItems.length ? (
         <div className="sm:col-span-3">
-          <div className="text-dim text-[10px] uppercase tracking-wide">
+          <div className="text-aomi-muted text-[10px] uppercase tracking-wide">
             Priced calls
           </div>
-          <div className="divide-border mt-1 divide-y rounded-md border">
+          <div className="divide-border mt-1 divide-y rounded-control border">
             {billingItems.map((item, index) => (
               <div
                 key={`${String(item.tool ?? "priced-tool")}-${index}`}
@@ -167,7 +167,7 @@ function PaymentDetail({
                 <span className="truncate font-mono">
                   {item.tool ?? "Priced tool"}
                 </span>
-                <span className="text-dim shrink-0 font-mono">
+                <span className="text-aomi-muted shrink-0 font-mono">
                   {Number(item.credits ?? 0).toFixed(2)} credits
                 </span>
               </div>
@@ -210,7 +210,7 @@ export function LogRows({
   return (
     <div className="space-y-3">
       {/* Filter bar */}
-      <div className="border-border bg-surface-subtle flex flex-wrap items-center gap-2 rounded-md border px-3 py-2">
+      <div className="border-border bg-surface-subtle flex flex-wrap items-center gap-2 rounded-control border px-3 py-2">
         <select
           value={filter.agent ?? ""}
           onChange={(event) =>
@@ -248,8 +248,8 @@ export function LogRows({
           }
           className={`rounded-full border px-2.5 py-1 text-xs ${
             filter.errorsOnly
-              ? "border-red-500/30 bg-red-500/10 text-red-500"
-              : "border-border bg-surface text-dim"
+              ? "border-aomi-danger/30 bg-aomi-danger/10 text-aomi-danger"
+              : "border-border bg-surface text-aomi-muted"
           }`}
         >
           Errors only
@@ -261,8 +261,8 @@ export function LogRows({
           }
           className={`rounded-full border px-2.5 py-1 text-xs ${
             filter.paymentsOnly
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
-              : "border-border bg-surface text-dim"
+              ? "border-aomi-success/30 bg-aomi-success/10 text-aomi-success"
+              : "border-border bg-surface text-aomi-muted"
           }`}
         >
           Partner payments only
@@ -271,19 +271,19 @@ export function LogRows({
           <button
             type="button"
             onClick={() => onFilterChange(EMPTY_LOGS_PAGE_FILTER)}
-            className="text-dim hover:text-foreground flex items-center gap-1 text-xs"
+            className="text-aomi-muted hover:text-foreground flex items-center gap-1 text-xs"
           >
             <X className="size-3" /> Clear filters
           </button>
         ) : null}
-        <span className="text-dim ml-auto flex items-center gap-1.5 text-xs">
+        <span className="text-aomi-muted ml-auto flex items-center gap-1.5 text-xs">
           <Lock className="size-3" />
           user messages and intents are never shown
         </span>
       </div>
 
       {/* Stream: one line per record */}
-      <div className="border-border overflow-hidden rounded-md border">
+      <div className="border-border overflow-hidden rounded-control border">
         {visible.map((row, position) => {
           const rowId = `${row.eventType ?? "invocation"}-${row.id}`;
           const prev = position > 0 ? visible[position - 1] : null;
@@ -297,7 +297,7 @@ export function LogRows({
           return (
             <div key={rowId}>
               {showDay && day ? (
-                <div className="border-border bg-surface-subtle text-dim border-b px-3 py-1 text-[10px] uppercase tracking-wide">
+                <div className="border-border bg-surface-subtle text-aomi-muted border-b px-3 py-1 text-[10px] uppercase tracking-wide">
                   {day}
                 </div>
               ) : null}
@@ -312,8 +312,8 @@ export function LogRows({
                 <span
                   className={`size-2 self-center rounded-full ${DOT[status]}`}
                 />
-                <span className="text-dim">{clockLabel(row.occurredAt)}</span>
-                <span className={expandable ? "text-foreground" : "text-dim"}>
+                <span className="text-aomi-muted">{clockLabel(row.occurredAt)}</span>
+                <span className={expandable ? "text-foreground" : "text-aomi-muted"}>
                   {isInvocation(row)
                     ? row.tool
                     : payment === "partner_settlement"
@@ -322,16 +322,16 @@ export function LogRows({
                         ? "fee accrued"
                         : row.eventType}
                 </span>
-                <span className="text-dim hidden text-right sm:block">
+                <span className="text-aomi-muted hidden text-right sm:block">
                   {row.durationMs != null ? `${row.durationMs}ms` : ""}
                 </span>
                 <span
                   className={`flex min-w-0 items-center gap-2 ${
                     status === "error"
-                      ? "text-red-500"
+                      ? "text-aomi-danger"
                       : expandable
                         ? "text-foreground"
-                        : "text-dim"
+                        : "text-aomi-muted"
                   }`}
                   title={String(row.summary ?? "")}
                 >
@@ -348,7 +348,7 @@ export function LogRows({
                     </span>
                   ) : null}
                 </span>
-                <span className="text-dim hidden truncate text-right sm:block">
+                <span className="text-aomi-muted hidden truncate text-right sm:block">
                   {row.agent}
                 </span>
               </div>
@@ -363,7 +363,7 @@ export function LogRows({
           );
         })}
         {!visible.length ? (
-          <div className="text-dim bg-surface py-8 text-center text-sm">
+          <div className="text-aomi-muted bg-surface py-8 text-center text-sm">
             No records match these filters.
           </div>
         ) : null}

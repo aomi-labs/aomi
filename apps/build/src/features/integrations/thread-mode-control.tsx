@@ -29,7 +29,7 @@ export function ThreadModeToggle({
       <span
         aria-hidden
         className={cn(
-          "bg-accent-selected absolute inset-y-1 left-1 w-32 rounded-full transition-transform duration-200 ease-out",
+          "bg-aomi-accent absolute inset-y-1 left-1 w-32 rounded-full transition-transform duration-200 ease-out",
           isMulti && "translate-x-full",
         )}
       />
@@ -49,8 +49,8 @@ export function ThreadModeToggle({
           className={cn(
             "relative z-10 w-32 rounded-full text-xs font-medium transition-colors duration-200",
             value === mode
-              ? "text-accent-selected-foreground"
-              : "text-dim hover:text-foreground",
+              ? "text-aomi-on-accent"
+              : "text-aomi-muted hover:text-foreground",
             disabled && "cursor-not-allowed",
           )}
         >

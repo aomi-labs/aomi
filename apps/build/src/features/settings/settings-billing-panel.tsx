@@ -90,9 +90,9 @@ export function SettingsBillingPanel() {
   }, []);
   return (
     <div className="space-y-4">
-      <div className="border-border bg-surface-1 rounded-lg border p-5">
+      <div className="border-border bg-aomi-raised rounded-card border p-5">
         <h2 className="text-lg font-semibold">Builder credits</h2>
-        <p className="text-dim mt-1 text-sm">
+        <p className="text-aomi-muted mt-1 text-sm">
           Fund hosting and builder charges. Your personal Chat balance is
           separate.
         </p>
@@ -100,30 +100,30 @@ export function SettingsBillingPanel() {
           {position ? dollars(position.balance_microusd) : "—"}
         </div>
         {position && position.debt_microusd > 0 && (
-          <p role="alert" className="mb-4 text-red-500">
+          <p role="alert" className="mb-4 text-aomi-danger">
             Pay {dollars(position.debt_microusd)} to restore new deployments and
             paid executions. Retry blocked work after funding.
           </p>
         )}
         <button
-          className="bg-foreground text-background rounded-lg px-4 py-2"
+          className="bg-foreground text-background rounded-card px-4 py-2"
           onClick={() => setOpen(true)}
         >
           Add credits
         </button>
-        <p className="text-dim mt-3 text-xs">
+        <p className="text-aomi-muted mt-3 text-xs">
           Hosting: $10 per active agent each month.
         </p>
       </div>
       {error && (
-        <p role="alert" className="text-red-500">
+        <p role="alert" className="text-aomi-danger">
           {error}
         </p>
       )}
-      <div className="border-border rounded-lg border p-4">
+      <div className="border-border rounded-card border p-4">
         <h3 className="font-medium">Credit ledger</h3>
         {ledger?.entries.length === 0 && (
-          <p className="text-dim mt-3 text-sm">No movements yet.</p>
+          <p className="text-aomi-muted mt-3 text-sm">No movements yet.</p>
         )}
         <ul className="divide-border divide-y">
           {ledger?.entries.map((entry) => (
@@ -133,7 +133,7 @@ export function SettingsBillingPanel() {
             >
               <span>
                 {entry.entry_kind.replaceAll("_", " ")}
-                <small className="text-dim block">
+                <small className="text-aomi-muted block">
                   {new Date(entry.created_at * 1000).toLocaleString()}
                 </small>
               </span>
@@ -142,24 +142,24 @@ export function SettingsBillingPanel() {
           ))}
         </ul>
       </div>
-      <div className="border-border rounded-lg border p-4">
+      <div className="border-border rounded-card border p-4">
         <h3 className="font-medium">Charges</h3>
-        <p className="text-dim mt-1 text-xs">
+        <p className="text-aomi-muted mt-1 text-xs">
           Posted charges already appear as debits in your credit ledger.
           Historical uncollected charges do not reduce your balance.
         </p>
         {statement?.range && (
-          <p className="text-dim mt-2 text-xs">
+          <p className="text-aomi-muted mt-2 text-xs">
             {statement.range.fromDate} – {statement.range.toDate}
           </p>
         )}
         {statementError && (
-          <p role="alert" className="mt-3 text-sm text-red-500">
+          <p role="alert" className="mt-3 text-sm text-aomi-danger">
             {statementError}
           </p>
         )}
         {!statementError && !statement?.charges.length && (
-          <p className="text-dim mt-3 text-sm">No charges for this period.</p>
+          <p className="text-aomi-muted mt-3 text-sm">No charges for this period.</p>
         )}
         <ul className="divide-border divide-y">
           {statement?.charges.map((charge) => (
@@ -169,7 +169,7 @@ export function SettingsBillingPanel() {
             >
               <span>
                 {charge.item}
-                <small className="text-dim block">
+                <small className="text-aomi-muted block">
                   {charge.agent} · {charge.events} charges
                 </small>
               </span>

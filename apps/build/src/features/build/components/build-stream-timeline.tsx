@@ -18,13 +18,13 @@ export function BuildStreamTimeline({
   return (
     <div
       className={cn(
-        "border-border bg-surface-1 rounded-lg border",
+        "border-border bg-aomi-raised rounded-card border",
         compact ? "p-3" : "p-4",
       )}
     >
       {!compact ? (
         <div className="mb-3 flex items-center justify-between gap-2">
-          <p className="text-subtle text-[12px] font-medium">Progress</p>
+          <p className="text-aomi-muted text-[12px] font-medium">Progress</p>
         </div>
       ) : null}
       <ol className={cn("space-y-3", compact && "space-y-2.5")}>
@@ -32,11 +32,11 @@ export function BuildStreamTimeline({
           <li key={event.stage} className="flex gap-3">
             <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
               {event.status === "done" ? (
-                <Check className="text-positive size-3.5" />
+                <Check className="text-aomi-success size-3.5" />
               ) : event.status === "active" ? (
-                <Loader2 className="text-warning size-3.5 animate-spin" />
+                <Loader2 className="text-aomi-warning size-3.5 animate-spin" />
               ) : (
-                <Circle className="text-dim size-3" />
+                <Circle className="text-aomi-muted size-3" />
               )}
             </div>
             <div className="min-w-0 flex-1">
@@ -45,13 +45,13 @@ export function BuildStreamTimeline({
                   {STREAM_STAGE_LABELS[event.stage]}
                 </span>
                 {event.status === "active" ? (
-                  <span className="text-warning text-[10px]">Running</span>
+                  <span className="text-aomi-warning text-[10px]">Running</span>
                 ) : null}
                 {event.time ? (
-                  <span className="text-dim text-[10px]">{event.time}</span>
+                  <span className="text-aomi-muted text-[10px]">{event.time}</span>
                 ) : null}
               </div>
-              <p className="text-subtle mt-0.5 text-[12px]">{event.message}</p>
+              <p className="text-aomi-muted mt-0.5 text-[12px]">{event.message}</p>
             </div>
           </li>
         ))}

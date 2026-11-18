@@ -101,14 +101,14 @@ export function PlatformSwitcher({
   return (
     <div className="w-full">
       <form onSubmit={submit} className="flex items-center gap-3">
-        <div className="border-border bg-background focus-within:ring-ring flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-full border px-4 focus-within:ring-1">
+        <div className="border-border bg-background focus-within:ring-aomi-ring flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-full border px-4 focus-within:ring-1">
           {checking ? (
             <LoaderCircle
-              className="text-dim size-3.5 shrink-0 animate-spin"
+              className="text-aomi-muted size-3.5 shrink-0 animate-spin"
               aria-hidden
             />
           ) : (
-            <Layers3 className="text-dim size-3.5 shrink-0" aria-hidden />
+            <Layers3 className="text-aomi-muted size-3.5 shrink-0" aria-hidden />
           )}
           <input
             value={value}
@@ -126,13 +126,13 @@ export function PlatformSwitcher({
             spellCheck={false}
             placeholder="Platform name"
             style={{ outline: "none" }}
-            className="text-foreground placeholder:text-dim min-w-0 flex-1 bg-transparent text-[13px] disabled:cursor-wait"
+            className="text-foreground placeholder:text-aomi-muted min-w-0 flex-1 bg-transparent text-[13px] disabled:cursor-wait"
           />
         </div>
         <button
           type="submit"
           disabled={!value.trim() || checking || account.loading}
-          className="bg-primary text-primary-foreground hover:bg-brand-hover inline-flex h-9 shrink-0 items-center justify-center rounded-full px-4 text-[13px] font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+          className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg/90 inline-flex h-9 shrink-0 items-center justify-center rounded-full px-4 text-[13px] font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
         >
           {checking ? "Checking…" : "Switch"}
         </button>
@@ -141,7 +141,7 @@ export function PlatformSwitcher({
         <p
           id="platform-switch-error"
           role="alert"
-          className="text-negative mt-2 text-xs"
+          className="text-aomi-danger mt-2 text-xs"
         >
           {error}
         </p>
@@ -158,7 +158,7 @@ export function PlatformSwitcher({
           type="button"
           onClick={useCommunity}
           disabled={checking}
-          className="border-border hover:bg-accent-hover text-foreground inline-flex h-9 shrink-0 items-center rounded-full border px-4 text-[13px] transition disabled:cursor-not-allowed disabled:opacity-50"
+          className="border-border hover:bg-aomi-hover text-foreground inline-flex h-9 shrink-0 items-center rounded-full border px-4 text-[13px] transition disabled:cursor-not-allowed disabled:opacity-50"
         >
           Use Community
         </button>

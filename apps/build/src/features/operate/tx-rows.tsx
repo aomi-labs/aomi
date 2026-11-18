@@ -15,11 +15,11 @@ import {
 type TxRow = Record<string, any>;
 
 const STATUS_CHIP: Record<string, string> = {
-  confirmed: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
-  submitted: "bg-amber-500/10 text-amber-500 border-amber-500/30",
-  failed: "bg-red-500/10 text-red-500 border-red-500/30",
-  rejected: "bg-red-500/10 text-red-500 border-red-500/30",
-  created: "bg-surface-subtle text-dim border-border",
+  confirmed: "bg-aomi-success/10 text-aomi-success border-aomi-success/30",
+  submitted: "bg-aomi-warning/10 text-aomi-warning border-aomi-warning/30",
+  failed: "bg-aomi-danger/10 text-aomi-danger border-aomi-danger/30",
+  rejected: "bg-aomi-danger/10 text-aomi-danger border-aomi-danger/30",
+  created: "bg-surface-subtle text-aomi-muted border-border",
 };
 
 function Field({
@@ -31,7 +31,7 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-0.5 py-1.5 sm:flex-row sm:gap-3">
-      <dt className="text-dim w-44 shrink-0 text-xs sm:pt-0.5">{label}</dt>
+      <dt className="text-aomi-muted w-44 shrink-0 text-xs sm:pt-0.5">{label}</dt>
       <dd className="min-w-0 text-sm">{children}</dd>
     </div>
   );
@@ -49,7 +49,7 @@ function CopyBtn({ value }: { value: string }) {
         event.stopPropagation();
         void navigator.clipboard?.writeText(value);
       }}
-      className="text-dim hover:text-foreground ml-1.5 inline-flex align-middle"
+      className="text-aomi-muted hover:text-foreground ml-1.5 inline-flex align-middle"
       aria-label="Copy"
     >
       <Copy className="size-3" />
@@ -87,7 +87,7 @@ function TxDetail({ tx }: { tx: TxRow }) {
               <CopyBtn value={String(tx.txHash)} />
             </>
           ) : (
-            <span className="text-dim text-sm">
+            <span className="text-aomi-muted text-sm">
               not yet submitted — awaiting wallet signature
             </span>
           )}
@@ -99,7 +99,7 @@ function TxDetail({ tx }: { tx: TxRow }) {
             {statusDetail(tx)}
           </span>
           {tx.revertReason ? (
-            <div className="mt-1.5 rounded-md border border-red-500/30 bg-red-500/5 px-2.5 py-1.5 text-xs text-red-500">
+            <div className="mt-1.5 rounded-control border border-aomi-danger/30 bg-aomi-danger/5 px-2.5 py-1.5 text-xs text-aomi-danger">
               {tx.revertReason}
             </div>
           ) : null}
@@ -107,7 +107,7 @@ function TxDetail({ tx }: { tx: TxRow }) {
         {tx.block || tx.slot ? (
           <Field label={svm ? "Slot" : "Block"}>
             <Mono>{tx.block ?? tx.slot}</Mono>
-            <span className="text-dim ml-2 text-xs">
+            <span className="text-aomi-muted ml-2 text-xs">
               {secondsLabel(tx.createdAt)}
             </span>
           </Field>
@@ -119,17 +119,17 @@ function TxDetail({ tx }: { tx: TxRow }) {
               <CopyBtn value={String(tx.fromAddress)} />
             </>
           ) : (
-            <span className="text-dim text-xs">not recorded</span>
+            <span className="text-aomi-muted text-xs">not recorded</span>
           )}
           {tx.fromLabel ? (
-            <span className="text-dim ml-2 text-xs">({tx.fromLabel})</span>
+            <span className="text-aomi-muted ml-2 text-xs">({tx.fromLabel})</span>
           ) : null}
         </Field>
         <Field label={svm ? "Program" : "Interacted with (To)"}>
           <Mono>{tx.toAddress}</Mono>
           <CopyBtn value={String(tx.toAddress ?? "")} />
           {tx.toLabel ? (
-            <span className="text-dim ml-2 text-xs">({tx.toLabel})</span>
+            <span className="text-aomi-muted ml-2 text-xs">({tx.toLabel})</span>
           ) : null}
         </Field>
         {Array.isArray(tx.transfers) && tx.transfers.length ? (
@@ -146,13 +146,13 @@ function TxDetail({ tx }: { tx: TxRow }) {
         <Field label={payout ? "Settlement amount" : "Value"}>
           <span className="font-medium">{valueLabel(tx.value)}</span>
           {tx.valueUsd ? (
-            <span className="text-dim ml-2 text-xs">{tx.valueUsd}</span>
+            <span className="text-aomi-muted ml-2 text-xs">{tx.valueUsd}</span>
           ) : null}
         </Field>
         {tx.txFee ? (
           <Field label="Transaction fee">
             <span className="font-medium">{tx.txFee}</span>
-            <span className="text-dim ml-2 text-xs">
+            <span className="text-aomi-muted ml-2 text-xs">
               {svm
                 ? [
                     tx.computeUnits &&
@@ -188,7 +188,7 @@ function TxDetail({ tx }: { tx: TxRow }) {
         ) : null}
         {tx.calldataPreview ? (
           <Field label={svm ? "Instruction data" : "Calldata"}>
-            <div className="border-border bg-surface max-h-20 overflow-y-auto rounded-md border px-2.5 py-2">
+            <div className="border-border bg-surface max-h-20 overflow-y-auto rounded-control border px-2.5 py-2">
               <Mono>{tx.calldataPreview}</Mono>
             </div>
           </Field>
@@ -197,8 +197,8 @@ function TxDetail({ tx }: { tx: TxRow }) {
 
       {/* Agent context — what no explorer can show */}
       <div className="mt-4 lg:mt-0">
-        <div className="border-border bg-surface rounded-md border">
-          <div className="border-border text-dim border-b px-3 py-2 text-xs font-medium uppercase">
+        <div className="border-border bg-surface rounded-control border">
+          <div className="border-border text-aomi-muted border-b px-3 py-2 text-xs font-medium uppercase">
             {payout ? "Partner payment context" : "Agent context"}
           </div>
           <dl className="px-3 py-2">
@@ -208,7 +208,7 @@ function TxDetail({ tx }: { tx: TxRow }) {
             {payout ? (
               <>
                 <Field label="Ledger scope">
-                  <span className="text-dim text-xs">
+                  <span className="text-aomi-muted text-xs">
                     recipient bucket · may settle more than one priced call
                   </span>
                 </Field>
@@ -221,7 +221,7 @@ function TxDetail({ tx }: { tx: TxRow }) {
             ) : (
               <Field label="User intent">
                 {/* Privacy ruling: intent-level content is never shown to builders. */}
-                <span className="text-dim text-xs">hidden · user privacy</span>
+                <span className="text-aomi-muted text-xs">hidden · user privacy</span>
               </Field>
             )}
             <Field label="External tx id">
@@ -234,7 +234,7 @@ function TxDetail({ tx }: { tx: TxRow }) {
             href={String(tx.explorerUrl)}
             target="_blank"
             rel="noreferrer"
-            className="border-border bg-surface hover:bg-accent-hover mt-2 flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm"
+            className="border-border bg-surface hover:bg-aomi-hover mt-2 flex items-center justify-center gap-1.5 rounded-control border px-3 py-2 text-sm"
           >
             View on explorer <ExternalLink className="size-3.5" />
           </a>
@@ -262,11 +262,11 @@ export function TransactionRows({
   const visible = rows.filter((tx) => !agentFilter || tx.agent === agentFilter);
   return (
     <div className="space-y-3">
-      <div className="border-border bg-surface-subtle flex flex-wrap items-center gap-2 rounded-md border px-3 py-2">
+      <div className="border-border bg-surface-subtle flex flex-wrap items-center gap-2 rounded-control border px-3 py-2">
         <select
           value={agentFilter ?? ""}
           onChange={(event) => onAgentFilterChange(event.target.value || null)}
-          className="border-border bg-surface text-foreground h-8 rounded-md border px-2 text-xs"
+          className="border-border bg-surface text-foreground h-8 rounded-control border px-2 text-xs"
         >
           <option value="">All agents</option>
           {agents.map((agent) => (
@@ -279,18 +279,18 @@ export function TransactionRows({
           <button
             type="button"
             onClick={() => onAgentFilterChange(null)}
-            className="text-dim hover:text-foreground flex items-center gap-1 text-xs"
+            className="text-aomi-muted hover:text-foreground flex items-center gap-1 text-xs"
           >
             <X className="size-3" /> clear filter
           </button>
         ) : null}
-        <span className="text-dim ml-auto text-xs">
+        <span className="text-aomi-muted ml-auto text-xs">
           {visible.length} records
         </span>
       </div>
-      <div className="border-border overflow-x-auto rounded-md border">
+      <div className="border-border overflow-x-auto rounded-control border">
         <table className="divide-border w-full min-w-[960px] table-fixed divide-y text-sm">
-          <thead className="bg-surface-subtle text-dim text-left text-xs uppercase">
+          <thead className="bg-surface-subtle text-aomi-muted text-left text-xs uppercase">
             <tr>
               <th className="w-8 px-3 py-2" aria-label="expand" />
               <th className="w-44 px-3 py-2">Time</th>
@@ -313,14 +313,14 @@ export function TransactionRows({
                     onClick={() => onToggle(open ? null : String(tx.id))}
                     className="hover:bg-surface-subtle cursor-pointer"
                   >
-                    <td className="text-dim px-3 py-2">
+                    <td className="text-aomi-muted px-3 py-2">
                       {open ? (
                         <ChevronDown className="size-3.5" />
                       ) : (
                         <ChevronRight className="size-3.5" />
                       )}
                     </td>
-                    <td className="text-dim whitespace-nowrap px-3 py-2">
+                    <td className="text-aomi-muted whitespace-nowrap px-3 py-2">
                       {secondsLabel(tx.createdAt)}
                     </td>
                     <td className="min-w-0 px-3 py-2">
@@ -331,7 +331,7 @@ export function TransactionRows({
                         {tx.kind === "partner_payout" ? (
                           <span
                             aria-label="Partner payout"
-                            className="border-border bg-surface-subtle text-dim shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium uppercase"
+                            className="border-border bg-surface-subtle text-aomi-muted shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium uppercase"
                           >
                             Payout
                           </span>

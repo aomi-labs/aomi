@@ -212,8 +212,8 @@ function ThemeSwitch() {
           className={cn(
             "flex size-6 items-center justify-center rounded-full transition-colors",
             theme === mode
-              ? "bg-accent-selected text-accent-selected-foreground"
-              : "text-dim hover:text-foreground",
+              ? "bg-aomi-accent text-aomi-on-accent"
+              : "text-aomi-muted hover:text-foreground",
           )}
         >
           <Icon className="size-3.5" aria-hidden />

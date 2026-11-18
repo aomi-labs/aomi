@@ -5,7 +5,7 @@
 // stored prefix is ever shown.
 //
 // Styling follows the settings-redesign inventory, mapped onto agents/build's
-// radius scale: rounded-md (12px) cards/tables, rounded-sm (8px) in-card
+// radius scale: rounded-control (12px) cards/tables, rounded-md (8px) in-card
 // controls, rounded-full pills. 10px uppercase tracked micro-labels, neutral
 // badges for facts and sky-tinted badges for state, mono for key prefixes,
 // and the button ramp (accent commit + accent repair in flow, solid red pill
@@ -147,19 +147,19 @@ function agentOptions(projects: KeySource[]): AgentOption[] {
 }
 
 const COMMIT_BTN =
-  "bg-accent-selected text-accent-selected-foreground hover:opacity-90 inline-flex h-8 items-center justify-center rounded-sm px-3.5 text-[13px] font-medium disabled:cursor-not-allowed disabled:opacity-50";
+  "bg-aomi-accent text-aomi-on-accent hover:opacity-90 inline-flex h-8 items-center justify-center rounded-md px-3.5 text-[13px] font-medium disabled:cursor-not-allowed disabled:opacity-50";
 const REPAIR_BTN =
-  "border-accent-selected/50 text-accent-selected hover:bg-accent-selected/10 inline-flex h-8 items-center gap-1 rounded-sm border px-3 text-[13px] font-medium disabled:opacity-50";
+  "border-aomi-accent/50 text-aomi-accent hover:bg-aomi-accent/10 inline-flex h-8 items-center gap-1 rounded-md border px-3 text-[13px] font-medium disabled:opacity-50";
 const OUTLINE_BTN =
-  "border-border hover:bg-surface-2 text-foreground inline-flex h-7 items-center rounded-sm border px-2.5 text-xs font-medium disabled:opacity-50";
+  "border-border hover:bg-aomi-surface-2 text-foreground inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium disabled:opacity-50";
 const GHOST_BTN =
-  "text-dim hover:text-foreground inline-flex h-8 items-center rounded-sm px-2.5 text-[13px]";
+  "text-aomi-muted hover:text-foreground inline-flex h-8 items-center rounded-md px-2.5 text-[13px]";
 const DANGER_BTN =
-  "bg-destructive text-destructive-foreground hover:opacity-90 inline-flex h-8 items-center rounded-full px-4 text-[13px] font-medium disabled:opacity-50";
+  "bg-aomi-danger text-aomi-on-danger hover:opacity-90 inline-flex h-8 items-center rounded-full px-4 text-[13px] font-medium disabled:opacity-50";
 const INPUT =
-  "bg-input text-foreground placeholder:text-dim h-8 rounded-sm border border-border px-2.5 text-[13px]";
+  "bg-input text-foreground placeholder:text-aomi-muted h-8 rounded-md border border-border px-2.5 text-[13px]";
 const TH =
-  "px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.07em] text-dim";
+  "px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.07em] text-aomi-muted";
 
 const BADGE =
   "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.05em] whitespace-nowrap";
@@ -169,13 +169,13 @@ function StatusBadge({ projectCount }: { projectCount: number }) {
     <span
       className={cn(
         BADGE,
-        "border-accent-selected/40 bg-accent-selected/10 text-accent-selected",
+        "border-aomi-accent/40 bg-aomi-accent/10 text-aomi-accent",
       )}
     >
       Active · {projectCount} project{projectCount === 1 ? "" : "s"}
     </span>
   ) : (
-    <span className={cn(BADGE, "border-border bg-surface-2 text-dim")}>
+    <span className={cn(BADGE, "border-border bg-aomi-surface-2 text-aomi-muted")}>
       Unassigned
     </span>
   );
@@ -188,8 +188,8 @@ function CheckboxGlyph({ checked }: { checked: boolean }) {
       className={cn(
         "flex size-4 shrink-0 items-center justify-center rounded border transition-colors",
         checked
-          ? "bg-accent-selected text-accent-selected-foreground border-transparent"
-          : "border-border-hover bg-transparent",
+          ? "bg-aomi-accent text-aomi-on-accent border-transparent"
+          : "border-aomi-muted/60 bg-transparent",
       )}
     >
       {checked ? <Check className="size-3" /> : null}
@@ -219,7 +219,7 @@ function FundingSummary({
   const rotated = keyRow.updatedAt > keyRow.createdAt;
 
   return (
-    <section className="border-border bg-surface-2/70 overflow-hidden rounded-md border">
+    <section className="border-border bg-aomi-surface-2/70 overflow-hidden rounded-control border">
       <div className="px-3.5 py-3">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -228,7 +228,7 @@ function FundingSummary({
                 aria-hidden
                 className={cn(
                   "size-1.5 shrink-0 rounded-full",
-                  projectCount > 0 ? "bg-positive" : "bg-dim",
+                  projectCount > 0 ? "bg-aomi-success" : "bg-aomi-muted",
                 )}
               />
               <h3 className="text-[13px] font-medium">
@@ -237,7 +237,7 @@ function FundingSummary({
                   : "Ready to sponsor model usage"}
               </h3>
             </div>
-            <p className="text-dim mt-1 max-w-2xl text-xs leading-relaxed">
+            <p className="text-aomi-muted mt-1 max-w-2xl text-xs leading-relaxed">
               {projectCount > 0 ? (
                 <>
                   Provider spend for{" "}
@@ -268,7 +268,7 @@ function FundingSummary({
               type="button"
               disabled={removeDisabled}
               onClick={onRemove}
-              className={cn(DANGER_BTN, "h-7 rounded-sm px-2.5")}
+              className={cn(DANGER_BTN, "h-7 rounded-md px-2.5")}
             >
               Remove
             </button>
@@ -277,24 +277,24 @@ function FundingSummary({
       </div>
 
       <dl className="border-border grid grid-cols-3 divide-x border-y">
-        <div className="bg-surface-1 px-3 py-2.5">
-          <dt className="text-dim text-[10px] font-semibold uppercase tracking-[0.07em]">
+        <div className="bg-aomi-raised px-3 py-2.5">
+          <dt className="text-aomi-muted text-[10px] font-semibold uppercase tracking-[0.07em]">
             Projects funded
           </dt>
           <dd className="text-foreground mt-0.5 font-mono text-base font-medium tabular-nums">
             {projectCount}
           </dd>
         </div>
-        <div className="bg-surface-1 px-3 py-2.5">
-          <dt className="text-dim text-[10px] font-semibold uppercase tracking-[0.07em]">
+        <div className="bg-aomi-raised px-3 py-2.5">
+          <dt className="text-aomi-muted text-[10px] font-semibold uppercase tracking-[0.07em]">
             Tokens sponsored
           </dt>
           <dd className="text-foreground mt-0.5 font-mono text-base font-medium tabular-nums">
             {tokensCell(total.tokens)}
           </dd>
         </div>
-        <div className="bg-surface-1 px-3 py-2.5">
-          <dt className="text-dim text-[10px] font-semibold uppercase tracking-[0.07em]">
+        <div className="bg-aomi-raised px-3 py-2.5">
+          <dt className="text-aomi-muted text-[10px] font-semibold uppercase tracking-[0.07em]">
             Provider spend
           </dt>
           <dd className="text-foreground mt-0.5 font-mono text-base font-medium tabular-nums">
@@ -303,7 +303,7 @@ function FundingSummary({
         </div>
       </dl>
 
-      <div className="text-dim flex flex-wrap items-center gap-x-3 gap-y-1 px-3.5 py-2 text-[11px]">
+      <div className="text-aomi-muted flex flex-wrap items-center gap-x-3 gap-y-1 px-3.5 py-2 text-[11px]">
         <span className="font-mono">{keyRow.keyPrefix}…</span>
         <span>Added {formatTs(keyRow.createdAt)}</span>
         {rotated ? <span>Rotated {formatTs(keyRow.updatedAt)}</span> : null}
@@ -328,7 +328,7 @@ function ProjectsTable({
 }) {
   const total = sumUsage(options, keyRow.usage);
   return (
-    <div className="bg-surface-1 overflow-x-auto">
+    <div className="bg-aomi-raised overflow-x-auto">
       <table className="w-full min-w-[640px] table-fixed text-[13px]">
         <thead className="border-border border-b">
           <tr>
@@ -346,7 +346,7 @@ function ProjectsTable({
             return (
               <tr
                 key={option.agentId}
-                className="hover:bg-surface-2/60 transition-colors"
+                className="hover:bg-aomi-surface-2/60 transition-colors"
               >
                 <td className="px-3 py-2">
                   <label className="flex cursor-pointer items-center gap-2.5">
@@ -364,11 +364,11 @@ function ProjectsTable({
                     </span>
                   </label>
                 </td>
-                <td className="text-dim truncate px-3 py-2 text-xs">
+                <td className="text-aomi-muted truncate px-3 py-2 text-xs">
                   {option.projectLabel}
                 </td>
                 <td className="px-3 py-2 text-xs">
-                  <span className="text-dim">
+                  <span className="text-aomi-muted">
                     {holders.length
                       ? holders
                           .map((key) =>
@@ -380,17 +380,17 @@ function ProjectsTable({
                       : "—"}
                   </span>
                 </td>
-                <td className="text-dim whitespace-nowrap px-3 py-2 text-right font-mono text-xs">
+                <td className="text-aomi-muted whitespace-nowrap px-3 py-2 text-right font-mono text-xs">
                   {tokensCell(keyRow.usage?.[option.agentId]?.tokens)}
                 </td>
-                <td className="text-dim whitespace-nowrap px-3 py-2 text-right font-mono text-xs">
+                <td className="text-aomi-muted whitespace-nowrap px-3 py-2 text-right font-mono text-xs">
                   {costCell(keyRow.usage?.[option.agentId]?.costUsd)}
                 </td>
               </tr>
             );
           })}
         </tbody>
-        <tfoot className="border-border bg-surface-1 border-t">
+        <tfoot className="border-border bg-aomi-raised border-t">
           <tr>
             <td className="text-foreground px-3 py-2 font-medium">Total</td>
             <td />
@@ -472,7 +472,7 @@ function KeyRow({
           setChecked(new Set(keyRow.agentIds));
         }}
         aria-expanded={open}
-        className="hover:bg-surface-2/60 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
+        className="hover:bg-aomi-surface-2/60 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -482,7 +482,7 @@ function KeyRow({
             {/* The prefix is identity, so it sits with the name — but only
                 when a label exists, else it would just repeat the name. */}
             {keyRow.label?.trim() ? (
-              <span className="text-dim shrink-0 font-mono text-xs">
+              <span className="text-aomi-muted shrink-0 font-mono text-xs">
                 {keyRow.keyPrefix}…
               </span>
             ) : null}
@@ -491,7 +491,7 @@ function KeyRow({
         </div>
         <ChevronDown
           className={cn(
-            "text-dim size-4 shrink-0 transition-transform duration-150",
+            "text-aomi-muted size-4 shrink-0 transition-transform duration-150",
             open && "rotate-180",
           )}
         />
@@ -513,7 +513,7 @@ function KeyRow({
           />
 
           {flow === "rotate" ? (
-            <div className="border-accent-selected/30 bg-accent rounded-sm border p-3">
+            <div className="border-aomi-accent/30 bg-aomi-accent-subtle rounded-md border p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="password"
@@ -546,9 +546,9 @@ function KeyRow({
               </div>
             </div>
           ) : flow === "remove" ? (
-            <div className="border-destructive/30 bg-destructive/5 rounded-sm border p-3">
+            <div className="border-aomi-danger/30 bg-aomi-danger/5 rounded-md border p-3">
               <div className="flex flex-wrap items-center gap-3">
-                <p className="text-dim min-w-0 flex-1 text-xs leading-snug">
+                <p className="text-aomi-muted min-w-0 flex-1 text-xs leading-snug">
                   {projectCount > 0 ? (
                     <>
                       This key currently funds{" "}
@@ -589,22 +589,22 @@ function KeyRow({
                 aria-label="Sponsored models"
                 value={coverage}
                 onChange={(event) => setCoverage(event.target.value)}
-                className="border-border bg-surface-1 mt-2 w-full rounded border p-2"
+                className="border-border bg-aomi-raised mt-2 w-full rounded border p-2"
               />
-              <span className="text-dim mt-1 block text-xs">
+              <span className="text-aomi-muted mt-1 block text-xs">
                 Use * for this provider&apos;s models, or comma-separated route
                 IDs such as openai:gpt-6.1-sol.
               </span>
             </label>
             <div className="mb-2 mt-4">
               <h4 className="text-sm font-medium">Add to project</h4>
-              <p className="text-dim mt-1.5 text-xs">
+              <p className="text-aomi-muted mt-1.5 text-xs">
                 Use this key to fund projects when users select models from this
                 provider.
               </p>
             </div>
             {options.length === 0 ? (
-              <p className="text-dim text-xs">
+              <p className="text-aomi-muted text-xs">
                 No deployed projects available for this account.
               </p>
             ) : (
@@ -705,10 +705,10 @@ function ProviderSection({
   };
 
   return (
-    <section className="border-border bg-surface-1 rounded-md border">
+    <section className="border-border bg-aomi-raised rounded-control border">
       <div className="flex items-center gap-2.5 px-4 py-3">
         <h2 className="text-[13px] font-medium">{PROVIDER_LABELS[provider]}</h2>
-        <span className="text-dim text-[11px]">
+        <span className="text-aomi-muted text-[11px]">
           {keys.length === 0
             ? "No keys"
             : `${keys.length} key${keys.length === 1 ? "" : "s"}`}
@@ -718,7 +718,7 @@ function ProviderSection({
           onClick={() => (adding ? closeForm() : setAdding(true))}
           disabled={busy}
           aria-expanded={adding}
-          className={cn(OUTLINE_BTN, "ml-auto", adding && "bg-surface-2")}
+          className={cn(OUTLINE_BTN, "ml-auto", adding && "bg-aomi-surface-2")}
         >
           + Add key
         </button>
@@ -905,31 +905,31 @@ export function ProvidersView() {
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
       <header>
         <div className="flex items-center gap-2">
-          <KeyRound className="text-dim size-5" aria-hidden />
+          <KeyRound className="text-aomi-muted size-5" aria-hidden />
           <h1 className={pageTitle}>Providers</h1>
         </div>
-        <p className="text-dim mt-1.5 max-w-3xl text-sm leading-5">
+        <p className="text-aomi-muted mt-1.5 max-w-3xl text-sm leading-5">
           Your keys fund inference for your agents&apos; users — model cost is
           waived when a key covers their selected model.
         </p>
-        <p className="text-dim mt-1 max-w-3xl text-xs leading-5">
+        <p className="text-aomi-muted mt-1 max-w-3xl text-xs leading-5">
           Keys are encrypted and never shown again. Agent tool secrets live in
           each project&apos;s Environment.
         </p>
       </header>
 
       {formError ? (
-        <div className="border-destructive/30 bg-destructive/5 text-destructive rounded-md border px-3 py-2 text-[13px]">
+        <div className="border-aomi-danger/30 bg-aomi-danger/5 text-aomi-danger rounded-control border px-3 py-2 text-[13px]">
           {formError}
         </div>
       ) : null}
 
       {loading ? (
-        <div className="border-border bg-surface-1 text-dim rounded-md border px-4 py-10 text-center text-[13px]">
+        <div className="border-border bg-aomi-raised text-aomi-muted rounded-control border px-4 py-10 text-center text-[13px]">
           Loading
         </div>
       ) : error ? (
-        <div className="border-destructive/30 bg-destructive/5 text-destructive rounded-md border px-4 py-3 text-[13px]">
+        <div className="border-aomi-danger/30 bg-aomi-danger/5 text-aomi-danger rounded-control border px-4 py-3 text-[13px]">
           {error}
         </div>
       ) : (

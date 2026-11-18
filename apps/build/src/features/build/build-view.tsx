@@ -94,8 +94,8 @@ function ContextPanelSection({
 }) {
   return (
     <section className="space-y-1.5">
-      <div className="text-subtle flex items-center gap-1.5 px-1 text-[12px] font-medium">
-        <Icon className="text-dim size-3.5" />
+      <div className="text-aomi-muted flex items-center gap-1.5 px-1 text-[12px] font-medium">
+        <Icon className="text-aomi-muted size-3.5" />
         {title}
       </div>
       {children}
@@ -388,7 +388,7 @@ export function BuildView() {
             <button
               type="button"
               onClick={toggleRecentRail}
-              className="icon-button inline-flex size-7 shrink-0 items-center justify-center rounded-md transition-colors"
+              className="icon-button inline-flex size-7 shrink-0 items-center justify-center rounded-control transition-colors"
               title={recentOpen ? "Hide Recent (⌘B)" : "Show Recent (⌘B)"}
               aria-label={recentOpen ? "Hide Recent" : "Show Recent"}
               aria-pressed={recentOpen}
@@ -410,10 +410,10 @@ export function BuildView() {
                       className={cn(
                         "rounded-full border px-2 py-0.5 text-[10px]",
                         active
-                          ? "border-foreground/30 text-foreground bg-surface-1"
+                          ? "border-foreground/30 text-foreground bg-aomi-raised"
                           : done
-                            ? "border-border text-dim"
-                            : "border-border/60 text-dim/70",
+                            ? "border-border text-aomi-muted"
+                            : "border-border/60 text-aomi-muted/70",
                       )}
                     >
                       {stage.title}
@@ -422,7 +422,7 @@ export function BuildView() {
                 })}
               </ol>
             ) : (
-              <p className="text-dim text-[12px]">Create</p>
+              <p className="text-aomi-muted text-[12px]">Create</p>
             )}
           </div>
 
@@ -431,7 +431,7 @@ export function BuildView() {
               <button
                 type="button"
                 onClick={handleStop}
-                className="border-border text-foreground hover:bg-accent/40 inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[11px]"
+                className="border-border text-foreground hover:bg-aomi-accent-subtle/40 inline-flex h-7 items-center gap-1 rounded-control border px-2 text-[11px]"
               >
                 <Square className="size-2.5 fill-current" />
                 Stop
@@ -440,7 +440,7 @@ export function BuildView() {
             <button
               type="button"
               onClick={handleNewSession}
-              className="border-border text-foreground hover:bg-accent/40 inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[11px]"
+              className="border-border text-foreground hover:bg-aomi-accent-subtle/40 inline-flex h-7 items-center gap-1 rounded-control border px-2 text-[11px]"
               title="New session (⌘N)"
             >
               <Plus className="size-3" />
@@ -451,12 +451,12 @@ export function BuildView() {
 
         <div className="mx-auto w-full max-w-7xl shrink-0 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
-            <Hammer className="text-dim size-5" aria-hidden />
+            <Hammer className="text-aomi-muted size-5" aria-hidden />
             <h1 className="font-display text-xl font-normal tracking-tight">
               Build
             </h1>
           </div>
-          <p className="text-dim mt-1.5 max-w-3xl text-sm leading-5">
+          <p className="text-aomi-muted mt-1.5 max-w-3xl text-sm leading-5">
             Describe an agent, review the plan and files, compile, smoke-test,
             then ship to Projects.
           </p>
@@ -549,7 +549,7 @@ export function BuildView() {
               <div className="border-border border-t px-4 py-3">
                 <div className="mx-auto max-w-3xl space-y-1.5">
                   {composerBlocked ? (
-                    <p className="text-dim text-center text-[11px]">
+                    <p className="text-aomi-muted text-center text-[11px]">
                       {composerBlocked}
                     </p>
                   ) : null}
@@ -579,7 +579,7 @@ export function BuildView() {
           </div>
 
           {!isEmpty ? (
-            <aside className="border-border bg-surface-1/40 hidden w-[280px] shrink-0 flex-col gap-3 overflow-y-auto border-l p-3 lg:flex">
+            <aside className="border-border bg-aomi-raised/40 hidden w-[280px] shrink-0 flex-col gap-3 overflow-y-auto border-l p-3 lg:flex">
               <ContextPanelSection title="Progress" icon={ListChecks}>
                 <BuildStreamTimeline events={streamEvents} compact />
               </ContextPanelSection>
@@ -606,8 +606,8 @@ export function BuildView() {
       >
         <FileDialog.Portal>
           <FileDialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
-          <FileDialog.Content className="border-border bg-background fixed left-1/2 top-1/2 z-50 max-h-[80vh] w-[min(760px,92vw)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border shadow-lg">
-            <FileDialog.Title className="text-subtle border-border border-b px-4 py-2 font-mono text-[12px]">
+          <FileDialog.Content className="border-border bg-background fixed left-1/2 top-1/2 z-50 max-h-[80vh] w-[min(760px,92vw)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-card border shadow-popover">
+            <FileDialog.Title className="text-aomi-muted border-border border-b px-4 py-2 font-mono text-[12px]">
               {fileView?.path}
             </FileDialog.Title>
             <pre className="max-h-[70vh] overflow-auto whitespace-pre px-4 py-3 text-[12px] leading-relaxed">

@@ -69,13 +69,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={item.id}
             role="status"
             className={cn(
-              "pointer-events-auto rounded-md border px-3 py-2 text-sm shadow-lg",
+              "pointer-events-auto rounded-control border px-3 py-2 text-sm shadow-popover",
               item.tone === "success" &&
-                "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
+                "border-aomi-success/30 bg-aomi-success/10 text-aomi-success",
               item.tone === "error" &&
-                "border-destructive/30 bg-destructive/10 text-destructive",
+                "border-aomi-danger/30 bg-aomi-danger/10 text-aomi-danger",
               item.tone === "info" &&
-                "border-border bg-surface-2 text-foreground",
+                "border-border bg-aomi-surface-2 text-foreground",
             )}
           >
             <div className="font-medium">{item.title}</div>

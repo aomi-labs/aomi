@@ -468,10 +468,10 @@ export default function DevOperatePreview() {
             key={k}
             type="button"
             onClick={() => setKind(k)}
-            className={`rounded-t-md px-3 py-1.5 text-sm capitalize ${
+            className={`rounded-t-control px-3 py-1.5 text-sm capitalize ${
               k === kind
                 ? "bg-surface text-foreground border-border border border-b-0"
-                : "text-dim"
+                : "text-aomi-muted"
             }`}
           >
             {k}
@@ -483,7 +483,7 @@ export default function DevOperatePreview() {
         onClickCapture={(event) => {
           if (kind !== "observability") return;
           const card = (event.target as HTMLElement).closest(
-            "div.rounded-md.border",
+            "div.rounded-control.border",
           );
           const name = AGENT_NAMES.find((agentName) =>
             card?.textContent?.includes(agentName),

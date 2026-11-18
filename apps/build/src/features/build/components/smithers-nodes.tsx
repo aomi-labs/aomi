@@ -21,26 +21,26 @@ export function SmithersNodes({
   return (
     <div
       className={cn(
-        "border-border bg-surface-1 rounded-lg border",
+        "border-border bg-aomi-raised rounded-card border",
         compact ? "p-3" : "mx-auto my-2 max-w-3xl p-4",
       )}
     >
       {caption ? (
-        <p className="text-subtle mb-3 text-[12px] font-medium">{caption}</p>
+        <p className="text-aomi-muted mb-3 text-[12px] font-medium">{caption}</p>
       ) : null}
       <ul className={cn("space-y-2", compact && "space-y-1.5")}>
         {nodes.map((node) => (
           <li
             key={node.id}
-            className="border-border/80 bg-background flex gap-3 rounded-md border px-3 py-2.5"
+            className="border-border/80 bg-background flex gap-3 rounded-control border px-3 py-2.5"
           >
             <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
               {node.status === "done" ? (
-                <Check className="text-positive size-3.5" />
+                <Check className="text-aomi-success size-3.5" />
               ) : node.status === "active" ? (
-                <Loader2 className="text-warning size-3.5 animate-spin" />
+                <Loader2 className="text-aomi-warning size-3.5 animate-spin" />
               ) : (
-                <Circle className="text-dim size-3" />
+                <Circle className="text-aomi-muted size-3" />
               )}
             </div>
             <div className="min-w-0 flex-1">
@@ -48,12 +48,12 @@ export function SmithersNodes({
                 <span className="text-foreground text-[13px] font-medium">
                   {node.label}
                 </span>
-                <span className="text-dim text-[10px] uppercase tracking-wide">
+                <span className="text-aomi-muted text-[10px] uppercase tracking-wide">
                   {node.role}
                 </span>
               </div>
               {!compact ? (
-                <p className="text-dim mt-0.5 text-[12px] leading-4">
+                <p className="text-aomi-muted mt-0.5 text-[12px] leading-4">
                   {node.detail}
                 </p>
               ) : null}
@@ -62,10 +62,10 @@ export function SmithersNodes({
               className={cn(
                 "shrink-0 self-start text-[10px] capitalize",
                 node.status === "active"
-                  ? "text-warning"
+                  ? "text-aomi-warning"
                   : node.status === "done"
-                    ? "text-positive"
-                    : "text-dim",
+                    ? "text-aomi-success"
+                    : "text-aomi-muted",
               )}
             >
               {node.status === "done"

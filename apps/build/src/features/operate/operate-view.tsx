@@ -116,7 +116,7 @@ function EmptyState({
   actionLabel?: string;
 }) {
   return (
-    <div className="border-border bg-surface-subtle text-dim rounded-md border px-4 py-10 text-center text-sm">
+    <div className="border-border bg-surface-subtle text-aomi-muted rounded-control border px-4 py-10 text-center text-sm">
       <p className="text-foreground font-medium">
         No {title.toLowerCase()} yet
       </p>
@@ -127,7 +127,7 @@ function EmptyState({
         <Link
           href={actionHref}
           preload={false}
-          className="bg-primary text-primary-foreground mt-4 inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium hover:opacity-90"
+          className="bg-aomi-fg text-aomi-bg mt-4 inline-flex h-8 items-center justify-center rounded-control px-3 text-xs font-medium hover:opacity-90"
         >
           {actionLabel}
         </Link>
@@ -145,9 +145,9 @@ function agentDetailHref(agent: Record<string, any>): string | null {
 }
 
 const STATUS_DOT: Record<string, string> = {
-  healthy: "bg-emerald-500",
-  not_loaded: "bg-amber-500",
-  inactive: "bg-zinc-400",
+  healthy: "bg-aomi-success",
+  not_loaded: "bg-aomi-warning",
+  inactive: "bg-aomi-surface-2",
 };
 
 function Sparkline({ points }: { points: number[] }) {
@@ -162,7 +162,7 @@ function Sparkline({ points }: { points: number[] }) {
     <svg
       viewBox="0 0 100 24"
       preserveAspectRatio="none"
-      className="text-dim h-6 w-full"
+      className="text-aomi-muted h-6 w-full"
       aria-hidden
     >
       <polyline
@@ -188,7 +188,7 @@ function TrendTile({
 }) {
   return (
     <div className="min-w-0">
-      <div className="text-dim">{label}</div>
+      <div className="text-aomi-muted">{label}</div>
       <div className="text-foreground text-base font-semibold">
         {countLabel(count)}
       </div>
@@ -304,14 +304,14 @@ function Rows({
   const paymentSummary = payments?.summary;
   return (
     <div className="space-y-4">
-      <div className="border-border bg-surface-subtle flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm">
+      <div className="border-border bg-surface-subtle flex flex-wrap items-center justify-between gap-3 rounded-control border px-3 py-2 text-sm">
         <div>
-          <span className="text-dim">Monitoring</span>{" "}
+          <span className="text-aomi-muted">Monitoring</span>{" "}
           <span className="text-foreground">
             {monitoring?.status ?? "unconfigured"}
           </span>
           {monitoring?.windowSeconds ? (
-            <span className="text-dim">
+            <span className="text-aomi-muted">
               {" "}
               · {Math.round(Number(monitoring.windowSeconds) / 60)}m window
             </span>
@@ -325,7 +325,7 @@ function Rows({
                 href={String(link.url)}
                 target="_blank"
                 rel="noreferrer"
-                className="border-border bg-surface hover:bg-accent-hover rounded-md border px-2 py-1 text-xs"
+                className="border-border bg-surface hover:bg-aomi-hover rounded-control border px-2 py-1 text-xs"
               >
                 {link.label || "Open dashboard"}
               </a>
@@ -335,14 +335,14 @@ function Rows({
       </div>
 
       {payment?.loading ? (
-        <div className="border-border bg-surface rounded-md border px-3 py-3">
+        <div className="border-border bg-surface rounded-control border px-3 py-3">
           <div className="text-foreground text-sm font-medium">
             Payment health
           </div>
-          <div className="text-dim mt-2 text-xs">Loading payment health…</div>
+          <div className="text-aomi-muted mt-2 text-xs">Loading payment health…</div>
         </div>
       ) : payment?.error ? (
-        <div className="border-danger/30 bg-danger/5 rounded-md border px-3 py-3">
+        <div className="border-danger/30 bg-danger/5 rounded-control border px-3 py-3">
           <div className="text-foreground text-sm font-medium">
             Payment health
           </div>
@@ -350,48 +350,48 @@ function Rows({
           <button
             type="button"
             onClick={payment.retry}
-            className="border-border bg-surface hover:bg-accent-hover mt-2 rounded-md border px-2 py-1 text-xs"
+            className="border-border bg-surface hover:bg-aomi-hover mt-2 rounded-control border px-2 py-1 text-xs"
           >
             Retry
           </button>
         </div>
       ) : payments?.available ||
         (Array.isArray(payments?.resources) && payments.resources.length) ? (
-        <div className="border-border bg-surface rounded-md border">
+        <div className="border-border bg-surface rounded-control border">
           <div className="border-border border-b px-3 py-2">
             <div className="text-foreground text-sm font-medium">
               Payment health
             </div>
-            <div className="text-dim text-xs">
+            <div className="text-aomi-muted text-xs">
               24h activity · outstanding is the live recipient-bucket balance
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 px-3 py-3 text-xs lg:grid-cols-4">
             <div>
-              <div className="text-dim">Priced calls</div>
+              <div className="text-aomi-muted">Priced calls</div>
               <div className="text-foreground text-base font-semibold">
                 {countLabel(paymentSummary?.pricedCalls)}
               </div>
             </div>
             <div>
-              <div className="text-dim">Accrued</div>
+              <div className="text-aomi-muted">Accrued</div>
               <div className="text-foreground text-base font-semibold">
                 {usdLabel(paymentSummary?.accruedUsd)}
               </div>
             </div>
             <div>
-              <div className="text-dim">Settled</div>
+              <div className="text-aomi-muted">Settled</div>
               <div className="text-foreground text-base font-semibold">
                 {usdLabel(paymentSummary?.settledUsd)}
               </div>
             </div>
             <div>
-              <div className="text-dim">Outstanding</div>
+              <div className="text-aomi-muted">Outstanding</div>
               <div
                 className={`text-base font-semibold ${
                   Number(paymentSummary?.outstandingUsd ?? 0) > 0
-                    ? "text-amber-500"
-                    : "text-emerald-500"
+                    ? "text-aomi-warning"
+                    : "text-aomi-success"
                 }`}
               >
                 {usdLabel(paymentSummary?.outstandingUsd)}
@@ -427,13 +427,13 @@ function Rows({
                   <div className="truncate text-sm font-medium">
                     {agent.agent}
                   </div>
-                  <div className="text-dim truncate text-xs">
+                  <div className="text-aomi-muted truncate text-xs">
                     {agent.releaseTag ?? "No release"}
                   </div>
                 </div>
-                <span className="text-dim flex items-center gap-1.5 text-xs">
+                <span className="text-aomi-muted flex items-center gap-1.5 text-xs">
                   <span
-                    className={`size-2 rounded-full ${STATUS_DOT[String(agent.status)] ?? "bg-zinc-400"}`}
+                    className={`size-2 rounded-full ${STATUS_DOT[String(agent.status)] ?? "bg-aomi-surface-2"}`}
                   />
                   {agent.status}
                 </span>
@@ -460,14 +460,14 @@ function Rows({
               <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
                 {hasTrend ? null : (
                   <div>
-                    <div className="text-dim">Requests/min</div>
+                    <div className="text-aomi-muted">Requests/min</div>
                     <div className="text-foreground font-medium">
                       {numberLabel(metrics.requestsPerMinute)}
                     </div>
                   </div>
                 )}
                 <div>
-                  <div className="text-dim">
+                  <div className="text-aomi-muted">
                     {hasErrorSplit ? "Chat errors" : "Error rate"}
                   </div>
                   <div className="text-foreground font-medium">
@@ -477,13 +477,13 @@ function Rows({
                 {hasErrorSplit ? (
                   <>
                     <div>
-                      <div className="text-dim">Tool errors</div>
+                      <div className="text-aomi-muted">Tool errors</div>
                       <div className="text-foreground font-medium">
                         {percentLabel(metrics.toolErrorRate)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-dim">Tx failures</div>
+                      <div className="text-aomi-muted">Tx failures</div>
                       <div className="text-foreground font-medium">
                         {percentLabel(metrics.txErrorRate)}
                       </div>
@@ -491,20 +491,20 @@ function Rows({
                   </>
                 ) : null}
                 <div>
-                  <div className="text-dim">P95 latency</div>
+                  <div className="text-aomi-muted">P95 latency</div>
                   <div className="text-foreground font-medium">
                     {unitLabel(metrics.p95LatencyMs, "ms", 0)}
                   </div>
                 </div>
                 <div>
-                  <div className="text-dim">Inflight</div>
+                  <div className="text-aomi-muted">Inflight</div>
                   <div className="text-foreground font-medium">
                     {numberLabel(metrics.inflightRequests, 0)}
                   </div>
                 </div>
               </div>
               {lifecycle.length ? (
-                <div className="border-border text-dim mt-3 border-t pt-2 text-xs">
+                <div className="border-border text-aomi-muted mt-3 border-t pt-2 text-xs">
                   {lifecycle.join(" · ")}
                 </div>
               ) : null}
@@ -512,13 +512,13 @@ function Rows({
           );
           const key = `${agent.project?.id}-${agent.agentId}`;
           const className =
-            "border-border bg-surface rounded-md border px-3 py-3";
+            "border-border bg-surface rounded-control border px-3 py-3";
           return detailHref ? (
             <ControlPlaneLink
               key={key}
               href={detailHref}
               aria-label={`Open ${agent.agent} observability details`}
-              className={`${className} hover:bg-accent-hover focus-visible:ring-ring transition focus-visible:outline-none focus-visible:ring-1`}
+              className={`${className} hover:bg-aomi-hover focus-visible:ring-aomi-ring transition focus-visible:outline-none focus-visible:ring-1`}
             >
               {card}
             </ControlPlaneLink>
@@ -531,9 +531,9 @@ function Rows({
       </div>
 
       {platformMetrics.length ? (
-        <div className="border-border overflow-hidden rounded-md border">
+        <div className="border-border overflow-hidden rounded-control border">
           <table className="divide-border min-w-full divide-y text-sm">
-            <thead className="bg-surface-subtle text-dim text-left text-xs uppercase">
+            <thead className="bg-surface-subtle text-aomi-muted text-left text-xs uppercase">
               <tr>
                 <th className="px-3 py-2">Platform metric</th>
                 <th className="px-3 py-2">Value</th>
@@ -546,7 +546,7 @@ function Rows({
                   <td className="px-3 py-2">
                     <div>{metric.label}</div>
                     {metric.description ? (
-                      <div className="text-dim text-xs">
+                      <div className="text-aomi-muted text-xs">
                         {metric.description}
                       </div>
                     ) : null}
@@ -554,7 +554,7 @@ function Rows({
                   <td className="px-3 py-2">
                     {unitLabel(metric.value, String(metric.unit ?? ""))}
                   </td>
-                  <td className="text-dim px-3 py-2">{metric.scope}</td>
+                  <td className="text-aomi-muted px-3 py-2">{metric.scope}</td>
                 </tr>
               ))}
             </tbody>
@@ -751,18 +751,18 @@ export function OperateView({ kind }: { kind: ViewKind }) {
     <div className={pageFrame}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Icon className="text-dim size-5" />
+          <Icon className="text-aomi-muted size-5" />
           <h1 className={pageTitle}>{meta[kind].title}</h1>
           {payload?.example ? (
             <span
               title="Live data for this view isn't connected yet — showing example data."
-              className="border-border bg-surface-subtle text-dim rounded-full border px-2 py-0.5 text-xs"
+              className="border-border bg-surface-subtle text-aomi-muted rounded-full border px-2 py-0.5 text-xs"
             >
               Example data
             </span>
           ) : null}
         </div>
-        <label className="text-dim flex items-center gap-2 text-sm">
+        <label className="text-aomi-muted flex items-center gap-2 text-sm">
           <ListFilter className="size-4" />
           <select
             value={projectId ?? ""}
@@ -771,7 +771,7 @@ export function OperateView({ kind }: { kind: ViewKind }) {
                 event.target.value ? Number(event.target.value) : null,
               )
             }
-            className="border-border bg-surface text-foreground h-9 rounded-md border px-2"
+            className="border-border bg-surface text-foreground h-9 rounded-control border px-2"
           >
             <option value="">All projects</option>
             {projects.map((source) => (
@@ -783,11 +783,11 @@ export function OperateView({ kind }: { kind: ViewKind }) {
         </label>
       </div>
       {loading ? (
-        <div className="border-border bg-surface-subtle text-dim rounded-md border px-4 py-10 text-center text-sm">
+        <div className="border-border bg-surface-subtle text-aomi-muted rounded-control border px-4 py-10 text-center text-sm">
           Loading
         </div>
       ) : error ? (
-        <div className="border-danger/30 bg-danger/5 text-danger rounded-md border px-4 py-3 text-sm">
+        <div className="border-danger/30 bg-danger/5 text-danger rounded-control border px-4 py-3 text-sm">
           {error}
         </div>
       ) : payload ? (
@@ -799,7 +799,7 @@ export function OperateView({ kind }: { kind: ViewKind }) {
                 type="button"
                 onClick={loadMore}
                 disabled={loadingMore}
-                className="border-border bg-surface hover:bg-accent-hover disabled:text-dim h-9 rounded-md border px-3 text-sm"
+                className="border-border bg-surface hover:bg-aomi-hover disabled:text-aomi-muted h-9 rounded-control border px-3 text-sm"
               >
                 {loadingMore ? "Loading" : "Load more"}
               </button>

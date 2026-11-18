@@ -63,11 +63,11 @@ export function AgentDetailPage({ agentId }: { agentId: number }) {
     return (
       <div className="mx-auto flex max-w-xl flex-col items-center gap-3 px-6 py-20 text-center">
         <h1 className={pageTitle}>Health unavailable</h1>
-        <p className="text-dim text-sm">{error}</p>
+        <p className="text-aomi-muted text-sm">{error}</p>
         <button
           type="button"
           onClick={() => void detailQuery.refetch()}
-          className="border-border bg-surface hover:bg-accent-hover rounded-md border px-3 py-1.5 text-sm"
+          className="border-border bg-surface hover:bg-aomi-hover rounded-control border px-3 py-1.5 text-sm"
         >
           Retry
         </button>
@@ -82,7 +82,7 @@ export function AgentDetailPage({ agentId }: { agentId: number }) {
 
   if (!payload) {
     return (
-      <div className="text-dim px-6 py-20 text-center text-sm">
+      <div className="text-aomi-muted px-6 py-20 text-center text-sm">
         Loading live observability…
       </div>
     );

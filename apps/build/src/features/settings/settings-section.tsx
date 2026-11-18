@@ -24,10 +24,10 @@ export default function SettingsSectionPage({
     >
       <div className={slug === "general" ? "space-y-3" : "space-y-2"}>
         <div className="flex items-center gap-2">
-          <Icon className="text-dim size-5" />
+          <Icon className="text-aomi-muted size-5" />
           <h1 className={pageTitle}>{section.title}</h1>
         </div>
-        <p className="text-subtle max-w-2xl text-sm">{section.description}</p>
+        <p className="text-aomi-muted max-w-2xl text-sm">{section.description}</p>
       </div>
 
       {slug === "general" ? (
@@ -37,15 +37,15 @@ export default function SettingsSectionPage({
       ) : slug === "billing" ? (
         <SettingsBillingPanel />
       ) : (
-        <section className="border-border bg-surface-1 rounded-lg border p-4">
+        <section className="border-border bg-aomi-raised rounded-card border p-4">
           <div className="text-foreground text-sm font-medium">
             {section.status === "soon" ? "Coming soon" : "Current state"}
           </div>
-          <p className="text-dim mt-2 text-[13px]">{section.detail}</p>
+          <p className="text-aomi-muted mt-2 text-[13px]">{section.detail}</p>
           {section.actionHref ? (
             <Link
               href={section.actionHref}
-              className="bg-primary text-primary-foreground hover:bg-brand-hover mt-4 inline-flex h-8 items-center rounded-md px-3 text-[12px] font-medium transition"
+              className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg/90 mt-4 inline-flex h-8 items-center rounded-control px-3 text-[12px] font-medium transition"
             >
               {section.actionLabel}
             </Link>
