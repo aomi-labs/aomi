@@ -1,8 +1,25 @@
 "use client";
-import { useMemo } from "react";
-import { AppWindowIcon, Globe2Icon, WandSparklesIcon } from "lucide-react";
-import { isTestnetChain, shortAddress } from "@aomi-labs/client";
-import { SUPPORTED_CHAINS, getChainInfo, useControl } from "@aomi-labs/react";
+import { useMemo, useState, type FC } from "react";
+import {
+  AppWindowIcon,
+  Globe2Icon,
+  PackageIcon,
+  WandSparklesIcon,
+} from "lucide-react";
+import {
+  isTestnetChain,
+  shortAddress,
+  type AomiPackage,
+} from "@aomi-labs/client";
+import {
+  SUPPORTED_CHAINS,
+  getChainInfo,
+  useControl,
+  useOptionalAomiRuntime,
+} from "@aomi-labs/react";
+import { useAccountOverview } from "@/account/account-overview";
+import { brandId } from "@/library/model";
+import { usePackageCatalog } from "@/library/use-package-catalog";
 import {
   walletName,
   familyTag,
@@ -59,6 +76,65 @@ export function walletPickerItems(rows: readonly WalletRow[]): PickerItem[] {
   });
 }
 
+/** A package's icon at picker size: its own image, else its brand mark or a box. */
+function packageIcon(row: AomiPackage): FC<{ className?: string }> {
+  const Fallback = getAgentIcon(brandId(row)) ?? PackageIcon;
+  const src = row.icon_url;
+  if (!src) return Fallback;
+  return function PackageImage({ className }) {
+    const [failed, setFailed] = useState(false);
+    return failed ? (
+      <Fallback className={className} />
+    ) : (
+      <img
+        src={src}
+        alt=""
+        onError={() => setFailed(true)}
+        className={`${className ?? ""} rounded-[4px] object-cover`}
+      />
+    );
+  };
+}
+
+/**
+ * The packages on in this chat as picker rows. A package that is off is left
+ * out: the runtime loads only the tools of packages that are on.
+ */
+export function packagePickerItems(rows: readonly AomiPackage[]): PickerItem[] {
+  const seen = new Set<number>();
+  return rows.flatMap((row) => {
+    if (!row.enabled || seen.has(row.package_id)) return [];
+    seen.add(row.package_id);
+    return [
+      {
+        key: `package:${row.id}`,
+        kind: "package" as const,
+        id: row.id,
+        label: row.display_name,
+        description: conciseSkillDescription(row.description),
+        fullDescription: row.description,
+        searchText: `${row.id} ${row.description} ${row.skills
+          .map((skill) => `${skill.id} ${skill.description}`)
+          .join(" ")}`,
+        Icon: packageIcon(row),
+      },
+    ];
+  });
+}
+
+/** The Library's rows for this chat's agent (a guest's are the defaults), as picker rows. */
+export function usePackagePickerItems(): PickerItem[] {
+  const accountUserId = useAccountOverview()?.user.user_id;
+  const runtime = useOptionalAomiRuntime();
+  // A chat the server has not stored yet reads `aomi/main`'s rows, as the Library does.
+  const threadId =
+    runtime && runtime.isRemoteThread?.(runtime.currentThreadId)
+      ? runtime.currentThreadId
+      : undefined;
+  const { catalog } = usePackageCatalog(accountUserId, threadId);
+  return useMemo(() => packagePickerItems(catalog?.packages ?? []), [catalog]);
+}
+
 export function useCapabilityCatalog(): PickerItem[] {
   const { allowAgentMentions } = useCapabilityComposer();
   const { state, getCurrentThreadControl } = useControl();
@@ -69,6 +145,7 @@ export function useCapabilityCatalog(): PickerItem[] {
       : control.model;
   const networkPreferences = useOptionalAomiWalletNetworkPreferences();
   const { skills } = useSkillCatalog();
+  const packageItems = usePackagePickerItems();
   const { wallets } = useAomiWalletKit();
   const items = useMemo<PickerItem[]>(() => {
     const skillItems: PickerItem[] = (skills ?? []).map((skill) => ({
@@ -146,6 +223,7 @@ export function useCapabilityCatalog(): PickerItem[] {
     ];
     return [
       ...agentItems,
+      ...packageItems,
       ...skillItems,
       ...chainItems,
       ...walletPickerItems(wallets),
@@ -153,6 +231,7 @@ export function useCapabilityCatalog(): PickerItem[] {
   }, [
     allowAgentMentions,
     networkPreferences,
+    packageItems,
     skills,
     state.agentCards,
     model,

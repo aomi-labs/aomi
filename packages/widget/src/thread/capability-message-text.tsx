@@ -16,10 +16,13 @@ import {
 } from "@/composer/capabilities/skill-catalog";
 import { useOptionalAomiWalletNetworkPreferences } from "@/wallet/network-preferences";
 import { useAomiWalletKit } from "@/wallet/context";
-import { walletPickerItems } from "@/composer/capability-composer/catalog";
+import {
+  usePackagePickerItems,
+  walletPickerItems,
+} from "@/composer/capability-composer/catalog";
 
 type CapabilityHint = {
-  kind: "agent" | "skill" | "chain" | "wallet";
+  kind: "agent" | "package" | "skill" | "chain" | "wallet";
   id: string;
 };
 
@@ -40,6 +43,7 @@ function capabilityHints(value: unknown): CapabilityHint[] {
     const candidate = item as Record<string, unknown>;
     return (
       (candidate.kind === "agent" ||
+        candidate.kind === "package" ||
         candidate.kind === "skill" ||
         candidate.kind === "chain" ||
         candidate.kind === "wallet") &&
@@ -96,6 +100,7 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
   const hints = useMemo(() => capabilityHints(rawHints), [rawHints]);
   const { state } = useControl();
   const { skills } = useSkillCatalog();
+  const packageItems = usePackagePickerItems();
   const networkPreferences = useOptionalAomiWalletNetworkPreferences();
   const { wallets } = useAomiWalletKit();
 
@@ -106,6 +111,7 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
         kind: "agent" as const,
         id: `agent:${agent.agent}`,
       })),
+      ...packageItems.map(({ id }) => ({ kind: "package" as const, id })),
       ...(skills ?? []).map((skill) => ({
         kind: "skill" as const,
         id: skill.id,
@@ -143,6 +149,19 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
             label,
             token: `▦ ${label}`,
             Icon: getAgentIcon(info.brandId) ?? AppWindowIcon,
+          },
+        ];
+      }
+
+      if (hint.kind === "package") {
+        const item = packageItems.find((candidate) => candidate.id === hint.id);
+        if (!item) return [];
+        return [
+          {
+            ...hint,
+            label: item.label,
+            token: `▣ ${item.label}`,
+            Icon: item.Icon,
           },
         ];
       }
@@ -204,7 +223,14 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
         },
       ];
     });
-  }, [hints, networkPreferences, skills, state.agentCards, wallets]);
+  }, [
+    hints,
+    networkPreferences,
+    packageItems,
+    skills,
+    state.agentCards,
+    wallets,
+  ]);
   const segments = useMemo(
     () => splitCapabilityText(text, capabilities, hints),
     [capabilities, hints, text],

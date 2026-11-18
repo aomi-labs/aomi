@@ -3,7 +3,7 @@ import type { RefObject } from "react";
 import { Globe2Icon } from "lucide-react";
 import { getChainInfo } from "@aomi-labs/react";
 import { getChainIcon } from "@/icons/chain-map";
-import type { CapabilityKind, PickerItem } from "./model";
+import { MENTION_NOUN, type CapabilityKind, type PickerItem } from "./model";
 import { usePickerPlacement } from "./use-picker-placement";
 
 export function SupportedChainStack({ chainIds }: { chainIds?: number[] }) {
@@ -53,6 +53,7 @@ export function CapabilityPicker({
   highlighted,
   onHighlight,
   onSelect,
+  agents,
 }: {
   pickerId: string;
   pickerRef: RefObject<HTMLDivElement | null>;
@@ -60,8 +61,11 @@ export function CapabilityPicker({
   highlighted: number;
   onHighlight: (index: number) => void;
   onSelect: (item: PickerItem) => void;
+  /** Agent mentions are on: the hint names agents too. */
+  agents: boolean;
 }) {
   const { containerRef, above, height } = usePickerPlacement();
+  const searched = `${agents ? "agents, " : ""}packages, chains and wallets`;
   const hasItems = visibleGroups.some((group) => group.items.length > 0);
   return (
     <div
@@ -73,7 +77,7 @@ export function CapabilityPicker({
         <div
           id={pickerId}
           role="listbox"
-          aria-label="Agents, skills, chains, and wallets"
+          aria-label={`Search ${searched}`}
           ref={pickerRef}
           className="aui-command-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pr-1"
         >
@@ -125,7 +129,7 @@ export function CapabilityPicker({
                             <SupportedChainStack chainIds={item.chainIds} />
                           ) : null}
                           <span className="bg-aomi-surface-2 text-aomi-muted min-w-12 rounded-full px-2 py-1 text-center text-[9px] font-medium uppercase tracking-[0.08em]">
-                            {item.kind}
+                            {MENTION_NOUN[item.kind]}
                           </span>
                         </span>
                       </button>
@@ -140,7 +144,7 @@ export function CapabilityPicker({
         <div
           id={pickerId}
           role="listbox"
-          aria-label="Agents, skills, chains, and wallets"
+          aria-label={`Search ${searched}`}
           className="min-h-0 flex-1 py-1"
         >
           <div
@@ -152,9 +156,7 @@ export function CapabilityPicker({
         </div>
       )}
       <div className="border-aomi-border/70 text-aomi-muted mt-1.5 flex min-h-8 shrink-0 items-center justify-between gap-3 border-t px-2.5 pb-0.5 pt-2 text-[11px]">
-        <span className="truncate">
-          Type to search agents, skills, chains, and wallets
-        </span>
+        <span className="truncate">Type to search {searched}</span>
         <span
           aria-hidden="true"
           className="hidden shrink-0 items-center gap-2 text-[10px] sm:flex"

@@ -429,9 +429,52 @@ it("mounts the picker outside the composer overflow boundary", async () => {
   });
 
   const listbox = screen.getByRole("listbox", {
-    name: "Agents, skills, chains, and wallets",
+    name: "Search agents, packages, chains and wallets",
   });
   expect(listbox.closest(".overflow-x-hidden")).toBeNull();
+});
+
+it("tags a package from the Packages group and sends its id", async () => {
+  fixture.items = [
+    {
+      kind: "package",
+      id: "aomi/defillama",
+      key: "package:aomi/defillama",
+      label: "DefiLlama",
+      description: "Token prices and TVL",
+      searchText: "aomi/defillama Token prices and TVL",
+      Icon: () => <span aria-hidden="true" />,
+    },
+    {
+      kind: "skill",
+      id: "policy",
+      key: "skill:policy",
+      label: "Policy",
+      searchText: "policy",
+      Icon: () => <span aria-hidden="true" />,
+    },
+  ];
+  render(<Harness />);
+  await act(async () => {
+    fireEvent.click(screen.getByText("Open picker"));
+  });
+  const packages = screen.getByRole("region", { name: "Packages" });
+  expect(packages).toHaveTextContent("DefiLlama");
+  expect(packages).toHaveTextContent("Policy");
+  expect(screen.queryByRole("region", { name: "Skills" })).toBeNull();
+  const option = screen.getByRole("option", { name: /DefiLlama/ });
+  expect(option).toHaveTextContent("Package");
+  expect(
+    screen.getByText("Type to search agents, packages, chains and wallets"),
+  ).toBeInTheDocument();
+  await act(async () => {
+    fireEvent.click(option);
+  });
+
+  expect(fixture.setText).toHaveBeenLastCalledWith("▣ DefiLlama ");
+  expect(fixture.runConfig.custom.aomiCapabilityHints).toEqual({
+    capabilities: [{ kind: "package", id: "aomi/defillama" }],
+  });
 });
 
 it("tags a wallet from the picker with its w_N id and name", async () => {

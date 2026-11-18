@@ -19,6 +19,7 @@ const item = (
 const items = [
   item("agent", "Aerodrome", { searchText: "Aerodrome dex Base" }),
   item("agent", "Uniswap", { searchText: "Uniswap dex Base Ethereum" }),
+  item("package", "DefiLlama", { searchText: "aomi/defillama prices" }),
   item("skill", "Bridge", { searchText: "Bridge to Base" }),
   ...["One", "Two", "Three", "Four", "Five"].map((n) => item("skill", n)),
   item("chain", "Ethereum"),
@@ -39,7 +40,7 @@ describe("pickerGroups", () => {
   it("previews every section on a bare @ without testnets", () => {
     expect(labels("")).toEqual([
       ["Agents", ["Aerodrome", "Uniswap"]],
-      ["Skills", ["Bridge", "One", "Two", "Three"]],
+      ["Packages", ["DefiLlama", "Bridge", "One", "Two"]],
       ["Chains", ["Ethereum", "Base", "Solana"]],
       ["Wallets", ["Trading", "Base savings"]],
     ]);
@@ -49,19 +50,19 @@ describe("pickerGroups", () => {
     expect(labels("sol")).toEqual([["Chains", ["Solana"]]]);
   });
 
-  it("puts a chain named by the query before agents and skills", () => {
+  it("puts a chain named by the query before agents and packages", () => {
     expect(labels("ethereum")).toEqual([
       ["Chains", ["Ethereum"]],
       ["Agents", ["Uniswap"]],
     ]);
   });
 
-  it("ranks a matching wallet above chains, agents and skills", () => {
+  it("ranks a matching wallet above chains, agents and packages", () => {
     expect(labels("base")).toEqual([
       ["Wallets", ["Base savings"]],
       ["Chains", ["Base"]],
       ["Agents", ["Aerodrome", "Uniswap"]],
-      ["Skills", ["Bridge"]],
+      ["Packages", ["Bridge"]],
     ]);
     expect(labels("trad")).toEqual([["Wallets", ["Trading"]]]);
   });

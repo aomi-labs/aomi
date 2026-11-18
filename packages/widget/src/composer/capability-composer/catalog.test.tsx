@@ -1,11 +1,13 @@
 import { render, renderHook } from "@testing-library/react";
+import type { FC } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AgentCard } from "@aomi-labs/client";
+import type { AgentCard, AomiPackage } from "@aomi-labs/client";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 
 const fixture = vi.hoisted(() => ({
   model: "openai:gpt-6.1-sol",
   agents: [] as AgentCard[],
+  packages: [] as AomiPackage[],
 }));
 vi.mock("@aomi-labs/react", async (original) => ({
   ...(await original<typeof import("@aomi-labs/react")>()),
@@ -26,15 +28,33 @@ vi.mock("./provider", () => ({
 vi.mock("@/wallet/network-preferences", () => ({
   useOptionalAomiWalletNetworkPreferences: () => null,
 }));
-vi.mock("@/composer/capabilities/skill-catalog", () => ({
+vi.mock("@/composer/capabilities/skill-catalog", async (original) => ({
+  ...(await original<typeof import("@/composer/capabilities/skill-catalog")>()),
   useSkillCatalog: () => ({ skills: [] }),
 }));
 vi.mock("@/wallet/context", () => ({
   useAomiWalletKit: () => ({ wallets: [] }),
 }));
-import { useCapabilityCatalog, walletPickerItems } from "./catalog";
+vi.mock("@/account/account-overview", () => ({
+  useAccountOverview: () => null,
+}));
+vi.mock("@/library/use-package-catalog", () => ({
+  usePackageCatalog: () => ({
+    catalog: {
+      agent: { id: "aomi/main", display_name: "Aomi" },
+      packages: fixture.packages,
+    },
+  }),
+}));
+import {
+  packagePickerItems,
+  useCapabilityCatalog,
+  walletPickerItems,
+} from "./catalog";
+import { pickerGroups } from "./model";
 
 beforeEach(() => {
+  fixture.packages = [];
   fixture.model = "openai:gpt-6.1-sol";
   fixture.agents = [
     {
@@ -239,5 +259,78 @@ describe("walletPickerItems", () => {
     expect(item!.searchText).toBe(
       "Trading 0x1234567890abcdef1234567890abcdef12345678",
     );
+  });
+});
+
+const pkg = (extra: Partial<AomiPackage>): AomiPackage =>
+  ({
+    package_id: 1,
+    id: "aomi/defillama",
+    display_name: "DefiLlama",
+    description:
+      "Token prices, TVL and yields from DefiLlama. Use it for market data.",
+    icon_url: null,
+    skills: [{ id: "llama-yields", description: "Find the best pool yields" }],
+    enabled: true,
+    ...extra,
+  }) as AomiPackage;
+
+describe("packagePickerItems", () => {
+  it("lists the packages that are on, once each, with a one-line description", () => {
+    const items = packagePickerItems([
+      pkg({}),
+      pkg({}),
+      pkg({
+        package_id: 2,
+        id: "acme/off",
+        display_name: "Off",
+        enabled: false,
+      }),
+    ]);
+    expect(
+      items.map(({ key, kind, id, label, description }) => ({
+        key,
+        kind,
+        id,
+        label,
+        description,
+      })),
+    ).toEqual([
+      {
+        key: "package:aomi/defillama",
+        kind: "package",
+        id: "aomi/defillama",
+        label: "DefiLlama",
+        description: "Token prices, TVL and yields from DefiLlama",
+      },
+    ]);
+  });
+
+  it("draws the package's own icon", () => {
+    const [{ Icon }] = packagePickerItems([
+      pkg({ icon_url: "https://example.test/llama.png" }),
+    ]) as [{ Icon: FC<{ className?: string }> }];
+    const { container } = render(<Icon className="size-3.5" />);
+    expect(container.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.test/llama.png",
+    );
+  });
+
+  it.each(["defillama", "aomi/def", "yields", "llama-yields", "pool"])(
+    "is found by name, id, description and skill: %s",
+    (query) => {
+      const groups = pickerGroups(packagePickerItems([pkg({})]), query);
+      expect(groups.map((group) => group.label)).toEqual(["Packages"]);
+    },
+  );
+
+  it("feeds the picker with the Library's packages", () => {
+    fixture.packages = [pkg({})];
+    const { result } = renderHook(useCapabilityCatalog);
+    expect(
+      result.current
+        .filter((item) => item.kind === "package")
+        .map((item) => item.id),
+    ).toEqual(["aomi/defillama"]);
   });
 });

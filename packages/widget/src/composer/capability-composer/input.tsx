@@ -20,6 +20,7 @@ import {
   CAPABILITY_MENTION_REQUEST_EVENT,
   pickerGroups,
   type CapabilityMentionRequest,
+  MENTION_NOUN,
   type PickerItem,
 } from "./model";
 import {
@@ -35,6 +36,7 @@ import {
 import { splitCapabilityText } from "@/thread/capability-message-text";
 
 const MENTION_GLYPH: Record<PickerItem["kind"], string> = {
+  package: "▣",
   skill: "✦",
   agent: "▦",
   chain: "◇",
@@ -61,7 +63,10 @@ function createMention(item: PickerItem) {
   const label = document.createElement("span");
   label.textContent = item.label;
   mention.append(iconTarget, label);
-  mention.setAttribute("aria-label", `${item.kind} ${item.label}`);
+  mention.setAttribute(
+    "aria-label",
+    `${MENTION_NOUN[item.kind]} ${item.label}`,
+  );
   return { mention, iconTarget };
 }
 
@@ -112,6 +117,7 @@ export const CapabilityMentionInput: FC<{
     consumeCapabilityPickerRequest,
     agentTagRequest,
     consumeAgentTagRequest,
+    allowAgentMentions,
   } = useCapabilityComposer();
   const items = useCapabilityCatalog();
 
@@ -584,6 +590,7 @@ export const CapabilityMentionInput: FC<{
             highlighted={highlighted}
             onHighlight={setHighlighted}
             onSelect={selectItem}
+            agents={allowAgentMentions}
           />
         ) : null}
       </div>
