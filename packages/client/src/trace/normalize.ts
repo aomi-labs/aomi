@@ -32,7 +32,10 @@ export const humanize = (value: string): string => {
 export const uniqueFacts = (facts: ToolFact[]): ToolFact[] => {
   const seen = new Set<string>();
   return facts.filter((fact) => {
-    const key = `${fact.kind}:${fact.role ?? ""}:${fact.label ?? fact.value}`;
+    // A package's label lists its skills; its id is what identifies it.
+    const name =
+      fact.kind === "package" ? fact.value : (fact.label ?? fact.value);
+    const key = `${fact.kind}:${fact.role ?? ""}:${name}`;
     const normalized = key.toLowerCase();
     if (seen.has(normalized)) return false;
     seen.add(normalized);

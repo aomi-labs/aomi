@@ -120,7 +120,7 @@ export const SHAPE_ICONS = {
   search: "search",
   signature: "sign",
   simulation: "simulate",
-  skillActivation: "skill",
+  packageActivation: "skill",
   staged: "layers",
   swap: "swap",
   tokenLookup: "search",

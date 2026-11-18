@@ -2549,11 +2549,7 @@ describe("Solana tool chips", () => {
       { commits: [commit({ state: "needs_signature" })] },
     ],
     ["svm_discard_tx", '{"tx_ids":[4]}', { discarded: [4] }],
-    [
-      "activate_skills",
-      '{"skill_ids":["spl_token"]}',
-      { activated: ["spl_token"] },
-    ],
+    ["activate_package", '{"ids":["spl_token"]}', { activated: ["spl_token"] }],
   ];
 
   it("gives every Solana tool a titled step with chips like its EVM pair", () => {
@@ -2577,18 +2573,45 @@ describe("Solana tool chips", () => {
         "svm_commit_txs: Commit transactions | Solana (solana) | 1 tx (receipt) | 5VERv8N…ZkQUW (receipt) | Confirmed (success)",
         "svm_commit_message: Sign message | Solana (solana) | 1 signature (receipt) | Awaiting signature (pending)",
         "svm_discard_tx: Discard transactions | 1 tx discarded (receipt) | Success (success)",
-        "activate_skills: Activate skill | SPL Token (skill:spl_token)",
+        "activate_package: Activate package | SPL Token (skill:spl_token)",
       ]
     `);
   });
 
-  it("titles a package activation and a tool search", () => {
+  it("shows one chip per activated package, built-ins included", () => {
     const activation = decode({
-      toolName: "activate_skills",
-      argsText: '{"skill_ids":["aomi/aave"]}',
-      result: { activated: ["aomi/aave/aave"] },
+      toolName: "activate_package",
+      argsText: '{"ids":["aomi/defillama","common_erc20"]}',
+      result: {
+        activated: [
+          "aomi/defillama/defillama",
+          "aomi/defillama/prices",
+          "aomi/defillama/protocols",
+          "common_erc20",
+        ],
+      },
     });
     expect(activation.title).toBe("Activate package");
+    expect(activation.chips).toMatchObject([
+      {
+        packageId: "aomi/defillama",
+        title: "Skills: defillama, prices, protocols",
+        icon: "package",
+      },
+      { packageId: "common_erc20", icon: "skill:common_erc20" },
+    ]);
+    const checking = decode({
+      toolName: "activate_package",
+      argsText: '{"ids":["aomi/hello-reader"]}',
+      result: { activated: [], active: ["aomi/hello-reader"] },
+    });
+    expect(checking.title).toBe("Check active packages");
+    expect(checking.chips.map((chip) => chip.packageId)).toEqual([
+      "aomi/hello-reader",
+    ]);
+  });
+
+  it("titles a tool search", () => {
     const search = decode({
       toolName: "tool_search",
       argsText: '{"query":"swap quote"}',

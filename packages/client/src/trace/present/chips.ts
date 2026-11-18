@@ -193,14 +193,15 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       return { label: fact.label ?? fact.value, icon: "swap" };
     case "selector":
       return { label: fact.label ?? fact.value };
-    case "skill": {
-      // Renderers with a skill catalog replace this by `skillId`.
+    case "package": {
+      // Renderers with a package catalog replace this by `packageId`.
       const name = fact.value.split("/").at(-1) ?? fact.value;
       return {
-        id: `skill:${fact.value}`,
-        skillId: fact.value,
+        id: `package:${fact.value}`,
+        packageId: fact.value,
         label: skillBrandLabel(name.toLowerCase()) ?? humanize(name),
-        icon: `skill:${fact.value}`,
+        ...(fact.label ? { title: `Skills: ${fact.label}` } : {}),
+        icon: fact.value.includes("/") ? "package" : `skill:${fact.value}`,
       };
     }
     case "query":

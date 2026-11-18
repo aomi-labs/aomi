@@ -27,6 +27,7 @@ export type TraceGlyph =
   | "list"
   | "network"
   | "outgoing"
+  | "package"
   | "page"
   | "pending"
   | "percent"
@@ -69,6 +70,8 @@ export type ToolChip = {
   id?: string;
   title?: string;
   skillId?: string;
+  /** The activated package this chip stands for. */
+  packageId?: string;
   attribution?: "toolset" | "skill";
   icon?: TraceIcon;
   essential?: boolean;
@@ -122,7 +125,7 @@ export type FactKind =
   | "requirement"
   | "route"
   | "selector"
-  | "skill"
+  | "package"
   | "sourceHost"
   | "threshold"
   | "status"

@@ -18,6 +18,7 @@ export {
 export { interpretReadOutput, readOutputDetail } from "./read-output";
 export { unwrapToolStep } from "./unwrap";
 export { messageChainId } from "./families/general/commit-view";
+export { packageOf } from "./families/general/skills";
 export { STAGED_ACTION_ICON_REGISTRY } from "./registry";
 export type {
   InterpretedToolStep,

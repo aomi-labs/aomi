@@ -253,17 +253,11 @@ const descriptorById: Record<string, Descriptor> = {
       { kind: "status" },
     ],
   },
-  "skill.activate": {
-    title: "fixed",
-    fixedTitle: "Activate skill",
-    icon: SHAPE_ICONS.skillActivation,
-    chipPlan: [{ kind: "skill", repeat: true }],
-  },
   "package.activate": {
     title: "fixed",
     fixedTitle: "Activate package",
-    icon: SHAPE_ICONS.skillActivation,
-    chipPlan: [{ kind: "skill", repeat: true }],
+    icon: SHAPE_ICONS.packageActivation,
+    chipPlan: [{ kind: "package", repeat: true }],
   },
   "tool.search": {
     title: "fixed",
@@ -271,11 +265,11 @@ const descriptorById: Record<string, Descriptor> = {
     icon: SHAPE_ICONS.search,
     chipPlan: [{ kind: "query" }, { kind: "function", repeat: true }],
   },
-  "skill.check": {
+  "package.check": {
     title: "fixed",
-    fixedTitle: "Check active skills",
-    icon: SHAPE_ICONS.skillActivation,
-    chipPlan: [{ kind: "skill", repeat: true }],
+    fixedTitle: "Check active packages",
+    icon: SHAPE_ICONS.packageActivation,
+    chipPlan: [{ kind: "package", repeat: true }],
   },
   "tool.sleep": {
     title: "fixed",

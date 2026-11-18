@@ -29,7 +29,7 @@ const coreTitles: Record<string, string> = {
   brave_search: "Search web", // Persisted threads before the web_search rename.
   web_fetch: "Read page",
   search_docs: "Search docs",
-  activate_skills: "Activate skill",
+  activate_package: "Activate package",
   sleep: "Sleep",
   evm_get_contract: "Get contract details",
   svm_get_program: "Get program details",

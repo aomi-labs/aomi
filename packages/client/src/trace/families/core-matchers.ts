@@ -15,7 +15,7 @@ import {
 import { matchGetTransaction, matchListTransactions } from "./general/activity";
 import { matchDiscardTx } from "./general/discard-tx";
 import { matchSignMessage } from "./general/sign-message";
-import { matchSkillActivation } from "./general/skills";
+import { matchPackageActivation } from "./general/skills";
 import { matchSleep } from "./general/sleep";
 import {
   matchToolSearch,
@@ -59,7 +59,7 @@ const generalMatchers: Record<string, ToolMatcher> = {
   brave_search: matchWebSearch,
   web_fetch: matchWebFetch,
   search_docs: matchWebSearch,
-  activate_skills: matchSkillActivation,
+  activate_package: matchPackageActivation,
   tool_search: matchToolSearch,
   sleep: matchSleep,
   list_transactions: matchListTransactions,

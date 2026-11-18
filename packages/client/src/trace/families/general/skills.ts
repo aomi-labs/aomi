@@ -1,58 +1,62 @@
 import { asRecord } from "../../normalize";
 
-import type { ToolMatcher } from "../../types";
+import type { ToolFact, ToolMatcher } from "../../types";
 import { operation } from "../operation";
 
-export const matchSkillActivation: ToolMatcher = ({
-  rawLabel,
+/** The package an activated id belongs to: a hosted package's skill
+ * (`<publisher>/<package>/<skill>`) names its package, any other id is one. */
+export const packageOf = (id: string): string =>
+  id.split("/").length === 3 ? id.slice(0, id.lastIndexOf("/")) : id;
+
+const strings = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter(
+        (item): item is string => typeof item === "string" && item.length > 0,
+      )
+    : [];
+
+/** One fact per package, with the skills it brought as the label. */
+const packageFacts = (
+  ids: string[],
+  source: ToolFact["source"],
+): ToolFact[] => {
+  const packages = new Map<string, string[]>();
+  for (const id of ids) {
+    const owner = packageOf(id);
+    const skills = packages.get(owner) ?? [];
+    if (owner !== id) skills.push(id.slice(owner.length + 1));
+    packages.set(owner, skills);
+  }
+  return [...packages].map(([value, skills]) => ({
+    kind: "package" as const,
+    value,
+    ...(skills.length > 0 ? { label: skills.join(", ") } : {}),
+    source,
+  }));
+};
+
+export const matchPackageActivation: ToolMatcher = ({
   parsedArgs,
   resultRecord,
 }) => {
-  const requested = asRecord(parsedArgs)?.skill_ids;
-  if (
-    !resultRecord &&
-    /^(?:activate_skills|Activate skills)$/i.test(rawLabel) &&
-    Array.isArray(requested)
-  ) {
-    return operation(
-      "skill.activate",
-      rawLabel,
-      requested
-        .filter((id): id is string => typeof id === "string")
-        .map((value) => ({
-          kind: "skill" as const,
-          value,
-          source: "args" as const,
-        })),
-    );
+  if (!resultRecord) {
+    const requested = strings(asRecord(parsedArgs)?.ids);
+    return requested.length > 0
+      ? operation(
+          "package.activate",
+          "activate_package",
+          packageFacts(requested, "args"),
+        )
+      : null;
   }
-  if (!resultRecord) return null;
   if (!("activated" in resultRecord || "applied_scope" in resultRecord)) {
     return null;
   }
-
-  const activated = Array.isArray(resultRecord.activated)
-    ? resultRecord.activated.filter(
-        (value): value is string => typeof value === "string",
-      )
-    : [];
-  const active = Array.isArray(resultRecord.active_skill_ids)
-    ? resultRecord.active_skill_ids.filter(
-        (value): value is string =>
-          typeof value === "string" && value.length > 0,
-      )
-    : [];
+  const activated = strings(resultRecord.activated);
   const checking = activated.length === 0;
-  // A package's skills are `<publisher>/<package>/<skill>`.
-  const packages = activated.every((id) => id.split("/").length === 3);
-
   return operation(
-    checking ? "skill.check" : packages ? "package.activate" : "skill.activate",
-    rawLabel,
-    (checking ? active : activated).map((value) => ({
-      kind: "skill",
-      value,
-      source: "result" as const,
-    })),
+    checking ? "package.check" : "package.activate",
+    "activate_package",
+    packageFacts(checking ? strings(resultRecord.active) : activated, "result"),
   );
 };
