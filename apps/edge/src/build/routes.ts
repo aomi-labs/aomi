@@ -29,6 +29,7 @@ import {
   cliExchange,
   cliLogin,
   cliStatus,
+  devSignIn,
   login,
   signout,
   status,
@@ -61,6 +62,12 @@ export const BUILD_ROUTES: readonly BuildRoute[] = [
     method: "GET",
     path: "/api/build/auth/github/login",
     handle: login,
+  },
+  {
+    operation: "github.dev_sign_in",
+    method: "GET",
+    path: "/api/build/auth/github/dev-sign-in",
+    handle: devSignIn,
   },
   {
     operation: "github.callback",

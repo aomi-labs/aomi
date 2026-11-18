@@ -322,6 +322,7 @@ describe("build surface: GitHub sign-in", () => {
       githubLogin: null,
       githubAvatarUrl: null,
       installationId: null,
+      devSignIn: false,
     });
 
     const cookie = await signedIn();
@@ -334,6 +335,7 @@ describe("build surface: GitHub sign-in", () => {
       githubLogin: "octocat",
       githubAvatarUrl: "https://avatars.githubusercontent.com/u/4242?s=96&v=4",
       installationId: "99",
+      devSignIn: false,
     });
 
     const signout = await build("/api/build/auth/github/signout", {
@@ -362,6 +364,72 @@ describe("build surface: GitHub sign-in", () => {
       githubLogin: "hubot",
       installationId: null,
     });
+  });
+});
+
+describe("build surface: dev sign-in", () => {
+  const PATH = "/api/build/auth/github/dev-sign-in";
+  const devSignIn = (overrides: Partial<EdgeEnv>, host = BUILD) =>
+    handleRequest(
+      new Request(`${host}${PATH}`),
+      {
+        ...env,
+        BUILD_HOSTS: "build.example,agent.tail.ts.net:3453",
+        BUILD_DEV_SIGN_IN: "9900303:p3-review",
+        ...overrides,
+      },
+      world,
+    );
+
+  it("signs in as the configured builder on any Build host, without GitHub", async () => {
+    const response = await devSignIn({}, "https://agent.tail.ts.net:3453");
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://agent.tail.ts.net:3453/",
+    );
+    const cookies = cookiesOf(response);
+    expect(cookies.aomi_github_visibility.raw).toMatch(/Max-Age=0/);
+    expect(seen).toEqual([]);
+
+    const status = await handleRequest(
+      new Request(
+        "https://agent.tail.ts.net:3453/api/build/auth/github/status",
+        {
+          headers: { cookie: `aomi_github=${cookies.aomi_github.value}` },
+        },
+      ),
+      {
+        ...env,
+        BUILD_HOSTS: "agent.tail.ts.net:3453",
+        BUILD_DEV_SIGN_IN: "9900303:p3-review",
+      },
+      world,
+    );
+    expect(await status.json()).toEqual({
+      signedIn: true,
+      githubLogin: "p3-review",
+      githubAvatarUrl:
+        "https://avatars.githubusercontent.com/u/9900303?s=96&v=4",
+      installationId: null,
+      devSignIn: true,
+    });
+  });
+
+  it("is 404 without the var, with a malformed one, or on any deployed topology", async () => {
+    const off: Partial<EdgeEnv>[] = [
+      { BUILD_DEV_SIGN_IN: undefined },
+      { BUILD_DEV_SIGN_IN: "p3-review" },
+      { BUILD_DEV_SIGN_IN: "9900303:" },
+      { EDGE_TOPOLOGY: "staging" },
+      { EDGE_TOPOLOGY: "rc" },
+      { EDGE_TOPOLOGY: "production" },
+    ];
+    for (const overrides of off) {
+      const response = await devSignIn(overrides);
+      expect([overrides, response.status]).toEqual([overrides, 404]);
+      expect(response.headers.getSetCookie()).toEqual([]);
+    }
+    expect(seen).toEqual([]);
   });
 });
 

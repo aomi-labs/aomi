@@ -415,6 +415,7 @@ describe("builder API key callers", () => {
     );
     expect(closed).toEqual([
       "github.login",
+      "github.dev_sign_in",
       "github.callback",
       "github.claim",
       "github.status",

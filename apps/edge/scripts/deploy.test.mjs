@@ -101,6 +101,11 @@ describe("edge deploy script", () => {
     expect(args.join(" ")).not.toMatch(/PORTAL_HOSTS|BUILD_HOSTS|MANAGER_ORIGIN/);
   });
 
+  it("never deploys the local Build dev sign-in", () => {
+    const args = deployArgs({ ...staging, BUILD_DEV_SIGN_IN: "9900303:p3-review" });
+    expect(args.join(" ")).not.toContain("BUILD_DEV_SIGN_IN");
+  });
+
   it("refuses a deploy without its environment record or with a non-https origin", () => {
     expect(() => deployArgs({})).toThrow(/EDGE_TOPOLOGY must be set/);
     expect(() => deployArgs({ ...staging, EDGE_TOPOLOGY: "preview" })).toThrow(/must be one of/);

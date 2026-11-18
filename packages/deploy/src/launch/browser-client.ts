@@ -57,6 +57,8 @@ export interface GitHubSessionInfo {
   githubAvatarUrl?: string | null;
   /** Present when the GitHub App is already installed (skip-install). */
   installationId?: string | null;
+  /** The Edge offers local dev sign-in as a test builder (local development only). */
+  devSignIn?: boolean;
 }
 
 export interface UserProjectsResult {

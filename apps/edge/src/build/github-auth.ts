@@ -212,6 +212,34 @@ export async function login(
 }
 
 /**
+ * The locally configured test builder, `BUILD_DEV_SIGN_IN=<github_user_id>:<login>`.
+ * Only the dev topology honours it; deployed topologies never sign in this way.
+ */
+function devBuilder(ctx: BuildContext): GitHubSession | null {
+  if ((ctx.env.EDGE_TOPOLOGY ?? "default") !== "default") return null;
+  const match = /^(\d+):([A-Za-z0-9-]+)$/.exec(
+    ctx.env.BUILD_DEV_SIGN_IN?.trim() ?? "",
+  );
+  return match ? { githubUserId: match[1], githubLogin: match[2] } : null;
+}
+
+/**
+ * GET /api/build/auth/github/dev-sign-in — local development only: sign in as
+ * the configured test builder without GitHub, then land on the Build home.
+ */
+export async function devSignIn(
+  _request: Request,
+  ctx: BuildContext,
+): Promise<Response> {
+  const session = devBuilder(ctx);
+  if (!session) return Response.json({ error: "not found" }, { status: 404 });
+  const response = redirect(new URL("/", ctx.buildOrigin));
+  setSessionCookie(response, ctx, await signerFor(ctx).issueSession(session));
+  setVisibilityGrantCookie(response, ctx, null);
+  return response;
+}
+
+/**
  * GET /api/build/auth/github/claim?projectId — the project viewer is the entry
  * point for Claim. GitHub OAuth only starts after this explicit click.
  */
@@ -355,6 +383,7 @@ export async function status(
     // Present when the one-shot Agent is already installed → the wizard skips the
     // install step. The github_user_id stays server-side.
     installationId: session?.installationId ?? null,
+    devSignIn: devBuilder(ctx) !== null,
   });
 }
 

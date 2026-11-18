@@ -106,8 +106,14 @@ link}`), thread-less commits (`/v1/commits/:ref/**`), the agent, pipeline
     (`413 too_large`). A key needs the route's capability
     (`403 insufficient_scope`); a CLI bearer or the session cookie is sent as
     a builder bearer holding all four release capabilities.
-  - Not moved: `build/**` (the Vercel sandbox), `integrations`, `dev-session`
-    (local only) and `internal/sentry-smoke`.
+  - `github-auth.ts` also serves the local dev sign-in,
+    `GET /api/build/auth/github/dev-sign-in`. It issues the `aomi_github`
+    session for the builder in `BUILD_DEV_SIGN_IN=<github_user_id>:<login>`
+    without calling GitHub, and the status route reports `devSignIn`. It is
+    404 unless that var is set and the topology is `default`; deploy never
+    passes the var.
+  - Not moved: `build/**` (the Vercel sandbox), `integrations` and
+    `internal/sentry-smoke`.
 
 The portal has no server code: every portal API path is served here. Build
 retains its sandbox and sidecar authentication; sidecar bearers still use the

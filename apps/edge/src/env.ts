@@ -100,6 +100,12 @@ export interface EdgeEnv {
    * BUILD_SESSION_SECRET until its last cookie-reading routes move here.
    */
   BUILD_SESSION_SECRET?: string;
+  /**
+   * Local development only: `<github_user_id>:<login>` of the test builder the
+   * Build dev sign-in issues a session for. Deploy never passes it, and any
+   * topology other than the dev one ignores it.
+   */
+  BUILD_DEV_SIGN_IN?: string;
   /** Default deployment platform when a Build request does not name one. */
   BUILD_DEFAULT_PLATFORM?: string;
   /** GitHub token the release-manifest secret gate reads with (secret, pushed by deploy). */
