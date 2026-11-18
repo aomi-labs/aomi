@@ -325,7 +325,7 @@ describe("Wallet rules", () => {
       wrapper: AccountOverviewFixture,
     });
     await waitFor(() => expect(gets).toBe(1));
-    // The lane control files a change while the first read is in flight.
+    // The ask mode control files a change while the first read is in flight.
     view.rerender(<WalletRules wallet={WALLET} filed={filed as never} />);
     expect(
       await screen.findByLabelText("Rule change for Trading wallet"),

@@ -13,7 +13,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { shortAddress, type AomiLane } from "@aomi-labs/client";
+import { shortAddress, type AomiAskMode } from "@aomi-labs/client";
 import { ListGroup, ListRow } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { aomiButton } from "@/ui/aomi/button";
@@ -46,8 +46,8 @@ export type WalletViewRow = {
   pending?: ReactNode;
 };
 
-type LaneOption = {
-  id: AomiLane;
+type AskModeOption = {
+  id: AomiAskMode;
   label: string;
   description: string;
   Icon: LucideIcon;
@@ -57,11 +57,11 @@ type LaneOption = {
  * The choices a connection has on an agent wallet. The portal is the owner:
  * it always approves, so it picks only between Ask and Instant.
  */
-function laneOptions(
+function askModeOptions(
   client: string,
   portal = false,
-): [LaneOption, ...LaneOption[]] {
-  const instant: LaneOption = {
+): [AskModeOption, ...AskModeOption[]] {
+  const instant: AskModeOption = {
     id: "instant",
     label: "Instant",
     description: "Signs at once, nobody approves",
@@ -94,17 +94,17 @@ function laneOptions(
   ];
 }
 
-/** The pill the lane picker and the fixed lane share. */
-const lanePill = cn(
+/** The pill the ask mode picker and the fixed ask mode share. */
+const askModePill = cn(
   controlSelectTriggerClass,
   "border-aomi-border bg-aomi-raised inline-flex shrink-0 items-center border",
 );
 
-/** The composer's guard-policy menu, as a row's lane picker. */
-export function LaneSelect({
+/** The composer's guard-policy menu, as a row's ask mode picker. */
+export function AskModeSelect({
   wallet,
   client,
-  lane,
+  askMode,
   portal = false,
   askOnly = false,
   disabled = false,
@@ -113,21 +113,21 @@ export function LaneSelect({
   wallet: string;
   /** The connection's name, for "Ask in <client>". */
   client: string;
-  lane: AomiLane;
+  askMode: AomiAskMode;
   portal?: boolean;
-  /** Every trade waits for the owner: the lane is fixed at Ask on Aomi. */
+  /** Every trade waits for the owner: the ask mode is fixed at Ask on Aomi. */
   askOnly?: boolean;
   disabled?: boolean;
-  onChange: (lane: AomiLane) => void;
+  onChange: (askMode: AomiAskMode) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const options = laneOptions(client, portal);
+  const options = askModeOptions(client, portal);
   // The first option is the strictest: the picker's default and resting look.
   const [first] = options;
-  const current = options.find((option) => option.id === lane) ?? first;
+  const current = options.find((option) => option.id === askMode) ?? first;
   if (askOnly)
     return (
-      <span className={cn(lanePill, "pointer-events-none")}>
+      <span className={cn(askModePill, "pointer-events-none")}>
         <Lock className="h-3 w-3 shrink-0 opacity-60" />
         <span className="truncate">{first.label}</span>
       </span>
@@ -141,12 +141,12 @@ export function LaneSelect({
           aria-expanded={open}
           aria-label={`${wallet}: ${current.label}`}
           disabled={disabled}
-          className={cn(lanePill, lane !== first.id && "text-aomi-fg")}
+          className={cn(askModePill, askMode !== first.id && "text-aomi-fg")}
         >
           <current.Icon
             className={cn(
               "h-3 w-3 shrink-0",
-              lane === first.id && "opacity-60",
+              askMode === first.id && "opacity-60",
             )}
           />
           <span className="truncate">{current.label}</span>
@@ -169,10 +169,10 @@ export function LaneSelect({
             <button
               key={item.id}
               type="button"
-              aria-pressed={item.id === lane}
+              aria-pressed={item.id === askMode}
               onClick={() => {
                 setOpen(false);
-                if (item.id !== lane) onChange(item.id);
+                if (item.id !== askMode) onChange(item.id);
               }}
               className={cn(controlMenuItemClass, "hover:bg-aomi-hover")}
             >
@@ -187,7 +187,7 @@ export function LaneSelect({
                   {item.description}
                 </span>
               </span>
-              <ControlMenuCheck selected={item.id === lane} />
+              <ControlMenuCheck selected={item.id === askMode} />
             </button>
           ))}
         </div>
@@ -198,11 +198,11 @@ export function LaneSelect({
 
 /**
  * A wallet Aomi holds no key for: every trade is signed in that wallet. The
- * lane picker's pill, without a chevron, and not a control.
+ * ask mode picker's pill, without a chevron, and not a control.
  */
-export function FixedLane({ brand }: { brand: string }) {
+export function FixedAskMode({ brand }: { brand: string }) {
   return (
-    <span className={cn(lanePill, "pointer-events-none")}>
+    <span className={cn(askModePill, "pointer-events-none")}>
       <SquarePen className="h-3 w-3 shrink-0 opacity-60" />
       <span className="truncate">Sign in {brand}</span>
     </span>
@@ -306,14 +306,14 @@ const SEARCH_FROM = 5;
 
 /**
  * Every wallet the account has, as one connection sees it: search (past
- * five wallets), kind chips, three rows a page, and each agent wallet's lane
- * picker. Wallets Aomi holds no key for show their fixed lane.
+ * five wallets), kind chips, three rows a page, and each agent wallet's ask mode
+ * picker. Wallets Aomi holds no key for show their fixed ask mode.
  */
 export function WalletView({
   rows,
   client,
-  lanes,
-  onLane,
+  askModes,
+  onAskMode,
   portal = false,
   askOnly = false,
   disabled = false,
@@ -323,9 +323,9 @@ export function WalletView({
   rows: readonly WalletViewRow[];
   /** The connection's name, for "Ask in <client>". */
   client: string;
-  /** Each agent wallet's lane, by row id. */
-  lanes: Readonly<Record<string, AomiLane>>;
-  onLane: (row: WalletViewRow, lane: AomiLane) => void;
+  /** Each agent wallet's ask mode, by row id. */
+  askModes: Readonly<Record<string, AomiAskMode>>;
+  onAskMode: (row: WalletViewRow, askMode: AomiAskMode) => void;
   portal?: boolean;
   askOnly?: boolean;
   disabled?: boolean;
@@ -428,18 +428,18 @@ export function WalletView({
             descriptionMono={!row.pending}
             trailing={
               row.kind !== "agent" ? (
-                <FixedLane brand={row.brand} />
+                <FixedAskMode brand={row.brand} />
               ) : row.paused ? (
                 <StatusPill>Paused</StatusPill>
               ) : (
-                <LaneSelect
+                <AskModeSelect
                   wallet={row.name}
                   client={client}
-                  lane={lanes[row.id] ?? "ask_aomi"}
+                  askMode={askModes[row.id] ?? "ask_aomi"}
                   portal={portal}
                   askOnly={askOnly}
                   disabled={disabled}
-                  onChange={(lane) => onLane(row, lane)}
+                  onChange={(askMode) => onAskMode(row, askMode)}
                 />
               )
             }

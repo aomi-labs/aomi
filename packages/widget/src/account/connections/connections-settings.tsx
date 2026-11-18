@@ -128,7 +128,7 @@ function description(row: AomiAccountConnection): ReactNode {
   const lead =
     handle ?? (telegram ? null : (row.detail ?? KIND_LABEL[row.kind]));
   const instant = liveWallets(row).filter(
-    (wallet) => wallet.lane === "instant",
+    (wallet) => wallet.ask_mode === "instant",
   ).length;
   const rest = [
     instant ? `Instant on ${plural(instant, "wallet")}` : null,
@@ -311,7 +311,7 @@ export function ConnectionsSettings() {
   const telegramInstant = new Set(
     bots.flatMap((row) =>
       liveWallets(row)
-        .filter((wallet) => wallet.lane === "instant")
+        .filter((wallet) => wallet.ask_mode === "instant")
         .map((wallet) => wallet.id),
     ),
   ).size;

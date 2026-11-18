@@ -85,7 +85,7 @@ export class CommitStaleError extends AomiApiError {
 
 /**
  * This session may not approve: a portal or CLI login can, and an OAuth
- * client (MCP, API, SDK) only its own commits where its lane is Ask in that
+ * client (MCP, API, SDK) only its own commits where its ask mode is Ask in that
  * client. Anyone else, widget embeds and guests included, opens `sign_url`.
  */
 export class CommitApprovalForbiddenError extends AomiApiError {

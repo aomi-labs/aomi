@@ -29,12 +29,12 @@ export function ConsentWallets(props: ConsentWalletsProps) {
 }
 
 /**
- * A sign-in page's lanes: hand `onChange` to `ConsentWallets`, keep its
- * button off until `ready`, and `save` the connection's lanes once access is
+ * A sign-in page's ask modes: hand `onChange` to `ConsentWallets`, keep its
+ * button off until `ready`, and `save` the connection's ask modes once access is
  * granted. Nothing is written when nothing changed; a failed write leaves
- * the connection on its default lanes.
+ * the connection on its default ask modes.
  */
-export function useConsentLanes(client: { account: AccountTransport }) {
+export function useConsentAskModes(client: { account: AccountTransport }) {
   const state = useRef<ConsentWalletsState>({ ready: false, update: null });
   const [ready, setReady] = useState(false);
   const onChange = useCallback((next: ConsentWalletsState) => {

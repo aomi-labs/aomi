@@ -19,7 +19,7 @@ import {
   stringValue,
 } from "../internal/record";
 import type { AomiWalletFamily } from "../types";
-import { laneOf, type AomiLane } from "./lanes";
+import { askModeOf, type AomiAskMode } from "./ask-modes";
 
 /** The app that created a wallet and stays linked to it. */
 export type AomiAgentWalletApp = { id: number; name: string; label: string };
@@ -36,11 +36,11 @@ export type AomiAgentWalletAddress = {
   operating_address?: string;
 };
 
-/** A connection with a lane set on the wallet. */
+/** A connection with an ask mode set on the wallet. */
 export type AomiAgentWalletConnection = {
   key: string;
   label: string;
-  lane: AomiLane;
+  ask_mode: AomiAskMode;
 };
 
 export type AomiAgentWallet = {
@@ -167,7 +167,7 @@ export function parseAgentWallet(value: unknown): AomiAgentWallet {
       return {
         key,
         label: stringValue(connection?.label) ?? key,
-        lane: laneOf(connection?.lane),
+        ask_mode: askModeOf(connection?.ask_mode),
       };
     }),
   };

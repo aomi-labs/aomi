@@ -11,12 +11,12 @@ import { useShellAomi } from "@/account/transport";
 import { useAccessWrite } from "./use-access-write";
 import { ConnectionMark } from "./connection-mark";
 import { WalletView } from "./wallet-view";
-import { lanesOf, useWalletRows } from "./use-wallet-rows";
+import { askModesOf, useWalletRows } from "./use-wallet-rows";
 import { connectionTitle } from "./connections-settings";
 
 /**
  * Connections › ⋯ › Manage: every wallet as this connection sees it, with
- * its lane on each agent wallet, then Rename and Disconnect as rows. Every
+ * its ask mode on each agent wallet, then Rename and Disconnect as rows. Every
  * change saves at once.
  */
 export function ConnectionManage({
@@ -39,9 +39,11 @@ export function ConnectionManage({
   const title = connectionTitle(connection);
   // A save in flight shows what it will hold.
   const pending = saving[connection.key];
-  const lanes = {
-    ...(agents ? lanesOf(agents, connection.key, "ask_aomi") : {}),
-    ...Object.fromEntries(pending?.map((item) => [item.id, item.lane]) ?? []),
+  const askModes = {
+    ...(agents ? askModesOf(agents, connection.key, "ask_aomi") : {}),
+    ...Object.fromEntries(
+      pending?.map((item) => [item.id, item.ask_mode]) ?? [],
+    ),
   };
 
   return (
@@ -64,11 +66,13 @@ export function ConnectionManage({
               rows={rows}
               client={portal ? "Aomi" : title}
               portal={portal}
-              lanes={lanes}
+              askModes={askModes}
               askOnly={connection.ask_only}
               disabled={Boolean(pending)}
               title="Wallets it can use"
-              onLane={(row, lane) => void write(connection, row, lane, title)}
+              onAskMode={(row, askMode) =>
+                void write(connection, row, askMode, title)
+              }
             />
           )}
           {connection.ask_only ? (

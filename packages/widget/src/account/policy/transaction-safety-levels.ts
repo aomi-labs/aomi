@@ -34,7 +34,7 @@ const LEVELS: Record<TransactionSafetyMode, TransactionSafetyLevel> = {
   yolo: {
     id: "yolo",
     ...TRANSACTION_SAFETY_NAMES.yolo,
-    // Not the lightning of the Instant lane: Yolo turns guards off, it does
+    // Not the lightning of the Instant ask mode: Yolo turns guards off, it does
     // not skip approval.
     Icon: ShieldOffIcon,
     canBeDefault: false,

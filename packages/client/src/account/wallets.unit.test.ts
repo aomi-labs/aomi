@@ -224,7 +224,9 @@ describe("agent wallets", () => {
         operating_address: "Swig1111",
       },
     ],
-    connections: [{ key: "oauth:c1", label: "Claude Code", lane: "ask_aomi" }],
+    connections: [
+      { key: "oauth:c1", label: "Claude Code", ask_mode: "ask_aomi" },
+    ],
   };
   const world = {
     ...trading,
@@ -236,8 +238,8 @@ describe("agent wallets", () => {
     last_used_at: null,
     addresses: [{ family: "evm", address: "0x41c2", wallet_id: "w_31" }],
     connections: [
-      { key: "telegram:42", lane: "instant" },
-      { key: "cli", lane: "ask_client" },
+      { key: "telegram:42", ask_mode: "instant" },
+      { key: "cli", ask_mode: "ask_client" },
     ],
   };
 
@@ -283,8 +285,8 @@ describe("agent wallets", () => {
       archived_at: 1_760_000_200,
       app: { id: 90, name: "world", label: "world" },
       connections: [
-        { key: "telegram:42", label: "telegram:42", lane: "instant" },
-        { key: "cli", label: "cli", lane: "ask_client" },
+        { key: "telegram:42", label: "telegram:42", ask_mode: "instant" },
+        { key: "cli", label: "cli", ask_mode: "ask_client" },
       ],
     });
 
@@ -419,7 +421,12 @@ describe("connections", () => {
               application: { id: 86, name: "hoodit", label: "Hoodit" },
               ask_only: true,
               wallets: [
-                { id: "g-1", name: "Hoodit", lane: "instant", archived: true },
+                {
+                  id: "g-1",
+                  name: "Hoodit",
+                  ask_mode: "instant",
+                  archived: true,
+                },
               ],
               last_used_at: 1_760_400_000,
               connected_at: null,
@@ -450,7 +457,9 @@ describe("connections", () => {
       detail: "Telegram @arixon",
       application: { id: 86, name: "hoodit", label: "Hoodit" },
       ask_only: true,
-      wallets: [{ id: "g-1", name: "Hoodit", lane: "instant", archived: true }],
+      wallets: [
+        { id: "g-1", name: "Hoodit", ask_mode: "instant", archived: true },
+      ],
     });
     expect(connections[2]).toMatchObject({
       application: null,
@@ -475,16 +484,16 @@ describe("connections", () => {
     });
 
     const update = {
-      wallets: [{ id: "g-1", lane: "ask_aomi" }],
+      wallets: [{ id: "g-1", ask_mode: "ask_aomi" }],
       application: "world",
-      new_app_wallet: { lane: "ask_aomi" },
+      new_app_wallet: { ask_mode: "ask_aomi" },
       ask_only: true,
     };
     expect(
       await client.account.connections.setConnectionWallets("oauth:c1", update),
     ).toEqual({
       ask_only: true,
-      wallets: [{ id: "g-1", name: "", lane: "ask_aomi", archived: false }],
+      wallets: [{ id: "g-1", name: "", ask_mode: "ask_aomi", archived: false }],
     });
     expect(calls.at(-1)).toMatchObject({
       method: "PUT",

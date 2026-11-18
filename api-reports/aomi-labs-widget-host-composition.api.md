@@ -12,10 +12,10 @@ import { AccountMergeOffer } from '@aomi-labs/client';
 import { AccountTransport } from '@aomi-labs/client';
 import { AomiAccountProfile } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
+import type { AomiAskMode } from '@aomi-labs/client';
 import type { AomiConnectionKind } from '@aomi-labs/client';
 import type { AomiConnectionWalletsUpdate } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
-import type { AomiLane } from '@aomi-labs/client';
 import { AomiRuleChange } from '@aomi-labs/client';
 import { AomiSecretSlot } from '@aomi-labs/client';
 import { AomiWalletRules } from '@aomi-labs/client';
@@ -380,7 +380,7 @@ export type ConsentWalletsProps = {
     };
     connectionKey?: string;
     name: string;
-    startLane?: AomiLane;
+    startAskMode?: AomiAskMode;
     app?: string;
     askOnly?: boolean;
     onChange: (state: ConsentWalletsState) => void;
@@ -708,7 +708,7 @@ export const useActivityPanel: () => ActivityPanelContextValue;
 export function useAomiWalletKit(): AomiWalletKit;
 
 // @public
-export function useConsentLanes(client: {
+export function useConsentAskModes(client: {
     account: AccountTransport;
 }): {
     onChange: (next: ConsentWalletsState) => void;

@@ -86,7 +86,7 @@ export function WalletRules({
   filed,
 }: {
   wallet: { id: string; name: string };
-  /** Rules another control just filed a change on (a lane made Instant). */
+  /** Rules another control just filed a change on (an ask mode made Instant). */
   filed?: AomiWalletRules | null;
 }) {
   const aomi = useShellAomi();

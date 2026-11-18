@@ -3046,7 +3046,7 @@ export interface components {
       sign_url: string;
       /** @description Commit creation time, unix seconds. */
       created_at: number;
-      /** @description The commit awaits approval and this caller may approve it: the owner's portal session, or the connection the trade came from when its lane on the signing wallet is "Ask in" that connection or Instant. */
+      /** @description The commit awaits approval and this caller may approve it: the owner's portal session, or the connection the trade came from when its ask mode on the signing wallet is "Ask in" that connection or Instant. */
       can_approve: boolean;
     };
     CommitRefSign: {
@@ -3089,10 +3089,10 @@ export interface components {
       /** @description The app that made the agent wallet. */
       maker_app: string | null;
       /**
-       * @description An agent wallet's lane for the caller's connection: ask_aomi (the user approves its trades on Aomi), ask_client (the caller approves its own trades), instant (they sign at once).
+       * @description An agent wallet's ask mode for the caller's connection: ask_aomi (the user approves its trades on Aomi), ask_client (the caller approves its own trades), instant (they sign at once).
        * @enum {string}
        */
-      lane?: "ask_aomi" | "ask_client" | "instant";
+      ask_mode?: "ask_aomi" | "ask_client" | "instant";
     };
     CreditBalance: {
       /** Format: int64 */

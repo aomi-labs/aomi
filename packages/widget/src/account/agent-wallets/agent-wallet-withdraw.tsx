@@ -576,7 +576,7 @@ function Destination({
         </AomiButton>
       )}
       <SheetFootnote>
-        You approve it here. It doesn’t wait on any connection’s lane.
+        You approve it here. It doesn’t wait on any connection’s ask mode.
       </SheetFootnote>
     </div>
   );

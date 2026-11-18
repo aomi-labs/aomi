@@ -1,6 +1,6 @@
 /**
  * Connections: the portal, each OAuth client (AI clients over MCP, SDK apps,
- * the Aomi CLI) and each Telegram bot that uses the account, with its lane
+ * the Aomi CLI) and each Telegram bot that uses the account, with its ask mode
  * on each agent wallet, its label and last use.
  *
  * Hand-written wire types for the `/v1/account/connections` routes until the
@@ -14,9 +14,9 @@
 import { asRecord, numberOrNull, stringValue } from "../internal/record";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 import { walletRequest, type RequestResponse } from "./wallets";
-import { laneOf, type AomiLane } from "./lanes";
+import { askModeOf, type AomiAskMode } from "./ask-modes";
 
-export type { AomiLane } from "./lanes";
+export type { AomiAskMode } from "./ask-modes";
 
 export type AomiConnectionKind = "portal" | "ai" | "app" | "cli" | "telegram";
 
@@ -37,7 +37,7 @@ export type AomiAccountConnection = {
   application: AomiConnectionApp | null;
   /** Always `portal`, whatever its wallets say. */
   ask_only: boolean;
-  /** Its lanes set on agent wallets; a wallet left out has the default. */
+  /** Its ask modes set on agent wallets; a wallet left out has the default. */
   wallets: AomiConnectionWallet[];
   /** Unix seconds. */
   last_used_at: number | null;
@@ -52,13 +52,13 @@ export type AomiConnectionApp = { id: number; name: string; label: string };
 export type AomiConnectionTelegram = { user: string | null; bot: string };
 
 /**
- * The connection's lane on agent wallet `id`. An archived wallet's lane is
+ * The connection's ask mode on agent wallet `id`. An archived wallet's ask mode is
  * listed (and must be sent back on a replace) but grants nothing.
  */
 export type AomiConnectionWallet = {
   id: string;
   name: string;
-  lane: AomiLane;
+  ask_mode: AomiAskMode;
   archived: boolean;
 };
 
@@ -77,19 +77,19 @@ export type AomiConnectionSettings = Pick<
 > & { label: string | null };
 
 /**
- * A connection's lanes on agent wallets; it replaces the lanes it had (a
+ * A connection's ask modes on agent wallets; it replaces the ask modes it had (a
  * wallet left out goes back to the default). `application` (an app's name,
  * from app-locked consent) locks the connection to that app. On an Ask-only
- * connection every lane is stored as `ask_aomi`.
+ * connection every ask mode is stored as `ask_aomi`.
  */
 export type AomiConnectionWalletsUpdate = {
-  wallets: { id: string; lane: AomiLane }[];
+  wallets: { id: string; ask_mode: AomiAskMode }[];
   application?: string;
   /**
-   * With `application`: make the app's wallet now, in this lane, when none
+   * With `application`: make the app's wallet now, in this ask mode, when none
    * of `wallets` is one the app made.
    */
-  new_app_wallet?: { lane: AomiLane };
+  new_app_wallet?: { ask_mode: AomiAskMode };
   ask_only?: boolean;
 };
 
@@ -234,7 +234,7 @@ function walletsOf(value: unknown): AomiConnectionWallet[] {
           {
             id,
             name: stringValue(wallet?.name) ?? "",
-            lane: laneOf(wallet?.lane),
+            ask_mode: askModeOf(wallet?.ask_mode),
             archived: wallet?.archived === true,
           },
         ]

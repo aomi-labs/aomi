@@ -11,7 +11,7 @@ import {
   responseReader,
   stringValue,
 } from "../internal/record";
-import { laneOf } from "./lanes";
+import { askModeOf } from "./ask-modes";
 import {
   agentWalletPaths,
   parseAgentWallet,
@@ -132,7 +132,7 @@ export class AccountWalletsTransport {
   /**
    * Create an agent wallet with both families unless `families` narrows it.
    * The connection that creates it (`connection_key`, else the portal) starts
-   * with its default lane on it.
+   * with its default ask mode on it.
    */
   async createAgentWallet(
     input: AomiAgentWalletCreate,
@@ -301,6 +301,8 @@ function parseAccountWallet(value: unknown): AomiAccountWallet {
     created_at: numberOrNull(record.created_at) ?? 0,
     agent_wallet_id: stringValue(record.agent_wallet_id) ?? null,
     maker_app: stringValue(record.maker_app) ?? null,
-    ...(record.lane === undefined ? {} : { lane: laneOf(record.lane) }),
+    ...(record.ask_mode === undefined
+      ? {}
+      : { ask_mode: askModeOf(record.ask_mode) }),
   };
 }

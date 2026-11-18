@@ -1119,7 +1119,7 @@ export async function listConnectionSettings(
     wallets: {
       id: string;
       name: string;
-      lane: "ask_aomi" | "ask_client" | "instant";
+      ask_mode: "ask_aomi" | "ask_client" | "instant";
       archived: boolean;
     }[];
   }[]
@@ -1129,7 +1129,7 @@ export async function listConnectionSettings(
             a.id as app_id, a.name as app_name, a.label as app_label,
             coalesce((
               select json_agg(json_build_object(
-                       'id', aw.id::text, 'name', aw.name, 'lane', wa.lane,
+                       'id', aw.id::text, 'name', aw.name, 'ask_mode', wa.lane,
                        'archived', aw.archived_at is not null)
                      order by aw.created_at, aw.id)
                 from wallet_access wa
@@ -1158,13 +1158,16 @@ export async function listConnectionSettings(
       row.wallets as {
         id: string;
         name: string;
-        lane: string;
+        ask_mode: string;
         archived: boolean;
       }[]
-    ).map(({ id, name, lane, archived }) => ({
+    ).map(({ id, name, ask_mode, archived }) => ({
       id,
       name,
-      lane: lane === "ask_client" || lane === "instant" ? lane : "ask_aomi",
+      ask_mode:
+        ask_mode === "ask_client" || ask_mode === "instant"
+          ? ask_mode
+          : "ask_aomi",
       archived: archived === true,
     })),
   }));
@@ -1214,8 +1217,8 @@ export async function listTelegramIdentityIds(
 }
 
 /**
- * Drop every Telegram bot's label and, by cascade, its wallet lanes, which
- * then read as the default lane.
+ * Drop every Telegram bot's label and, by cascade, its wallet ask modes, which
+ * then read as the default ask mode.
  */
 export async function deleteTelegramConnectionSettings(
   userId: AomiUserId,

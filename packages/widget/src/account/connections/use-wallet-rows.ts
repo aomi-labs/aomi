@@ -5,7 +5,7 @@ import type {
   AomiAccountWallet,
   AomiAgentWallet,
   AccountTransport,
-  AomiLane,
+  AomiAskMode,
 } from "@aomi-labs/client";
 import { useDisplayQuery } from "@aomi-labs/react";
 import {
@@ -79,28 +79,28 @@ export function useWalletRows(aomi: { account: AccountTransport }) {
   };
 }
 
-/** Connection `key`'s lane on each agent wallet, as the server judges it. */
-export function knownLanes(
+/** Connection `key`'s ask mode on each agent wallet, as the server judges it. */
+export function knownAskModes(
   agents: readonly AomiAgentWallet[],
   key: string | undefined,
-): Partial<Record<string, AomiLane>> {
+): Partial<Record<string, AomiAskMode>> {
   return Object.fromEntries(
     agents.flatMap((wallet) => {
-      const lane = wallet.connections.find(
+      const askMode = wallet.connections.find(
         (connection) => connection.key === key,
-      )?.lane;
-      return lane ? [[wallet.id, lane]] : [];
+      )?.ask_mode;
+      return askMode ? [[wallet.id, askMode]] : [];
     }),
   );
 }
 
-/** [`knownLanes`], else `start` (a connection the server doesn't know yet). */
-export function lanesOf(
+/** [`knownAskModes`], else `start` (a connection the server doesn't know yet). */
+export function askModesOf(
   agents: readonly AomiAgentWallet[],
   key: string | undefined,
-  start: AomiLane,
-): Record<string, AomiLane> {
-  const known = knownLanes(agents, key);
+  start: AomiAskMode,
+): Record<string, AomiAskMode> {
+  const known = knownAskModes(agents, key);
   return Object.fromEntries(
     agents.map((wallet) => [wallet.id, known[wallet.id] ?? start]),
   );

@@ -240,7 +240,7 @@ export class CommitHandle {
    * Approve a parked commit (`awaiting_approval`) at the current version and
    * review digest; Aomi then signs with the agent wallet. Approving one member
    * of a batch approves the whole batch. A portal or CLI login may approve,
-   * and an OAuth client its own commits where its lane is Ask in that client;
+   * and an OAuth client its own commits where its ask mode is Ask in that client;
    * otherwise CommitApprovalForbiddenError: hand the human `view.sign_url`.
    * A changed commit raises CommitStaleError, an expired one
    * CommitExpiredError (nothing was signed). Pass the view the human saw so

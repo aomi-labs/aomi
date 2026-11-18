@@ -34,9 +34,9 @@ const connections = [
     application: { id: 86, name: "hoodit", label: "Hoodit" },
     ask_only: false,
     wallets: [
-      { id: "g-hoodit", name: "Hoodit", lane: "instant", archived: false },
+      { id: "g-hoodit", name: "Hoodit", ask_mode: "instant", archived: false },
       // Archived: kept on every replace, never counted or shown.
-      { id: "g-old", name: "Old", lane: "instant", archived: true },
+      { id: "g-old", name: "Old", ask_mode: "instant", archived: true },
     ],
     last_used_at: NOW / 1000 - 2 * 3600,
     connected_at: null,
@@ -52,7 +52,12 @@ const connections = [
     application: null,
     ask_only: false,
     wallets: [
-      { id: "g-trading", name: "Trading", lane: "ask_client", archived: false },
+      {
+        id: "g-trading",
+        name: "Trading",
+        ask_mode: "ask_client",
+        archived: false,
+      },
     ],
     last_used_at: null,
     connected_at: null,
@@ -67,7 +72,12 @@ const connections = [
     application: null,
     ask_only: true,
     wallets: [
-      { id: "g-trading", name: "Trading", lane: "ask_aomi", archived: false },
+      {
+        id: "g-trading",
+        name: "Trading",
+        ask_mode: "ask_aomi",
+        archived: false,
+      },
     ],
     last_used_at: NOW / 1000 - 30 * 3600,
     connected_at: 1,
@@ -78,7 +88,7 @@ const connections = [
 const agentWallet = (
   id: string,
   name: string,
-  connections: { key: string; label: string; lane: string }[] = [],
+  connections: { key: string; label: string; ask_mode: string }[] = [],
 ) => ({
   id,
   name,
@@ -96,20 +106,20 @@ const agentWallet = (
   ],
   connections,
 });
-// The server judges every connection's lane on every wallet: a bot with no
+// The server judges every connection's ask mode on every wallet: a bot with no
 // row is `ask_client`, an Ask-only client `ask_aomi`.
 const agentWallets = [
   agentWallet("g-trading", "Trading", [
-    { key: "oauth:c1", label: "Claude", lane: "ask_aomi" },
-    { key: "portal", label: "Aomi", lane: "ask_client" },
-    { key: "telegram:77", label: "Hoodit", lane: "ask_client" },
-    { key: "telegram:78", label: "Markets", lane: "ask_client" },
+    { key: "oauth:c1", label: "Claude", ask_mode: "ask_aomi" },
+    { key: "portal", label: "Aomi", ask_mode: "ask_client" },
+    { key: "telegram:77", label: "Hoodit", ask_mode: "ask_client" },
+    { key: "telegram:78", label: "Markets", ask_mode: "ask_client" },
   ]),
   agentWallet("g-hoodit", "Hoodit", [
-    { key: "oauth:c1", label: "Claude", lane: "ask_aomi" },
-    { key: "portal", label: "Aomi", lane: "ask_client" },
-    { key: "telegram:77", label: "Hoodit", lane: "instant" },
-    { key: "telegram:78", label: "Markets", lane: "ask_client" },
+    { key: "oauth:c1", label: "Claude", ask_mode: "ask_aomi" },
+    { key: "portal", label: "Aomi", ask_mode: "ask_client" },
+    { key: "telegram:77", label: "Hoodit", ask_mode: "instant" },
+    { key: "telegram:78", label: "Markets", ask_mode: "ask_client" },
   ]),
 ];
 
@@ -155,12 +165,12 @@ const menuOf = (name: string) => {
 const writes = () => calls.filter((call) => call.method !== "GET");
 
 describe("Connections tab", () => {
-  it("lists each connection quietly: mark, name, Instant lanes and last use", async () => {
+  it("lists each connection quietly: mark, name, Instant ask modes and last use", async () => {
     await renderTab();
     expect(rowOf("portal")).toHaveTextContent(
       "AomiThis website · all agent wallets",
     );
-    // No Instant lane: no wallet count, just the last use.
+    // No Instant ask mode: no wallet count, just the last use.
     expect(rowOf("oauth:c1")).toHaveTextContent(
       "ClaudeAI client · used yesterday",
     );
@@ -241,7 +251,7 @@ describe("Connections tab", () => {
     ]);
   });
 
-  it("edits one connection's lanes in its Manage sheet", async () => {
+  it("edits one connection's ask modes in its Manage sheet", async () => {
     await renderTab();
     fireEvent.click(within(menuOf("@HooditBot")).getByText("Manage"));
     const sheet = await screen.findByRole("dialog");
@@ -249,7 +259,7 @@ describe("Connections tab", () => {
     expect(
       await within(sheet).findByText("Wallets it can use"),
     ).toBeInTheDocument();
-    // No Approvals switch: the lane is the whole choice.
+    // No Approvals switch: the ask mode is the whole choice.
     expect(within(sheet).queryByRole("switch")).toBeNull();
     expect(
       within(sheet).getByRole("combobox", { name: "Hoodit: Instant" }),
@@ -270,9 +280,9 @@ describe("Connections tab", () => {
       path: "/v1/account/connections/telegram%3A77/wallets",
       body: {
         wallets: [
-          { id: "g-hoodit", lane: "instant" },
-          { id: "g-old", lane: "instant" },
-          { id: "g-trading", lane: "ask_aomi" },
+          { id: "g-hoodit", ask_mode: "instant" },
+          { id: "g-old", ask_mode: "instant" },
+          { id: "g-trading", ask_mode: "ask_aomi" },
         ],
       },
     });
@@ -291,9 +301,9 @@ describe("Connections tab", () => {
       method: "PUT",
       body: {
         wallets: [
-          { id: "g-hoodit", lane: "instant" },
-          { id: "g-old", lane: "instant" },
-          { id: "g-trading", lane: "instant" },
+          { id: "g-hoodit", ask_mode: "instant" },
+          { id: "g-old", ask_mode: "instant" },
+          { id: "g-trading", ask_mode: "instant" },
         ],
       },
     });

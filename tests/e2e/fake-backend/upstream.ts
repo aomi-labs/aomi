@@ -66,8 +66,8 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
   const pausedAll = new Map<string, boolean>();
   /** Each account's connection settings, by connection key. */
   const settings = new Map<string, ConnectionSetting>();
-  /** Each connection's lane per agent wallet, by account and connection key. */
-  const lanes = new Map<string, { id: string; lane: string }[]>();
+  /** Each connection's ask mode per agent wallet, by account and connection key. */
+  const askModes = new Map<string, { id: string; ask_mode: string }[]>();
   /** Each account's rules on its one agent wallet, and its rule changes by id. */
   const walletRules = new Map<string, FakeRules>();
   const ruleChanges = new Map<string, { owner: string; change: FakeChange }>();
@@ -105,7 +105,7 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       commits.clear();
       pausedAll.clear();
       settings.clear();
-      lanes.clear();
+      askModes.clear();
       walletRules.clear();
       ruleChanges.clear();
       for (const agent of agents.values()) agent.reset();
@@ -135,17 +135,18 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
         return json(response, 404, { code: "commit_not_found", status: 404 });
       const view = commit.view as Record<string, unknown>;
       // A portal or CLI login approves a parked commit; an OAuth connection
-      // only its own, where its lane on the wallet is Ask in that client.
+      // only its own, where its ask mode on the wallet is Ask in that client.
       const own = `oauth:${principal.client_id}`;
       const approver =
         principal.auth_source === "session" ||
         principal.auth_source === "cli_session" ||
         (principal.auth_source === "oauth" &&
           view.initiator === own &&
-          (lanes
+          (askModes
             .get(`${principal.sub}\0${own}`)
             ?.some(
-              (row) => row.id === AGENT_GROUP.id && row.lane === "ask_client",
+              (row) =>
+                row.id === AGENT_GROUP.id && row.ask_mode === "ask_client",
             ) ??
             false));
       if (method === "GET" && rest.length === 0)
@@ -324,8 +325,8 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
           state.admin = apply.admin;
           state.revision += 1;
           for (const key of apply.instant)
-            lanes.set(`${owner}\0${key}`, [
-              { id: AGENT_GROUP.id, lane: "instant" },
+            askModes.set(`${owner}\0${key}`, [
+              { id: AGENT_GROUP.id, ask_mode: "instant" },
             ]);
         }
         return json(response, 200, rulesBody(state, null));
@@ -335,7 +336,7 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
 
     // The account's wallet list: one EVM agent wallet
     // ("Trading") per account, so Settings renders the agent band; pause-all
-    // and each connection's label and wallet lanes.
+    // and each connection's label and wallet ask modes.
     if (
       url.pathname.startsWith("/v1/account/wallets") ||
       url.pathname.startsWith("/v1/account/agent-wallets") ||
@@ -390,9 +391,9 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
         if (portalOnly()) return;
         const key = decodeURIComponent(url.pathname.split("/").at(-2)!);
         const update = JSON.parse(await readBody(request)) as {
-          wallets: { id: string; lane: string }[];
+          wallets: { id: string; ask_mode: string }[];
         };
-        lanes.set(`${principal.sub}\0${key}`, update.wallets);
+        askModes.set(`${principal.sub}\0${key}`, update.wallets);
         return json(response, 200, update);
       }
       return json(response, 404, { error: "wallet_not_found" });

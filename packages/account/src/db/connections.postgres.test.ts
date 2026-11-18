@@ -50,7 +50,9 @@ describe.skipIf(!enabled)("account connections", () => {
       ),
     );
     const { createAuth } = await import("../better-auth/auth");
-    await (await getMigrations(createAuth(process.env).options)).runMigrations();
+    await (
+      await getMigrations(createAuth(process.env).options)
+    ).runMigrations();
     connections = await import("../service/connections");
     await seed();
   }, 30_000);
@@ -246,8 +248,13 @@ describe.skipIf(!enabled)("account connections", () => {
           detail: "Agent MCP",
           // The archived wallet's pair stays, marked, for a restore.
           wallets: [
-            { id: TRADING, name: "Trading", lane: "instant", archived: false },
-            { id: OLD, name: "Old", lane: "instant", archived: true },
+            {
+              id: TRADING,
+              name: "Trading",
+              ask_mode: "instant",
+              archived: false,
+            },
+            { id: OLD, name: "Old", ask_mode: "instant", archived: true },
           ],
           last_used_at: 1760409000,
         }),
@@ -255,7 +262,12 @@ describe.skipIf(!enabled)("account connections", () => {
           application: { id: 86, name: "hoodit", label: "Hoodit" },
           ask_only: true,
           wallets: [
-            { id: HOODIT, name: "Hoodit", lane: "ask_aomi", archived: false },
+            {
+              id: HOODIT,
+              name: "Hoodit",
+              ask_mode: "ask_aomi",
+              archived: false,
+            },
           ],
           last_used_at: 1760408000,
         }),
@@ -334,11 +346,11 @@ describe.skipIf(!enabled)("account connections", () => {
       `select key from account_connections where user_id = 'owner' order by key`,
     );
     expect(settings.rows).toEqual([{ key: "telegram:88" }]);
-    // Its lanes went with it.
-    const lanes = await pool.query(
+    // Its ask modes went with it.
+    const askModes = await pool.query(
       `select connection_key from wallet_access where user_id = 'owner'`,
     );
-    expect(lanes.rows).toEqual([{ connection_key: "telegram:88" }]);
+    expect(askModes.rows).toEqual([{ connection_key: "telegram:88" }]);
     expect(
       await connections.revokeOAuthConnection({
         userId: "owner",

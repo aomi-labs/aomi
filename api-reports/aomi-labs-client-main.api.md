@@ -809,7 +809,7 @@ export type AomiAgentWalletBalances = {
 export type AomiAgentWalletConnection = {
     key: string;
     label: string;
-    lane: AomiLane;
+    ask_mode: AomiAskMode;
 };
 
 // @public (undocumented)
@@ -900,6 +900,9 @@ export interface AomiAppDescriptor {
 
 // @public
 export type AomiArtifactStatus = "ready" | "pending" | "fetch_backoff";
+
+// @public
+export type AomiAskMode = "ask_aomi" | "ask_client" | "instant";
 
 // @public (undocumented)
 export type AomiAuthController = {
@@ -1171,7 +1174,7 @@ export type AomiConnectionTelegram = {
 export type AomiConnectionWallet = {
     id: string;
     name: string;
-    lane: AomiLane;
+    ask_mode: AomiAskMode;
     archived: boolean;
 };
 
@@ -1179,11 +1182,11 @@ export type AomiConnectionWallet = {
 export type AomiConnectionWalletsUpdate = {
     wallets: {
         id: string;
-        lane: AomiLane;
+        ask_mode: AomiAskMode;
     }[];
     application?: string;
     new_app_wallet?: {
-        lane: AomiLane;
+        ask_mode: AomiAskMode;
     };
     ask_only?: boolean;
 };
@@ -1362,9 +1365,6 @@ export interface AomiIngestSecretsResponse {
     // (undocumented)
     handles: Record<string, string>;
 }
-
-// @public
-export type AomiLane = "ask_aomi" | "ask_client" | "instant";
 
 // @public
 export interface AomiListSecretsResponse {

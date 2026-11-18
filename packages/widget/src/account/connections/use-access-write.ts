@@ -6,7 +6,7 @@ import {
   RULES_ERROR_CODES,
   type AomiAccountConnection,
   type AomiConnectionWalletsUpdate,
-  type AomiLane,
+  type AomiAskMode,
   type AomiWalletRules,
 } from "@aomi-labs/client";
 import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
@@ -14,7 +14,7 @@ import { useShellAomi } from "@/account/transport";
 import { useRefreshWallets } from "@/account/agent-wallets/use-refresh-wallets";
 
 /**
- * Sets a connection's lane on an agent wallet; Instant asks first. While a
+ * Sets a connection's ask mode on an agent wallet; Instant asks first. While a
  * connection saves, `saving[key]` is the list it will hold, so the picker
  * moves at once and the server catches up behind it. Render `dialog`.
  *
@@ -36,14 +36,14 @@ export function useAccessWrite(
   const write = async (
     connection: AomiAccountConnection,
     wallet: { id: string; name: string },
-    lane: AomiLane,
+    askMode: AomiAskMode,
     /** The connection's name in the Instant prompt. */
     title: string,
   ) => {
     const { key } = connection;
     if (saving[key]) return;
     if (
-      lane === "instant" &&
+      askMode === "instant" &&
       !(await confirm({
         title: "Sign without asking?",
         description: `Trades from ${title} with "${wallet.name}" will sign without asking.`,
@@ -51,12 +51,12 @@ export function useAccessWrite(
       }))
     )
       return;
-    // Archived wallets stay listed too, so a Restore brings their lanes back.
+    // Archived wallets stay listed too, so a Restore brings their ask modes back.
     const wallets: AomiConnectionWalletsUpdate["wallets"] = [
       ...connection.wallets
         .filter((entry) => entry.id !== wallet.id)
-        .map((entry) => ({ id: entry.id, lane: entry.lane })),
-      { id: wallet.id, lane: connection.ask_only ? "ask_aomi" : lane },
+        .map((entry) => ({ id: entry.id, ask_mode: entry.ask_mode })),
+      { id: wallet.id, ask_mode: connection.ask_only ? "ask_aomi" : askMode },
     ];
     setSaving((current) => ({ ...current, [key]: wallets }));
     setError(null);

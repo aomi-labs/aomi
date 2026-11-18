@@ -134,7 +134,7 @@ describe("OAuthConsentClient", () => {
           body: {
             wallets: [],
             application: "world",
-            new_app_wallet: { lane: "ask_aomi" },
+            new_app_wallet: { ask_mode: "ask_aomi" },
             ask_only: true,
           },
         },
@@ -154,7 +154,7 @@ describe("OAuthConsentClient", () => {
       created_at: 1,
       addresses: [],
       connections: [
-        { key: "oauth:codex-mcp", label: "Codex", lane: "instant" },
+        { key: "oauth:codex-mcp", label: "Codex", ask_mode: "instant" },
       ],
     };
     vi.stubGlobal(
@@ -176,7 +176,7 @@ describe("OAuthConsentClient", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     render(<ConsentSheet name="Codex" />);
     expect(await screen.findByText("Trading")).toBeInTheDocument();
-    // Its lane on the wallet pre-fills from what it has.
+    // Its ask mode on the wallet pre-fills from what it has.
     expect(
       screen.getByRole("combobox", { name: "Trading: Instant" }),
     ).toBeInTheDocument();
