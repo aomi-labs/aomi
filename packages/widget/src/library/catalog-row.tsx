@@ -1,12 +1,18 @@
 "use client";
-import type { AomiPackage } from "@aomi-labs/client";
+import type { AomiPackage, AomiPublicPackage } from "@aomi-labs/client";
 import { BadgeCheck, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { aomiButton } from "@/ui/aomi/button";
 import { StatusPill } from "@/ui/aomi/status-pill";
 import { Switch } from "@/ui/aomi/switch";
 import { PackageIcon } from "./package-row";
-import { FAMILIES, contentsLine, needsConnect, publisher } from "./model";
+import {
+  FAMILIES,
+  contentsLine,
+  isAccountRow,
+  needsConnect,
+  publisher,
+} from "./model";
 
 /** The row control: Connect until a required person key is in, then the switch. */
 export function PackageControl({
@@ -59,7 +65,7 @@ export function PackageControl({
 }
 
 /** "by publisher", with the verified mark for a package Aomi verified. */
-export function Publisher({ row }: { row: AomiPackage }) {
+export function Publisher({ row }: { row: AomiPublicPackage }) {
   return (
     <span className="type-meta text-aomi-muted inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
       by {publisher(row)}
@@ -83,15 +89,16 @@ export function CatalogRow({
   onToggle,
   onConnect,
 }: {
-  row: AomiPackage;
+  /** A guest's public row has no control. */
+  row: AomiPublicPackage;
   selected: boolean;
   /** No inspector beside the list: the ecosystem and contents cells show. */
   wide: boolean;
   busy: boolean;
   disabled: boolean;
   onSelect: () => void;
-  onToggle: (enabled: boolean) => void;
-  onConnect: () => void;
+  onToggle: (row: AomiPackage, enabled: boolean) => void;
+  onConnect: (row: AomiPackage) => void;
 }) {
   const families = FAMILIES.filter((family) => row.families.includes(family.id))
     .map((family) => family.label)
@@ -114,7 +121,9 @@ export function CatalogRow({
           <span className="flex min-w-0 items-center gap-2">
             <span className="type-row truncate">{row.display_name}</span>
             <Publisher row={row} />
-            {row.listed ? null : <StatusPill tone="accent">Private</StatusPill>}
+            {isAccountRow(row) && !row.listed ? (
+              <StatusPill tone="accent">Private</StatusPill>
+            ) : null}
           </span>
           <span className="type-meta text-aomi-muted mt-0.5 block truncate">
             {row.description}
@@ -131,13 +140,15 @@ export function CatalogRow({
           </span>
         </>
       ) : null}
-      <PackageControl
-        row={row}
-        busy={busy}
-        disabled={disabled}
-        onToggle={onToggle}
-        onConnect={onConnect}
-      />
+      {isAccountRow(row) ? (
+        <PackageControl
+          row={row}
+          busy={busy}
+          disabled={disabled}
+          onToggle={(enabled) => onToggle(row, enabled)}
+          onConnect={() => onConnect(row)}
+        />
+      ) : null}
     </article>
   );
 }

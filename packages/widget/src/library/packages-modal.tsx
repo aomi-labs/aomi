@@ -1,6 +1,10 @@
 "use client";
 
-import type { AomiPackage, AomiPackageFamily } from "@aomi-labs/client";
+import type {
+  AomiPackage,
+  AomiPackageFamily,
+  AomiPublicPackage,
+} from "@aomi-labs/client";
 import { useOptionalAomiRuntime } from "@aomi-labs/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, KeyRound, Library } from "lucide-react";
@@ -23,6 +27,7 @@ import { usePackageCatalog } from "./use-package-catalog";
 import {
   FAMILIES,
   GROUP_PREVIEW,
+  GUEST_VIEWS,
   GROUP_TITLES,
   NAV_ITEMS,
   explainActivateError,
@@ -53,17 +58,19 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
     runtime && runtime.isRemoteThread?.(runtime.currentThreadId)
       ? runtime.currentThreadId
       : undefined;
-  const { catalog, failure, refetch } = usePackageCatalog(
-    accountUserId,
-    threadId,
-  );
+  const {
+    rows: loaded,
+    agent,
+    failure,
+    refetch,
+  } = usePackageCatalog(accountUserId, threadId);
   const wallet = useAomiWalletKit();
   const [view, setView] = useState<LibraryView>("all");
   const [family, setFamily] = useState<AomiPackageFamily | null>(null);
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
-  const [busyId, setBusyId] = useState<number | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [noticeRow, setNoticeRow] = useState<AomiPackage | null>(null);
   const [codeOpen, setCodeOpen] = useState(false);
@@ -74,8 +81,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
   const signedIn = accountUserId != null;
-  const agent = catalog?.agent.display_name ?? "Your agent";
-  const rows = useMemo(() => catalog?.packages ?? [], [catalog]);
+  const rows = useMemo(() => loaded ?? [], [loaded]);
   const groups = useMemo(() => {
     const shown = rows.filter((row) => matches(row, { view, family, query }));
     // "To connect" is one list; a search looks across every group.
@@ -85,14 +91,14 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   }, [rows, view, family, query]);
   // The inspector opens for a selected package only. It reads every row, so a
   // package that leaves the view after a change keeps its inspector open.
-  const selected = rows.find((row) => row.package_id === selectedId) ?? null;
+  const selected = rows.find((row) => row.id === selectedId) ?? null;
   const inspector = selected !== null && desktop;
 
   /** Run one mutation, then read the rows again; errors stay in place. */
   const mutate = useCallback(
     async (row: AomiPackage, change: () => Promise<unknown>) => {
       if (busyId !== null) return false;
-      setBusyId(row.package_id);
+      setBusyId(row.id);
       setActionError(null);
       try {
         await change();
@@ -149,15 +155,13 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       return explainActivateError(cause);
     }
   };
-  function open(row: AomiPackage) {
-    setSelectedId(row.package_id);
+  function open(row: AomiPublicPackage) {
+    setSelectedId(row.id);
     setMobileDetailOpen(true);
   }
   /** A click on the selected row closes the inspector again. */
-  const select = (row: AomiPackage) =>
-    selected?.package_id === row.package_id && desktop
-      ? setSelectedId(null)
-      : open(row);
+  const select = (row: AomiPublicPackage) =>
+    selected?.id === row.id && desktop ? setSelectedId(null) : open(row);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -188,8 +192,8 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
     setExpanded(new Set());
   }, [view, family, query]);
 
-  const loading = catalog === null && !failure;
-  const count = (predicate: (row: AomiPackage) => boolean) =>
+  const loading = loaded === null && !failure;
+  const count = (predicate: (row: AomiPublicPackage) => boolean) =>
     failure
       ? undefined
       : loading
@@ -215,7 +219,9 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
         className={mobileDetailOpen ? "max-md:hidden" : undefined}
       >
         <ModalNav label="Library sections" className="mt-2 md:mt-3">
-          {NAV_ITEMS.map((item) => (
+          {NAV_ITEMS.filter(
+            (item) => signedIn || GUEST_VIEWS.includes(item.id),
+          ).map((item) => (
             <ModalNavItem
               key={item.id}
               label={item.label}
@@ -264,7 +270,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
               searchRef={searchRef}
             />
           </div>
-          {signedIn && failure !== "sign_in" ? (
+          {signedIn ? (
             <AomiButton
               aria-label="Add a private package with a code"
               className="h-10 px-3"
@@ -275,11 +281,16 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
             </AomiButton>
           ) : null}
         </div>
-        {!signedIn && failure !== "sign_in" ? (
-          <p className="type-meta text-aomi-muted mt-3 px-1">
-            Sign in to add a private package
-          </p>
-        ) : null}
+        {signedIn ? null : (
+          <div className="bg-aomi-surface-2 rounded-control mt-3 flex min-h-8 items-center justify-between gap-3 py-1 pl-3 pr-1">
+            <span className="type-meta text-aomi-muted">
+              Sign in to turn packages on and add your own
+            </span>
+            <AomiButton size="sm" onClick={() => void wallet.connect?.()}>
+              Sign in
+            </AomiButton>
+          </div>
+        )}
         {actionError ? (
           <p
             role="alert"
@@ -323,15 +334,15 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                   <div className="mt-2 space-y-0.5">
                     {members.slice(0, members.length - hidden).map((row) => (
                       <CatalogRow
-                        key={row.package_id}
+                        key={row.id}
                         row={row}
-                        selected={selected?.package_id === row.package_id}
+                        selected={selected?.id === row.id}
                         wide={!inspector}
-                        busy={busyId === row.package_id}
+                        busy={busyId === row.id}
                         disabled={!signedIn || busyId !== null}
                         onSelect={() => select(row)}
-                        onToggle={(enabled) => toggle(row, enabled)}
-                        onConnect={() => connect(row)}
+                        onToggle={toggle}
+                        onConnect={connect}
                       />
                     ))}
                     {hidden > 0 ? (
@@ -374,7 +385,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
             row={selected}
             agent={agent}
             signedIn={signedIn}
-            busy={busyId === selected.package_id}
+            busy={busyId === selected.id}
             error={desktop ? null : actionError}
             onToggle={toggle}
             onClearChoice={(row) =>
@@ -419,11 +430,6 @@ const FAILURE_COPY: Record<
   LoadFailure,
   { title: string; body: string; action: string }
 > = {
-  sign_in: {
-    title: "Sign in to see your Library",
-    body: "Your Library keeps the packages your agent can use, with your choices and keys.",
-    action: "Sign in",
-  },
   session_ended: {
     title: "Your session ended",
     body: "Sign in again to see your Library.",
@@ -436,7 +442,7 @@ const FAILURE_COPY: Record<
   },
 };
 
-/** Signed out or an ended session asks to sign in; only a real failure retries. */
+/** An ended session asks to sign in again; only a real failure retries. */
 function LoadFailureNotice({
   failure,
   onSignIn,

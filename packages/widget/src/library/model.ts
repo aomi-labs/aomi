@@ -3,6 +3,7 @@ import type {
   AomiPackageEnvelope,
   AomiPackageFamily,
   AomiPackageSlot,
+  AomiPublicPackage,
 } from "@aomi-labs/client";
 import {
   BadgeCheck,
@@ -54,10 +55,22 @@ export const GROUP_TITLES: Record<LibraryGroup, (agent: string) => string> = {
   connect: () => "To connect",
 };
 
+/** The views a guest has: nothing that depends on an account. */
+export const GUEST_VIEWS: readonly LibraryView[] = [
+  "all",
+  "verified",
+  "not_verified",
+];
+
+/** A signed-in account's row, with its choices and keys; a guest's rows are public only. */
+export function isAccountRow(row: AomiPublicPackage): row is AomiPackage {
+  return "package_id" in row;
+}
+
 /** Agent-listed first, then private (added with a code), then verified, then the rest. */
-export function packageGroup(row: AomiPackage): LibraryGroup {
-  if (row.agent_listed) return "agent";
-  if (!row.listed) return "private";
+export function packageGroup(row: AomiPublicPackage): LibraryGroup {
+  if (isAccountRow(row) && row.agent_listed) return "agent";
+  if (isAccountRow(row) && !row.listed) return "private";
   return row.verified ? "verified" : "other";
 }
 
@@ -71,16 +84,16 @@ const GROUP_ORDER: readonly LibraryGroup[] = [
 /** Rows a group shows before its "Show N more". */
 export const GROUP_PREVIEW = 5;
 
-export function groupPackages(
-  rows: readonly AomiPackage[],
-): { group: LibraryGroup; rows: AomiPackage[] }[] {
-  const seen = new Set<number>();
-  const groups = new Map<LibraryGroup, AomiPackage[]>(
+export function groupPackages<Row extends AomiPublicPackage>(
+  rows: readonly Row[],
+): { group: LibraryGroup; rows: Row[] }[] {
+  const seen = new Set<string>();
+  const groups = new Map<LibraryGroup, Row[]>(
     GROUP_ORDER.map((group) => [group, []]),
   );
   for (const row of rows) {
-    if (seen.has(row.package_id)) continue;
-    seen.add(row.package_id);
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
     groups.get(packageGroup(row))!.push(row);
   }
   return GROUP_ORDER.flatMap((group) => {
@@ -106,23 +119,23 @@ export function connected(row: AomiPackage): boolean {
   return slots.some((slot) => slot.status === "ready") && !needsConnect(row);
 }
 
-export function inView(row: AomiPackage, view: LibraryView): boolean {
+export function inView(row: AomiPublicPackage, view: LibraryView): boolean {
   switch (view) {
     case "all":
       return true;
     case "on":
-      return row.enabled;
+      return isAccountRow(row) && row.enabled;
     case "verified":
       return row.verified;
     case "not_verified":
       return !row.verified;
     case "connect":
-      return needsConnect(row);
+      return isAccountRow(row) && needsConnect(row);
   }
 }
 
 export function matches(
-  row: AomiPackage,
+  row: AomiPublicPackage,
   filter: {
     view: LibraryView;
     family: AomiPackageFamily | null;
@@ -142,12 +155,12 @@ export function matches(
 }
 
 /** `publisher/name` → publisher. */
-export function publisher(row: AomiPackage): string {
+export function publisher(row: AomiPublicPackage): string {
   return row.id.split("/")[0] ?? row.id;
 }
 
 /** The brand key for curated artwork: the package name without its publisher. */
-export function brandId(row: AomiPackage): string {
+export function brandId(row: AomiPublicPackage): string {
   return row.id.split("/").at(-1) ?? row.id;
 }
 
@@ -166,7 +179,7 @@ export function reasonText(row: AomiPackage, agent: string): string {
   }
 }
 
-export function contentsLine(row: AomiPackage): string {
+export function contentsLine(row: AomiPublicPackage): string {
   const skills = `${row.skills.length} skill${row.skills.length === 1 ? "" : "s"}`;
   return `${skills} · ${row.tool_count} tool${row.tool_count === 1 ? "" : "s"}`;
 }
@@ -255,11 +268,11 @@ function statusOf(cause: unknown): number {
 }
 
 /** Why the Library did not load. Only `failed` is worth a retry. */
-export type LoadFailure = "sign_in" | "session_ended" | "failed";
+export type LoadFailure = "session_ended" | "failed";
 
-export function loadFailure(cause: unknown, signedIn: boolean): LoadFailure {
-  if (statusOf(cause) !== 401) return "failed";
-  return signedIn ? "session_ended" : "sign_in";
+/** A signed-in account's read refused with 401: the session ended. */
+export function loadFailure(cause: unknown): LoadFailure {
+  return statusOf(cause) === 401 ? "session_ended" : "failed";
 }
 
 /** A mutation error in words, with the agent-listed refusal named. */

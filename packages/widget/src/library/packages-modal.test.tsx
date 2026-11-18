@@ -71,6 +71,21 @@ function installBackend(initial: AomiPackage[]) {
       const method = init?.method ?? "GET";
       const body = init?.body ? JSON.parse(String(init.body)) : undefined;
       calls.push({ method, path: url.pathname, body });
+      if (url.pathname === "/api/public/catalog/packages")
+        return Response.json({
+          packages: rows
+            .filter((row) => row.listed)
+            .map((row) => ({
+              id: row.id,
+              display_name: row.display_name,
+              description: row.description,
+              icon_url: row.icon_url,
+              families: row.families,
+              tool_count: row.tool_count,
+              skills: row.skills,
+              verified: row.verified,
+            })),
+        });
       if (url.pathname === "/api/account/packages") {
         listQueries.push(url.search);
         return Response.json(catalog(rows));
@@ -404,12 +419,48 @@ describe("packages modal", () => {
     expect(rowSwitch("Jupiter")).toHaveAttribute("aria-checked", "true");
   });
 
-  it("lets a guest browse defaults without switching", async () => {
+  it("shows a guest the public catalog, read only", async () => {
     seedAccountOverview(null);
-    const backend = installBackend([VERIFIED, NOT_VERIFIED]);
+    const backend = installBackend([VERIFIED, NOT_VERIFIED, PRIVATE]);
     await renderModal();
-    expect(rowSwitch("Jupiter")).toBeDisabled();
-    expect(backend.writes()).toEqual([]);
+    expect(screen.getByLabelText("Open Jupiter details")).toBeTruthy();
+    expect(screen.getByLabelText("Open Hoodit trade details")).toBeTruthy();
+    expect(screen.queryByLabelText("Open Secret Tool details")).toBeNull();
+    expect(
+      screen
+        .getAllByRole("heading", { level: 2 })
+        .map((heading) => heading.textContent),
+    ).toEqual(["Verified", "Not verified"]);
+    const nav = screen.getByRole("navigation", { name: "Library sections" });
+    expect(
+      within(nav)
+        .getAllByRole("button")
+        .map((item) => item.textContent),
+    ).toEqual(["All packages2", "Verified1", "Not verified1"]);
+    expect(screen.queryAllByRole("switch")).toEqual([]);
+    expect(
+      screen.queryByRole("button", {
+        name: "Add a private package with a code",
+      }),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByLabelText("Open Jupiter details"));
+    const details = screen.getByRole("complementary", {
+      name: "Jupiter details",
+    });
+    expect(within(details).getByText("What it contains")).toBeTruthy();
+    expect(within(details).queryByText("Access")).toBeNull();
+    expect(within(details).queryByText("Can reach")).toBeNull();
+    expect(within(details).queryByRole("switch")).toBeNull();
+
+    expect(
+      screen.getByText("Sign in to turn packages on and add your own"),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(host.connect).toHaveBeenCalledOnce();
+    expect(backend.calls.map((call) => call.path)).toEqual([
+      "/api/public/catalog/packages",
+    ]);
   });
 
   it("adds a private package with a code and opens its detail", async () => {
@@ -453,18 +504,6 @@ describe("packages modal", () => {
     expect(screen.getByLabelText("Activation code")).toBeTruthy();
   });
 
-  it("asks a guest to sign in instead of offering a code field", async () => {
-    seedAccountOverview(null);
-    installBackend([VERIFIED]);
-    await renderModal();
-    expect(screen.getByText("Sign in to add a private package")).toBeTruthy();
-    expect(
-      screen.queryByRole("button", {
-        name: "Add a private package with a code",
-      }),
-    ).toBeNull();
-  });
-
   it("reads the open chat's agent only once the server stores that chat", async () => {
     const backend = installBackend([VERIFIED]);
     host.runtime = {
@@ -482,24 +521,21 @@ describe("packages modal", () => {
     expect(backend.listQueries).toEqual(["", "?thread_id=saved-chat"]);
   });
 
-  it("asks a signed-out visitor to sign in instead of showing the error", async () => {
+  it("offers a guest Retry when the public read fails", async () => {
     seedAccountOverview(null);
-    installBackend([]);
-    vi.mocked(fetch).mockImplementation(async () =>
-      Response.json({ error: "unauthenticated" }, { status: 401 }),
+    const backend = installBackend([VERIFIED]);
+    vi.mocked(fetch).mockImplementationOnce(
+      async () => new Response("down", { status: 503 }),
     );
     await renderModal();
-    expect(screen.getByText("Sign in to see your Library")).toBeTruthy();
-    expect(screen.queryByText(/unauthenticated/)).toBeNull();
-    expect(screen.queryByText("Sign in to add a private package")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(screen.getByText("Couldn’t load your Library")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(
-      within(
-        screen.getByRole("navigation", { name: "Library sections" }),
-      ).queryAllByText("0"),
-    ).toEqual([]);
-    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-    expect(host.connect).toHaveBeenCalledOnce();
+      await screen.findByRole("button", { name: "Open Jupiter details" }),
+    ).toBeTruthy();
+    expect(
+      backend.calls.every((call) => call.path.startsWith("/api/public/")),
+    ).toBe(true);
   });
 
   it("asks to sign in again when the session has ended", async () => {

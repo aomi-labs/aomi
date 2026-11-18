@@ -1,11 +1,11 @@
 "use client";
 
-import type { AomiPackage } from "@aomi-labs/client";
+import type { AomiPublicPackage } from "@aomi-labs/client";
 import { AgentIdentityIcon } from "@/icons/agent-identity-icon";
 import { brandId } from "./model";
 
 interface PackageIconProps {
-  row: AomiPackage;
+  row: AomiPublicPackage;
   size?: "row" | "detail";
 }
 

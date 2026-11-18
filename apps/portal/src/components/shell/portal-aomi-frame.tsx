@@ -297,14 +297,14 @@ function PortalHeaderControls({
     useAomiWalletKit();
   const [snapshot] = useAccountSnapshot();
   const pending = isReady === false || accountStatus === "loading";
-  // Settings and the Library belong to a signed-in account (D26).
+  // Settings belongs to a signed-in account. The Library shows anyone the
+  // public packages and adds the account's choices once signed in.
   const signedIn = pending
     ? Boolean(snapshot)
     : Boolean(accountUser && !accountGuest);
   return (
     <HeaderControls
       showSettings={signedIn}
-      showLibrary={signedIn}
       onOpenSettings={onOpenSettings}
       onOpenPackages={onOpenPackages}
     />

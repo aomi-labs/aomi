@@ -1,14 +1,16 @@
 "use client";
 
 import { useDisplayQuery, type DisplayQuery } from "@aomi-labs/react";
-import type { Aomi, AomiPackageCatalog } from "@aomi-labs/client";
+import {
+  parsePackageCatalog,
+  type Aomi,
+  type AomiPackageCatalog,
+  type AomiPublicPackage,
+} from "@aomi-labs/client";
 import { useAomi, useShellAomi } from "@/account/transport";
-import { loadFailure } from "./model";
+import { loadFailure, type LoadFailure } from "./model";
 
-/**
- * The Library rows for a thread's agent (`aomi/main` without a thread). A
- * guest reads the defaults; a signed-in account reads its own choices.
- */
+/** The Library rows for a thread's agent (`aomi/main` without a thread). */
 export function packageCatalogQuery(
   aomi: Aomi,
   accountUserId?: string,
@@ -21,21 +23,38 @@ export function packageCatalogQuery(
   };
 }
 
+/**
+ * A signed-in account reads its own rows, with choices and keys. A guest reads
+ * the public catalog: listed packages only, nothing tied to an account.
+ */
 export function usePackageCatalog(accountUserId?: string, threadId?: string) {
+  const signedIn = accountUserId != null;
+  const account = useDisplayQuery({
+    ...packageCatalogQuery(useShellAomi(), accountUserId, threadId),
+    enabled: signedIn,
+  });
   const runtime = useAomi();
-  const shell = useShellAomi();
-  const query = useDisplayQuery(
-    packageCatalogQuery(
-      accountUserId ? shell : runtime,
-      accountUserId,
-      threadId,
-    ),
-  );
+  const guest = useDisplayQuery({
+    resource: "packages",
+    fetcher: (signal) =>
+      runtime.raw
+        .getPublicCatalog("packages", { signal })
+        .then(parsePackageCatalog),
+    enabled: !signedIn,
+  });
+  const query = signedIn ? account : guest;
+  const rows: readonly AomiPublicPackage[] | null = signedIn
+    ? (account.data?.packages ?? null)
+    : (guest.data ?? null);
+  const failure: LoadFailure | null = query.error
+    ? signedIn
+      ? loadFailure(query.error)
+      : "failed"
+    : null;
   return {
-    catalog: query.data ?? null,
-    failure: query.error
-      ? loadFailure(query.error, accountUserId != null)
-      : null,
+    rows,
+    agent: account.data?.agent.display_name ?? "Your agent",
+    failure,
     refetch: () => query.refetch(),
   };
 }

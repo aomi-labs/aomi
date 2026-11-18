@@ -1,5 +1,5 @@
 "use client";
-import type { AomiPackage } from "@aomi-labs/client";
+import type { AomiPackage, AomiPublicPackage } from "@aomi-labs/client";
 import { createElement, useState, type ReactNode } from "react";
 import {
   ExternalLink,
@@ -20,6 +20,7 @@ import {
   askLines,
   connected,
   contentsLine,
+  isAccountRow,
   needsConnect,
   noticeText,
   personSlots,
@@ -197,7 +198,8 @@ export function LibraryDetailPanel({
   onConnect,
   onDisconnect,
 }: {
-  row: AomiPackage;
+  /** A guest's public row shows what the package is, nothing tied to an account. */
+  row: AomiPublicPackage;
   agent: string;
   signedIn: boolean;
   busy: boolean;
@@ -208,8 +210,9 @@ export function LibraryDetailPanel({
   onConnect: (row: AomiPackage) => void;
   onDisconnect: (row: AomiPackage) => void;
 }) {
-  const asks = askLines(row.envelope);
-  const notice = !row.verified && !row.enabled;
+  const account = isAccountRow(row) ? row : null;
+  const asks = account ? askLines(account.envelope) : [];
+  const notice = account !== null && !account.verified && !account.enabled;
   const [scrolled, setScrolled] = useState(false);
   return (
     <aside
@@ -240,15 +243,17 @@ export function LibraryDetailPanel({
         </div>
 
         <div className="space-y-5 px-5 pb-9">
-          <AccessSection
-            row={row}
-            agent={agent}
-            signedIn={signedIn}
-            busy={busy}
-            onClearChoice={() => onClearChoice(row)}
-            onConnect={() => onConnect(row)}
-            onDisconnect={() => onDisconnect(row)}
-          />
+          {account ? (
+            <AccessSection
+              row={account}
+              agent={agent}
+              signedIn={signedIn}
+              busy={busy}
+              onClearChoice={() => onClearChoice(account)}
+              onConnect={() => onConnect(account)}
+              onDisconnect={() => onDisconnect(account)}
+            />
+          ) : null}
 
           {row.skills.length > 0 ? (
             <DetailSection title="What it contains">
@@ -279,10 +284,10 @@ export function LibraryDetailPanel({
             </DetailSection>
           ) : null}
 
-          {row.envelope.hosts.length > 0 ? (
+          {account && account.envelope.hosts.length > 0 ? (
             <DetailSection title="Can reach">
               <ul className="space-y-1.5">
-                {row.envelope.hosts.map((host) => (
+                {account.envelope.hosts.map((host) => (
                   <li
                     key={host}
                     className="flex items-center gap-2 font-mono text-[12px] leading-4"
@@ -303,57 +308,61 @@ export function LibraryDetailPanel({
         />
       </div>
 
-      <div className="shrink-0 px-5 pb-5 pt-3">
-        {error ? (
-          <p
-            role="alert"
-            className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta mb-2.5 px-3 py-2"
-          >
-            {error}
-          </p>
-        ) : null}
-        {needsConnect(row) ? (
-          <AomiButton
-            variant="primary"
-            className="w-full"
-            disabled={!signedIn || busy}
-            onClick={() => onConnect(row)}
-          >
-            Connect
-          </AomiButton>
-        ) : (
-          <>
-            {notice ? (
-              <div className="rounded-control bg-aomi-surface-2 type-meta text-aomi-fg/80 mb-2.5 flex items-start gap-2.5 px-3 py-2.5">
-                <ShieldCheck className="text-aomi-muted mt-px size-3.5 shrink-0" />
-                <span>{noticeText(row)}</span>
+      {account ? (
+        <div className="shrink-0 px-5 pb-5 pt-3">
+          {error ? (
+            <p
+              role="alert"
+              className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta mb-2.5 px-3 py-2"
+            >
+              {error}
+            </p>
+          ) : null}
+          {needsConnect(account) ? (
+            <AomiButton
+              variant="primary"
+              className="w-full"
+              disabled={!signedIn || busy}
+              onClick={() => onConnect(account)}
+            >
+              Connect
+            </AomiButton>
+          ) : (
+            <>
+              {notice ? (
+                <div className="rounded-control bg-aomi-surface-2 type-meta text-aomi-fg/80 mb-2.5 flex items-start gap-2.5 px-3 py-2.5">
+                  <ShieldCheck className="text-aomi-muted mt-px size-3.5 shrink-0" />
+                  <span>{noticeText(account)}</span>
+                </div>
+              ) : null}
+              <div className="bg-aomi-surface-2 rounded-control flex h-8 items-center justify-between gap-3 px-3">
+                <span className="type-control font-medium">
+                  {account.enabled ? "On in your chats" : "Off in your chats"}
+                </span>
+                {busy ? (
+                  <Loader2 className="text-aomi-muted size-4 animate-spin" />
+                ) : (
+                  <Switch
+                    checked={account.enabled}
+                    disabled={!signedIn || account.agent_listed}
+                    onCheckedChange={(enabled) =>
+                      onToggle(account, enabled, notice)
+                    }
+                    aria-label={`${row.display_name} on in your chats`}
+                    title={
+                      account.agent_listed
+                        ? reasonText(account, agent)
+                        : !signedIn
+                          ? "Sign in to change your packages"
+                          : undefined
+                    }
+                  />
+                )}
               </div>
-            ) : null}
-            <div className="bg-aomi-surface-2 rounded-control flex h-8 items-center justify-between gap-3 px-3">
-              <span className="type-control font-medium">
-                {row.enabled ? "On in your chats" : "Off in your chats"}
-              </span>
-              {busy ? (
-                <Loader2 className="text-aomi-muted size-4 animate-spin" />
-              ) : (
-                <Switch
-                  checked={row.enabled}
-                  disabled={!signedIn || row.agent_listed}
-                  onCheckedChange={(enabled) => onToggle(row, enabled, notice)}
-                  aria-label={`${row.display_name} on in your chats`}
-                  title={
-                    row.agent_listed
-                      ? reasonText(row, agent)
-                      : !signedIn
-                        ? "Sign in to change your packages"
-                        : undefined
-                  }
-                />
-              )}
-            </div>
-          </>
-        )}
-      </div>
+            </>
+          )}
+        </div>
+      ) : null}
     </aside>
   );
 }
