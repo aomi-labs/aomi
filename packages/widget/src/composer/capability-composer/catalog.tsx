@@ -1,9 +1,8 @@
 "use client";
-import { useMemo, useState, type FC } from "react";
+import { useMemo, type FC } from "react";
 import {
   AppWindowIcon,
   Globe2Icon,
-  PackageIcon,
   WandSparklesIcon,
 } from "lucide-react";
 import {
@@ -31,6 +30,7 @@ import {
 import { resolveAgentIdentity } from "@aomi-labs/client";
 import { evmNetworkDescription } from "@/controls/network-metadata";
 import { getAgentIcon } from "@/icons/agent-map";
+import { PackageMark } from "@/icons/package-mark";
 import { getChainIcon } from "@/icons/chain-map";
 import { getSkillIcon } from "@/icons/skills/skill-icons";
 import { SolanaIcon } from "@/icons/chain-icons";
@@ -79,23 +79,10 @@ export function walletPickerItems(rows: readonly WalletRow[]): PickerItem[] {
   });
 }
 
-/** A package's icon at picker size: Aomi's curated brand mark, else its own image, else a box. */
+/** A package's icon at picker size, as the Library draws it. */
 function packageIcon(row: AomiPublicPackage): FC<{ className?: string }> {
-  const brand = getAgentIcon(row.id.split("/").at(-1) ?? row.id);
-  const src = row.icon_url;
-  if (brand || !src) return brand ?? PackageIcon;
-  return function PackageImage({ className }) {
-    const [failed, setFailed] = useState(false);
-    return failed ? (
-      <PackageIcon className={className} />
-    ) : (
-      <img
-        src={src}
-        alt=""
-        onError={() => setFailed(true)}
-        className={`${className ?? ""} rounded-[4px] object-cover`}
-      />
-    );
+  return function PackageRowIcon({ className }) {
+    return <PackageMark iconUrl={row.icon_url} className={className} />;
   };
 }
 

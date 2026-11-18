@@ -1,6 +1,5 @@
-import { fireEvent, render, renderHook } from "@testing-library/react";
+import { render, renderHook } from "@testing-library/react";
 import type { FC } from "react";
-import { PackageIcon } from "lucide-react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   AgentCard,
@@ -8,7 +7,6 @@ import type {
   AomiPublicPackage,
 } from "@aomi-labs/client";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
-import { getAgentIcon } from "@/icons/agent-map";
 
 const fixture = vi.hoisted(() => ({
   model: "openai:gpt-6.1-sol",
@@ -315,15 +313,9 @@ describe("packagePickerItems", () => {
     ]);
   });
 
-  it("draws Aomi's brand mark, else the package's own icon, else a box", () => {
-    const [brand, own, box] = packagePickerItems([
-      pkg({ icon_url: "https://example.test/llama.png" }),
-      pkg({
-        package_id: 2,
-        id: "acme/feed",
-        display_name: "Feed",
-        icon_url: "https://example.test/feed.png",
-      }),
+  it("draws the package's own icon as a mask, else the generic package icon", () => {
+    const [own, box] = packagePickerItems([
+      pkg({ icon_url: "/api/packages/aomi%2Fdefillama/icon" }),
       pkg({
         package_id: 3,
         id: "acme/box",
@@ -333,18 +325,15 @@ describe("packagePickerItems", () => {
     ]) as unknown as [
       { Icon: FC<{ className?: string }> },
       { Icon: FC<{ className?: string }> },
-      { Icon: FC<{ className?: string }> },
     ];
-    expect(brand.Icon).toBe(getAgentIcon("defillama"));
-    const ownImage = render(<own.Icon className="size-3.5" />).container;
-    expect(ownImage.querySelector("img")?.getAttribute("src")).toBe(
-      "https://example.test/feed.png",
-    );
-    // A broken image falls back to the box.
-    fireEvent.error(ownImage.querySelector("img")!);
-    expect(ownImage.querySelector("img")).toBeNull();
-    expect(ownImage.querySelector("svg")).not.toBeNull();
-    expect(box.Icon).toBe(PackageIcon);
+    const mark = render(<own.Icon className="size-3.5" />).container;
+    expect(
+      mark.querySelector<HTMLElement>("[data-package-icon]")?.dataset
+        .packageIcon,
+    ).toBe("/api/packages/aomi%2Fdefillama/icon");
+    expect(mark.querySelector("img")).toBeNull();
+    const generic = render(<box.Icon className="size-3.5" />).container;
+    expect(generic.querySelector("svg.lucide-package")).not.toBeNull();
   });
 
   it.each(["defillama", "aomi/def", "yields", "llama-yields", "pool"])(

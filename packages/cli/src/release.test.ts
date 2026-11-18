@@ -117,14 +117,17 @@ describe("aomi publish", () => {
         "[package]",
         'name = "price"',
         'description = "Prices"',
-        'icon = "icon.png"',
+        'icon = "icon.svg"',
         "contract = 1",
         'skills = [{ id = "quote", path = "skills/quote.md", description = "Quotes" }]',
         'guards = "guards.json"',
         "",
       ].join("\n"),
     );
-    write("packages/price/icon.png", "PNG");
+    write(
+      "packages/price/icon.svg",
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"/>',
+    );
     write("packages/price/skills/quote.md", "# Quote");
     write("packages/price/guards.json", "{}");
     write("packages/price/README.md", "not a member");
@@ -166,7 +169,7 @@ describe("aomi publish", () => {
     expect(Object.keys(members).sort()).toEqual([
       "aomi.toml",
       "guards.json",
-      "icon.png",
+      "icon.svg",
       "package.wasm",
       "skills/quote.md",
     ]);

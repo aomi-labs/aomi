@@ -17,11 +17,12 @@ describe("composer agent indicator", () => {
     render(<AgentIndicator />);
     expect(screen.queryByTestId(testIds.composerSelectedAgent)).toBeNull();
   });
-  it("shows only a known logo and name before the catalog loads", () => {
+  it("shows only an icon and name before the catalog loads", () => {
     render(<AgentIndicator agent={{ agent: "aomi/hoodit" }} />);
     const indicator = screen.getByLabelText("Selected agent: Hoodit");
     expect(indicator).toHaveTextContent(/^Hoodit$/);
-    expect(indicator.querySelector("svg")).not.toHaveClass("lucide-app-window");
+    // A package-backed agent has no logo in TS.
+    expect(indicator.querySelector("svg")).toHaveClass("lucide-app-window");
     expect(screen.queryByRole("button")).toBeNull();
     expect(indicator).not.toHaveAttribute("tabindex");
   });

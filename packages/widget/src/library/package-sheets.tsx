@@ -5,7 +5,7 @@ import { KeyRound, Lock } from "lucide-react";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { AomiButton } from "@/ui/aomi/button";
 import { SheetAlert, SheetHeader } from "@/wallet/picker/sheet-parts";
-import { PackageIcon } from "./package-row";
+import { PackageTile } from "@/icons/package-mark";
 import { personSlots } from "./model";
 
 const INPUT =
@@ -176,7 +176,7 @@ export function ConnectSheet({
     <SheetForm
       title={`Connect ${row.display_name}`}
       description="Add your key once. It works in every chat."
-      leading={<PackageIcon row={row} />}
+      leading={<PackageTile iconUrl={row.icon_url} />}
       submit={replacing ? "Save" : "Connect"}
       canSubmit={complete && filled.length > 0}
       error={error}

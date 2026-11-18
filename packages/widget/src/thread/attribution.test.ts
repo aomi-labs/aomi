@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { AppWindowIcon, PackageIcon, PuzzleIcon } from "lucide-react";
-import { getAgentIcon } from "@/icons/agent-map";
 import { getSkillIcon } from "@/icons/skills/skill-icons";
 import type { ToolChip } from "@aomi-labs/client/trace";
 import { interpretToolStep, type TraceAttribution } from "./attribution";
@@ -106,7 +105,7 @@ describe("trace attribution", () => {
         drawn(step.chips.find((chip) => chip.attribution === "skill")),
       ).toMatchObject({
         label: "LI.FI",
-        icon: getSkillIcon("lifi_swap"),
+        icon: PuzzleIcon,
         title: "Skill: LI.FI",
       });
       expect(step.failed).toBe(Boolean(result && "error" in result));
@@ -153,7 +152,7 @@ describe("trace attribution", () => {
     ]);
     expect(drawn(step.chips.at(-1))).toMatchObject({
       attribution: "skill",
-      icon: getSkillIcon("defillama"),
+      icon: PuzzleIcon,
       title: "Skill: DefiLlama",
     });
   });
@@ -173,7 +172,7 @@ describe("trace attribution", () => {
     });
     expect(drawn(step.chips[0])).toMatchObject({
       label: "Hyperliquid",
-      icon: getAgentIcon("hyperliquid"),
+      icon: AppWindowIcon,
     });
   });
 
@@ -393,7 +392,6 @@ describe("trace attribution", () => {
       label: "Hyperliquid",
       icon: PackageIcon,
     });
-    expect(drawn(step.chips[0])?.icon).not.toBe(getAgentIcon("hyperliquid"));
   });
 
   it("does not guess when multiple agents or skills declare the same bare tool", () => {
@@ -420,16 +418,16 @@ describe("trace attribution", () => {
     const step = interpretToolStep({
       toolName: "activate_package",
       result: {
-        activated: ["aerodrome"],
+        activated: ["krexa"],
         rejected: [["common_erc20", "token_budget_trim"]],
         applied_scope: "current_serve_cycle",
       },
     });
 
     expect(step.title).toBe("Activate package");
-    expect(labelsFor(step.chips)).toEqual(["Aerodrome"]);
-    expect(step.chips[0].title).toBe("Package: Aerodrome");
-    expect(drawn(step.chips[0])?.icon).toBe(getSkillIcon("aerodrome"));
+    expect(labelsFor(step.chips)).toEqual(["Krexa"]);
+    expect(step.chips[0].title).toBe("Package: Krexa");
+    expect(drawn(step.chips[0])?.icon).toBe(getSkillIcon("krexa"));
     expect(drawn(step.chips[0])?.icon).not.toBe(PuzzleIcon);
     expect(step.chips[0].icon).not.toBe(step.icon);
     expect(step.failed).toBe(false);
@@ -447,7 +445,8 @@ describe("trace attribution", () => {
     expect(step.title).toBe("Activate package");
     expect(labelsFor(step.chips)).toEqual(["ERC20", "LI.FI"]);
     expect(drawn(step.chips[0])?.icon).toBe(getSkillIcon("common_erc20"));
-    expect(drawn(step.chips[1])?.icon).toBe(getSkillIcon("lifi_swap"));
+    // LI.FI is a package now: it draws its own icon, never a TS mark.
+    expect(drawn(step.chips[1])?.icon).toBe(PuzzleIcon);
   });
 
   it("shows active packages on a check without an empty placeholder badge", () => {
@@ -463,7 +462,7 @@ describe("trace attribution", () => {
 
     expect(step.title).toBe("Check active packages");
     expect(labelsFor(step.chips)).toEqual(["Aave", "ERC20", "LI.FI"]);
-    expect(drawn(step.chips[0])?.icon).toBe(getSkillIcon("aave"));
+    expect(drawn(step.chips[1])?.icon).toBe(getSkillIcon("common_erc20"));
     expect(step.failed).toBe(false);
 
     const noActivePackages = interpretToolStep({

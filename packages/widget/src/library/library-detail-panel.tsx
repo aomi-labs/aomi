@@ -1,6 +1,6 @@
 "use client";
 import type { AomiPackage, AomiPublicPackage } from "@aomi-labs/client";
-import { createElement, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   ExternalLink,
   KeyRound,
@@ -10,12 +10,11 @@ import {
   WandSparkles,
   Wrench,
 } from "lucide-react";
-import { getSkillIcon } from "@/icons/skills/skill-icons";
 import { AomiButton } from "@/ui/aomi/button";
 import { StatusPill } from "@/ui/aomi/status-pill";
 import { Switch } from "@/ui/aomi/switch";
 import { Publisher } from "./catalog-row";
-import { PackageIcon } from "./package-row";
+import { PackageTile } from "@/icons/package-mark";
 import {
   askLines,
   connected,
@@ -26,27 +25,6 @@ import {
   personSlots,
   reasonText,
 } from "./model";
-
-export function SkillIdentity({
-  skillId,
-  size = "row",
-}: {
-  skillId: string;
-  size?: "row" | "detail";
-}) {
-  const Icon = getSkillIcon(skillId) ?? WandSparkles;
-  return (
-    <span
-      className={`border-aomi-overlay-border bg-aomi-surface-2 text-aomi-accent flex shrink-0 items-center justify-center rounded-xl border ${
-        size === "detail" ? "size-12" : "size-9"
-      }`}
-    >
-      {createElement(Icon, {
-        className: size === "detail" ? "size-7" : "size-5",
-      })}
-    </span>
-  );
-}
 
 export function VerifiedPill({ verified }: { verified: boolean }) {
   return verified ? (
@@ -230,7 +208,7 @@ export function LibraryDetailPanel({
           className={`bg-aomi-raised pointer-events-none sticky top-0 z-10 -mb-8 h-[52px] ${scrolled ? "border-aomi-border border-b" : "invisible"}`}
         />
         <div className="px-5 pb-5 pt-1">
-          <PackageIcon row={row} size="detail" />
+          <PackageTile iconUrl={row.icon_url} size="detail" />
           <h2 className="type-title mt-4">{row.display_name}</h2>
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
             <span className="type-address text-aomi-muted">{row.id}</span>

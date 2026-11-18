@@ -160,10 +160,6 @@ export function publisher(row: AomiPublicPackage): string {
 }
 
 /** The brand key for curated artwork: the package name without its publisher. */
-export function brandId(row: AomiPublicPackage): string {
-  return row.id.split("/").at(-1) ?? row.id;
-}
-
 export function reasonText(row: AomiPackage, agent: string): string {
   switch (row.reason) {
     case "agent_listed":

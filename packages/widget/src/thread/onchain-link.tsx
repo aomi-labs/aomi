@@ -2,7 +2,7 @@ import { cn } from "@/lib/cn";
 import { ExternalLink } from "lucide-react";
 import type { ComponentPropsWithoutRef } from "react";
 
-import { EtherscanIcon, SolscanIcon } from "@/icons/agents/agent-icons";
+import { EtherscanIcon, SolscanIcon } from "@/icons/explorer-icons";
 import {
   CONFIGURED_EVM_EXPLORERS,
   EVM_EXPLORERS,

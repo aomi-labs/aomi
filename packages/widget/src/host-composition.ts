@@ -85,7 +85,7 @@ export { SettingsModal, type SettingsTab } from "./account/settings-modal";
 export { HeaderControls } from "./frame/header-controls";
 export { useAccountSnapshot } from "./account/account-snapshot";
 export { useRuntimeAccount } from "./frame/runtime-account";
-export { PackageIcon } from "./library/package-row";
+export { PackageMark, PackageTile } from "./icons/package-mark";
 export { PackagesModal } from "./library/packages-modal";
 export { usePortalWalletAccountMenu } from "./account/use-portal-wallet-account-menu";
 export { StatementView } from "./account/usage/statement-view";

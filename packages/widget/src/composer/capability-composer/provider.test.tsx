@@ -607,7 +607,7 @@ describe("selected agent context", () => {
     render(<Harness />);
     const indicator = screen.getByLabelText("Selected agent: Aave");
     expect(indicator).toHaveTextContent(/^Aave$/);
-    expect(indicator.querySelector("svg")).not.toHaveClass("lucide-app-window");
+    expect(indicator.querySelector("svg")).toHaveClass("lucide-app-window");
     expect(fixture.onAgentTargetSelect).not.toHaveBeenCalled();
   });
 
