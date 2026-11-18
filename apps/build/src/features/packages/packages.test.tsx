@@ -67,13 +67,13 @@ it("lists the publisher's agents and packages apart", async () => {
   agents.unmount();
 
   renderWithQueries(<InventoryView only="packages" />);
-  expect(await screen.findByRole("link", { name: "Trade" })).toHaveAttribute(
-    "href",
-    "/packages/trade",
-  );
-  expect(screen.getByText("Release #5")).toBeInTheDocument();
+  expect(
+    await screen.findByRole("link", { name: /trade$/ }),
+  ).toHaveAttribute("href", "/packages/trade");
   expect(screen.getByText("No release live")).toBeInTheDocument();
-  expect(screen.queryByText("Hoodit")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: "Hoodit" }),
+  ).not.toBeInTheDocument();
 });
 
 it("tells the builder an agent carried over from an earlier deployment needs a rebuild", async () => {

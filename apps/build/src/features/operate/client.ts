@@ -13,6 +13,8 @@ export type OperateFetchOptions = {
   projectId?: number | null;
   cursor?: unknown;
   limit?: number;
+  /** First day counted, `YYYY-MM-DD` (usage only). */
+  fromDate?: string;
 };
 
 // Operate reads fan out across every source on the server, so a degraded
@@ -56,6 +58,7 @@ export async function operateFetch<T>(
     );
   }
   if (options.limit) params.set("limit", String(options.limit));
+  if (options.fromDate) params.set("fromDate", options.fromDate);
   return operateJson<T>(`${path}${params.size ? `?${params}` : ""}`, kind);
 }
 

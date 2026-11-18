@@ -1,7 +1,7 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+
+import { OverviewView } from "@/features/packages/overview-view";
 
 export const Route = createFileRoute("/_control/")({
-  beforeLoad: () => {
-    throw redirect({ href: "/packages", statusCode: 307 });
-  },
+  component: OverviewView,
 });
