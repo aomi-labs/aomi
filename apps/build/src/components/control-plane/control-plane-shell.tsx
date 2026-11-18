@@ -281,7 +281,7 @@ function Sidebar({
   onNavigate?: () => void;
   closeButton?: React.ReactNode;
 }) {
-  const signedIn = account.loading || account.signedIn;
+  const signedIn = account.signedIn;
   return (
     <>
       <div className="mb-3 ml-4 mr-2 mt-4 flex items-center justify-between">
@@ -402,8 +402,14 @@ function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
     setMobileOpen(false);
   }, [pathname]);
 
-  if (!account.loading && !account.signedIn && !activeItem(pathname)?.public)
-    return <SignInScreen />;
+  // Pages that need a session wait for its status, so a signed-out visitor
+  // never sees the console before the sign-in screen.
+  if (!account.signedIn && !activeItem(pathname)?.public)
+    return account.loading ? (
+      <div className="bg-aomi-bg h-screen" aria-busy="true" />
+    ) : (
+      <SignInScreen />
+    );
 
   const onSignedOut = () => {
     queryClient.clear();
