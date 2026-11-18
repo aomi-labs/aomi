@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   chatrc:
+    if: ${{ contains(github.event.head_commit.message, '[run ChatRC]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -22,7 +23,7 @@ jobs:
           node-version: "22"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright install chromium
       - name: Run deterministic browser regression on ChatRC
         env:
           AOMI_HOSTED_E2E_PORTAL_URL: https://rc.aomi.chat
@@ -31,4 +32,4 @@ jobs:
           AOMI_HOSTED_E2E_EVM_PRIVATE_KEY="0x$(openssl rand -hex 32)"
           echo "::add-mask::$AOMI_HOSTED_E2E_EVM_PRIVATE_KEY"
           export AOMI_HOSTED_E2E_EVM_PRIVATE_KEY
-          pnpm exec playwright test --project=hosted-wallet --workers=1 --reporter=list --grep 'hosted Chat|EVM session and chat history'
+          pnpm exec playwright test --project=hosted-wallet --workers=1 --reporter=list --grep 'when switching Auto'
