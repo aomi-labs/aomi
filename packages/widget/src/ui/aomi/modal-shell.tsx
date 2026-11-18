@@ -211,7 +211,7 @@ export function ModalNavItem({
       {count === "loading" ? (
         <LoadingLine className="w-4" />
       ) : count !== undefined ? (
-        <span className="type-meta tabular-nums">{count}</span>
+        <span className="type-meta font-normal tabular-nums">{count}</span>
       ) : null}
     </button>
   );

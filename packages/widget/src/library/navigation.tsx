@@ -32,7 +32,7 @@ export function SearchField({
           <X className="size-3" />
         </button>
       ) : (
-        <kbd className="border-aomi-border text-aomi-muted rounded-md border px-1.5 py-0.5 font-mono text-[9px]">
+        <kbd className="border-aomi-border text-aomi-muted rounded-md border px-1.5 py-0.5 font-mono text-[9px] leading-3">
           /
         </kbd>
       )}
