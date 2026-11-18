@@ -6,15 +6,15 @@ test("a chain picked from the composer is sent as one hint and leaves no chip be
 }) => {
   const page = widget.page;
   const picker = page.getByRole("listbox", {
-    name: "Agents, skills, chains, and wallets",
+    name: "Search agents, packages, chains and wallets",
   });
-  const base = widget.input.getByLabel("chain Base", { exact: true });
+  const base = widget.input.getByLabel("Chain Base", { exact: true });
   const baseOption = picker
     .getByRole("option")
     .filter({ has: page.getByText("Base", { exact: true }) });
 
   await page
-    .getByRole("button", { name: "Add agent, skill, or chain" })
+    .getByRole("button", { name: "Add an agent, package, chain or wallet" })
     .click();
   await expect(picker).toBeVisible();
   await expect(picker).toBeInViewport({ ratio: 1 });

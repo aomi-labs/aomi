@@ -459,14 +459,18 @@ const Composer: FC = () => {
 };
 
 const CapabilityPickerButton: FC = () => {
-  const { hintsEnabled, openCapabilityPicker } = useCapabilityComposer();
+  const { hintsEnabled, openCapabilityPicker, allowAgentMentions } =
+    useCapabilityComposer();
   if (!hintsEnabled) return null;
+  const label = allowAgentMentions
+    ? "Add an agent, package, chain or wallet"
+    : "Add a package, chain or wallet";
 
   return (
     <button
       type="button"
-      aria-label="Add agent, skill, or chain"
-      title="Add agent, skill, or chain"
+      aria-label={label}
+      title={label}
       onMouseDown={(event) => event.preventDefault()}
       onClick={openCapabilityPicker}
       className="text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors"
