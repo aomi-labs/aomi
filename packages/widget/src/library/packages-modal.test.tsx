@@ -238,21 +238,28 @@ describe("packages modal", () => {
     expect(await screen.findByRole("alertdialog")).toBeTruthy();
   });
 
-  it("connects a person key from the row and explains builder keys", async () => {
+  it("connects a person key from the row in a sheet", async () => {
     const backend = installBackend([NEEDS_KEY]);
     await renderModal();
     fireEvent.click(screen.getByRole("button", { name: "Connect Polymarket" }));
-    expect(screen.getByText("Set by the builder")).toBeTruthy();
-    expect(screen.queryByLabelText("POLY_BUILDER")).toBeNull();
-    fireEvent.change(screen.getByLabelText("POLY_API_KEY"), {
+    const sheet = await screen.findByRole("dialog", {
+      name: "Connect Polymarket",
+    });
+    expect(within(sheet).queryByLabelText("POLY_BUILDER")).toBeNull();
+    const connect = within(sheet).getByRole("button", { name: "Connect" });
+    expect(connect).toBeDisabled();
+    fireEvent.change(within(sheet).getByLabelText("POLY_API_KEY"), {
       target: { value: " secret " },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save key" }));
+    fireEvent.click(connect);
     await waitFor(() =>
       expect(
         screen.queryByRole("button", { name: "Connect Polymarket" }),
       ).toBeNull(),
     );
+    expect(
+      screen.queryByRole("dialog", { name: "Connect Polymarket" }),
+    ).toBeNull();
     expect(backend.writes()).toEqual([
       {
         method: "PUT",
@@ -260,7 +267,98 @@ describe("packages modal", () => {
         body: { value: "secret" },
       },
     ]);
-    expect(screen.getByLabelText("Remove POLY_API_KEY")).toBeTruthy();
+    const details = screen.getByRole("complementary", {
+      name: "Polymarket details",
+    });
+    expect(within(details).getByText("Connected")).toBeTruthy();
+    expect(
+      within(details).getByRole("button", { name: "Replace key" }),
+    ).toBeTruthy();
+  });
+
+  it("closes a sheet with Escape and keeps the Library open", async () => {
+    installBackend([VERIFIED]);
+    const onClose = vi.fn();
+    render(<PackagesModal onClose={onClose} />, {
+      wrapper: AccountOverviewFixture,
+    });
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Add a private package with a code",
+      }),
+    );
+    const sheet = await screen.findByRole("dialog", {
+      name: "Add a private package",
+    });
+    fireEvent.keyDown(sheet, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Add a private package" }),
+      ).toBeNull(),
+    );
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("lists the packages to connect as one group", async () => {
+    installBackend([NEEDS_KEY, VERIFIED]);
+    await renderModal();
+    fireEvent.click(screen.getByRole("button", { name: /^To connect/ }));
+    expect(
+      screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent),
+    ).toEqual(["To connect"]);
+    expect(screen.getAllByRole("article")).toHaveLength(1);
+  });
+
+  it("opens the inspector only for a selected package", async () => {
+    installBackend([VERIFIED]);
+    await renderModal();
+    const details = () =>
+      screen.queryByRole("complementary", { name: "Jupiter details" });
+    expect(details()).toBeNull();
+    fireEvent.click(screen.getByLabelText("Open Jupiter details"));
+    expect(details()).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Open Jupiter details"));
+    expect(details()).toBeNull();
+  });
+
+  it("shows five rows per group, then the rest on request", async () => {
+    installBackend(
+      Array.from({ length: 7 }, (_, index) => ({
+        ...VERIFIED,
+        package_id: 9300 + index,
+        id: `aomi/pkg-${index}`,
+        display_name: `Package ${index}`,
+      })),
+    );
+    await renderModal();
+    expect(screen.getAllByRole("article")).toHaveLength(5);
+    fireEvent.click(screen.getByRole("button", { name: "Show 2 more" }));
+    expect(screen.getAllByRole("article")).toHaveLength(7);
+  });
+
+  it("switches a not verified package on from the inspector after its notice", async () => {
+    const backend = installBackend([NOT_VERIFIED]);
+    await renderModal();
+    fireEvent.click(screen.getByLabelText("Open Hoodit trade details"));
+    const details = screen.getByRole("complementary", {
+      name: "Hoodit trade details",
+    });
+    expect(
+      within(details).getByText(
+        "Not verified by Aomi. It can reach api.gmgn.ai and can ask you to approve transactions.",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(within(details).getByRole("switch"));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    await waitFor(() =>
+      expect(backend.writes()).toEqual([
+        {
+          method: "PUT",
+          path: "/api/account/packages/9010/choice",
+          body: { enabled: true },
+        },
+      ]),
+    );
   });
 
   it("shows a refused switch in place", async () => {
@@ -287,8 +385,10 @@ describe("packages modal", () => {
   it("adds a private package with a code and opens its detail", async () => {
     const backend = installBackend([VERIFIED]);
     await renderModal();
-    fireEvent.click(screen.getByRole("button", { name: /Add with code/ }));
-    fireEvent.change(screen.getByLabelText("Package access code"), {
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add a private package with a code" }),
+    );
+    fireEvent.change(screen.getByLabelText("Activation code"), {
       target: { value: "good-code" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
@@ -302,7 +402,7 @@ describe("packages modal", () => {
         body: { code: "good-code" },
       },
     ]);
-    expect(screen.queryByLabelText("Package access code")).toBeNull();
+    expect(screen.queryByLabelText("Activation code")).toBeNull();
     expect(JSON.stringify({ ...localStorage })).not.toContain("good-code");
     expect(JSON.stringify({ ...sessionStorage })).not.toContain("good-code");
   });
@@ -310,15 +410,17 @@ describe("packages modal", () => {
   it("shows an invalid code in place", async () => {
     installBackend([VERIFIED]);
     await renderModal();
-    fireEvent.click(screen.getByRole("button", { name: /Add with code/ }));
-    fireEvent.change(screen.getByLabelText("Package access code"), {
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add a private package with a code" }),
+    );
+    fireEvent.change(screen.getByLabelText("Activation code"), {
       target: { value: "nope" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "That code isn’t valid",
     );
-    expect(screen.getByLabelText("Package access code")).toBeTruthy();
+    expect(screen.getByLabelText("Activation code")).toBeTruthy();
   });
 
   it("asks a guest to sign in instead of offering a code field", async () => {
@@ -326,7 +428,11 @@ describe("packages modal", () => {
     installBackend([VERIFIED]);
     await renderModal();
     expect(screen.getByText("Sign in to add a private package")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Add with code/ })).toBeNull();
+    expect(
+      screen.queryByRole("button", {
+        name: "Add a private package with a code",
+      }),
+    ).toBeNull();
   });
 
   it("reads the open chat's agent only once the server stores that chat", async () => {

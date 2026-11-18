@@ -1,8 +1,9 @@
 "use client";
 import type { AomiPackage } from "@aomi-labs/client";
-import { KeyRound, Loader2 } from "lucide-react";
+import { BadgeCheck, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { aomiButton } from "@/ui/aomi/button";
+import { StatusPill } from "@/ui/aomi/status-pill";
 import { Switch } from "@/ui/aomi/switch";
 import { PackageIcon } from "./package-row";
 import { FAMILIES, contentsLine, needsConnect, publisher } from "./model";
@@ -39,7 +40,7 @@ export function PackageControl({
           "w-[72px]",
         )}
       >
-        <KeyRound /> Connect
+        Connect
       </button>
     );
   return (
@@ -57,9 +58,25 @@ export function PackageControl({
   );
 }
 
+/** "by publisher", with the verified mark for a package Aomi verified. */
+export function Publisher({ row }: { row: AomiPackage }) {
+  return (
+    <span className="type-meta text-aomi-muted inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
+      by {publisher(row)}
+      {row.verified ? (
+        <BadgeCheck
+          aria-label="Verified"
+          className="text-aomi-accent size-[13px]"
+        />
+      ) : null}
+    </span>
+  );
+}
+
 export function CatalogRow({
   row,
   selected,
+  wide,
   busy,
   disabled,
   onSelect,
@@ -68,6 +85,8 @@ export function CatalogRow({
 }: {
   row: AomiPackage;
   selected: boolean;
+  /** No inspector beside the list: the ecosystem and contents cells show. */
+  wide: boolean;
   busy: boolean;
   disabled: boolean;
   onSelect: () => void;
@@ -91,24 +110,27 @@ export function CatalogRow({
         className="flex min-w-0 flex-1 items-center gap-3 py-2 text-left"
       >
         <PackageIcon row={row} />
-        <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-baseline gap-1.5 md:gap-2">
-            <span className="type-row [overflow-wrap:anywhere]">
-              {row.display_name}
-            </span>
-            <span className="type-meta text-aomi-muted">
-              by {publisher(row)}
-            </span>
+        <span className="block min-w-0 flex-1">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="type-row truncate">{row.display_name}</span>
+            <Publisher row={row} />
+            {row.listed ? null : <StatusPill tone="accent">Private</StatusPill>}
           </span>
-          <span className="type-meta text-aomi-muted mt-0.5 line-clamp-2 block [overflow-wrap:anywhere]">
+          <span className="type-meta text-aomi-muted mt-0.5 block truncate">
             {row.description}
           </span>
         </span>
       </button>
-      <span className="type-meta text-aomi-muted hidden w-32 shrink-0 flex-col items-end md:flex">
-        <span>{families || "Any network"}</span>
-        <span>{contentsLine(row)}</span>
-      </span>
+      {wide ? (
+        <>
+          <span className="type-meta text-aomi-muted hidden w-24 shrink-0 md:block">
+            {families || "Any network"}
+          </span>
+          <span className="type-meta text-aomi-muted hidden w-[120px] shrink-0 whitespace-nowrap tabular-nums md:block">
+            {contentsLine(row)}
+          </span>
+        </>
+      ) : null}
       <PackageControl
         row={row}
         busy={busy}

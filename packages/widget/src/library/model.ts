@@ -5,12 +5,12 @@ import type {
   AomiPackageSlot,
 } from "@aomi-labs/client";
 import {
+  BadgeCheck,
+  Box,
   Hexagon,
   KeyRound,
   Orbit,
   Package,
-  ShieldCheck,
-  ShieldQuestion,
   ToggleRight,
   type LucideIcon,
 } from "lucide-react";
@@ -21,14 +21,19 @@ export type LibraryView =
   | "verified"
   | "not_verified"
   | "connect";
-export type LibraryGroup = "agent" | "verified" | "other";
+export type LibraryGroup =
+  | "agent"
+  | "private"
+  | "verified"
+  | "other"
+  | "connect";
 
 export const NAV_ITEMS: { id: LibraryView; label: string; icon: LucideIcon }[] =
   [
     { id: "all", label: "All packages", icon: Package },
     { id: "on", label: "On", icon: ToggleRight },
-    { id: "verified", label: "Verified", icon: ShieldCheck },
-    { id: "not_verified", label: "Not verified", icon: ShieldQuestion },
+    { id: "verified", label: "Verified", icon: BadgeCheck },
+    { id: "not_verified", label: "Not verified", icon: Box },
     { id: "connect", label: "To connect", icon: KeyRound },
   ];
 
@@ -43,17 +48,28 @@ export const FAMILIES: {
 
 export const GROUP_TITLES: Record<LibraryGroup, (agent: string) => string> = {
   agent: (agent) => `Used by ${agent}`,
+  private: () => "Added with a code",
   verified: () => "Verified",
   other: () => "Not verified",
+  connect: () => "To connect",
 };
 
-/** Agent-listed first, then other verified, then the rest; one row per package id. */
+/** Agent-listed first, then private (added with a code), then verified, then the rest. */
 export function packageGroup(row: AomiPackage): LibraryGroup {
   if (row.agent_listed) return "agent";
+  if (!row.listed) return "private";
   return row.verified ? "verified" : "other";
 }
 
-const GROUP_ORDER: readonly LibraryGroup[] = ["agent", "verified", "other"];
+const GROUP_ORDER: readonly LibraryGroup[] = [
+  "agent",
+  "private",
+  "verified",
+  "other",
+];
+
+/** Rows a group shows before its "Show N more". */
+export const GROUP_PREVIEW = 5;
 
 export function groupPackages(
   rows: readonly AomiPackage[],
@@ -82,6 +98,12 @@ export function needsConnect(row: AomiPackage): boolean {
   return personSlots(row).some(
     (slot) => slot.required && slot.status === "missing",
   );
+}
+
+/** At least one person key is in and no required one is missing. */
+export function connected(row: AomiPackage): boolean {
+  const slots = personSlots(row);
+  return slots.some((slot) => slot.status === "ready") && !needsConnect(row);
 }
 
 export function inView(row: AomiPackage, view: LibraryView): boolean {
@@ -134,13 +156,13 @@ export function reasonText(row: AomiPackage, agent: string): string {
     case "agent_listed":
       return `${agent} uses it, so it stays on.`;
     case "verified_default":
-      return "Verified, so it is on until you switch it off.";
+      return "On until you switch it off.";
     case "chosen_on":
       return "On because you switched it on.";
     case "chosen_off":
       return "Off because you switched it off.";
     case "off_by_default":
-      return "Not verified. Off until you switch it on.";
+      return "Off until you switch it on.";
   }
 }
 
@@ -186,6 +208,22 @@ export function askLines(envelope: AomiPackageEnvelope): string[] {
       return `Sign ${what}${chains.length ? ` on ${chains.join(", ")}` : ""}`;
     }),
   ];
+}
+
+/** The inspector's line before a not verified package is first switched on. */
+export function noticeText(row: AomiPackage): string {
+  const { hosts, transactions, signatures } = row.envelope;
+  const can = [
+    ...(hosts.length ? [`can reach ${hosts.join(", ")}`] : []),
+    ...(transactions.length
+      ? ["can ask you to approve transactions"]
+      : signatures.length
+        ? ["can ask you to sign"]
+        : []),
+  ];
+  return can.length
+    ? `Not verified by Aomi. It ${can.join(" and ")}.`
+    : "Not verified by Aomi. It reaches no outside service.";
 }
 
 /** The one-time notice is acknowledged per device, per package and envelope. */

@@ -18,18 +18,20 @@ import {
 afterEach(() => localStorage.clear());
 
 describe("library model", () => {
-  it("groups agent-listed, then verified, then the rest, one row per package", () => {
+  it("groups agent-listed, private, verified, then the rest, one row per package", () => {
     const verifiedAndListed = { ...AGENT_LISTED, verified: true };
     const groups = groupPackages([
       NOT_VERIFIED,
       VERIFIED,
       verifiedAndListed,
       { ...verifiedAndListed },
+      { ...VERIFIED, package_id: 9100, id: "acme/secret", listed: false },
     ]);
     expect(
       groups.map(({ group, rows }) => [group, rows.map((row) => row.id)]),
     ).toEqual([
       ["agent", ["aomi/aave"]],
+      ["private", ["acme/secret"]],
       ["verified", ["aomi/jupiter"]],
       ["other", ["arixoneth/hoodit-trade"]],
     ]);
