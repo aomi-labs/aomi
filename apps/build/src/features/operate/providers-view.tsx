@@ -28,6 +28,7 @@ import {
 import { modelKeysFetch } from "@/features/operate/client";
 import { API_PATHS } from "@/lib/api-paths";
 import { readJsonResponse } from "@/lib/request-retry";
+import { pageFrame, pageTitle } from "@/components/control-plane/page";
 
 export const PROVIDERS = ["openai", "anthropic", "openrouter"] as const;
 export type Provider = (typeof PROVIDERS)[number];
@@ -887,14 +888,14 @@ export function ProvidersView() {
 
   if (account.loading) {
     return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className={pageFrame}>
         <LoadingPanel label="Checking GitHub session..." />
       </div>
     );
   }
   if (!account.signedIn) {
     return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className={pageFrame}>
         <GitHubSignInPanel error={null} />
       </div>
     );
@@ -905,9 +906,7 @@ export function ProvidersView() {
       <header>
         <div className="flex items-center gap-2">
           <KeyRound className="text-dim size-5" aria-hidden />
-          <h1 className="font-display text-xl font-normal tracking-tight">
-            Providers
-          </h1>
+          <h1 className={pageTitle}>Providers</h1>
         </div>
         <p className="text-dim mt-1.5 max-w-3xl text-sm leading-5">
           Your keys fund inference for your agents&apos; users — model cost is

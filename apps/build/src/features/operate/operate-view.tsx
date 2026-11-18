@@ -41,6 +41,7 @@ import {
   type LogsPageFilter,
 } from "./log-rows";
 import { UsageRows } from "./usage-rows";
+import { pageFrame, pageTitle } from "@/components/control-plane/page";
 
 // OperateView renders every operate surface except Channels, which has its own
 // dedicated ChannelsView (register form + table) instead of the generic
@@ -81,7 +82,7 @@ const meta = {
   transactions: { title: "Transactions", icon: WalletCards },
   usage: { title: "Usage", icon: Gauge },
   logs: { title: "Logs", icon: ScrollText },
-  observability: { title: "Observability", icon: Activity },
+  observability: { title: "Health", icon: Activity },
 } satisfies Record<ViewKind, { title: string; icon: LucideIcon }>;
 
 function projectLabel(project: Projectish) {
@@ -295,7 +296,7 @@ function Rows({
   }
 
   const agents = payload.agents ?? [];
-  if (!agents.length) return <EmptyState title="Observability" />;
+  if (!agents.length) return <EmptyState title="Health" />;
   const monitoring = payload.monitoring;
   const platformMetrics = payload.platformMetrics ?? [];
   const dashboardLinks = payload.dashboardLinks ?? [];
@@ -680,7 +681,7 @@ export function OperateView({ kind }: { kind: ViewKind }) {
 
   if (account.loading) {
     return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className={pageFrame}>
         <LoadingPanel label="Checking GitHub session..." />
       </div>
     );
@@ -688,7 +689,7 @@ export function OperateView({ kind }: { kind: ViewKind }) {
 
   if (!account.signedIn) {
     return (
-      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className={pageFrame}>
         <GitHubSignInPanel error={null} />
       </div>
     );
@@ -747,13 +748,11 @@ export function OperateView({ kind }: { kind: ViewKind }) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
+    <div className={pageFrame}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Icon className="text-dim size-5" />
-          <h1 className="font-display text-xl font-normal tracking-tight">
-            {meta[kind].title}
-          </h1>
+          <h1 className={pageTitle}>{meta[kind].title}</h1>
           {payload?.example ? (
             <span
               title="Live data for this view isn't connected yet — showing example data."

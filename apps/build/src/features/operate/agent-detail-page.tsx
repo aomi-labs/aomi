@@ -17,6 +17,7 @@ import {
   liveAgentDetailView,
   type LiveAgentDetailPayload,
 } from "./live-agent-detail";
+import { pageTitle } from "@/components/control-plane/page";
 
 function operateHref(
   path: string,
@@ -61,9 +62,7 @@ export function AgentDetailPage({ agentId }: { agentId: number }) {
   if (error) {
     return (
       <div className="mx-auto flex max-w-xl flex-col items-center gap-3 px-6 py-20 text-center">
-        <h1 className="font-display text-lg font-normal tracking-tight">
-          Observability unavailable
-        </h1>
+        <h1 className={pageTitle}>Health unavailable</h1>
         <p className="text-dim text-sm">{error}</p>
         <button
           type="button"

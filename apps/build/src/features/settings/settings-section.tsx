@@ -5,6 +5,7 @@ import { getSettingsSection, settingsSections } from "./settings-data";
 import { SettingsBillingPanel } from "./settings-billing-panel";
 import { SettingsGeneralPanel } from "./settings-general-panel";
 import { SettingsSecretsPanel } from "./settings-secrets-panel";
+import { pageTitle } from "@/components/control-plane/page";
 
 export default function SettingsSectionPage({
   params,
@@ -24,9 +25,7 @@ export default function SettingsSectionPage({
       <div className={slug === "general" ? "space-y-3" : "space-y-2"}>
         <div className="flex items-center gap-2">
           <Icon className="text-dim size-5" />
-          <h1 className="font-display text-foreground text-2xl font-normal tracking-tight">
-            {section.title}
-          </h1>
+          <h1 className={pageTitle}>{section.title}</h1>
         </div>
         <p className="text-subtle max-w-2xl text-sm">{section.description}</p>
       </div>

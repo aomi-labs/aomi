@@ -1,6 +1,7 @@
 import { Settings as SettingsIcon } from "lucide-react";
 import { SettingsCard } from "./settings-card";
 import { settingsSections } from "./settings-data";
+import { pageTitle } from "@/components/control-plane/page";
 
 export default function SettingsPage() {
   return (
@@ -8,9 +9,7 @@ export default function SettingsPage() {
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <SettingsIcon className="text-dim size-5" aria-hidden />
-          <h1 className="font-display text-foreground text-xl font-normal tracking-tight">
-            Settings
-          </h1>
+          <h1 className={pageTitle}>Settings</h1>
         </div>
         <p className="text-dim mt-1.5 max-w-3xl text-sm leading-5">
           Account controls for this GitHub session. Live sections work today;

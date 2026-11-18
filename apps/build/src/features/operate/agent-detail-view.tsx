@@ -6,6 +6,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import type { AgentFixture, TxRecord } from "@/features/operate/fixtures";
 
 import type { ObservabilityWindow } from "./client";
+import { pageFrame, pageTitle } from "@/components/control-plane/page";
 
 const WINDOW_SECONDS = {
   "1h": 3600,
@@ -251,7 +252,7 @@ export function AgentDetailView({
     .filter((log) => log.kind === "event")
     .slice(0, 4);
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
+    <div className={pageFrame}>
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -265,9 +266,7 @@ export function AgentDetailView({
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-display text-xl font-normal tracking-tight">
-                {displayName ?? meta.name}
-              </h1>
+              <h1 className={pageTitle}>{displayName ?? meta.name}</h1>
               {example ? (
                 <span
                   title="Live data for this view isn't connected yet — showing example data."
