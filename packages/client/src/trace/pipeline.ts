@@ -35,6 +35,7 @@ const fallbackOperation = (ctx: ToolContext) => {
     brave_search: "web.search",
     web_fetch: "web.fetch",
     activate_skills: "skill.activate",
+    tool_search: "tool.search",
     evm_get_contract: "evm.contract.lookup.found",
     list_transactions: "activity.transactions",
     get_transaction: "activity.transaction",
@@ -113,7 +114,8 @@ export const interpretToolContext = (ctx: ToolContext): InterpretedToolStep => {
   const coreTitle = coreToolTitle(ctx.rawLabel);
   const keepsSemanticTitle =
     operation.id.startsWith("evm.call.erc20.") ||
-    operation.id === "skill.check";
+    operation.id === "skill.check" ||
+    operation.id === "package.activate";
   return presentOperation({
     ...operation,
     title: keepsSemanticTitle

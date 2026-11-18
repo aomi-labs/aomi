@@ -153,6 +153,10 @@ describe("tagged packages", () => {
 
   it("names the package ids on the line the runtime loads them from", () => {
     expect(message).toContain("Preferred package ids: aomi/defillama.");
+    expect(message).toContain(
+      "The user mentioned @aomi/defillama (aomi/defillama); activate it if it fits the request.",
+    );
+    expect(message).not.toContain("tools are loaded");
     expect(extractCapabilityHints(message)).toEqual([
       { kind: "package", id: "aomi/defillama" },
     ]);

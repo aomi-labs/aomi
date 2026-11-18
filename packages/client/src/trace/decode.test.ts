@@ -2582,6 +2582,25 @@ describe("Solana tool chips", () => {
     `);
   });
 
+  it("titles a package activation and a tool search", () => {
+    const activation = decode({
+      toolName: "activate_skills",
+      argsText: '{"skill_ids":["aomi/aave"]}',
+      result: { activated: ["aomi/aave/aave"] },
+    });
+    expect(activation.title).toBe("Activate package");
+    const search = decode({
+      toolName: "tool_search",
+      argsText: '{"query":"swap quote"}',
+      result: {
+        loaded: ["swap_quote"],
+        packages: { "aomi/swap": ["swap_quote"] },
+      },
+    });
+    expect(search.title).toBe("Search tools");
+    expect(labelsFor(search.chips)).toContain("swap quote");
+  });
+
   it("totals the priced EVM holdings in USD as Solana does", () => {
     const step = decode({
       toolName: "evm_get_token_holdings",

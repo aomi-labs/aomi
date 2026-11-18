@@ -259,6 +259,18 @@ const descriptorById: Record<string, Descriptor> = {
     icon: SHAPE_ICONS.skillActivation,
     chipPlan: [{ kind: "skill", repeat: true }],
   },
+  "package.activate": {
+    title: "fixed",
+    fixedTitle: "Activate package",
+    icon: SHAPE_ICONS.skillActivation,
+    chipPlan: [{ kind: "skill", repeat: true }],
+  },
+  "tool.search": {
+    title: "fixed",
+    fixedTitle: "Search tools",
+    icon: SHAPE_ICONS.search,
+    chipPlan: [{ kind: "query" }, { kind: "function", repeat: true }],
+  },
   "skill.check": {
     title: "fixed",
     fixedTitle: "Check active skills",

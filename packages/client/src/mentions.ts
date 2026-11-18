@@ -141,9 +141,13 @@ export function appendCapabilityHints(text: string, raw: unknown): string {
   }
   if (packages.length > 0) {
     lines.push(`Preferred package ids: ${packages.join(", ")}.`);
-    lines.push(
-      "The tagged packages' tools are loaded for this turn; use them where they help.",
-    );
+    for (const hint of envelope.capabilities.filter(
+      (hint) => hint.kind === "package",
+    )) {
+      lines.push(
+        `The user mentioned @${hint.label ?? hint.id} (${hint.id}); activate it if it fits the request.`,
+      );
+    }
   }
   if (skills.length > 0) {
     lines.push(`Preferred skill ids: ${skills.join(", ")}.`);

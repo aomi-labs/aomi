@@ -43,9 +43,11 @@ export const matchSkillActivation: ToolMatcher = ({
       )
     : [];
   const checking = activated.length === 0;
+  // A package's skills are `<publisher>/<package>/<skill>`.
+  const packages = activated.every((id) => id.split("/").length === 3);
 
   return operation(
-    checking ? "skill.check" : "skill.activate",
+    checking ? "skill.check" : packages ? "package.activate" : "skill.activate",
     rawLabel,
     (checking ? active : activated).map((value) => ({
       kind: "skill",

@@ -17,7 +17,11 @@ import { matchDiscardTx } from "./general/discard-tx";
 import { matchSignMessage } from "./general/sign-message";
 import { matchSkillActivation } from "./general/skills";
 import { matchSleep } from "./general/sleep";
-import { matchWebFetch, matchWebSearch } from "./general/search";
+import {
+  matchToolSearch,
+  matchWebFetch,
+  matchWebSearch,
+} from "./general/search";
 import { matchTaskDelegation } from "./general/task";
 import {
   matchSvmAccountInfo,
@@ -56,6 +60,7 @@ const generalMatchers: Record<string, ToolMatcher> = {
   web_fetch: matchWebFetch,
   search_docs: matchWebSearch,
   activate_skills: matchSkillActivation,
+  tool_search: matchToolSearch,
   sleep: matchSleep,
   list_transactions: matchListTransactions,
   get_transaction: matchGetTransaction,
