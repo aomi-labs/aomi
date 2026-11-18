@@ -23,6 +23,7 @@ export type DisplayResource =
   | "models"
   | "agent-catalog"
   | "skills"
+  | "packages"
   | "authorized-models"
   | "authorized-agents"
   | "threads"
@@ -40,6 +41,7 @@ const PUBLIC_CATALOGS: ReadonlySet<DisplayResource> = new Set([
   "models",
   "agent-catalog",
   "skills",
+  "packages",
 ]);
 export const isPublicCatalog = (resource: DisplayResource) =>
   PUBLIC_CATALOGS.has(resource);

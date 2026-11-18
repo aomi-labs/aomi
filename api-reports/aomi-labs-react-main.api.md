@@ -203,7 +203,7 @@ export type DisplayQuery<T> = {
 };
 
 // @public (undocumented)
-export type DisplayResource = "models" | "agent-catalog" | "skills" | "authorized-models" | "authorized-agents" | "threads" | "profile" | "credits" | "credit-ledger" | "account-packages" | "transaction-safety" | "usage" | "account-wallets" | "connections";
+export type DisplayResource = "models" | "agent-catalog" | "skills" | "packages" | "authorized-models" | "authorized-agents" | "threads" | "profile" | "credits" | "credit-ledger" | "account-packages" | "transaction-safety" | "usage" | "account-wallets" | "connections";
 
 // @public (undocumented)
 export const EMPTY_TASK_RUNS: ThreadTaskRuns;

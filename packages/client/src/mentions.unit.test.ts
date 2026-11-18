@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { AomiPackage } from "./types";
 import {
   appendCapabilityHints,
   extractCapabilityHints,
   mentionGroups,
   packageMentions,
+  parsePackageCatalog,
   stripCapabilityHints,
   skillLabel,
 } from "./mentions";
@@ -182,24 +182,40 @@ describe("tagged packages", () => {
 });
 
 describe("packageMentions", () => {
-  const row = (extra: Partial<AomiPackage>) =>
-    ({
-      package_id: 1,
+  const [row] = parsePackageCatalog({
+    packages: [
+      {
+        id: "aomi/defillama",
+        display_name: "DefiLlama",
+        description:
+          "Token prices and TVL from DefiLlama. Use it for market data.",
+        icon_url: "/api/packages/aomi%2Fdefillama/icon",
+        families: ["evm", "cosmos"],
+        tool_count: 5,
+        skills: [{ id: "llama-yields", description: "Find pool yields" }],
+        verified: true,
+        enabled: true,
+      },
+      { display_name: "No id" },
+    ],
+  });
+
+  it("reads only the public fields of the public catalog", () => {
+    expect(row).toEqual({
       id: "aomi/defillama",
       display_name: "DefiLlama",
       description:
         "Token prices and TVL from DefiLlama. Use it for market data.",
+      icon_url: "/api/packages/aomi%2Fdefillama/icon",
+      families: ["evm"],
+      tool_count: 5,
       skills: [{ id: "llama-yields", description: "Find pool yields" }],
-      enabled: true,
-      ...extra,
-    }) as AomiPackage;
+      verified: true,
+    });
+  });
 
-  it("lists the packages that are on, once each, searchable by skill", () => {
-    const items = packageMentions([
-      row({}),
-      row({}),
-      row({ package_id: 2, id: "acme/off", enabled: false }),
-    ]);
+  it("lists each package once, searchable by skill", () => {
+    const items = packageMentions([row!, row!]);
     expect(items.map(({ kind, id, label }) => [kind, id, label])).toEqual([
       ["package", "aomi/defillama", "DefiLlama"],
     ]);

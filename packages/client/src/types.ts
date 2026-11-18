@@ -389,9 +389,11 @@ export interface AomiPackageEnvelope {
   signatures: AomiPackageSignature[];
 }
 
-/** One Library row: a package with a live release and this account's effective state. */
-export interface AomiPackage {
-  package_id: number;
+/**
+ * A listed package as anyone may read it (`/api/public/catalog/packages`):
+ * nothing tied to an account.
+ */
+export interface AomiPublicPackage {
   /** `publisher/name`. */
   id: string;
   display_name: string;
@@ -400,9 +402,14 @@ export interface AomiPackage {
   families: AomiPackageFamily[];
   tool_count: number;
   skills: { id: string; description: string }[];
-  live: { release: number; digest: string };
   /** The live envelope is within the approved one. */
   verified: boolean;
+}
+
+/** One Library row: a package with a live release and this account's effective state. */
+export interface AomiPackage extends AomiPublicPackage {
+  package_id: number;
+  live: { release: number; digest: string };
   listed: boolean;
   /** The agent lists it: always on, the switch is disabled. */
   agent_listed: boolean;

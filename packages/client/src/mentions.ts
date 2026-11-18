@@ -2,7 +2,7 @@
 // model hint a send carries. The widget and the CLI share all of it.
 
 import { isAgentSlug } from "./agent-card";
-import type { AomiPackage } from "./types";
+import type { AomiPackageFamily, AomiPublicPackage } from "./types";
 
 const HINTS_START = "<AOMI_UI_CAPABILITY_HINTS>";
 const HINTS_END = "</AOMI_UI_CAPABILITY_HINTS>";
@@ -316,15 +316,17 @@ export function isTestnetChain(chain: {
 }
 
 /**
- * The packages on in a chat as "@" rows, once each, found by name, id,
- * description and skills. A package that is off is left out: the runtime
- * loads only the tools of packages that are on.
+ * Packages as "@" rows, once each, found by name, id, description and skills.
+ * A signed-in picker passes the account's packages that are on; a guest's,
+ * the public catalog.
  */
-export function packageMentions(rows: readonly AomiPackage[]): MentionItem[] {
-  const seen = new Set<number>();
+export function packageMentions(
+  rows: readonly AomiPublicPackage[],
+): MentionItem[] {
+  const seen = new Set<string>();
   return rows.flatMap((row) => {
-    if (!row.enabled || seen.has(row.package_id)) return [];
-    seen.add(row.package_id);
+    if (seen.has(row.id)) return [];
+    seen.add(row.id);
     return [
       {
         kind: "package" as const,
@@ -436,6 +438,52 @@ export function parseSkillCatalog(value: unknown): SkillSummary[] {
   return rows
     .map(parseSkill)
     .filter((skill): skill is SkillSummary => skill !== null);
+}
+
+// Packages, as the public catalog lists them.
+
+function parsePublicPackage(value: unknown): AomiPublicPackage | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  if (typeof row.id !== "string" || typeof row.display_name !== "string")
+    return null;
+  return {
+    id: row.id,
+    display_name: row.display_name,
+    description: typeof row.description === "string" ? row.description : "",
+    icon_url: typeof row.icon_url === "string" ? row.icon_url : null,
+    families: strings(row.families).filter(
+      (family): family is AomiPackageFamily =>
+        family === "evm" || family === "svm",
+    ),
+    tool_count: typeof row.tool_count === "number" ? row.tool_count : 0,
+    skills: Array.isArray(row.skills)
+      ? row.skills.flatMap((skill) =>
+          skill && typeof skill === "object" && typeof skill.id === "string"
+            ? [
+                {
+                  id: skill.id,
+                  description:
+                    typeof skill.description === "string"
+                      ? skill.description
+                      : "",
+                },
+              ]
+            : [],
+        )
+      : [],
+    verified: row.verified === true,
+  };
+}
+
+/** `/api/public/catalog/packages`: the listed packages anyone may read. */
+export function parsePackageCatalog(value: unknown): AomiPublicPackage[] {
+  if (!value || typeof value !== "object") return [];
+  const rows = (value as Record<string, unknown>).packages;
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map(parsePublicPackage)
+    .filter((row): row is AomiPublicPackage => row !== null);
 }
 
 /** Brand spellings that title-casing the ID would get wrong. */

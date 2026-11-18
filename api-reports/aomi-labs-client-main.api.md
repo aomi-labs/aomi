@@ -1092,7 +1092,7 @@ export class AomiClient {
         signal?: AbortSignal;
         apiKey?: string;
     }): Promise<string[]>;
-    getPublicCatalog<T = unknown>(kind: "models" | "toolsets" | "skills", options?: {
+    getPublicCatalog<T = unknown>(kind: "models" | "toolsets" | "skills" | "packages", options?: {
         signal?: AbortSignal;
         platforms?: AomiPlatformFilter;
     }): Promise<T>;
@@ -1554,21 +1554,12 @@ export type AomiOptions = (AomiManagedAuthOptions | (AomiConnectionOptions & {
 })) & AomiExecutionOptions;
 
 // @public
-export interface AomiPackage {
+export interface AomiPackage extends AomiPublicPackage {
     agent_listed: boolean;
     choice: boolean | null;
-    // (undocumented)
-    description: string;
-    // (undocumented)
-    display_name: string;
     enabled: boolean;
     // (undocumented)
     envelope: AomiPackageEnvelope;
-    // (undocumented)
-    families: AomiPackageFamily[];
-    // (undocumented)
-    icon_url: string | null;
-    id: string;
     // (undocumented)
     listed: boolean;
     // (undocumented)
@@ -1581,15 +1572,7 @@ export interface AomiPackage {
     // (undocumented)
     reason: AomiPackageReason;
     // (undocumented)
-    skills: {
-        id: string;
-        description: string;
-    }[];
-    // (undocumented)
     slots: AomiPackageSlot[];
-    // (undocumented)
-    tool_count: number;
-    verified: boolean;
 }
 
 // @public
@@ -1731,6 +1714,27 @@ export type AomiProviderBinding = {
         role_id: number;
     };
 };
+
+// @public
+export interface AomiPublicPackage {
+    // (undocumented)
+    description: string;
+    // (undocumented)
+    display_name: string;
+    // (undocumented)
+    families: AomiPackageFamily[];
+    // (undocumented)
+    icon_url: string | null;
+    id: string;
+    // (undocumented)
+    skills: {
+        id: string;
+        description: string;
+    }[];
+    // (undocumented)
+    tool_count: number;
+    verified: boolean;
+}
 
 // @public (undocumented)
 export interface AomiRequestOptions {
@@ -3509,10 +3513,13 @@ export function oauth(options: AomiDeviceOAuthOptions | AomiBrowserOAuthOptions)
 export type OnChainOutcome = "success" | "reverted";
 
 // @public
-export function packageMentions(rows: readonly AomiPackage[]): MentionItem[];
+export function packageMentions(rows: readonly AomiPublicPackage[]): MentionItem[];
 
 // @public (undocumented)
 export function parseChainId(value: unknown): number | undefined;
+
+// @public
+export function parsePackageCatalog(value: unknown): AomiPublicPackage[];
 
 // @public (undocumented)
 export function parseSkillCatalog(value: unknown): SkillSummary[];

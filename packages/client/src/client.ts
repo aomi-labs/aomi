@@ -551,7 +551,7 @@ export class AomiClient {
 
   /** Credential-free projection suitable for shared caching and public persistence. */
   async getPublicCatalog<T = unknown>(
-    kind: "models" | "toolsets" | "skills",
+    kind: "models" | "toolsets" | "skills" | "packages",
     options?: { signal?: AbortSignal; platforms?: AomiPlatformFilter },
   ): Promise<T> {
     const url = buildApiUrl(this.baseUrl, `/api/public/catalog/${kind}`, {
