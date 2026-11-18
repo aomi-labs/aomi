@@ -671,7 +671,7 @@ function GroupHeader({
 function ActivePackages({ ids }: { ids: string[] }) {
   const attribution = useTraceAttribution();
   return (
-    <div className="flex flex-col items-start gap-2">
+    <div className="flex flex-wrap gap-2">
       {ids.map((id) => (
         <ToolChipView key={id} chip={packageChip(id, attribution)} />
       ))}
