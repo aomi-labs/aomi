@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import {
   isTestnetChain,
+  packageMentions,
   shortAddress,
   type AomiPackage,
 } from "@aomi-labs/client";
@@ -96,29 +97,17 @@ function packageIcon(row: AomiPackage): FC<{ className?: string }> {
   };
 }
 
-/**
- * The packages on in this chat as picker rows. A package that is off is left
- * out: the runtime loads only the tools of packages that are on.
- */
+/** The packages on in this chat as picker rows (`packageMentions`), with their icons. */
 export function packagePickerItems(rows: readonly AomiPackage[]): PickerItem[] {
-  const seen = new Set<number>();
-  return rows.flatMap((row) => {
-    if (!row.enabled || seen.has(row.package_id)) return [];
-    seen.add(row.package_id);
-    return [
-      {
-        key: `package:${row.id}`,
-        kind: "package" as const,
-        id: row.id,
-        label: row.display_name,
-        description: conciseSkillDescription(row.description),
-        fullDescription: row.description,
-        searchText: `${row.id} ${row.description} ${row.skills
-          .map((skill) => `${skill.id} ${skill.description}`)
-          .join(" ")}`,
-        Icon: packageIcon(row),
-      },
-    ];
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return packageMentions(rows).map((item) => {
+    const row = byId.get(item.id)!;
+    return {
+      ...item,
+      key: `package:${item.id}`,
+      fullDescription: row.description,
+      Icon: packageIcon(row),
+    };
   });
 }
 

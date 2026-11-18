@@ -2,6 +2,7 @@
 // model hint a send carries. The widget and the CLI share all of it.
 
 import { isAgentSlug } from "./agent-card";
+import type { AomiPackage } from "./types";
 
 const HINTS_START = "<AOMI_UI_CAPABILITY_HINTS>";
 const HINTS_END = "</AOMI_UI_CAPABILITY_HINTS>";
@@ -312,6 +313,30 @@ export function isTestnetChain(chain: {
     chain.id === 31337 ||
     TESTNET_NAME.test(chain.name)
   );
+}
+
+/**
+ * The packages on in a chat as "@" rows, once each, found by name, id,
+ * description and skills. A package that is off is left out: the runtime
+ * loads only the tools of packages that are on.
+ */
+export function packageMentions(rows: readonly AomiPackage[]): MentionItem[] {
+  const seen = new Set<number>();
+  return rows.flatMap((row) => {
+    if (!row.enabled || seen.has(row.package_id)) return [];
+    seen.add(row.package_id);
+    return [
+      {
+        kind: "package" as const,
+        id: row.id,
+        label: row.display_name,
+        description: conciseSkillDescription(row.description),
+        searchText: `${row.id} ${row.description} ${row.skills
+          .map((skill) => `${skill.id} ${skill.description}`)
+          .join(" ")}`,
+      },
+    ];
+  });
 }
 
 /** A tagged capability as the send carries it. */

@@ -11,12 +11,14 @@ import {
   conciseSkillDescription,
   isTestnetChain,
   mentionGroups,
+  packageMentions,
   parseSkillCatalog,
   shortAddress,
   skillLabel,
   SUPPORTED_CHAIN_IDS,
   type Aomi,
   type AomiAccountWallet,
+  type AomiPackage,
   type MentionItem,
 } from "@aomi-labs/client";
 
@@ -25,7 +27,13 @@ export async function mentionCatalog(
   aomi: Aomi,
   thread: string,
 ): Promise<MentionItem[]> {
-  const [skills, wallets] = await Promise.all([
+  const [packages, skills, wallets] = await Promise.all([
+    // The Library of the thread's agent; `aomi/main`'s before the thread is stored.
+    aomi.account.packages
+      .list({ threadId: thread })
+      .catch(() => aomi.account.packages.list())
+      .then((catalog) => catalog.packages)
+      .catch(() => [] as AomiPackage[]),
     aomi.raw
       .getPublicCatalog("skills")
       .then(parseSkillCatalog)
@@ -36,6 +44,7 @@ export async function mentionCatalog(
   ]);
   const chainName = (id: number) => CHAIN_NAMES[id] ?? String(id);
   return [
+    ...packageMentions(packages),
     ...skills.map(
       (skill): MentionItem => ({
         kind: "skill",

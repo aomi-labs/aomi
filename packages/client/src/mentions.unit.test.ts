@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { AomiPackage } from "./types";
 import {
   appendCapabilityHints,
   extractCapabilityHints,
   mentionGroups,
+  packageMentions,
   stripCapabilityHints,
   skillLabel,
 } from "./mentions";
@@ -176,5 +178,32 @@ describe("tagged packages", () => {
       ["Packages", 2],
       ["Chains", 1],
     ]);
+  });
+});
+
+describe("packageMentions", () => {
+  const row = (extra: Partial<AomiPackage>) =>
+    ({
+      package_id: 1,
+      id: "aomi/defillama",
+      display_name: "DefiLlama",
+      description:
+        "Token prices and TVL from DefiLlama. Use it for market data.",
+      skills: [{ id: "llama-yields", description: "Find pool yields" }],
+      enabled: true,
+      ...extra,
+    }) as AomiPackage;
+
+  it("lists the packages that are on, once each, searchable by skill", () => {
+    const items = packageMentions([
+      row({}),
+      row({}),
+      row({ package_id: 2, id: "acme/off", enabled: false }),
+    ]);
+    expect(items.map(({ kind, id, label }) => [kind, id, label])).toEqual([
+      ["package", "aomi/defillama", "DefiLlama"],
+    ]);
+    expect(items[0]!.description).toBe("Token prices and TVL from DefiLlama");
+    expect(mentionGroups(items, "pool yields")).toHaveLength(1);
   });
 });

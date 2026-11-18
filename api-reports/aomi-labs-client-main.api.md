@@ -3508,6 +3508,9 @@ export function oauth(options: AomiDeviceOAuthOptions | AomiBrowserOAuthOptions)
 // @public
 export type OnChainOutcome = "success" | "reverted";
 
+// @public
+export function packageMentions(rows: readonly AomiPackage[]): MentionItem[];
+
 // @public (undocumented)
 export function parseChainId(value: unknown): number | undefined;
 
