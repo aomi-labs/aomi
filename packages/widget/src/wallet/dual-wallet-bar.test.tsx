@@ -227,7 +227,7 @@ describe("DualWalletBar account menu", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "EVM signs with Rabby" }),
+      screen.getByRole("button", { name: "EVM default wallet: Rabby" }),
     );
     expect(
       screen.getByRole("menuitemradio", { name: "Use Rabby 0x71C7…976F" }),
@@ -285,7 +285,7 @@ describe("DualWalletBar account menu", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "EVM signs with Rabby" }),
+      screen.getByRole("button", { name: "EVM default wallet: Rabby" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Add a wallet" }));
     expect(adapterState.current.openAddWallet).toHaveBeenCalledTimes(1);
