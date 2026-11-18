@@ -1,13 +1,25 @@
 import { sha256Hex } from "../kernel/crypto";
+import type { EdgeEnv } from "../env";
+import { rankedPool } from "../kernel/pool";
 import type { FetchLike } from "../kernel/proxy";
 
-export type PublicCatalogKind = "models" | "toolsets" | "skills";
+export type PublicCatalogKind = "models" | "toolsets" | "skills" | "packages";
 const PATHS: Record<PublicCatalogKind, string> = {
   models: "/api/thread/models",
   toolsets: "/api/resource/toolsets",
   skills: "/api/resource/skills",
+  packages: "/api/resource/packages",
 };
 const TOOLSET_FIELDS = ["name", "display_name"];
+const PACKAGE_FIELDS = [
+  "id",
+  "display_name",
+  "description",
+  "icon_url",
+  "families",
+  "tool_count",
+  "verified",
+];
 const SKILL_FIELDS = [
   "id",
   "name",
@@ -65,6 +77,27 @@ export function projectPublicCatalog(
         ? [pick(toolset, TOOLSET_FIELDS)]
         : [];
     });
+  }
+  if (kind === "packages") {
+    const packages = row(value)?.packages;
+    return {
+      packages: (Array.isArray(packages) ? packages : []).flatMap((item) => {
+        const card = row(item);
+        if (!card || typeof card.id !== "string") return [];
+        const skills = Array.isArray(card.skills) ? card.skills : [];
+        return [
+          {
+            ...pick(card, PACKAGE_FIELDS),
+            skills: skills.flatMap((entry) => {
+              const skill = row(entry);
+              return skill && typeof skill.id === "string"
+                ? [pick(skill, ["id", "description"])]
+                : [];
+            }),
+          },
+        ];
+      }),
+    };
   }
   const skills = row(value)?.skills;
   return {
@@ -144,3 +177,24 @@ export async function publicCatalog(
     headers,
   });
 }
+
+/** `/api/public/catalog/<kind>` on any surface: 404 for an unknown kind or a write. */
+export async function servePublicCatalog(
+  request: Request,
+  kind: string,
+  env: EdgeEnv,
+  fetchImpl: FetchLike,
+): Promise<Response> {
+  if (
+    !isPublicCatalogKind(kind) ||
+    (request.method !== "GET" && request.method !== "HEAD")
+  )
+    return Response.json({ error: "not_found" }, { status: 404 });
+  const [origin] = rankedPool(request, env);
+  return origin
+    ? publicCatalog(request, kind, origin, fetchImpl)
+    : Response.json({ error: "catalog_unavailable" }, { status: 502 });
+}
+
+/** The kind a `/api/public/catalog/<kind>` path names. */
+export const PUBLIC_CATALOG = /^\/api\/public\/catalog\/([^/]+)$/;

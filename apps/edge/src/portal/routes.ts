@@ -23,7 +23,7 @@ import { apiOrigins } from "../kernel/manager";
 import { rankedPool } from "../kernel/pool";
 import { passThrough, proxy, target } from "../kernel/proxy";
 import { handleAuthRequest } from "../auth/routes";
-import { isPublicCatalogKind, publicCatalog } from "./catalog";
+import { PUBLIC_CATALOG, servePublicCatalog } from "./catalog";
 import { PACKAGE_ICON, packageIcon } from "../kernel/package-icon";
 import type { PortalContext } from "./context";
 import { portalError } from "./errors";
@@ -408,14 +408,12 @@ async function catalog(
   const cors = publicRead(["GET"]);
   const cfg = config(ctx.env);
   if (request.method === "OPTIONS") return preflight(cors, request, cfg);
-  const [origin] = rankedPool(request, ctx.env);
-  const response =
-    !isPublicCatalogKind(kind) ||
-    (request.method !== "GET" && request.method !== "HEAD")
-      ? Response.json({ error: "not_found" }, { status: 404 })
-      : origin
-        ? await publicCatalog(request, kind, origin, ctx.fetchImpl)
-        : Response.json({ error: "catalog_unavailable" }, { status: 502 });
+  const response = await servePublicCatalog(
+    request,
+    kind,
+    ctx.env,
+    ctx.fetchImpl,
+  );
   return withCors(cors, request, response, cfg);
 }
 
@@ -428,7 +426,7 @@ export async function handlePortalRequest(
   const account = await handleAuthRequest(request, ctx);
   if (account) return account;
   if (pathname === "/.well-known/api-catalog") return discovery(request, ctx);
-  const catalogKind = /^\/api\/public\/catalog\/([^/]+)$/.exec(pathname)?.[1];
+  const catalogKind = PUBLIC_CATALOG.exec(pathname)?.[1];
   if (catalogKind) return catalog(request, catalogKind, ctx);
   if (PACKAGE_ICON.test(pathname))
     return packageIcon(request, ctx.env, ctx.fetchImpl, "portal");

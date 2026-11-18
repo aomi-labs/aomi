@@ -14,6 +14,7 @@
 import { EdgeError } from "../kernel/errors";
 import { PACKAGE_ICON, packageIcon } from "../kernel/package-icon";
 import { passThrough as passThroughTo, proxy, target } from "../kernel/proxy";
+import { PUBLIC_CATALOG, servePublicCatalog } from "../portal/catalog";
 import { BACKEND_API_HEADERS } from "../portal/headers";
 import { carriesApiKey, KEY_ROUTES } from "./api-keys";
 import type { BuildContext } from "./context";
@@ -169,6 +170,9 @@ export async function handleBuildRequest(
     return run("builder.credits", withKey ? refuseKey : credits, request, ctx);
   if (PACKAGE_ICON.test(url.pathname))
     return packageIcon(request, ctx.env, ctx.fetchImpl, "build");
+  const catalogKind = PUBLIC_CATALOG.exec(url.pathname)?.[1];
+  if (catalogKind)
+    return servePublicCatalog(request, catalogKind, ctx.env, ctx.fetchImpl);
   const routes = BUILD_ROUTES.filter((route) => matches(route, url.pathname));
   if (routes.length) {
     const route = routes.find(

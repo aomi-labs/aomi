@@ -218,3 +218,16 @@ describe("package icons on Build", () => {
     expect(seen[0]!.headers.get("authorization")).toBeNull();
   });
 });
+
+describe("the public catalog on Build", () => {
+  it("serves the package catalog without the session", async () => {
+    const response = await build("/api/public/catalog/packages", {
+      headers: { cookie: "aomi_build_session=s" },
+    });
+    expect(response.status).toBe(200);
+    expect(seen.map((call) => call.url)).toEqual([
+      "https://backend.example/api/resource/packages",
+    ]);
+    expect(seen[0]!.headers.get("cookie")).toBeNull();
+  });
+});

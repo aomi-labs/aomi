@@ -244,6 +244,26 @@ const world: FetchLike = async (request) => {
     }
     if (url.pathname === "/api/thread/models")
       return Response.json(["gpt", 3, "claude"]);
+    if (url.pathname === "/api/resource/packages")
+      return Response.json({
+        packages: [
+          {
+            id: "aomi/defillama",
+            display_name: "DefiLlama",
+            description: "Prices",
+            icon_url: "/api/packages/aomi%2Fdefillama/icon",
+            families: ["evm"],
+            tool_count: 5,
+            verified: true,
+            skills: [
+              { id: "yields", description: "Pool yields", path: "x.md" },
+            ],
+            enabled: true,
+            slots: [{ name: "KEY" }],
+          },
+          { display_name: "No id" },
+        ],
+      });
     if (url.pathname === "/api/resource/skills")
       return new Response(null, {
         status: 302,
@@ -1291,6 +1311,27 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
       body: JSON.stringify({ enabled: false }),
     });
     expect(write.status).toBe(403);
+  });
+
+  it("projects the public package catalog to public fields only", async () => {
+    const response = await portal("/api/public/catalog/packages", {
+      headers: { cookie: "session=user" },
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      packages: [
+        {
+          id: "aomi/defillama",
+          display_name: "DefiLlama",
+          description: "Prices",
+          icon_url: "/api/packages/aomi%2Fdefillama/icon",
+          families: ["evm"],
+          tool_count: 5,
+          verified: true,
+          skills: [{ id: "yields", description: "Pool yields" }],
+        },
+      ],
+    });
   });
 
   it("serves a package icon from the backend credential-free", async () => {
