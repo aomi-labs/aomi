@@ -42,25 +42,20 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
     url.pathname = `/${databaseName}`;
     vi.stubEnv("DATABASE_URL", url.toString());
     vi.stubEnv("BETTER_AUTH_URL", origin);
+    vi.stubEnv("AOMI_AUTH_DOMAIN", new URL(origin).host);
     vi.stubEnv("AOMI_AUTH_EMAIL_DOMAIN", "aomi.dev");
     pool = new Pool({ connectionString: url.toString() });
     const fixture = new URL(
       "../../../../tests/fixtures/account-merge/",
       import.meta.url,
     );
-    await pool.query(
-      readFileSync(
-        new URL("../../e2e/fixtures/canonical-account-schema.sql", fixture),
-        "utf8",
-      ),
-    );
-    await pool.query(readFileSync(new URL("schema.sql", fixture), "utf8"));
-    await pool.query(
-      readFileSync(
-        new URL("20261007000000_account_merge.sql", fixture),
-        "utf8",
-      ),
-    );
+    for (const file of [
+      "../../e2e/fixtures/canonical-account-schema.sql",
+      "schema.sql",
+      "20261026060000_account_link.sql",
+      "routines.sql",
+    ])
+      await pool.query(readFileSync(new URL(file, fixture), "utf8"));
     auth = (await import("../better-auth/auth")).createAuth(process.env);
     await (await getMigrations(auth.options)).runMigrations();
     service = await import("../service/account-service");

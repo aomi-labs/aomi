@@ -49,7 +49,8 @@ describe.skipIf(!enabled)("Portal wallet domain aliases", () => {
     for (const file of [
       "../../e2e/fixtures/canonical-account-schema.sql",
       "schema.sql",
-      "20261007000000_account_merge.sql",
+      "20261026060000_account_link.sql",
+      "routines.sql",
     ])
       await pool.query(readFileSync(new URL(file, fixture), "utf8"));
     await (

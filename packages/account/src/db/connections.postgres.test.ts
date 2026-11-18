@@ -146,7 +146,7 @@ describe.skipIf(!enabled)("account connections", () => {
     // (an archived wallet's pair is kept, marked) and used it last. The side bot
     // is locked to Hoodit, asks before every trade, and may use "Hoodit".
     await pool.query(
-      `insert into agents (id, name, display_name) values (86, 'hoodit', 'Hoodit')`,
+      `insert into agents (id, publisher, name, display_name) values (86, 'aomi', 'hoodit', 'Hoodit')`,
     );
     await pool.query(
       `insert into agent_wallets
@@ -254,7 +254,7 @@ describe.skipIf(!enabled)("account connections", () => {
           last_used_at: 1760409000,
         }),
         bot("88", "Side bot", {
-          agent: { id: 86, name: "hoodit", label: "Hoodit" },
+          agent: { id: 86, name: "aomi/hoodit", label: "Hoodit" },
           ask_only: true,
           wallets: [
             { id: HOODIT, name: "Hoodit", lane: "ask_aomi", archived: false },

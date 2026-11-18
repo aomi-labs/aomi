@@ -1,15 +1,15 @@
 # Account merge PostgreSQL fixture
 
-`20261007000000_account_merge.sql` is an unmodified copy of the migration in
-`aomi-labs/product-mono` PR #1262, commit
-`51672d13f`. `20261026060000_account_link.sql` is an unmodified copy of product-mono's
-Agent Wallets step 5 migration (`merge_accounts` v3, link codes and merge fences). Keep both
-aligned with the companion migrations when those change. `schema.sql` supplies
-the prerequisite relations, including the real composite wallet ownership
-constraints, and the commit and World handover
-columns v3 reads, after the shared canonical account schema.
+These fixtures exercise account merges against the current product-mono
+schema. Load the shared canonical account schema, then `schema.sql`,
+`20261026060000_account_link.sql`, and `routines.sql` in that order.
 
-The test creates a temporary database because the merge scans the `public`
-schema. It applies the fixtures and runs the assertions in a rolled-back
-transaction, then drops that database. CI's PostgreSQL service role has
-`CREATEDB`; local runs require the same privilege and the disposable test flag.
+`schema.sql` supplies the columns and constraints exercised by the merge.
+`20261026060000_account_link.sql` mirrors the core account-link migration.
+`routines.sql` copies the active merge and preview routines from the cloud
+migrations named in its comments.
+
+The merge suite creates a temporary database because the merge scans the
+`public` schema. It runs the assertions in a rolled-back transaction and
+drops that database. CI's PostgreSQL service role has `CREATEDB`. Local runs
+require the same privilege and the disposable test flag.

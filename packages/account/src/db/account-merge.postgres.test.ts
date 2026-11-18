@@ -38,12 +38,12 @@ describe.skipIf(!enabled)("merge_accounts", () => {
         "utf8",
       ),
     );
-    await db.query(readFileSync(new URL("schema.sql", fixtureUrl), "utf8"));
-    for (const migration of [
-      "20261007000000_account_merge.sql",
+    for (const file of [
+      "schema.sql",
       "20261026060000_account_link.sql",
+      "routines.sql",
     ])
-      await db.query(readFileSync(new URL(migration, fixtureUrl), "utf8"));
+      await db.query(readFileSync(new URL(file, fixtureUrl), "utf8"));
   });
 
   async function accounts(prefix: string) {
@@ -124,41 +124,31 @@ describe.skipIf(!enabled)("merge_accounts", () => {
       [source, identity.rows[0].id, key.rows[0].id, `handle-${suffix}`],
     );
     await db.query(
-      `insert into user_credits_records
-         (account_id, amount_microusd, entry_kind, payment_method,
+      `insert into credit_ledger
+         (owner_id, amount_microusd, entry_kind, payment_method,
           payment_provider, external_payment_reference, idempotency_key,
           created_at)
        values ($1, 42000, 'purchase', 'x402', 'coinbase', $2, $2, 1),
               ($3, 10000, 'purchase', 'x402', 'coinbase', $4, $4, 1)`,
       [source, `ref-s-${suffix}`, target, `ref-t-${suffix}`],
     );
-    await db.query(
-      `insert into user_model_keys
-         (user_id, provider, key_ciphertext, created_at, updated_at)
-       values ($1, 'openai', 'target-key', 1, 1),
-              ($2, 'openai', 'source-key', 1, 1),
-              ($2, 'anthropic', 'source-key', 1, 1),
-              ($1, 'openrouter', 'target-only-key', 1, 1)`,
-      [target, source],
-    );
 
-    const app = await db.query(
-      `insert into applications (name, label) values ('search', 'Search app') returning id`,
+    const searchPackage = await db.query(
+      `insert into packages (publisher, name, display_name)
+       values ('aomi', 'search', 'Search package') returning id`,
     );
     await db.query(
-      `insert into user_application_secrets
-         (user_id, agent_id, slot_name, secret_ciphertext)
-       values ($1, $3, 'api_key', 'target-secret'),
-              ($1, $3, 'target_only', 'target-only-secret'),
-              ($2, $3, 'api_key', 'source-secret'),
-              ($2, $3, 'token', 'source-only-secret')`,
-      [target, source, app.rows[0].id],
+      `insert into user_package_secrets
+         (user_id, package_id, slot, value_ciphertext, created_at, updated_at)
+       values ($1, $3, 'api_key', 'target-secret', 1, 1),
+              ($1, $3, 'target_only', 'target-only-secret', 1, 1),
+              ($2, $3, 'api_key', 'source-secret', 1, 1),
+              ($2, $3, 'token', 'source-only-secret', 1, 1)`,
+      [target, source, searchPackage.rows[0].id],
     );
     const dropped = [
-      "Anthropic model key (re-enter it after merging)",
-      "OpenAI model key (you already have one here)",
-      "Search app · api_key (you already have one here)",
-      "Search app · token (re-enter it after merging)",
+      "Search package · api_key (you already have one here)",
+      "Search package · token (re-enter it after merging)",
     ];
 
     expect(
@@ -190,35 +180,32 @@ describe.skipIf(!enabled)("merge_accounts", () => {
       `select
          (select count(*)::int from threads where user_id = $1) as chats,
          (select count(*)::int from public_keys where user_id = $1) as wallets,
-         (select sum(amount_microusd)::int from user_credits_records
-           where account_id = $1) as credits,
-         (select array_agg(key_ciphertext order by provider) from user_model_keys
-           where user_id = $1) as keys`,
+         (select sum(amount_microusd)::int from credit_ledger
+           where owner_kind = 'account' and owner_id = $1) as credits`,
       [target],
     );
     expect(owned.rows[0]).toEqual({
       chats: 3,
       wallets: 1,
       credits: 52000,
-      keys: ["target-key", "target-only-key"],
     });
 
     const secrets = await db.query(
-      `select user_id, agent_id, slot_name, secret_ciphertext
-         from user_application_secrets order by slot_name`,
+      `select user_id, package_id, slot, value_ciphertext
+         from user_package_secrets order by slot`,
     );
     expect(secrets.rows).toEqual([
       {
         user_id: target,
-        agent_id: app.rows[0].id,
-        slot_name: "api_key",
-        secret_ciphertext: "target-secret",
+        package_id: searchPackage.rows[0].id,
+        slot: "api_key",
+        value_ciphertext: "target-secret",
       },
       {
         user_id: target,
-        agent_id: app.rows[0].id,
-        slot_name: "target_only",
-        secret_ciphertext: "target-only-secret",
+        package_id: searchPackage.rows[0].id,
+        slot: "target_only",
+        value_ciphertext: "target-only-secret",
       },
     ]);
 
@@ -344,17 +331,18 @@ describe.skipIf(!enabled)("merge_accounts", () => {
 
   it("keeps both agent wallets under their names, and either account's pause", async () => {
     const { target, source } = await accounts("wallets");
-    const app = await db.query(
-      "insert into agents (name, display_name) values ('hoodit', 'Hoodit') returning id",
+    const agent = await db.query(
+      `insert into agents (publisher, name, display_name)
+       values ('aomi', 'hoodit', 'Hoodit') returning id`,
     );
-    const appId = app.rows[0].id;
+    const agentId = agent.rows[0].id;
     const wallet = async (user: string, createdAt: number) => {
       const created = await db.query(
         `insert into agent_wallets
            (user_id, name, para_subject, created_by_agent_id, created_at, updated_at)
          values ($1, 'Hoodit', $2, $3, $4, $4)
          returning id`,
-        [user, `p-${user}`, appId, createdAt],
+        [user, `p-${user}`, agentId, createdAt],
       );
       const id = created.rows[0].id;
       const key = await db.query(

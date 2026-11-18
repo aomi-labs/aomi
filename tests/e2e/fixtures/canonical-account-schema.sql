@@ -95,8 +95,10 @@ create unique index if not exists public_keys_primary_per_provider_uidx
 -- Only the columns wallet lists and the connections route read.
 create table if not exists agents (
   id bigserial primary key,
+  publisher text not null,
   name text not null,
-  display_name text not null
+  display_name text not null,
+  unique (publisher, name)
 );
 
 -- The wallet the user sees. No account has one by default.
