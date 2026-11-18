@@ -1,6 +1,6 @@
 "use client";
 import type { AomiPackage } from "@aomi-labs/client";
-import { createElement, type ReactNode } from "react";
+import { createElement, useState, type ReactNode } from "react";
 import {
   ExternalLink,
   KeyRound,
@@ -210,12 +210,22 @@ export function LibraryDetailPanel({
 }) {
   const asks = askLines(row.envelope);
   const notice = !row.verified && !row.enabled;
+  const [scrolled, setScrolled] = useState(false);
   return (
     <aside
       aria-label={`${row.display_name} details`}
       className="bg-aomi-raised border-aomi-border flex min-h-0 flex-1 flex-col md:border-l"
     >
-      <div className="min-h-0 flex-1 overflow-y-auto pt-5">
+      <div
+        className="min-h-0 flex-1 overflow-y-auto"
+        onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}
+      >
+        {/* Once scrolled, content passes under this band, clear of the
+            shell's close button (top 16px, 28px tall). */}
+        <div
+          aria-hidden
+          className={`bg-aomi-raised pointer-events-none sticky top-0 z-10 -mb-8 h-[52px] ${scrolled ? "border-aomi-border border-b" : "invisible"}`}
+        />
         <div className="px-5 pb-5 pt-1">
           <PackageIcon row={row} size="detail" />
           <h2 className="type-title mt-4">{row.display_name}</h2>
