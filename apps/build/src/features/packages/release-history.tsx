@@ -2,7 +2,16 @@ import { useState } from "react";
 
 import { LiveChanged, releaseLabel, type ReleaseKind } from "./client";
 import { usePromote, useReleases } from "./hooks";
-import { BUTTON, Card, Pill, Row, formatTime } from "./ui";
+import {
+  BUTTON,
+  Card,
+  Cell,
+  EmptyRow,
+  Mono,
+  Pill,
+  Row,
+  formatTime,
+} from "./ui";
 
 /**
  * A package's releases or an agent's configs, newest first. Promote makes a
@@ -24,13 +33,13 @@ export function ReleaseHistory({
   if (isPending)
     return (
       <Card title={title}>
-        <Row label="Loading…" />
+        <EmptyRow>Loading…</EmptyRow>
       </Card>
     );
   if (error)
     return (
       <Card title={title}>
-        <Row label={error.message} />
+        <EmptyRow>{error.message}</EmptyRow>
       </Card>
     );
 
@@ -55,7 +64,7 @@ export function ReleaseHistory({
       origin="build"
       footer={
         refusal ? (
-          <span role="alert" className="text-destructive">
+          <span role="alert" className="text-aomi-danger">
             {refusal}
           </span>
         ) : kind === "package" ? (
@@ -74,23 +83,30 @@ export function ReleaseHistory({
         data.releases.map((release) => (
           <Row
             key={release.number}
-            label={<span className="font-mono">{releaseLabel(release)}</span>}
+            label={<Mono>{releaseLabel(release)}</Mono>}
             hint={formatTime(release.created_at)}
           >
-            {release.number === data.live ? (
-              <Pill tone="good">Live</Pill>
-            ) : (
-              <button
-                type="button"
-                className={BUTTON}
-                disabled={promote.isPending}
-                onClick={() => run(release.number)}
-              >
-                {data.live != null && release.number < data.live
-                  ? "Roll back"
-                  : "Promote"}
-              </button>
-            )}
+            <Cell width={132}>
+              {release.number === data.live ? (
+                <Pill tone="success" dot>
+                  Live
+                </Pill>
+              ) : null}
+            </Cell>
+            <Cell width={96} end>
+              {release.number === data.live ? null : (
+                <button
+                  type="button"
+                  className={BUTTON}
+                  disabled={promote.isPending}
+                  onClick={() => run(release.number)}
+                >
+                  {data.live != null && release.number < data.live
+                    ? "Roll back"
+                    : "Promote"}
+                </button>
+              )}
+            </Cell>
           </Row>
         ))
       )}

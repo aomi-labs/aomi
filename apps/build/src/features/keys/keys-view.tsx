@@ -6,7 +6,17 @@ import {
   LoadingPanel,
 } from "@/features/deploy/components/deployments/ui/state-panels";
 import { createKey, fetchKeys, revokeKey } from "@/features/packages/client";
-import { BUTTON, Card, Pill, Row, formatTime } from "@/features/packages/ui";
+import { PageHeader, pageFrame } from "@/components/control-plane/page";
+import {
+  BUTTON,
+  Card,
+  Cell,
+  INPUT,
+  Mono,
+  Pill,
+  Row,
+  formatTime,
+} from "@/features/packages/ui";
 
 /** What a new builder key may do: publish and promote packages and agents, set package secrets. */
 const CAPABILITIES = [
@@ -32,14 +42,14 @@ function NewKey() {
         label="Copy this key now. It is not shown again."
         hint={create.data.label ?? undefined}
       >
-        <code className="select-all font-mono text-[12px]">
+        <code className="select-all font-mono text-[11.5px]">
           {create.data.key}
         </code>
       </Row>
     );
   return (
     <form
-      className="flex items-center gap-2 px-4 py-2.5"
+      className="flex flex-wrap items-center gap-2 px-3.5 py-3"
       onSubmit={(event) => {
         event.preventDefault();
         create.mutate();
@@ -48,7 +58,7 @@ function NewKey() {
       <input
         aria-label="Key name"
         placeholder="Key name, e.g. CI publish"
-        className="border-border bg-background h-7 min-w-0 flex-1 rounded-md border px-2 text-[12px]"
+        className={INPUT}
         value={label}
         onChange={(event) => setLabel(event.target.value)}
       />
@@ -56,7 +66,7 @@ function NewKey() {
         New builder key
       </button>
       {create.error ? (
-        <span role="alert" className="text-destructive text-[12px]">
+        <span role="alert" className="text-aomi-danger type-meta">
           {create.error.message}
         </span>
       ) : null}
@@ -78,33 +88,46 @@ export function KeysView() {
   if (isPending) return <LoadingPanel label="Loading keys…" />;
   if (error) return <ErrorPanel message={error.message} />;
   return (
-    <div className="mx-auto max-w-4xl space-y-4 p-6">
-      <div>
-        <h1 className="text-foreground text-xl font-semibold">Keys</h1>
-        <p className="text-dim text-[13px]">
-          Builder keys are for the CLI and CI. Secrets a package&apos;s tools
-          need are set on the package.
-        </p>
-      </div>
+    <div className={pageFrame}>
+      <PageHeader
+        title="Keys"
+        summary={
+          <p>
+            Builder keys are for the CLI and CI. Secrets a package&apos;s tools
+            need are set on the package.
+          </p>
+        }
+      />
       <Card
         title="Builder keys"
+        count={data.keys.length}
         footer="A key can do only what its capabilities allow. Keys are not tied to an agent."
       >
         {data.keys.map((key) => (
           <Row
             key={key.id}
             label={key.label ?? "Unnamed key"}
-            hint={`${key.prefix}… · ${
-              key.lastUsedAt
-                ? `last used ${formatTime(key.lastUsedAt)}`
-                : `created ${formatTime(key.createdAt)}`
-            } · ${key.capabilities.join(", ")}`}
-          >
-            {key.revokedAt ? (
-              <Pill>Revoked</Pill>
-            ) : (
+            hint={
               <>
-                <Pill tone="good">Active</Pill>
+                <Mono>{key.prefix}…</Mono> ·{" "}
+                {key.lastUsedAt
+                  ? `last used ${formatTime(key.lastUsedAt)}`
+                  : `created ${formatTime(key.createdAt)}`}{" "}
+                · {key.capabilities.join(", ")}
+              </>
+            }
+          >
+            <Cell width={132}>
+              {key.revokedAt ? (
+                <Pill>Revoked</Pill>
+              ) : (
+                <Pill tone="success" dot>
+                  Active
+                </Pill>
+              )}
+            </Cell>
+            <Cell width={96} end>
+              {key.revokedAt ? null : (
                 <button
                   type="button"
                   className={BUTTON}
@@ -113,8 +136,8 @@ export function KeysView() {
                 >
                   Revoke
                 </button>
-              </>
-            )}
+              )}
+            </Cell>
           </Row>
         ))}
         <NewKey />
