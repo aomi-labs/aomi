@@ -1,4 +1,9 @@
 import { cn } from "@aomi-labs/widget";
+import {
+  DEFAULT_SIDEBAR_PRODUCTS,
+  ProductSwitcher,
+  sidebarRowClass,
+} from "@aomi-labs/widget/host-composition";
 import { UrlLink as Link } from "@/components/url-link";
 import { useLocation } from "@tanstack/react-router";
 import {
@@ -9,12 +14,15 @@ import {
   Gauge,
   Github,
   Home,
+  House,
   Key,
   KeyRound,
   LogOut,
   Package,
   PanelLeft,
   Plug,
+  Plus,
+  Rocket,
   ScrollText,
   Search,
   Settings,
@@ -27,7 +35,6 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Aomi } from "@aomi-labs/client";
 
-import { AomiLogo } from "@/components/brand/aomi-logo";
 import { ColorThemeToggle } from "@/components/control-plane/color-theme-toggle";
 import { ControlPlaneLink } from "@/components/control-plane/control-plane-link";
 import {
@@ -59,6 +66,7 @@ type NavGroup = { title?: string; items: NavItem[] };
 const navGroups: NavGroup[] = [
   {
     items: [
+      { label: "Overview", href: "/", icon: House },
       { label: "Packages", href: "/packages", icon: Package, detail: true },
       { label: "Agents", href: "/agents", icon: Bot, detail: true },
       { label: "Create with AI", href: "/build", icon: Sparkles, public: true },
@@ -67,6 +75,7 @@ const navGroups: NavGroup[] = [
   {
     title: "Activity",
     items: [
+      { label: "Releases", href: "/releases", icon: Rocket },
       {
         label: "Transactions",
         href: "/operate/transactions",
@@ -95,12 +104,18 @@ const navGroups: NavGroup[] = [
 
 const navItems = navGroups.flatMap((group) => group.items);
 
+/** Pages reached from the sidebar's "New" button, not from a row. */
+const newItem: NavItem = { label: "New", href: "/new", icon: Plus };
+
 function isActivePath(pathname: string, href: string) {
+  if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function activeItem(pathname: string) {
-  return navItems.find((item) => isActivePath(pathname, item.href));
+  return [...navItems, newItem].find((item) =>
+    isActivePath(pathname, item.href),
+  );
 }
 
 function githubAvatarUrl(login: string | null, explicitUrl?: string | null) {
@@ -125,20 +140,20 @@ function Avatar({ account }: { account: GitHubAccountState }) {
         src={avatar}
         alt=""
         onError={() => setFailed(true)}
-        className="bg-aomi-surface-2 size-[30px] shrink-0 rounded-lg object-cover"
+        className="bg-aomi-surface-2 size-[30px] shrink-0 rounded-md object-cover"
       />
     );
   }
 
   return (
-    <span className="bg-aomi-surface-2 text-aomi-fg flex size-[30px] shrink-0 items-center justify-center rounded-lg">
+    <span className="bg-aomi-surface-2 text-aomi-fg flex size-[30px] shrink-0 items-center justify-center rounded-md">
       <Github className="size-4" aria-hidden />
     </span>
   );
 }
 
 const MENU_ITEM =
-  "text-aomi-fg hover:bg-aomi-hover flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] transition-colors disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-3.5 [&_svg]:text-aomi-muted";
+  "text-aomi-fg hover:bg-aomi-hover flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-3.5 [&_svg]:text-aomi-muted";
 
 /** The account card at the foot of the sidebar; it opens the account menu upward. */
 function AccountCard({
@@ -161,8 +176,9 @@ function AccountCard({
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [open]);
 
+  // The Portal's account chip (`dual-wallet-bar.tsx`).
   const card =
-    "border-aomi-border bg-aomi-raised text-aomi-fg flex min-h-12 w-full items-center gap-2.5 rounded-xl border p-2 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)]";
+    "border-aomi-border bg-aomi-raised text-aomi-fg hover:border-aomi-muted/60 flex min-h-12 w-full items-center gap-2.5 rounded-[12px] border p-2 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors";
 
   if (!account.loading && !account.signedIn) {
     return (
@@ -269,13 +285,26 @@ function Sidebar({
   return (
     <>
       <div className="mb-3 ml-4 mr-2 mt-4 flex items-center justify-between">
-        <AomiLogo onClick={onNavigate} />
+        <ProductSwitcher
+          products={DEFAULT_SIDEBAR_PRODUCTS}
+          currentProductId="build"
+        />
         {closeButton}
       </div>
       <nav
         aria-label="Build"
         className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2"
       >
+        {signedIn ? (
+          <ControlPlaneLink
+            href={newItem.href}
+            onClick={onNavigate}
+            className="border-aomi-border bg-aomi-raised hover:border-aomi-muted/60 mb-2.5 flex items-center gap-2 rounded-[12px] border px-3 py-[9px] text-sm font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors"
+          >
+            <Plus className="size-4" />
+            New
+          </ControlPlaneLink>
+        ) : null}
         {navGroups.map((group, index) => {
           const items = group.items.filter((item) => signedIn || item.public);
           if (items.length === 0) return null;
@@ -295,9 +324,12 @@ function Sidebar({
                     href={item.href}
                     warmOnIntent={!active}
                     onClick={onNavigate}
-                    data-active={active ? "true" : "false"}
+                    data-active={active ? "" : undefined}
                     aria-current={active ? "page" : undefined}
-                    className="nav-link"
+                    className={cn(
+                      sidebarRowClass,
+                      "text-aomi-muted hover:text-aomi-fg data-active:text-aomi-fg data-active:font-medium flex items-center gap-2.5 px-3 py-2 text-sm",
+                    )}
                   >
                     <Icon className="size-4 shrink-0" />
                     <span className="min-w-0 flex-1 truncate">

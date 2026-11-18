@@ -1,17 +1,9 @@
+import { aomiButton, StatusPill } from "@aomi-labs/widget/host-composition";
 import { useState } from "react";
 
 import { LiveChanged, releaseLabel, type ReleaseKind } from "./client";
 import { usePromote, useReleases } from "./hooks";
-import {
-  BUTTON,
-  Card,
-  Cell,
-  EmptyRow,
-  Mono,
-  Pill,
-  Row,
-  formatTime,
-} from "./ui";
+import { Card, Cell, EmptyRow, Mono, Row, formatTime } from "./ui";
 
 /**
  * A package's releases or an agent's configs, newest first. Promote makes a
@@ -88,16 +80,16 @@ export function ReleaseHistory({
           >
             <Cell width={132}>
               {release.number === data.live ? (
-                <Pill tone="success" dot>
+                <StatusPill tone="success" dot>
                   Live
-                </Pill>
+                </StatusPill>
               ) : null}
             </Cell>
             <Cell width={96} end>
               {release.number === data.live ? null : (
                 <button
                   type="button"
-                  className={BUTTON}
+                  className={aomiButton({ size: "sm" })}
                   disabled={promote.isPending}
                   onClick={() => run(release.number)}
                 >

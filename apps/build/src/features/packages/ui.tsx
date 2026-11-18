@@ -1,50 +1,11 @@
 import type { ReactNode } from "react";
 import { cn } from "@aomi-labs/widget";
+import { ListGroup, SectionHeader } from "@aomi-labs/widget/host-composition";
 import { Github, Info } from "lucide-react";
-
-/** The kit's small secondary button (h28, r8, 12px). */
-export const BUTTON =
-  "border-aomi-border bg-aomi-raised text-aomi-fg hover:border-aomi-muted/60 inline-flex h-7 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[8px] border px-2.5 text-[12px] font-medium leading-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors disabled:pointer-events-none disabled:opacity-50";
 
 /** The kit's text input (h36, r10, 14px). */
 export const INPUT =
   "border-aomi-border bg-aomi-raised text-aomi-fg rounded-control h-9 min-w-0 flex-1 border px-3 text-[14px]";
-
-export type Tone = "neutral" | "accent" | "success" | "warning" | "danger";
-
-const TONE: Record<Tone, string> = {
-  neutral: "bg-aomi-surface-2 text-aomi-muted",
-  accent: "bg-aomi-accent-subtle text-aomi-accent-strong",
-  success: "bg-aomi-success/12 text-aomi-success",
-  warning:
-    "bg-aomi-warning/15 text-[color-mix(in_srgb,var(--aomi-warning)_62%,var(--aomi-fg))]",
-  danger: "bg-aomi-danger/10 text-aomi-danger",
-};
-
-/** A status pill: h20, 11px, with an optional dot. */
-export function Pill({
-  children,
-  tone = "neutral",
-  dot = false,
-}: {
-  children: ReactNode;
-  tone?: Tone;
-  dot?: boolean;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex h-5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[11px] font-medium leading-none",
-        TONE[tone],
-      )}
-    >
-      {dot ? (
-        <span aria-hidden className="size-1.5 rounded-full bg-current" />
-      ) : null}
-      {children}
-    </span>
-  );
-}
 
 /**
  * A fixed-width trailing cell, so the cells of one list line up as columns.
@@ -78,42 +39,40 @@ export function Mono({ children }: { children: ReactNode }) {
 }
 
 /**
- * A section: header (title, count, and where its values come from), a list
- * group of rows, and an optional note under it.
+ * A section: header (title, count, and where its values come from or an
+ * action), a list group of rows, and an optional note under it.
  */
 export function Card({
   title,
   count,
   origin,
+  action,
   children,
   footer,
 }: {
   title: string;
   count?: number;
   origin?: "repo" | "build";
+  action?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
 }) {
   return (
     <section className="flex flex-col gap-2">
-      <div className="flex min-h-7 items-center justify-between gap-3 px-0.5">
-        <h2 className="type-section">
-          {title}
-          {count !== undefined ? (
-            <span className="text-aomi-muted ml-1 font-normal tabular-nums">
-              {count}
+      <SectionHeader
+        as="h2"
+        title={title}
+        count={count}
+        action={
+          action ??
+          (origin ? (
+            <span className="type-meta text-aomi-muted">
+              {origin === "repo" ? "From the repo" : "Set in Build"}
             </span>
-          ) : null}
-        </h2>
-        {origin ? (
-          <span className="type-meta text-aomi-muted">
-            {origin === "repo" ? "From the repo" : "Set in Build"}
-          </span>
-        ) : null}
-      </div>
-      <div className="border-aomi-border bg-aomi-raised rounded-card divide-aomi-border divide-y overflow-hidden border">
-        {children}
-      </div>
+          ) : null)
+        }
+      />
+      <ListGroup>{children}</ListGroup>
       {footer ? (
         <p className="type-meta text-aomi-muted px-0.5">{footer}</p>
       ) : null}
@@ -275,6 +234,10 @@ export function Notice({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+/** `1 tool`, `2 tools`. */
+export const plural = (count: number, noun: string) =>
+  `${count} ${noun}${count === 1 ? "" : "s"}`;
 
 export function formatTime(value: string | number): string {
   const date =

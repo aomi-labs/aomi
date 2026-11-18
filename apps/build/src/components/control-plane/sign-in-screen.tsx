@@ -1,6 +1,7 @@
 import { Github } from "lucide-react";
 
-import { AomiLogo, AomiMark } from "@/components/brand/aomi-logo";
+import { AomiMark } from "@aomi-labs/widget/host-composition";
+import { BuildLogo } from "@/components/brand/build-logo";
 import { DevSignIn } from "@/components/dev-sign-in";
 import { githubSigninUrl } from "@/features/deploy/client";
 
@@ -9,7 +10,7 @@ export function SignInScreen() {
   return (
     <div className="bg-aomi-bg text-aomi-fg flex min-h-screen flex-col">
       <div className="flex px-5 py-4">
-        <AomiLogo />
+        <BuildLogo />
       </div>
       <main className="flex flex-1 flex-col items-center justify-center gap-6 p-6">
         <AomiMark className="size-11" />

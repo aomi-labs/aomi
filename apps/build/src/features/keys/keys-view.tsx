@@ -1,3 +1,4 @@
+import { aomiButton, StatusPill } from "@aomi-labs/widget/host-composition";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -7,16 +8,7 @@ import {
 } from "@/features/deploy/components/deployments/ui/state-panels";
 import { createKey, fetchKeys, revokeKey } from "@/features/packages/client";
 import { PageHeader, pageFrame } from "@/components/control-plane/page";
-import {
-  BUTTON,
-  Card,
-  Cell,
-  INPUT,
-  Mono,
-  Pill,
-  Row,
-  formatTime,
-} from "@/features/packages/ui";
+import { Card, Cell, INPUT, Mono, Row, formatTime } from "@/features/packages/ui";
 
 /** What a new builder key may do: publish and promote packages and agents, set package secrets. */
 const CAPABILITIES = [
@@ -62,7 +54,7 @@ function NewKey() {
         value={label}
         onChange={(event) => setLabel(event.target.value)}
       />
-      <button type="submit" className={BUTTON} disabled={create.isPending}>
+      <button type="submit" className={aomiButton({ size: "sm" })} disabled={create.isPending}>
         New builder key
       </button>
       {create.error ? (
@@ -119,18 +111,18 @@ export function KeysView() {
           >
             <Cell width={132}>
               {key.revokedAt ? (
-                <Pill>Revoked</Pill>
+                <StatusPill>Revoked</StatusPill>
               ) : (
-                <Pill tone="success" dot>
+                <StatusPill tone="success" dot>
                   Active
-                </Pill>
+                </StatusPill>
               )}
             </Cell>
             <Cell width={96} end>
               {key.revokedAt ? null : (
                 <button
                   type="button"
-                  className={BUTTON}
+                  className={aomiButton({ size: "sm" })}
                   disabled={revoke.isPending}
                   onClick={() => revoke.mutate(key.id)}
                 >

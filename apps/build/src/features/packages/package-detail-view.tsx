@@ -1,3 +1,4 @@
+import { aomiButton, StatusPill, type StatusTone } from "@aomi-labs/widget/host-composition";
 import { useState } from "react";
 
 import { PageHeader, pageFrame } from "@/components/control-plane/page";
@@ -10,26 +11,11 @@ import {
 import { releaseLabel, type Package } from "./client";
 import { usePackage, useSecret } from "./hooks";
 import { ReleaseHistory } from "./release-history";
-import {
-  BUTTON,
-  Card,
-  EmptyRow,
-  Cell,
-  Columns,
-  Field,
-  INPUT,
-  Mono,
-  Notice,
-  Pill,
-  Row,
-  SourceStrip,
-  formatTime,
-  type Tone,
-} from "./ui";
+import { Card, EmptyRow, Cell, Columns, Field, INPUT, Mono, Notice, Row, SourceStrip, formatTime } from "./ui";
 
 type Slot = Package["slots"][number];
 
-const SLOT_STATUS: Record<Slot["status"], { label: string; tone: Tone }> = {
+const SLOT_STATUS: Record<Slot["status"], { label: string; tone: StatusTone }> = {
   set: { label: "Set", tone: "success" },
   missing: { label: "Missing", tone: "warning" },
   users_add_their_own: { label: "Users add their own", tone: "neutral" },
@@ -60,13 +46,13 @@ function SecretRow({ name, slot }: { name: string; slot: Slot }) {
           </span>
         </Cell>
         <Cell width={132}>
-          <Pill tone={status.tone}>{status.label}</Pill>
+          <StatusPill tone={status.tone}>{status.label}</StatusPill>
         </Cell>
         <Cell width={96} end>
           {builder && value == null ? (
             <button
               type="button"
-              className={BUTTON}
+              className={aomiButton({ size: "sm" })}
               onClick={() => setValue("")}
             >
               {slot.status === "set" ? "Replace" : "Add value"}
@@ -92,14 +78,14 @@ function SecretRow({ name, slot }: { name: string; slot: Slot }) {
           />
           <button
             type="submit"
-            className={BUTTON}
+            className={aomiButton({ size: "sm" })}
             disabled={secret.isPending || !value.trim()}
           >
             Save
           </button>
           <button
             type="button"
-            className={BUTTON}
+            className={aomiButton({ size: "sm" })}
             onClick={() => setValue(null)}
           >
             Cancel
@@ -127,13 +113,13 @@ export function PackageDetailView({ name }: { name: string }) {
         badges={
           <>
             {live ? (
-              <Pill tone="success" dot>
+              <StatusPill tone="success" dot>
                 Live
-              </Pill>
+              </StatusPill>
             ) : (
-              <Pill>No release live</Pill>
+              <StatusPill>No release live</StatusPill>
             )}
-            {data.verified ? <Pill tone="accent">Verified</Pill> : null}
+            {data.verified ? <StatusPill tone="accent">Verified</StatusPill> : null}
           </>
         }
         summary={
@@ -266,7 +252,7 @@ export function PackageDetailView({ name }: { name: string }) {
               </Field>
               {data.package.active ? null : (
                 <Field label="State">
-                  <Pill tone="warning">Off</Pill>
+                  <StatusPill tone="warning">Off</StatusPill>
                 </Field>
               )}
             </Card>

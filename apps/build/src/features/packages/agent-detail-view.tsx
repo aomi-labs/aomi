@@ -1,3 +1,4 @@
+import { StatusPill } from "@aomi-labs/widget/host-composition";
 import { UrlLink as Link } from "@/components/url-link";
 import { PageHeader, pageFrame } from "@/components/control-plane/page";
 import {
@@ -9,20 +10,7 @@ import { releaseLabel, shortName, type Agent } from "./client";
 import { useAgent, usePublisher } from "./hooks";
 import { agentStatus } from "./inventory-view";
 import { ReleaseHistory } from "./release-history";
-import {
-  Card,
-  EmptyRow,
-  Cell,
-  Columns,
-  Field,
-  Mono,
-  Notice,
-  Pill,
-  Row,
-  SourceStrip,
-  Tile,
-  formatTime,
-} from "./ui";
+import { Card, EmptyRow, Cell, Columns, Field, Mono, Notice, Row, SourceStrip, Tile, formatTime } from "./ui";
 
 type Config = NonNullable<Agent["live"]>["config"];
 
@@ -190,9 +178,9 @@ export function AgentDetailView({ name }: { name: string }) {
           </span>
         }
         badges={
-          <Pill tone={status.tone} dot={status.tone === "success"}>
+          <StatusPill tone={status.tone} dot={status.tone === "success"}>
             {status.label}
-          </Pill>
+          </StatusPill>
         }
         summary={
           live ? (
@@ -234,12 +222,12 @@ export function AgentDetailView({ name }: { name: string }) {
                     hint={`${CHANNEL_KIND[channel.kind] ?? channel.kind} · talks to ${data.agent.display_name}`}
                   >
                     <Cell width={132}>
-                      <Pill
+                      <StatusPill
                         tone={channel.live ? "success" : "neutral"}
                         dot={channel.live}
                       >
                         {channel.live ? "Active" : "Off"}
-                      </Pill>
+                      </StatusPill>
                     </Cell>
                   </Row>
                 ))
