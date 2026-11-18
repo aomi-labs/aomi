@@ -65,7 +65,7 @@ function matches(route: BuildRoute, pathname: string): boolean {
 }
 
 export function passThrough(request: Request, ctx: BuildContext): Promise<Response> {
-  return passThroughTo(request, ctx.upstreamOrigin, ctx.fetchImpl, "build");
+  return passThroughTo(request, ctx.upstreamOrigin, ctx.fetchImpl, "build", ctx.env.BUILD_PAGES);
 }
 
 async function run(operation: string, handle: Handler, request: Request, ctx: BuildContext): Promise<Response> {

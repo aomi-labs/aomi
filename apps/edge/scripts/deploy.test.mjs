@@ -15,6 +15,15 @@ const staging = {
 };
 
 describe("edge deploy script", () => {
+  it("binds the private Build and Portal Workers together", () => {
+    const source = readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
+    const bound = deployConfig(source, "", "aomi-portal-staging", "aomi-build-staging");
+    expect(ts.parseConfigFileTextToJson("wrangler.jsonc", bound).config.services).toEqual([
+      { binding: "PORTAL_PAGES", service: "aomi-portal-staging" },
+      { binding: "BUILD_PAGES", service: "aomi-build-staging" },
+    ]);
+  });
+
   it("binds the Portal page Worker without changing unrelated bindings", () => {
     const source = readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
     const id = "9b2f30980123456789abcdef01234567";

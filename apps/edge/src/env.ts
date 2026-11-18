@@ -93,6 +93,7 @@ export interface EdgeEnv {
 
   // Build surface: the edge is routed on these hosts' /api/* and /v1/* paths.
   /** Comma-separated public Build hosts (for example build.aomi.dev). */
+  BUILD_PAGES?: { fetch(request: Request): Promise<Response> };
   BUILD_HOSTS?: string;
   /** Where the Vercel Build app is reached from the edge (its *.vercel.app alias). */
   BUILD_UPSTREAM_ORIGIN?: string;
