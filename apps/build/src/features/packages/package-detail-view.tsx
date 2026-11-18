@@ -1,6 +1,7 @@
 import {
   aomiButton,
   SectionHeader,
+  PackageMark,
   StatusPill,
   type StatusTone,
 } from "@aomi-labs/widget/host-composition";
@@ -21,9 +22,9 @@ import {
 
 import { releaseLabel, shortName, type Package } from "./client";
 import { usePackage, useSecret } from "./hooks";
+import { IconCard } from "./icon-card";
 import { ReleaseHistory } from "./release-history";
 import {
-  PackageMark,
   Card,
   Cell,
   Columns,
@@ -294,7 +295,7 @@ export function PackageDetailView({ name }: { name: string }) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3.5">
           <span className="bg-aomi-accent-subtle text-aomi-accent-strong flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-[12px]">
-            <PackageMark id={data.package.id} className="size-5" />
+            <PackageMark iconUrl={data.package.icon_url} className="size-5" />
           </span>
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -384,6 +385,7 @@ export function PackageDetailView({ name }: { name: string }) {
                   <Notice>One file runs on every host. Built for the sandbox.</Notice>
                 </>
               ) : null}
+              <IconCard iconUrl={data.package.icon_url} />
               <section className="flex flex-col gap-2">
                 <SectionHeader as="h2" title="Access" />
                 <div className="border-aomi-border bg-aomi-raised rounded-card flex flex-col items-start gap-2 border px-3.5 py-3 text-[13px]">

@@ -71,6 +71,8 @@ export type Publisher = {
   packages: {
     id: string;
     display_name: string;
+    /** The live release's icon route, or null when it sets no `[package] icon`. */
+    icon_url: string | null;
     live_release: number | null;
     verified: boolean;
     listed: boolean;
@@ -127,7 +129,14 @@ export type SecretSlot = {
 };
 
 export type Package = {
-  package: { id: string; display_name: string; description: string; listed: boolean; active: boolean };
+  package: {
+    id: string;
+    display_name: string;
+    description: string;
+    icon_url: string | null;
+    listed: boolean;
+    active: boolean;
+  };
   live:
     | (Source & {
         release: number;

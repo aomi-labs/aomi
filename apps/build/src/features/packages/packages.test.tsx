@@ -150,3 +150,37 @@ it("replaces a builder secret through the package's secret route, never showing 
   expect(JSON.parse(String(put[1]!.body))).toEqual({ value: "new-secret" });
   expect(screen.queryByDisplayValue("new-secret")).not.toBeInTheDocument();
 });
+
+it("draws the package's icon as the Library does and checks an SVG before it is committed", async () => {
+  renderWithQueries(<PackageDetailView name="trade" />);
+  await screen.findByRole("heading", { name: "trade" });
+  const marks = document.querySelectorAll<HTMLElement>("[data-package-icon]");
+  expect([...marks].map((mark) => mark.dataset.packageIcon)).toEqual([
+    "/api/packages/arixoneth%2Ftrade/icon",
+    "/api/packages/arixoneth%2Ftrade/icon",
+  ]);
+  expect(document.querySelector("img")).toBeNull();
+
+  const input = screen.getByLabelText("SVG icon");
+  // jsdom's File has no arrayBuffer().
+  const file = (text: string) =>
+    Object.assign(new File([text], "logo.svg"), {
+      arrayBuffer: async () => new TextEncoder().encode(text).buffer,
+    });
+  const red = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="red"/></svg>';
+  fireEvent.change(input, { target: { files: [file(red)] } });
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "logo.svg: the colour fill: red is not allowed; use currentColor or none",
+  );
+
+  const createObjectURL = vi.fn(() => "blob:icon");
+  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }));
+  const good = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor"/></svg>';
+  fireEvent.change(input, { target: { files: [file(good)] } });
+  expect(await screen.findByText(/logo\.svg passes/)).toBeInTheDocument();
+  expect(
+    [...document.querySelectorAll<HTMLElement>("[data-package-icon]")].map(
+      (mark) => mark.dataset.packageIcon,
+    ),
+  ).toContain("blob:icon");
+});

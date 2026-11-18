@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@aomi-labs/widget";
 import { ListGroup, SectionHeader } from "@aomi-labs/widget/host-composition";
-import { Github, Info, Package as PackageIcon } from "lucide-react";
+import { Github, Info } from "lucide-react";
 
 /** The kit's text input (h36, r10, 14px). */
 export const INPUT =
@@ -157,21 +157,6 @@ export function Tile({
     >
       {children}
     </span>
-  );
-}
-
-/** A package's own icon, as the Library serves it, or a cube when it has none. */
-export function PackageMark({ id, className }: { id: string; className?: string }) {
-  const [failed, setFailed] = useState(false);
-  return failed ? (
-    <PackageIcon className={className} aria-hidden />
-  ) : (
-    <img
-      src={`/api/packages/${encodeURIComponent(id)}/icon`}
-      alt=""
-      onError={() => setFailed(true)}
-      className="size-full rounded-[inherit] object-cover"
-    />
   );
 }
 

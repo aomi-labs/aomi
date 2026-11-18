@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Aomi } from "@aomi-labs/client";
 import { Plus } from "lucide-react";
-import { aomiButton, StatusPill } from "@aomi-labs/widget/host-composition";
+import { aomiButton, PackageMark, StatusPill } from "@aomi-labs/widget/host-composition";
 
 import { UrlLink as Link } from "@/components/url-link";
 import { PageHeader, pageFrame } from "@/components/control-plane/page";
@@ -15,7 +15,7 @@ import { operateFetch } from "@/features/operate/client";
 import { shortName } from "./client";
 import { useAgents, usePublisher } from "./hooks";
 import { channelLabel } from "./inventory-view";
-import { Card, Cell, EmptyRow, PackageMark, Row, Tile } from "./ui";
+import { Card, Cell, EmptyRow, Row, Tile } from "./ui";
 
 const PERIODS = ["7 days", "30 days", "This month"] as const;
 type Period = (typeof PERIODS)[number];
@@ -198,7 +198,7 @@ export function UsageView() {
               key={pkg.id}
               leading={
                 <Tile>
-                  <PackageMark id={pkg.id} />
+                  <PackageMark iconUrl={pkg.icon_url} className="size-4" />
                 </Tile>
               }
               label={

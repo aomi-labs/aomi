@@ -28,6 +28,7 @@ export const publisherFixture: Publisher = {
     {
       id: "arixoneth/trade",
       display_name: "Trade",
+      icon_url: "/api/packages/arixoneth%2Ftrade/icon",
       live_release: 5,
       verified: false,
       listed: true,
@@ -36,6 +37,7 @@ export const publisherFixture: Publisher = {
     {
       id: "arixoneth/token-notes",
       display_name: "Token notes",
+      icon_url: null,
       live_release: null,
       verified: false,
       listed: false,
@@ -107,6 +109,7 @@ export const packageFixture: Package = {
     id: "arixoneth/trade",
     display_name: "Trade",
     description: "Buy and sell tokens on Robinhood Chain.",
+    icon_url: "/api/packages/arixoneth%2Ftrade/icon",
     listed: true,
     active: true,
   },

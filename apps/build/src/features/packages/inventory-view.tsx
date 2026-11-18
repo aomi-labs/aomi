@@ -1,6 +1,7 @@
 import {
   aomiButton,
   ListGroup,
+  PackageMark,
   StatusPill,
   type StatusTone,
 } from "@aomi-labs/widget/host-composition";
@@ -26,7 +27,6 @@ import {
 import { shortName, type Agent, type Publisher } from "./client";
 import { useAgents, usePackages, usePublisher } from "./hooks";
 import {
-  PackageMark,
   Card,
   Cell,
   EmptyRow,
@@ -372,7 +372,7 @@ function PackageList({ publisher }: { publisher: Publisher }) {
                   key={pkg.id}
                   leading={
                     <Tile>
-                      <PackageMark id={pkg.id} />
+                      <PackageMark iconUrl={pkg.icon_url} className="size-4" />
                     </Tile>
                   }
                   label={
