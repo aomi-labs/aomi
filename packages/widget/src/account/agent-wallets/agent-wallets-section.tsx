@@ -162,7 +162,7 @@ export function AgentWalletsSection({
         detail={
           data.pause_all
             ? "Hosted by Aomi · all paused, nothing signs"
-            : "Hosted by Aomi · each connection has a lane on it"
+            : "Hosted by Aomi · each connection has an ask mode on it"
         }
         action={
           // An account paused as a whole can still resume.

@@ -89,8 +89,8 @@ const trading = wallet("g-trading", "Trading", {
     { family: "svm", address: SVM, wallet_id: "w_13" },
   ],
   connections: [
-    { key: "oauth:c1", label: "Claude Code", lane: "ask_aomi" },
-    { key: "portal", label: "Aomi", lane: "instant" },
+    { key: "oauth:c1", label: "Claude Code", ask_mode: "ask_aomi" },
+    { key: "portal", label: "Aomi", ask_mode: "instant" },
   ],
 });
 const world = wallet("g-world", "World", {
@@ -119,13 +119,23 @@ const connection = (key: string, kind: string, name: string, extra = {}) => ({
 const connections = [
   connection("portal", "portal", "Aomi", {
     wallets: [
-      { id: "g-trading", name: "Trading", lane: "instant", archived: false },
+      {
+        id: "g-trading",
+        name: "Trading",
+        ask_mode: "instant",
+        archived: false,
+      },
     ],
   }),
   connection("oauth:c1", "ai", "Claude Code", {
     detail: "AI client",
     wallets: [
-      { id: "g-trading", name: "Trading", lane: "ask_aomi", archived: false },
+      {
+        id: "g-trading",
+        name: "Trading",
+        ask_mode: "ask_aomi",
+        archived: false,
+      },
     ],
   }),
 ];
@@ -248,7 +258,9 @@ describe("Agent wallets band", () => {
   it("shows the three most recent without app labels, the EVM/SVM rows under the active one, then Show all and Archived", async () => {
     await renderSection();
     expect(
-      screen.getByText("Hosted by Aomi · each connection has a lane on it"),
+      screen.getByText(
+        "Hosted by Aomi · each connection has an ask mode on it",
+      ),
     ).toBeInTheDocument();
     const shown = Array.from(
       document.querySelectorAll("[data-agent-wallet]"),
@@ -446,7 +458,7 @@ describe("Agent wallets band", () => {
     );
   });
 
-  it("shows a wallet's rules between its lanes and its actions, and hides them once archived", async () => {
+  it("shows a wallet's rules between its ask modes and its actions, and hides them once archived", async () => {
     respond = (_method, path) =>
       path.endsWith("/rules") ? Response.json(walletRules()) : undefined;
     await renderSection();
@@ -524,7 +536,7 @@ describe("Agent wallets band", () => {
       {
         method: "PUT",
         path: "/v1/account/connections/oauth%3Ac1/wallets",
-        body: { wallets: [{ id: "g-trading", lane: "instant" }] },
+        body: { wallets: [{ id: "g-trading", ask_mode: "instant" }] },
       },
       {
         method: "POST",
@@ -538,15 +550,15 @@ describe("Agent wallets band", () => {
   it("manages a wallet: who can use it, actions, and Receive with QR, the address and its networks", async () => {
     await renderSection();
     const sheet = await manage("Trading");
-    // Who can use it, each with its lane on this wallet; the portal is not
+    // Who can use it, each with its ask mode on this wallet; the portal is not
     // listed.
     expect(within(sheet).getByText("Who can use it")).toBeInTheDocument();
     expect(await within(sheet).findByText("Claude Code")).toBeInTheDocument();
-    const lane = within(sheet).getByRole("combobox", {
+    const askMode = within(sheet).getByRole("combobox", {
       name: "Trading: Ask on Aomi",
     });
     expect(within(sheet).queryByText("Aomi")).toBeNull();
-    fireEvent.click(lane);
+    fireEvent.click(askMode);
     await act(async () =>
       fireEvent.click(
         screen.getByRole("button", { name: /^Ask in Claude Code/ }),
@@ -555,7 +567,7 @@ describe("Agent wallets band", () => {
     expect(writes().at(-1)).toEqual({
       method: "PUT",
       path: "/v1/account/connections/oauth%3Ac1/wallets",
-      body: { wallets: [{ id: "g-trading", lane: "ask_client" }] },
+      body: { wallets: [{ id: "g-trading", ask_mode: "ask_client" }] },
     });
     // Send, Rename and a Pause switch, then Archive alone at the bottom; no
     // Limits while the deployment has Swig off.

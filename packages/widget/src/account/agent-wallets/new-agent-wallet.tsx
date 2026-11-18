@@ -117,8 +117,8 @@ export function NewAgentWalletStep({
         </p>
         <p className="type-meta text-aomi-muted flex items-start gap-2">
           <Plug className="mt-px size-3.5 shrink-0" />
-          Every connection sees it and trades from it in its lane; set lanes in
-          Connections.
+          Every connection sees it and trades from it in its ask mode; set ask
+          modes in Connections.
         </p>
         {error ? <SheetAlert>{error}</SheetAlert> : null}
         {busy ? (

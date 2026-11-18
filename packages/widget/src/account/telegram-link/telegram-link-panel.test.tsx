@@ -183,7 +183,7 @@ describe("TelegramLinkPanel", () => {
     expect(screen.queryByText(/will be cancelled/)).toBeNull();
   });
 
-  it("links on confirm, saves the bot's lanes and sends you back to the bot", async () => {
+  it("links on confirm, saves the bot's ask modes and sends you back to the bot", async () => {
     const calls = await renderPanel({
       preview: () => Response.json(preview),
       confirm: () => Response.json(linked),
@@ -208,7 +208,7 @@ describe("TelegramLinkPanel", () => {
     });
     expect(calls.at(-1)).toEqual({
       path: "/v1/account/connections/telegram%3A7712345678/wallets",
-      body: { wallets: [{ id: "g-trading", lane: "instant" }] },
+      body: { wallets: [{ id: "g-trading", ask_mode: "instant" }] },
     });
     expect(screen.getByRole("heading", { name: "Linked" })).toBeTruthy();
     expect(screen.getByText("@HooditBot now uses this account.")).toBeTruthy();

@@ -328,7 +328,7 @@ describe("portal surface: widget sessions", () => {
     expect(response.headers.get("access-control-allow-credentials")).toBeNull();
     expect(response.headers.get("vary")).toContain("Origin");
     const { payload } = await upstreamBearer(seen[0]);
-    // A widget-started chat is the widget's, never the portal's (its lane may be Instant).
+    // A widget-started chat is the widget's, never the portal's (its ask mode may be Instant).
     expect(payload).toMatchObject({ sub: "acct-widget", auth_source: "widget", scope: "agent:write" });
     expect(seen[0].body).toBe('{"message":"hi"}');
   });
@@ -1053,7 +1053,7 @@ describe("portal surface: the backend bearer says who is calling", () => {
   });
 });
 
-describe("portal surface: wallets, agent wallets and connection lanes", () => {
+describe("portal surface: wallets, agent wallets and connection ask modes", () => {
   const READS = ["/v1/account/wallets", "/v1/account/agent-wallets", "/v1/account/agent-wallets/g-1/balances"];
   const WRITES = [
     ["POST", "/v1/account/agent-wallets"],

@@ -39,7 +39,7 @@ function serviceOrigin(ctx: PortalContext, service: "agent" | "payment"): string
   return origin;
 }
 
-/** How the caller signed in, as the backend records it: thread origin, approval lane, portal-only writes. */
+/** How the caller signed in, as the backend records it: thread origin, ask mode, portal-only writes. */
 export function authSource(principal: Exclude<Principal, { kind: "none" }>): "session" | "cli_session" | "widget" | "oauth" {
   switch (principal.kind) {
     case "cookie":
@@ -57,7 +57,7 @@ export function authSource(principal: Exclude<Principal, { kind: "none" }>): "se
  * Who the caller is, for a first-party backend bearer: how it signed in, its
  * class and, for an OAuth client, which one. No `scope`: the backend reads a
  * scope-less `aomi-edge` user bearer with an `auth_source` as a first-party
- * session, and an OAuth caller by its client id (an approval lane is per client).
+ * session, and an OAuth caller by its client id (an ask mode is per client).
  */
 export function callerClaims(principal: Exclude<Principal, { kind: "none" }>) {
   return {

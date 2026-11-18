@@ -544,7 +544,7 @@ export type {
   AomiConnectionSettingsUpdate,
   AomiConnectionWallet,
   AomiConnectionWalletsUpdate,
-  AomiLane,
+  AomiAskMode,
 } from "./account/connections";
 export { LinkError, isLinkCode } from "./account/account-link";
 export type {

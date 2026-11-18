@@ -1,7 +1,7 @@
 "use client";
 
 import { ConsentWallets } from "@/account/connections/consent-wallets";
-import { useConsentLanes } from "@/account/connections/consent-wallets-loader";
+import { useConsentAskModes } from "@/account/connections/consent-wallets-loader";
 import {
   useCallback,
   useEffect,
@@ -151,8 +151,8 @@ export function TelegramLinkPanel({
       : { step: "error", failure: { message: INVALID } },
   );
   const [slow, setSlow] = useState(false);
-  // The bot's lanes on this account's wallets, written once the link lands.
-  const lanes = useConsentLanes(client);
+  // The bot's ask modes on this account's wallets, written once the link lands.
+  const askModes = useConsentAskModes(client);
   const [cancelling, setCancelling] = useState(false);
   const mounted = useRef(true);
   useEffect(() => {
@@ -197,7 +197,7 @@ export function TelegramLinkPanel({
     try {
       const result = await client.account.link.confirmLink("telegram", code);
       const bot = preview.identity.linked_from;
-      if (bot) await lanes.save(`telegram:${bot.bot_id}`);
+      if (bot) await askModes.save(`telegram:${bot.bot_id}`);
       if (mounted.current) setState({ step: "linked", result, preview });
     } catch (error) {
       if (mounted.current)
@@ -303,7 +303,7 @@ export function TelegramLinkPanel({
                 client={client}
                 connectionKey={`telegram:${state.preview.identity.linked_from.bot_id}`}
                 name={state.preview.identity.linked_from.label}
-                onChange={lanes.onChange}
+                onChange={askModes.onChange}
               />
             ) : null}
             <div className="flex w-full flex-col gap-2">
@@ -318,7 +318,7 @@ export function TelegramLinkPanel({
                   disabled={
                     cancelling ||
                     (Boolean(state.preview.identity.linked_from) &&
-                      !lanes.ready)
+                      !askModes.ready)
                   }
                   onClick={() => void confirm(state.preview)}
                 >

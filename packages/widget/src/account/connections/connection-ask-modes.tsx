@@ -4,7 +4,7 @@ import { useContext } from "react";
 import { ArrowRight } from "lucide-react";
 import type {
   AomiAccountConnection,
-  AomiLane,
+  AomiAskMode,
   AomiWalletRules,
 } from "@aomi-labs/client";
 import { useDisplayQuery } from "@aomi-labs/react";
@@ -18,8 +18,8 @@ import { ConnectionMark } from "./connection-mark";
 import { connectionTitle, KIND_LABEL } from "./connections-settings";
 import { useAccessWrite } from "./use-access-write";
 import {
-  FixedLane,
-  LaneSelect,
+  FixedAskMode,
+  AskModeSelect,
   PAGE_SIZE,
   Pager,
   usePage,
@@ -36,19 +36,19 @@ const connectionLine = (connection: AomiAccountConnection) => {
 
 /**
  * A wallet's "Who can use it": every connection, three a page, each with its
- * lane on an agent wallet (`agentWallet`), or the fixed "Sign in <brand>"
- * for a wallet Aomi has no key for. Lane changes save at once.
+ * ask mode on an agent wallet (`agentWallet`), or the fixed "Sign in <brand>"
+ * for a wallet Aomi has no key for. Ask mode changes save at once.
  */
-export function ConnectionLanes({
+export function ConnectionAskModes({
   agentWallet,
   brand,
   disabled = false,
   onClose,
   onRulesFiled,
 }: {
-  /** The agent wallet whose lanes this sets; omitted, the lanes are fixed. */
+  /** The agent wallet whose ask modes this sets; omitted, the ask modes are fixed. */
   agentWallet?: { id: string; name: string };
-  /** The wallet app a fixed lane signs in. */
+  /** The wallet app a fixed ask mode signs in. */
   brand?: string;
   disabled?: boolean;
   /** Close the sheet before "Manage in Connections" moves the page. */
@@ -68,11 +68,11 @@ export function ConnectionLanes({
   const judged = agents.data?.wallets.find(
     (wallet) => wallet.id === agentWallet?.id,
   )?.connections;
-  // A save in flight shows what it will hold; else the server's lane.
-  const laneOf = (connection: AomiAccountConnection): AomiLane =>
+  // A save in flight shows what it will hold; else the server's ask mode.
+  const askModeOf = (connection: AomiAccountConnection): AomiAskMode =>
     saving[connection.key]?.find((entry) => entry.id === agentWallet?.id)
-      ?.lane ??
-    judged?.find((entry) => entry.key === connection.key)?.lane ??
+      ?.ask_mode ??
+    judged?.find((entry) => entry.key === connection.key)?.ask_mode ??
     "ask_aomi";
   return (
     <section className="flex flex-col gap-2">
@@ -110,7 +110,7 @@ export function ConnectionLanes({
             return (
               <ListRow
                 key={connection.key}
-                data-connection-lane={connection.key}
+                data-connection-ask-mode={connection.key}
                 leading={
                   <ConnectionMark
                     kind={connection.kind}
@@ -121,18 +121,18 @@ export function ConnectionLanes({
                 description={connectionLine(connection)}
                 trailing={
                   agentWallet ? (
-                    <LaneSelect
+                    <AskModeSelect
                       wallet={agentWallet.name}
                       client={title}
-                      lane={laneOf(connection)}
+                      askMode={askModeOf(connection)}
                       askOnly={connection.ask_only}
                       disabled={disabled || Boolean(saving[connection.key])}
-                      onChange={(lane) =>
-                        void write(connection, agentWallet, lane, title)
+                      onChange={(askMode) =>
+                        void write(connection, agentWallet, askMode, title)
                       }
                     />
                   ) : (
-                    <FixedLane brand={brand ?? "the wallet"} />
+                    <FixedAskMode brand={brand ?? "the wallet"} />
                   )
                 }
               />

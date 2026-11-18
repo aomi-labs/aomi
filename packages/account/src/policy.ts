@@ -448,7 +448,7 @@ export type Requirement =
 
 /**
  * Only a signed-in, non-guest portal cookie session: never a widget, a CLI
- * session or an OAuth client. Agent-wallet, lane and link writes; the backend
+ * session or an OAuth client. Agent-wallet, ask mode and link writes; the backend
  * checks the same thing on the bearer's `auth_source`.
  */
 export const PORTAL_SESSION = "portal_session";
@@ -780,7 +780,7 @@ export const ROUTES: readonly Route[] = [
     methods: { POST: "agent:write" },
   },
   // An OAuth client (the CLI, an AI or SDK app) reaches the backend, which
-  // lets it approve only where its lane on the wallet asks in that client.
+  // lets it approve only where its ask mode on the wallet asks in that client.
   {
     ...commit,
     path: new RegExp(`^\\/v1\\/commits\\/${REF}\\/approve$`),

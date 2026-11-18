@@ -41,14 +41,14 @@ export type AccountConnection = {
   /** Always `ask_aomi`, whatever its wallets say. */
   ask_only: boolean;
   /**
-   * Its lanes set on agent wallets (`ask_aomi`, `ask_client`, `instant`); a wallet
-   * left out has the client's default. An archived wallet's lane is kept
+   * Its ask modes set on agent wallets (`ask_aomi`, `ask_client`, `instant`); a wallet
+   * left out has the client's default. An archived wallet's ask mode is kept
    * (marked) so it comes back on restore.
    */
   wallets: {
     id: string;
     name: string;
-    lane: "ask_aomi" | "ask_client" | "instant";
+    ask_mode: "ask_aomi" | "ask_client" | "instant";
     archived: boolean;
   }[];
   /** Unix seconds. */

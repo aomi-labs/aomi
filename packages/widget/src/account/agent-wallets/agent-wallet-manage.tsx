@@ -35,7 +35,7 @@ import {
   familyTag,
 } from "@/account/account-management/wallet-model";
 import { usedLabel } from "@/account/connections/connections-settings";
-import { ConnectionLanes } from "@/account/connections/connection-lanes";
+import { ConnectionAskModes } from "@/account/connections/connection-ask-modes";
 import { WalletRules } from "@/account/rules/wallet-rules";
 import { explorerUrl } from "@/thread/explorer-links";
 import { AddressQr } from "./address-qr";
@@ -45,7 +45,7 @@ import { useRenameWallet, type AgentWalletActions } from "./agent-wallet-row";
 
 /**
  * Account › agent wallet › Manage: its addresses behind one Receive row,
- * every connection with its lane on it, its rules, then Send, Rename and
+ * every connection with its ask mode on it, its rules, then Send, Rename and
  * Pause as rows, and Archive alone at the bottom.
  * Changes save at once; a rule change that gives the agent power waits for
  * the wallet's admin.
@@ -72,7 +72,7 @@ export function AgentWalletManage({
 }) {
   const { renameWallet, dialog: renameDialog } = useRenameWallet(onRename);
   const [receive, setReceive] = useState<WalletFamily | null>(null);
-  // A lane made Instant on a wallet-admin wallet files a rule change instead.
+  // An ask mode made Instant on a wallet-admin wallet files a rule change instead.
   const [filed, setFiled] = useState<AomiWalletRules | null>(null);
   const archived = wallet.archived_at !== null;
   const paused = wallet.paused || pausedAll;
@@ -172,7 +172,7 @@ export function AgentWalletManage({
           </ListGroup>
         ) : null}
 
-        <ConnectionLanes
+        <ConnectionAskModes
           agentWallet={archived ? undefined : wallet}
           brand="Aomi"
           disabled={paused}

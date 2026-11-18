@@ -14,7 +14,7 @@ import {
   signOutAndDisconnect,
   accountDisplayName,
   useAomiWalletKit,
-  useConsentLanes,
+  useConsentAskModes,
 } from "@aomi-labs/widget/host-composition";
 import { StandalonePage } from "@/components/shell/standalone-page";
 import { useOAuthClientName } from "./oauth-client-name";
@@ -129,8 +129,8 @@ export function ConsentSheet({ name }: { name: string }) {
   const app = consentApp(resource);
   const askOnly = params.get("mode") === "ask";
   const clientId = params.get("client_id");
-  // The lanes to write once the grant is made; Allow waits until they load.
-  const lanes = useConsentLanes(client);
+  // The ask modes to write once the grant is made; Allow waits until they load.
+  const askModes = useConsentAskModes(client);
   const connectionKey = clientId ? `oauth:${clientId}` : undefined;
 
   const decide = async (accept: boolean) => {
@@ -167,7 +167,8 @@ export function ConsentSheet({ name }: { name: string }) {
    */
   const saveWallets = async (redirect: string) => {
     setPending(true);
-    const saved = guest || !connectionKey || (await lanes.save(connectionKey));
+    const saved =
+      guest || !connectionKey || (await askModes.save(connectionKey));
     setPending(false);
     if (!saved) return setUnsaved(redirect);
     setUnsaved(null);
@@ -258,7 +259,7 @@ export function ConsentSheet({ name }: { name: string }) {
             name={name}
             app={app}
             askOnly={askOnly}
-            onChange={lanes.onChange}
+            onChange={askModes.onChange}
           />
         )}
         <SheetFootnote>
@@ -278,7 +279,7 @@ export function ConsentSheet({ name }: { name: string }) {
         <AomiButton
           variant="primary"
           className="h-10 w-full"
-          disabled={pending || (!guest && !lanes.ready)}
+          disabled={pending || (!guest && !askModes.ready)}
           onClick={() => void decide(true)}
         >
           Allow

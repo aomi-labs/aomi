@@ -65,8 +65,7 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
     await (await getMigrations(auth.options)).runMigrations();
     service = await import("../service/account-service");
     merge = await import("../service/account-merge");
-    handlers =
-      await import("../../../../apps/edge/src/auth/account/handlers");
+    handlers = await import("../../../../apps/edge/src/auth/account/handlers");
   }, 30_000);
   afterAll(async () => {
     await pool?.end();
@@ -348,7 +347,7 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
       authorization_metadata: { reason: "account_deactivated" },
     });
     expect(Number(authority.rows[0].authorization_version)).toBeGreaterThan(0);
-    // Pause all, and every lane back on Aomi.
+    // Pause all, and every ask mode back on Aomi.
     const paused = await pool.query(
       `select u.agents_paused, wa.lane from users u
          join wallet_access wa on wa.user_id = u.id where u.id = $1`,

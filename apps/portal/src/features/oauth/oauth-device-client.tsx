@@ -8,7 +8,7 @@ import {
   ConsentWallets,
   SheetAlert,
   SheetHeader,
-  useConsentLanes,
+  useConsentAskModes,
 } from "@aomi-labs/widget/host-composition";
 import { StandalonePage } from "@/components/shell/standalone-page";
 import { scopeLines } from "./oauth-consent-client";
@@ -107,8 +107,8 @@ export function DeviceSheet() {
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
   const client = useMemo(() => createPortalAomi(), []);
-  // The terminal's lanes, written once the login went through.
-  const lanes = useConsentLanes(client);
+  // The terminal's ask modes, written once the login went through.
+  const askModes = useConsentAskModes(client);
 
   const check = useCallback(async (code: string) => {
     setPending(true);
@@ -146,7 +146,7 @@ export function DeviceSheet() {
   const saveWallets = async (request: DeviceRequest) => {
     setPending(true);
     const saved =
-      !request.clientId || (await lanes.save(`oauth:${request.clientId}`));
+      !request.clientId || (await askModes.save(`oauth:${request.clientId}`));
     setState(
       saved
         ? { step: "connected", name: request.name }
@@ -233,8 +233,8 @@ export function DeviceSheet() {
               client={client}
               connectionKey={`oauth:${state.clientId}`}
               name={cli ? "terminal" : name}
-              startLane="ask_client"
-              onChange={lanes.onChange}
+              startAskMode="ask_client"
+              onChange={askModes.onChange}
             />
           ) : null}
         </div>
@@ -243,7 +243,7 @@ export function DeviceSheet() {
           <AomiButton
             variant="primary"
             className="h-10 w-full"
-            disabled={pending || (Boolean(state.clientId) && !lanes.ready)}
+            disabled={pending || (Boolean(state.clientId) && !askModes.ready)}
             onClick={() => void decide(state, true)}
           >
             Connect

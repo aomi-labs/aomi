@@ -11,7 +11,7 @@ import { SheetFootnote, SheetHeader } from "@/wallet/picker/sheet-parts";
 import type { WalletFamily } from "@/wallet/types";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import { ReceiveStep } from "@/account/agent-wallets/agent-wallet-manage";
-import { ConnectionLanes } from "@/account/connections/connection-lanes";
+import { ConnectionAskModes } from "@/account/connections/connection-ask-modes";
 import { BrandMark } from "./controls";
 import { familyTag } from "./wallet-model";
 import type { ManagedWallet } from "./wallet-rows";
@@ -76,7 +76,7 @@ export function SignInWalletManage({
             <ChevronRight className="text-aomi-muted size-4 shrink-0" />
           </button>
         </ListGroup>
-        <ConnectionLanes brand={wallet.brand} onClose={onClose} />
+        <ConnectionAskModes brand={wallet.brand} onClose={onClose} />
         {linked && onRename ? (
           <ListGroup>
             <ActionRow
