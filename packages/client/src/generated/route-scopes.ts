@@ -21,7 +21,7 @@ export const ROUTE_SCOPES: readonly {
   { path: /^\/v1\/account\/packages$/, resource: "/v1/account", paid: false, methods: { GET: "account:packages:read" } },
   { path: /^\/v1\/account\/packages\/activate$/, resource: "/v1/account", paid: false, methods: { POST: "account:packages:write" } },
   { path: /^\/v1\/account\/packages\/[1-9]\d*\/choice$/, resource: "/v1/account", paid: false, methods: { PUT: "account:packages:write", DELETE: "account:packages:write" } },
-  { path: /^\/v1\/account\/packages\/[1-9]\d*\/secrets\/[A-Za-z_]\w{0,127}$/, resource: "/v1/account", paid: false, methods: { PUT: "account:packages:write", DELETE: "account:packages:write" } },
+  { path: /^\/v1\/account\/packages\/[1-9]\d*\/secrets\/[A-Za-z_]\w{0,127}$/, resource: "/v1/account", paid: false, methods: { PUT: "account:credentials:write", DELETE: "account:credentials:write" } },
   { path: /^\/v1\/account\/transaction-safety(?:\/threads\/[^/]+)?$/, resource: "/v1/account", paid: false, methods: { GET: "account:transaction-safety:read", PUT: "account:transaction-safety:write" } },
   { path: /^\/v1\/account\/keys$/, resource: "/v1/account", paid: false, methods: { GET: "account:credentials:read", POST: "account:credentials:write", DELETE: "account:credentials:write" } },
   { path: /^\/v1\/account\/keys\/[^/]+$/, resource: "/v1/account", paid: false, methods: { DELETE: "account:credentials:write" } },

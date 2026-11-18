@@ -340,6 +340,26 @@ describe("portal surface: sessions", () => {
     );
   });
 
+  it("lets the portal session set and clear a person key with the credentials scope", async () => {
+    const path = "/v1/account/packages/15/secrets/PERSON_KEY";
+    for (const method of ["PUT", "DELETE"]) {
+      const response = await portal(path, {
+        method,
+        headers: { cookie: "session=user", "content-type": "application/json" },
+        origin: PORTAL,
+        body: method === "PUT" ? '{"value":"k"}' : undefined,
+      });
+      expect(response.status).toBe(200);
+    }
+    expect(seen.map((call) => call.url)).toEqual([`${AGENT}${path}`, `${AGENT}${path}`]);
+    for (const call of seen) {
+      expect((await upstreamBearer(call)).payload).toMatchObject({
+        scope: "account:credentials:write",
+        resource: `${PORTAL}/v1/account`,
+      });
+    }
+  });
+
   it("mints only the scope a write needs (never custody:delegate) and refuses a guest's paid write", async () => {
     await portal("/v1/agent/chat", {
       method: "POST",

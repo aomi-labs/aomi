@@ -695,8 +695,8 @@ export const ROUTES: readonly Route[] = [
     DELETE: "account:packages:write",
   }),
   account(/^\/v1\/account\/packages\/[1-9]\d*\/secrets\/[A-Za-z_]\w{0,127}$/, {
-    PUT: "account:packages:write",
-    DELETE: "account:packages:write",
+    PUT: "account:credentials:write",
+    DELETE: "account:credentials:write",
   }),
   account(/^\/v1\/account\/transaction-safety(?:\/threads\/[^/]+)?$/, {
     GET: "account:transaction-safety:read",
