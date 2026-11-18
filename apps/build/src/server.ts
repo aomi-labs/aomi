@@ -11,7 +11,7 @@ import { buildFailures } from "./server/failures";
 const initialized = (async () => {
   await import("./sentry.server.config");
   try {
-    await registerBunCompatHooks();
+    if (!import.meta.env.AOMI_BUILD_WORKER) await registerBunCompatHooks();
     const { routeTree } = await import("./routeTree.gen");
     installNativeHttpMethods(routeTree);
   } catch (error) {

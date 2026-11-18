@@ -13,7 +13,7 @@ export type BuildContext = {
   /** The public Build origin this request arrived on (its own host). */
   buildOrigin: string;
   /** Where the Vercel Build app is reached from the edge (never the public host). */
-  upstreamOrigin: string;
+  upstreamOrigin: string | null;
   /** Origins whose cookie writes Build trusts: its own origin only. */
   trustedOrigins: readonly string[];
   /** Cookies are Secure everywhere except local development. */
@@ -40,7 +40,7 @@ export function buildContext(
 ): BuildContext | null {
   const url = new URL(request.url);
   const { build } = config(env);
-  if (!build.hosts.has(url.host.toLowerCase()) || !build.upstream) return null;
+  if (!build.hosts.has(url.host.toLowerCase()) || (!build.upstream && !env.BUILD_PAGES)) return null;
   return {
     env,
     config: build,
