@@ -339,8 +339,11 @@ test("hosted Chat continues the same conversation when switching Auto to a model
       console.info("Composer combobox labels:", labels);
       throw error;
     });
-  await modelControl.click();
-  await page.getByRole("option").filter({ hasText: /^Auto\b/ }).click();
+  await modelControl.click({ timeout: 15_000 });
+  await page
+    .getByRole("option")
+    .getByText("Auto", { exact: true })
+    .click({ timeout: 15_000 });
   await expect(auto).toBeEnabled();
   const clue = `CEDAR-${Date.now().toString(36).toUpperCase()}`;
   const firstPrompt = `Remember this code for the rest of this conversation: ${clue}. Reply OK.`;
@@ -348,11 +351,11 @@ test("hosted Chat continues the same conversation when switching Auto to a model
   expect(first.request().postDataJSON().model).toBeUndefined();
   const sessionId = await expectHostedTurn(page, first, firstPrompt);
 
-  await auto.click();
+  await auto.click({ timeout: 15_000 });
   await page
     .getByRole("option")
-    .filter({ hasText: /^Claude Sonnet 5\.5$/ })
-    .click();
+    .getByText("Claude Sonnet 5.5", { exact: true })
+    .click({ timeout: 15_000 });
   const manual = modelControl.filter({ hasText: /^Claude Sonnet 5\.5$/ });
   await expect(manual).toBeEnabled();
   const secondPrompt = "What code did I ask you to remember? Reply with the code.";
@@ -363,8 +366,11 @@ test("hosted Chat continues the same conversation when switching Auto to a model
     clue,
   );
 
-  await manual.click();
-  await page.getByRole("option").filter({ hasText: /^Auto\b/ }).click();
+  await manual.click({ timeout: 15_000 });
+  await page
+    .getByRole("option")
+    .getByText("Auto", { exact: true })
+    .click({ timeout: 15_000 });
   await expect(auto).toBeEnabled();
   const thirdPrompt = "Repeat the code once more.";
   const third = await sendPrompt(page, thirdPrompt);
