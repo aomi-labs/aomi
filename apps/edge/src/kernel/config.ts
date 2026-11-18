@@ -141,7 +141,7 @@ export function config(env: EdgeEnv): Config {
     build: {
       hosts: hosts(env.BUILD_HOSTS),
       upstream: origin(env.BUILD_UPSTREAM_ORIGIN),
-      defaultPlatform: env.BUILD_DEFAULT_PLATFORM?.trim() || "web",
+      defaultPlatform: env.BUILD_DEFAULT_PLATFORM?.trim() || "community",
     },
   };
   parsed.set(env, value);
