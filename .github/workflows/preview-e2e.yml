@@ -47,7 +47,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Resolve same-SHA immutable Vercel URLs
+      - name: Resolve the immutable Build preview for this PR
         id: previews
         timeout-minutes: 16
         env:
@@ -81,9 +81,9 @@ jobs:
         timeout-minutes: 5
         run: pnpm exec playwright install chromium
 
-      - name: Run anonymous Chat and Build smoke
+      - name: Smoke test staging Chat and the PR Build preview
         env:
-          PORTAL_PREVIEW_URL: ${{ steps.previews.outputs.portal_url }}
+          PORTAL_PREVIEW_URL: https://staging.aomi.chat
           BUILD_PREVIEW_URL: ${{ steps.previews.outputs.build_url }}
         run: pnpm exec playwright test --project=preview
 
@@ -106,5 +106,7 @@ jobs:
             echo "- Mode: non-blocking"
             echo "- Owner: CI/release DRI"
             echo "- PR SHA: \`${{ github.event.pull_request.head.sha }}\`"
+            echo "- Chat target: Cloudflare staging"
+            echo "- Build target: immutable PR preview"
             echo "- Diagnostics: \`preview-e2e-${{ github.event.pull_request.head.sha }}\`"
           } >> "$GITHUB_STEP_SUMMARY"

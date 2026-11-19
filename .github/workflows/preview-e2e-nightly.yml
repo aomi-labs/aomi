@@ -34,7 +34,7 @@ jobs:
       - name: Run canonical staging smoke
         env:
           PORTAL_PREVIEW_URL: https://staging.aomi.chat
-          BUILD_PREVIEW_URL: https://build-staging.aomi.dev
+          BUILD_PREVIEW_URL: https://staging.aomi.build
         run: pnpm exec playwright test --project=preview
 
       - name: Upload Playwright diagnostics
