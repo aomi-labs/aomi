@@ -20,7 +20,7 @@ export const ToolChipView: FC<{
 }> = ({ chip, index = 0, animate = false }) => {
   const { packages } = useTraceAttribution();
   if (!chip.icon) return null;
-  // A hosted package shows the icon its composer chip and Library row show.
+  // A hosted package shows its own mark, neutral like every other chip glyph.
   const Glyph =
     packages?.find((item) => item.id === chip.packageId)?.Icon ??
     traceIcon(chip.icon);

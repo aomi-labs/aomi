@@ -4,9 +4,10 @@ import { cn } from "@/lib/cn";
 
 /**
  * A package's icon: the SVG its bundle ships (`icon_url`), drawn as a CSS mask
- * in the accent colour, else the generic package glyph. The one way the UI
+ * in the text colour, else the generic package glyph. The one way the UI
  * draws a package; the release check holds the SVG to a square shape in
- * `currentColor`, so only its silhouette matters here.
+ * `currentColor`, so only its silhouette matters here. Accent by default; a
+ * caller's `text-*` class overrides it (trace and sidebar chips are neutral).
  */
 export function PackageMark({
   iconUrl,
@@ -19,7 +20,7 @@ export function PackageMark({
     return (
       <PackageIcon
         aria-hidden="true"
-        className={cn("text-aomi-accent", className)}
+        className={cn("text-aomi-accent shrink-0", className)}
       />
     );
   }
@@ -27,7 +28,10 @@ export function PackageMark({
     <span
       aria-hidden="true"
       data-package-icon={iconUrl}
-      className={cn("bg-aomi-accent inline-block shrink-0", className)}
+      className={cn(
+        "text-aomi-accent inline-block shrink-0 bg-current",
+        className,
+      )}
       style={{
         maskImage: `url(${JSON.stringify(iconUrl)})`,
         maskSize: "contain",

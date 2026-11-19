@@ -12,10 +12,24 @@ describe("PackageMark", () => {
     );
     const mark = container.querySelector<HTMLElement>("[data-package-icon]")!;
     expect(mark.dataset.packageIcon).toBe(URL);
-    expect(mark.className).toContain("bg-aomi-accent");
+    expect(mark).toHaveClass("bg-current", "text-aomi-accent");
     expect(mark.className).toContain("size-3.5");
     expect(mark.getAttribute("style")).toContain(`url("${URL}")`);
     expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("takes a caller's text colour instead of the accent", () => {
+    const { container } = render(
+      <PackageMark iconUrl={URL} className="text-aomi-fg/80" />,
+    );
+    const mark = container.querySelector<HTMLElement>("[data-package-icon]")!;
+    expect(mark).toHaveClass("bg-current", "text-aomi-fg/80");
+    expect(mark).not.toHaveClass("text-aomi-accent");
+    const glyph = render(
+      <PackageMark iconUrl={null} className="text-aomi-fg/80" />,
+    ).container.querySelector("svg.lucide-package")!;
+    expect(glyph).toHaveClass("text-aomi-fg/80");
+    expect(glyph).not.toHaveClass("text-aomi-accent");
   });
 
   it("shows the generic package icon without an icon_url", () => {
@@ -30,8 +44,9 @@ describe("PackageMark", () => {
     expect(row.querySelector("[data-package-icon]")?.className).toContain(
       "size-5",
     );
-    const detail = render(<PackageTile iconUrl={URL} size="detail" />)
-      .container;
+    const detail = render(
+      <PackageTile iconUrl={URL} size="detail" />,
+    ).container;
     expect(detail.firstElementChild?.className).toContain("size-12");
     expect(detail.querySelector("[data-package-icon]")?.className).toContain(
       "size-7",
