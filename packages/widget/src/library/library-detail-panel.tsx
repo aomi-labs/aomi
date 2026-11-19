@@ -219,6 +219,7 @@ export function LibraryDetailPanel({
   error,
   onToggle,
   onConnect,
+  onDisconnect,
   onSignIn,
 }: {
   /** A guest's public row shows what the package is, nothing tied to an account. */
@@ -227,6 +228,7 @@ export function LibraryDetailPanel({
   error: string | null;
   onToggle: (row: AomiPackage, enabled: boolean) => void;
   onConnect: (row: AomiPackage) => void;
+  onDisconnect: (row: AomiPackage) => void;
   onSignIn: () => void;
 }) {
   const account = isAccountRow(row) ? row : null;
@@ -270,13 +272,25 @@ export function LibraryDetailPanel({
             <Section
               title="Your keys"
               action={
-                <AomiButton
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => onConnect(account)}
-                >
-                  <Plus /> Add keys
-                </AomiButton>
+                <>
+                  {keys.some((slot) => slot.status === "ready") ? (
+                    <AomiButton
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => onDisconnect(account)}
+                    >
+                      Remove keys
+                    </AomiButton>
+                  ) : null}
+                  <AomiButton
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => onConnect(account)}
+                  >
+                    <Plus /> Add keys
+                  </AomiButton>
+                </>
               }
             >
               <Lines

@@ -125,6 +125,16 @@ function installBackend(initial: AomiPackage[]) {
         });
         return Response.json({ slot: secret[2], status: "ready" });
       }
+      if (secret && method === "DELETE") {
+        const id = Number(secret[1]);
+        const row = rows.find((candidate) => candidate.package_id === id)!;
+        update(id, {
+          slots: row.slots.map((slot) =>
+            slot.name === secret[2] ? { ...slot, status: "missing" } : slot,
+          ),
+        });
+        return Response.json({ slot: secret[2], status: "missing" });
+      }
       return new Response(`Unexpected ${method} ${url.pathname}`, {
         status: 500,
       });
@@ -272,6 +282,7 @@ describe("packages modal", () => {
     expect(keys.getByText("Not added")).toBeTruthy();
     expect(keys.queryByText("POLY_BUILDER")).toBeNull();
     expect(keys.getByRole("button", { name: "Add keys" })).toBeTruthy();
+    expect(keys.queryByRole("button", { name: "Remove keys" })).toBeNull();
     actOn("Polymarket", "Connect");
     const sheet = await screen.findByRole("dialog", {
       name: "Connect Polymarket",
@@ -295,6 +306,24 @@ describe("packages modal", () => {
       },
     ]);
     expect(within(details("Polymarket")).getByText("Added")).toBeTruthy();
+
+    // Remove keys clears the saved person key; Connect comes back.
+    fireEvent.click(
+      within(details("Polymarket")).getByRole("button", {
+        name: "Remove keys",
+      }),
+    );
+    await footerAction("Polymarket", "Connect");
+    expect(backend.writes().at(-1)).toEqual({
+      method: "DELETE",
+      path: "/api/account/packages/9020/secrets/POLY_API_KEY",
+      body: undefined,
+    });
+    expect(
+      within(details("Polymarket")).queryByRole("button", {
+        name: "Remove keys",
+      }),
+    ).toBeNull();
   });
 
   it("closes a sheet with Escape and keeps the Library open", async () => {

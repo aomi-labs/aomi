@@ -36,6 +36,7 @@ import {
   markNoticeSeen,
   matches,
   noticeSeen,
+  personSlots,
   type LibraryView,
   type LoadFailure,
 } from "./model";
@@ -125,6 +126,12 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
     mutate(row, async () => {
       for (const [slot, value] of values)
         await aomi.account.packages.setSecret(row.package_id, slot, value);
+    });
+  const disconnect = (row: AomiPackage) =>
+    void mutate(row, async () => {
+      for (const slot of personSlots(row))
+        if (slot.status === "ready")
+          await aomi.account.packages.clearSecret(row.package_id, slot.name);
     });
   /** Redeem a private package code; the row appears and its detail opens. */
   const activate = async (code: string) => {
@@ -346,6 +353,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
             error={desktop ? null : actionError}
             onToggle={toggle}
             onConnect={setKeysRow}
+            onDisconnect={disconnect}
             onSignIn={() => void wallet.connect?.()}
           />
         </div>
