@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { PoliciesFixture } from "./policies-fixture";
 
@@ -6,9 +12,16 @@ const card = () => screen.getByRole("region", { name: "london-test policies" });
 const rows = () =>
   [...card().querySelectorAll("[data-policy]")] as HTMLElement[];
 
+const vault = () => document.querySelector("[data-vault]") as HTMLElement;
+/** The fixture, once its sample vault has read its sample balances. */
+async function show() {
+  render(<PoliciesFixture />);
+  await screen.findByText("USDC 95.00 · ETH 0.98");
+}
+
 describe("/dev/policies fixture", () => {
-  it("draws the Policies tab on sample data with the tab's own components", () => {
-    render(<PoliciesFixture />);
+  it("draws the Policies tab on sample data with the tab's own components", async () => {
+    await show();
     expect(screen.getByRole("heading", { name: "Policies" })).toBeTruthy();
     expect(
       screen.getByRole("region", { name: "Policy change for london-test" }),
@@ -44,8 +57,8 @@ describe("/dev/policies fixture", () => {
     expect(rows()[3]).toHaveTextContent("· 1,000 USDC left");
   });
 
-  it("shows a removed policy of each kind after the live ones, and drops it once signed", () => {
-    render(<PoliciesFixture />);
+  it("shows a removed policy of each kind after the live ones, and drops it once signed", async () => {
+    await show();
     const removed = () =>
       [...card().querySelectorAll("[data-policy-removed]")] as HTMLElement[];
     // Not live policies: the seven rows above are unchanged.
@@ -95,8 +108,8 @@ describe("/dev/policies fixture", () => {
     expect(rows()).toHaveLength(7);
   });
 
-  it("adds a policy from the picker and closes it, all in memory", () => {
-    render(<PoliciesFixture />);
+  it("adds a policy from the picker and closes it, all in memory", async () => {
+    await show();
     fireEvent.click(within(card()).getByRole("button", { name: "Policy" }));
     fireEvent.click(screen.getByRole("button", { name: "SOL" }));
     fireEvent.click(screen.getByRole("button", { name: "Orca" }));
@@ -109,8 +122,8 @@ describe("/dev/policies fixture", () => {
     expect(rows()[0]).toHaveTextContent("Onchain Enforcement:Swig");
   });
 
-  it("shows the wallet popup's counts", () => {
-    render(<PoliciesFixture />);
+  it("shows the wallet popup's counts", async () => {
+    await show();
     fireEvent.click(screen.getByRole("radio", { name: "Wallet popup" }));
     const summary = document.querySelector(
       "[data-wallet-policy-summary]",
@@ -118,5 +131,50 @@ describe("/dev/policies fixture", () => {
     expect(summary).toHaveTextContent("Connections3");
     // The ended sample policy is not counted, nor are the removed ones.
     expect(summary).toHaveTextContent("Policies6");
+  });
+
+  it("shows the owner's vault in the first wallet's card, after the policies and before who may change them", async () => {
+    await show();
+    const row = vault();
+    expect(card().contains(row)).toBe(true);
+    expect(row).toHaveTextContent("Vault");
+    expect(within(row).getByRole("img")).toHaveAttribute("aria-label", "Base");
+    // After the removed policies, before the authority picker.
+    const order = [
+      ...card().querySelectorAll(
+        "[data-policy-removed], [data-vault], [data-policy-authority]",
+      ),
+    ];
+    expect(order.at(-2)).toBe(row);
+    expect(order.at(-1)).toHaveAttribute("data-policy-authority");
+    expect(
+      screen
+        .getByRole("region", { name: "trading-bot policies" })
+        .querySelector("[data-vault]"),
+    ).toBeNull();
+    expect(document.querySelectorAll("[data-vault]")).toHaveLength(1);
+  });
+
+  it("clicks the vault through: withdraw some USDC, then the rest, on sample balances", async () => {
+    await show();
+    const row = vault();
+    fireEvent.click(within(row).getByRole("button", { name: "Withdraw" }));
+    fireEvent.change(within(row).getByRole("textbox", { name: "Amount" }), {
+      target: { value: "20" },
+    });
+    fireEvent.click(within(row).getByRole("button", { name: "Sign and send" }));
+    expect(
+      within(row).getByRole("button", { name: "Waiting for wallet…" }),
+    ).toBeDisabled();
+    await waitFor(() => expect(row).toHaveTextContent("Withdrawn."));
+    await waitFor(() => expect(row).toHaveTextContent("USDC 75.00 · ETH 0.98"));
+    // Max takes ETH to zero, and a vault with nothing in a token stops offering it.
+    fireEvent.click(within(row).getByRole("button", { name: "Withdraw" }));
+    fireEvent.click(within(row).getByRole("button", { name: "ETH" }));
+    fireEvent.click(within(row).getByRole("button", { name: "Max" }));
+    fireEvent.click(within(row).getByRole("button", { name: "Sign and send" }));
+    await waitFor(() => expect(row).not.toHaveTextContent("ETH 0.98"));
+    expect(row).toHaveTextContent("USDC 75.00");
+    expect(row).not.toHaveTextContent("ETH 0.00");
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ArrowUp, Minus } from "lucide-react";
 import { BrandMark } from "@/account/account-management/controls";
 import { AGENT_WALLET } from "@/account/account-management/wallet-model";
@@ -12,6 +12,8 @@ import {
   WalletPolicyCard,
   WalletPolicySummary,
 } from "./policies-view";
+import { VaultRow } from "./vault-row";
+import { tokenKey, vaultTokens, type Vault } from "./vault-model";
 import {
   dayFromToday,
   policyAmount,
@@ -112,6 +114,59 @@ const PROVIDERS: PolicyProviders = {
     appScope: PULL_SCOPE,
   },
 };
+
+/** The sample owner's vault on Base: it is created by the first trade. */
+const VAULT: Vault = {
+  key: "8453:0x7c4c1f0a2b3d4e5f60718293a4b5c6d7e8f9e079",
+  address: "0x7c4c1f0a2b3d4e5f60718293a4b5c6d7e8f9e079",
+  chainId: 8453,
+  chain: BASE,
+  owner: OWNER_ACCOUNT,
+  explorer:
+    "https://basescan.org/address/0x7c4c1f0a2b3d4e5f60718293a4b5c6d7e8f9e079",
+};
+const SIGNER = { canSign: true, hint: null };
+
+/**
+ * The vault row on sample balances. The fake wallet "signs" and "sends" after
+ * a moment and takes the amount out of the sample balance; nothing is read
+ * from a chain or sent anywhere.
+ */
+function FixtureVault() {
+  const tokens = vaultTokens(CATALOG, BASE.network);
+  const balances = useRef<Record<string, bigint>>(
+    Object.fromEntries(
+      tokens.map((token) => [
+        tokenKey(token),
+        "native" in token.asset
+          ? BigInt("980000000000000000")
+          : BigInt(95_000_000),
+      ]),
+    ),
+  );
+  return (
+    <VaultRow
+      vault={VAULT}
+      tokens={tokens}
+      retryDelayMs={0}
+      signer={SIGNER}
+      readBalances={async (list) =>
+        list.map((token) => ({
+          token,
+          raw: balances.current[tokenKey(token)] ?? BigInt(0),
+        }))
+      }
+      withdraw={async (asset, amount) => {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        const token = tokens.find(
+          (entry) => JSON.stringify(entry.asset) === JSON.stringify(asset),
+        )!;
+        balances.current[tokenKey(token)] -= amount;
+        return "sent";
+      }}
+    />
+  );
+}
 
 type FixtureChange = {
   id: string;
@@ -553,6 +608,7 @@ export function PoliciesFixture() {
                 onAuthority={(authority) =>
                   write(wallet.id, (held) => ({ ...held, authority }))
                 }
+                vaults={wallet.id === first.id ? <FixtureVault /> : undefined}
                 takeOff={(policy) => ({
                   // The chain no longer holds it: the row goes.
                   run: () =>

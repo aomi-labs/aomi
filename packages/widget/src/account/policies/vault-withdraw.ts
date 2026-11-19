@@ -12,7 +12,8 @@
  *
  * This module is plain: no React, no widget imports, only `viem`'s encoders,
  * so a Node script can import it. It builds and guards; it signs and sends
- * nothing. The typed data has the same shape the backend uses for grants
+ * nothing (the Policies tab's Withdraw row does, through
+ * `vault-withdraw-flow.ts`). The typed data has the same shape the backend uses for grants
  * (`aomi/crates/sign/src/aa/delegation.rs`, `typed_data`), and the caveat
  * terms are encoded the way its `terms` module does:
  * `Timestamp = uint128(after) ‖ uint128(before)`, `LimitedCalls = uint256`.
