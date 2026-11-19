@@ -14,13 +14,15 @@ const CHANGE = "9a000000-0000-4000-8000-000000000009";
 const USDC = "eip155:8453/erc20:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
 const SOL = "solana:mainnet-beta/native";
 
-const NO_RULES = { apps: null, limits: [], not_after: null, owner_only: false };
+const NO_RULES = { mode: "blacklist", rules: [], linked_only: false };
+const SOL_RULE = `${SOL}@protocol:jupiter`;
+const USDC_RULE = `${USDC}@any`;
 
 const change = {
   id: CHANGE,
   agent_wallet_id: WALLET,
   wallet_name: "Trading wallet",
-  lines: [{ text: "USDC on Base: 200 → 400 a day", loosens: true }],
+  lines: [{ text: "USDC on Base: 200 → 400", loosens: true }],
   state: "awaiting_admin",
   proposed_by: "agent:telegram:7712345678",
   expires_at: 1795100000,
@@ -32,47 +34,82 @@ const body = {
   wallet_name: "Trading wallet",
   revision: 3,
   rules: {
-    apps: ["jupiter", "kamino", "uniswap"],
-    limits: [
-      { asset: SOL, amount: "500000000", symbol: "SOL", decimals: 9 },
-      { asset: USDC, amount: "200000000", symbol: "USDC", decimals: 6 },
+    mode: "whitelist",
+    rules: [
+      {
+        id: SOL_RULE,
+        asset: SOL,
+        amount: "500000000",
+        to: { kind: "protocol", id: "jupiter" },
+        active_from: 1795000000,
+        active_until: 1797600000,
+        symbol: "SOL",
+        decimals: 9,
+      },
+      {
+        id: USDC_RULE,
+        asset: USDC,
+        amount: "200000000",
+        to: { kind: "any_protocol" },
+        active_from: 1795000000,
+        symbol: "USDC",
+        decimals: 6,
+      },
     ],
-    not_after: 1795219200,
-    owner_only: true,
+    linked_only: true,
   },
   sentences: [
-    "Can use Jupiter, Kamino, Uniswap",
-    "Up to 0.5 SOL a day on Solana",
+    "Whitelist: only what is listed is allowed",
+    "Up to 0.5 SOL on Jupiter (Solana)",
   ],
   admin: { kind: "aomi_managed" },
   stopped_until: null,
-  usage: [
-    {
-      asset: SOL,
-      used: "200000000",
-      cap: "500000000",
-      symbol: "SOL",
-      decimals: 9,
-    },
-  ],
-  window_ends_at: 1795046400,
   pending: null,
+  enforced_by: { [SOL_RULE]: ["Aomi"], [USDC_RULE]: ["Aomi"] },
   enforcement: [
     {
+      rule: SOL_RULE,
       provider: "swig",
       name: "Swig",
       network: "solana:mainnet-beta",
       state: "behind",
-      covers: {
-        apps: ["jupiter", "kamino"],
-        limits: [SOL],
-        not_after: false,
-        owner_only: false,
-      },
-      left: { [SOL]: "300000000" },
-      note: "Your rules changed since you signed.",
       ready: true,
+      left: "300000000",
+      expires_at: 1797600600,
+      account: "SwigWallet111",
+      deployment_tx: "5igTx",
+      note: "Your rules changed since you signed.",
       signer: { family: "svm", address: "HZpj1111" },
+    },
+    {
+      rule: USDC_RULE,
+      provider: "metamask",
+      name: "MetaMask",
+      network: "eip155:8453",
+      state: "off",
+      ready: true,
+      left: null,
+      expires_at: null,
+      account: null,
+      deployment_tx: null,
+      note: null,
+      signer: { family: "evm", address: null },
+    },
+  ],
+  providers: [
+    {
+      provider: "swig",
+      name: "Swig",
+      network: "solana:mainnet-beta",
+      holds: "total_period_and_destination",
+      note: "Holds a rule's total, its end and where it may go.",
+    },
+    {
+      provider: "metamask",
+      name: "MetaMask",
+      network: "eip155:8453",
+      holds: "total_and_period",
+      note: null,
     },
   ],
   admin_wallets: [{ kind: "wallet", family: "svm", address: "HZpj1111" }],
@@ -111,13 +148,17 @@ function backend(routes: Record<string, (body: unknown) => Response>) {
 }
 
 describe("wallet rules", () => {
-  it("reads a wallet's rules, usage, admin and admin wallets", async () => {
+  it("reads a wallet's rules with their periods, admin and admin wallets", async () => {
     const { rules, calls } = backend({
       [`GET /v1/account/agent-wallets/${WALLET}/rules`]: () =>
         Response.json(body),
     });
     const read = await rules.get(WALLET);
     expect(read).toEqual(body satisfies AomiWalletRules);
+    // An always-on rule has no end, and nothing counts spend any more.
+    expect(read.rules.rules[1]).not.toHaveProperty("active_until");
+    expect(read).not.toHaveProperty("usage");
+    expect(read).not.toHaveProperty("window_ends_at");
     expect(calls[0]!.headers.has("x-aomi-csrf")).toBe(false);
   });
 
@@ -137,15 +178,15 @@ describe("wallet rules", () => {
       sentences: [],
       admin: { kind: "aomi_managed" },
       stopped_until: null,
-      usage: [],
-      window_ends_at: null,
       pending: null,
+      enforced_by: {},
       enforcement: [],
+      providers: [],
       admin_wallets: [],
     });
   });
 
-  it("prepares and confirms putting the rules on chain, by provider id", async () => {
+  it("prepares and confirms one rule's transaction, by provider id", async () => {
     const step = `/v1/account/agent-wallets/${WALLET}/rules/enforcement/swig`;
     const action = {
       kind: "transaction",
@@ -158,6 +199,7 @@ describe("wallet rules", () => {
     });
     const request = {
       network: "solana:mainnet-beta",
+      rule: SOL_RULE,
       revision: 4,
       owner: "HZpj1111",
     };
@@ -167,24 +209,158 @@ describe("wallet rules", () => {
     expect(await rules.confirmEnforcement(WALLET, "swig", request)).toEqual(
       body,
     );
+    // The rule goes in the body; a transaction's confirm sends no signature.
     expect(calls.map((call) => call.body)).toEqual([request, request]);
     expect(calls[0]!.headers.get("x-aomi-csrf")).toBe("1");
   });
 
-  it("reads no action when the chain already holds the rules, and refuses an unknown state or action", async () => {
+  it("prepares typed data to sign, and confirms with the signature", async () => {
+    const step = `/v1/account/agent-wallets/${WALLET}/rules/enforcement/metamask`;
+    const typed_data = {
+      domain: { name: "Delegation", chainId: 8453, salt: "0x01" },
+      types: {
+        Delegation: [
+          { name: "delegate", type: "address" },
+          { name: "cap", type: "uint256" },
+        ],
+      },
+      primaryType: "Delegation",
+      // Above 2^53, so a decimal string.
+      message: { delegate: "0xAgent", cap: "123456789012345678901234567890" },
+    };
+    const { rules, calls } = backend({
+      [`POST ${step}/prepare`]: () =>
+        Response.json({
+          action: { kind: "typed_data", network: "eip155:8453", typed_data },
+        }),
+      [`POST ${step}/confirm`]: () => Response.json({ rules: body }),
+    });
+    const request = {
+      network: "eip155:8453",
+      rule: USDC_RULE,
+      revision: 4,
+    };
+    expect(await rules.prepareEnforcement(WALLET, "metamask", request)).toEqual(
+      { kind: "typed_data", network: "eip155:8453", typed_data },
+    );
+    await rules.confirmEnforcement(WALLET, "metamask", {
+      ...request,
+      signature: "0xabc123",
+    });
+    expect(calls.map((call) => call.body)).toEqual([
+      request,
+      { ...request, signature: "0xabc123" },
+    ]);
+  });
+
+  it("prepares a plain transaction for the owner to send, and confirms with no signature", async () => {
+    const step = `/v1/account/agent-wallets/${WALLET}/rules/enforcement/metamask`;
+    const action = {
+      kind: "evm_transaction",
+      network: "eip155:8453",
+      to: "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+      data: "0xcafe0001",
+      value: "0x0",
+    };
+    const { rules, calls } = backend({
+      [`POST ${step}/prepare`]: () => Response.json({ action }),
+      [`POST ${step}/confirm`]: () => Response.json({ rules: body }),
+    });
+    const request = { network: "eip155:8453", rule: USDC_RULE, revision: 4 };
+    expect(await rules.prepareEnforcement(WALLET, "metamask", request)).toEqual(
+      action,
+    );
+    await rules.confirmEnforcement(WALLET, "metamask", request);
+    // The send needs nothing of the wallet's but the transaction itself.
+    expect(calls.map((call) => call.body)).toEqual([request, request]);
+  });
+
+  it("reads an evm_transaction strictly: hex to, data and value, and an eip155 network", async () => {
+    const step = `/v1/account/agent-wallets/${WALLET}/rules/enforcement/metamask`;
+    const request = { network: "eip155:8453", rule: USDC_RULE, revision: 4 };
+    const sound = {
+      kind: "evm_transaction",
+      network: "eip155:8453",
+      to: "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+      data: "0x",
+      value: "0x0",
+    };
+    const answering = (action: Record<string, unknown>) =>
+      backend({
+        [`POST ${step}/prepare`]: () => Response.json({ action }),
+      }).rules.prepareEnforcement(WALLET, "metamask", request);
+    // Empty calldata and a large quantity are fine.
+    await expect(
+      answering({ ...sound, value: "0xde0b6b3a7640000" }),
+    ).resolves.toMatchObject({ kind: "evm_transaction", data: "0x" });
+    for (const [change, message] of [
+      [{ network: "solana:mainnet-beta" }, /action.network must be eip155/],
+      [{ network: "eip155:base" }, /action.network must be eip155/],
+      [{ network: "eip155:0" }, /action.network must be eip155/],
+      [{ to: undefined }, /action.to must be a string/],
+      [
+        { to: "db9b1e94b5b69df7e401ddbede43491141047db3" },
+        /action.to must be a 20-byte/,
+      ],
+      [
+        { to: "0xdb9b1e94b5b69df7e401ddbede43491141047d" },
+        /action.to must be a 20-byte/,
+      ],
+      [
+        { to: "0xdb9b1e94b5b69df7e401ddbede43491141047dbz" },
+        /action.to must be a 20-byte/,
+      ],
+      [{ data: undefined }, /action.data must be a string/],
+      [{ data: "cafe" }, /action.data must be 0x hex/],
+      [{ data: "0xcaf" }, /action.data must be 0x hex/],
+      [{ data: "0xzz" }, /action.data must be 0x hex/],
+      [{ value: undefined }, /action.value must be a string/],
+      [{ value: "0" }, /action.value must be a 0x hex quantity/],
+      [{ value: "0x" }, /action.value must be a 0x hex quantity/],
+      [{ value: "0x00" }, /action.value must be a 0x hex quantity/],
+      [{ value: "1000" }, /action.value must be a 0x hex quantity/],
+    ] as const) {
+      await expect(answering({ ...sound, ...change })).rejects.toThrow(message);
+    }
+  });
+
+  it("reads no action when the chain already shows the rule, and refuses an unknown state, kind or malformed action", async () => {
     const step = `/v1/account/agent-wallets/${WALLET}/rules/enforcement/swig`;
-    const request = { network: "solana:mainnet-beta", revision: 4 };
+    const request = {
+      network: "solana:mainnet-beta",
+      rule: SOL_RULE,
+      revision: 4,
+    };
     const { rules } = backend({
       [`POST ${step}/prepare`]: () => Response.json({ action: null }),
     });
     expect(await rules.prepareEnforcement(WALLET, "swig", request)).toBeNull();
-    const later = backend({
-      [`POST ${step}/prepare`]: () =>
-        Response.json({ action: { kind: "typed_data" } }),
-    });
+    const answering = (action: unknown) =>
+      backend({
+        [`POST ${step}/prepare`]: () => Response.json({ action }),
+      }).rules.prepareEnforcement(WALLET, "swig", request);
+    // A kind this client does not know is refused, not guessed at.
     await expect(
-      later.rules.prepareEnforcement(WALLET, "swig", request),
-    ).rejects.toThrow(/unsupported action: typed_data/);
+      answering({ kind: "user_op", network: "eip155:8453" }),
+    ).rejects.toThrow(/unsupported action: user_op/);
+    await expect(answering({ kind: "typed_data" })).rejects.toThrow(
+      /action.network must be a string/,
+    );
+    await expect(
+      answering({ kind: "typed_data", network: "eip155:8453" }),
+    ).rejects.toThrow(/needs a domain, types and a message/);
+    await expect(
+      answering({
+        kind: "typed_data",
+        network: "eip155:8453",
+        typed_data: {
+          domain: {},
+          types: { Delegation: [{ name: "cap" }] },
+          primaryType: "Delegation",
+          message: {},
+        },
+      }),
+    ).rejects.toThrow(/field type must be a string/);
     expect(() =>
       parseWalletRules({
         ...body,
@@ -193,23 +369,103 @@ describe("wallet rules", () => {
     ).toThrow(/unsupported enforcement state/);
   });
 
+  it("reads each entry per rule, with what is left and the end read from the chain", () => {
+    const [swig, metamask] = parseWalletRules(body).enforcement;
+    expect(swig).toEqual(body.enforcement[0]);
+    expect(metamask).toEqual(body.enforcement[1]);
+    // The fields a grant has no value for may be left out.
+    const { rule, provider, name, network, state, ready, signer } =
+      body.enforcement[1]!;
+    expect(
+      parseWalletRules({
+        ...body,
+        enforcement: [
+          {
+            rule,
+            provider,
+            name,
+            network,
+            state,
+            ready,
+            signer: { family: "evm" },
+          },
+        ],
+      }).enforcement,
+    ).toEqual([
+      {
+        ...body.enforcement[1],
+        signer: { family: "evm", address: null },
+      },
+    ]);
+    // An entry names its rule, and what is left is base units, never a number.
+    expect(() =>
+      parseWalletRules({
+        ...body,
+        enforcement: [{ ...body.enforcement[0], rule: undefined }],
+      }),
+    ).toThrow(/enforcement.rule must be a string/);
+    expect(() =>
+      parseWalletRules({
+        ...body,
+        enforcement: [{ ...body.enforcement[0], left: 300000000 }],
+      }),
+    ).toThrow(/enforcement.left must be a string/);
+    expect(() =>
+      parseWalletRules({
+        ...body,
+        enforcement: [{ ...body.enforcement[0], expires_at: "soon" }],
+      }),
+    ).toThrow(/enforcement.expires_at must be a number/);
+  });
+
+  it("reads the providers that could hold the rules, and refuses a hold it does not know", () => {
+    expect(parseWalletRules(body).providers).toEqual(body.providers);
+    // A backend from before the field sends none; the note may be left out.
+    const { providers: _omitted, ...older } = body;
+    expect(parseWalletRules(older).providers).toEqual([]);
+    const { note: _note, ...bare } = body.providers[1]!;
+    expect(parseWalletRules({ ...body, providers: [bare] }).providers).toEqual([
+      { ...bare, note: null },
+    ]);
+    expect(() =>
+      parseWalletRules({
+        ...body,
+        providers: [{ ...body.providers[0], holds: "everything" }],
+      }),
+    ).toThrow(/unsupported provider holds/);
+    expect(() =>
+      parseWalletRules({
+        ...body,
+        providers: [{ ...body.providers[0], network: 8453 }],
+      }),
+    ).toThrow(/providers.network must be a string/);
+  });
+
   it("keeps amounts beyond 2^53 as strings and an unknown token's null symbol", () => {
     const huge = "123456789012345678901234567890";
     const read = parseWalletRules({
       ...body,
       rules: {
         ...NO_RULES,
-        limits: [{ asset: USDC, amount: huge, symbol: null }],
+        rules: [
+          {
+            asset: USDC,
+            amount: huge,
+            to: { kind: "any_protocol" },
+            symbol: null,
+          },
+        ],
       },
-      usage: [{ asset: USDC, used: huge, cap: huge, symbol: null }],
     });
-    expect(read.rules.limits[0]).toEqual({
+    // A rule the server sent no id for gets the key it would have.
+    expect(read.rules.rules[0]).toEqual({
+      id: USDC_RULE,
       asset: USDC,
       amount: huge,
+      to: { kind: "any_protocol" },
       symbol: null,
       decimals: null,
     });
-    expect(read.usage[0]).toMatchObject({ used: huge, symbol: null });
   });
 
   it.each([
@@ -217,14 +473,50 @@ describe("wallet rules", () => {
     ["the old list of rules", { rules: [{ kind: "recipient_is_owner" }] }],
     [
       "a numeric amount",
-      { rules: { ...NO_RULES, limits: [{ asset: USDC, amount: 5 }] } },
+      {
+        rules: {
+          ...NO_RULES,
+          rules: [{ asset: USDC, amount: 5, to: { kind: "any_protocol" } }],
+        },
+      },
     ],
     [
       "an amount that is not digits",
-      { rules: { ...NO_RULES, limits: [{ asset: USDC, amount: "1.5" }] } },
+      {
+        rules: {
+          ...NO_RULES,
+          rules: [{ asset: USDC, amount: "1.5", to: { kind: "any_protocol" } }],
+        },
+      },
     ],
-    ["an end date that is not a number", { rules: { not_after: "soon" } }],
-    ["a flag that is not a boolean", { rules: { owner_only: "yes" } }],
+    [
+      "a destination it does not know",
+      {
+        rules: {
+          ...NO_RULES,
+          rules: [{ asset: USDC, amount: "1", to: { kind: "contract" } }],
+        },
+      },
+    ],
+    ["the first shape of the rules", { rules: { apps: null, limits: [] } }],
+    [
+      "a period that is not a number",
+      {
+        rules: {
+          ...NO_RULES,
+          rules: [
+            {
+              asset: USDC,
+              amount: "1",
+              to: { kind: "any_protocol" },
+              active_until: "2026-12-11",
+            },
+          ],
+        },
+      },
+    ],
+    ["a mode it does not know", { rules: { mode: "greylist" } }],
+    ["a flag that is not a boolean", { rules: { linked_only: "yes" } }],
     ["an unknown admin", { admin: { kind: "multisig" } }],
   ])("rejects %s rather than dropping it from the next write", (_, extra) => {
     expect(() => parseWalletRules({ ...body, ...extra })).toThrow(
@@ -236,11 +528,11 @@ describe("wallet rules", () => {
     const none = parseWalletRules({ ...body, rules: NO_RULES }).rules;
     expect(none).toEqual(NO_RULES);
     expect(hasRules(none)).toBe(false);
-    expect(hasRules({ ...none, apps: [] })).toBe(true);
-    expect(hasRules({ ...none, owner_only: true })).toBe(true);
+    expect(hasRules({ ...none, mode: "whitelist" })).toBe(true);
+    expect(hasRules({ ...none, linked_only: true })).toBe(true);
   });
 
-  it("changes rules with CSRF, sending only asset and amount for a limit", async () => {
+  it("changes rules with CSRF, sending a rule's asset, amount, destination and end, never its start", async () => {
     const { rules, calls } = backend({
       [`POST /v1/account/agent-wallets/${WALLET}/rules`]: () =>
         Response.json({
@@ -253,13 +545,17 @@ describe("wallet rules", () => {
     expect(calls[0]!.headers.get("x-aomi-csrf")).toBe("1");
     expect(calls[0]!.body).toEqual({
       rules: {
-        apps: ["jupiter", "kamino", "uniswap"],
-        limits: [
-          { asset: SOL, amount: "500000000" },
-          { asset: USDC, amount: "200000000" },
+        mode: "whitelist",
+        rules: [
+          {
+            asset: SOL,
+            amount: "500000000",
+            to: { kind: "protocol", id: "jupiter" },
+            active_until: 1797600000,
+          },
+          { asset: USDC, amount: "200000000", to: { kind: "any_protocol" } },
         ],
-        not_after: 1795219200,
-        owner_only: true,
+        linked_only: true,
       },
     });
     expect(result.status).toBe("waiting");
@@ -338,6 +634,7 @@ describe("wallet rules", () => {
     [403, RULES_ERROR_CODES.signatureRequired],
     [409, RULES_ERROR_CODES.changeNotOpen],
     [409, RULES_ERROR_CODES.changed],
+    [400, RULES_ERROR_CODES.periodInvalid],
     [404, RULES_ERROR_CODES.changeNotFound],
   ])("raises %i %s as a typed error", async (status, code) => {
     const { rules } = backend({
