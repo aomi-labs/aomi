@@ -5,7 +5,6 @@ import {
   ruleKey,
   type AomiRule,
   type AomiRuleTo,
-  type AomiRulesAdmin,
   type AomiRulesAdminWallet,
   type AomiRulesCatalog,
 } from "@aomi-labs/client";
@@ -51,25 +50,6 @@ export function assetChain(asset: string, catalog?: AomiRulesCatalog): string {
   if (namespace === "solana") return "Solana";
   const chain = SUPPORTED_CHAINS.find((item) => String(item.id) === reference);
   return chain?.name ?? `Chain ${reference ?? ""}`.trim();
-}
-
-type Displayed = Pick<AomiRule, "asset" | "symbol" | "decimals">;
-
-/** `200 USDC`; an unknown token shows its raw amount and short address. */
-export function assetAmount(amount: string, asset: Displayed): string {
-  return asset.symbol && typeof asset.decimals === "number"
-    ? `${fromBaseUnits(amount, asset.decimals)} ${asset.symbol}`
-    : `${amount} ${shortAsset(asset.asset)}`;
-}
-
-/** How much of a limit is used, 0 to 100. */
-export function usedPercent(used: string, cap: string): number {
-  const zero = BigInt(0);
-  const hundred = BigInt(100);
-  const limit = BigInt(cap);
-  if (limit <= zero) return BigInt(used) > zero ? 100 : 0;
-  const percent = (BigInt(used) * hundred) / limit;
-  return percent > hundred ? 100 : Number(percent);
 }
 
 /** `23 h`, `40 min`, or null once the time has passed. */
@@ -128,11 +108,6 @@ export const sameWallet = (
     ? wallet.address.toLowerCase() === address!.toLowerCase()
     : wallet.address === address);
 
-export const sameAdmin = (left: AomiRulesAdmin, right: AomiRulesAdmin) =>
-  left.kind === "wallet" && right.kind === "wallet"
-    ? sameWallet(left, right.family, right.address)
-    : left.kind === right.kind;
-
 /** A failed rules request's code, or undefined for anything else. */
 export const rulesErrorCode = (error: unknown): string | undefined =>
   error instanceof AomiApiError ? error.code : undefined;
@@ -141,27 +116,31 @@ const FAILURES: Record<string, string> = {
   rules_app_unknown: "That app isn't available on this chain.",
   rules_asset_invalid: "That token isn't supported.",
   rules_address_invalid: "That address isn't one for this chain.",
-  rules_duplicate: "That rule is already there.",
+  rules_duplicate: "That policy is already there.",
+  rules_period_invalid: "Pick an end date in the future.",
   rules_change_rate_limited:
     "Too many changes were filed in the last hour. Try again later.",
-  rules_not_enforceable: "These rules can't go on chain yet.",
+  rules_not_enforceable: "These policies can't go on chain yet.",
   rules_admin_wallet_not_linked: "Link that wallet to your account first.",
   rules_connection_invalid: "That connection can't use this wallet.",
   agent_wallet_not_found: "This wallet no longer exists.",
   rules_change_not_found: "This change doesn't exist.",
   rules_change_not_open: "This change was already decided.",
-  rules_changed: "The rules changed. Review them again.",
+  rules_changed: "The policies changed. Review them again.",
   rules_change_pending:
     "A change is already waiting. Approve or decline it first.",
   rules_signature_required: "This change needs a wallet signature.",
   rules_signature_invalid: "That signature doesn't match the admin wallet.",
-  login_stale: "For a rule change, sign in again.",
-  scope_denied: "Sign in on Aomi to change rules.",
-  owner_session_required: "Sign in on Aomi to change rules.",
-  guest_account: "Sign in on Aomi to change rules.",
+  login_stale: "For a policy change, sign in again.",
+  scope_denied: "Sign in on Aomi to change policies.",
+  owner_session_required: "Sign in on Aomi to change policies.",
+  guest_account: "Sign in on Aomi to change policies.",
 };
 
-/** What a refused rules request means for the person on the page. */
+/**
+ * What a refused rules request means for the person on the page, who knows
+ * rules as policies.
+ */
 export function rulesFailure(error: unknown, fallback: string): string {
   const code = rulesErrorCode(error);
   return (code && FAILURES[code]) ?? fallback;

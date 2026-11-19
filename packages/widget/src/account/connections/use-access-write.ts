@@ -76,7 +76,7 @@ export function useAccessWrite(
         if (onRulesFiled) onRulesFiled(filed.rules);
         else
           setError(
-            `Instant on "${wallet.name}" needs its admin wallet to sign. Open the wallet in Settings to approve it.`,
+            `Instant on "${wallet.name}" needs its admin wallet to sign. Open Policies in Settings to approve it.`,
           );
       } catch {
         setError("Couldn’t save that. Try again.");

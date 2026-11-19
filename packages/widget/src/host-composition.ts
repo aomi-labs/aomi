@@ -155,3 +155,6 @@ export { testIds, type TestId } from "./test-ids";
 export { AccountMenu, type AccountMenuProps } from "./account/account-menu";
 export { AccountAvatar } from "./account/account-avatar";
 export { CreditCheckoutDialog } from "./account/usage/credits/credit-checkout-dialog";
+
+// Policies tab on sample data, for `/dev/policies` (no backend)
+export { PoliciesFixture } from "./account/policies/policies-fixture";
