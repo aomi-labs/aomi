@@ -314,7 +314,7 @@ export class AccountRulesTransport {
         signal?: AbortSignal;
     }): Promise<AomiRulesCatalog>;
     change(agentWalletId: string, request: AomiRulesChangeRequest): Promise<AomiRulesChangeResult>;
-    confirmEnforcement(agentWalletId: string, provider: string, request: AomiRulesEnforceRequest): Promise<AomiWalletRules>;
+    confirmEnforcement(agentWalletId: string, provider: string, request: AomiRulesConfirmRequest): Promise<AomiWalletRules>;
     declineChange(changeId: string): Promise<AomiWalletRules>;
     get(agentWalletId: string, options?: {
         signal?: AbortSignal;
@@ -1629,6 +1629,18 @@ export interface AomiRequestOptions {
 export type AomiRequestQueryValue = string | number | boolean | readonly (string | number | boolean)[] | null | undefined;
 
 // @public
+export type AomiRule = {
+    id?: string;
+    asset: string;
+    amount: string;
+    to: AomiRuleTo;
+    active_from?: number;
+    active_until?: number;
+    symbol?: string | null;
+    decimals?: number | null;
+};
+
+// @public
 export type AomiRuleChange = {
     id: string;
     agent_wallet_id: string;
@@ -1651,18 +1663,26 @@ export type AomiRuleChangeLine = {
 export type AomiRuleChangeState = (typeof CHANGE_STATES)[number];
 
 // @public
-export type AomiRuleLimit = {
-    asset: string;
-    amount: string;
-    symbol?: string | null;
-    decimals?: number | null;
-};
-
-// @public
-export type AomiRulesAction = {
+export type AomiRulesAction =
+/** Sign this transaction and send it; `confirm` then reads the chain. */
+    {
     kind: "transaction";
     network: string;
     unsigned_base64: string;
+}
+/** Sign this EIP-712 data and send nothing; `confirm` takes the signature. */
+| {
+    kind: "typed_data";
+    network: string;
+    typed_data: AomiRulesTypedData;
+}
+/** Send this plain EVM transaction from the owner's wallet and pay its gas; `confirm` takes no signature. */
+| {
+    kind: "evm_transaction";
+    network: string;
+    to: string;
+    data: string;
+    value: string;
 };
 
 // @public
@@ -1712,32 +1732,33 @@ export type AomiRulesChangeResult = {
 };
 
 // @public
-export type AomiRulesCovers = {
-    apps: string[];
-    limits: string[];
-    not_after: boolean;
-    owner_only: boolean;
+export type AomiRulesConfirmRequest = AomiRulesEnforceRequest & {
+    signature?: string;
 };
 
 // @public
 export type AomiRulesEnforcement = {
+    rule: string;
     provider: string;
     name: string;
     network: string;
     state: (typeof ENFORCEMENT_STATES)[number];
-    covers: AomiRulesCovers;
-    left: Record<string, string>;
-    note: string | null;
     ready: boolean;
+    left: string | null;
+    expires_at: number | null;
+    account: string | null;
+    deployment_tx: string | null;
+    note: string | null;
     signer: {
         family: AomiWalletFamily;
         address: string | null;
     };
 };
 
-// @public (undocumented)
+// @public
 export type AomiRulesEnforceRequest = {
     network: string;
+    rule: string;
     revision: number;
     owner?: string;
     remove?: boolean;
@@ -1745,19 +1766,49 @@ export type AomiRulesEnforceRequest = {
 
 // @public
 export type AomiRuleSet = {
-    apps: string[] | null;
-    limits: AomiRuleLimit[];
-    not_after: number | null;
-    owner_only: boolean;
+    mode: AomiRulesMode;
+    rules: AomiRule[];
+    linked_only: boolean;
 };
 
 // @public
-export type AomiRuleUsage = {
-    asset: string;
-    used: string;
-    cap: string;
-    symbol: string | null;
-    decimals: number | null;
+export type AomiRulesMode = (typeof MODES)[number];
+
+// @public
+export type AomiRulesProvider = {
+    provider: string;
+    name: string;
+    network: string;
+    holds: "total_and_period" | "total_period_and_destination";
+    note: string | null;
+};
+
+// @public
+export type AomiRulesTypedData = {
+    domain: Record<string, unknown>;
+    types: Record<string, {
+        name: string;
+        type: string;
+    }[]>;
+    primaryType: string;
+    message: Record<string, unknown>;
+};
+
+// @public
+export type AomiRuleTo =
+/** Any listed app on the asset's chain. Never a plain send. */
+    {
+    kind: "any_protocol";
+}
+/** One app, by its catalog id. */
+| {
+    kind: "protocol";
+    id: string;
+}
+/** A plain send to this address. */
+| {
+    kind: "address";
+    address: string;
 };
 
 // @public
@@ -1901,10 +1952,10 @@ export type AomiWalletRules = {
     sentences: string[];
     admin: AomiRulesAdmin;
     stopped_until: number | null;
-    usage: AomiRuleUsage[];
-    window_ends_at: number | null;
     pending: AomiRuleChange | null;
+    enforced_by: Record<string, string[]>;
     enforcement: AomiRulesEnforcement[];
+    providers: AomiRulesProvider[];
     admin_wallets: AomiRulesAdminWallet[];
 };
 
@@ -3884,12 +3935,16 @@ export const robinhood: {
     verifyHash?: ((client: viem.Client, parameters: viem.VerifyHashActionParameters) => Promise<viem.VerifyHashActionReturnType>) | undefined;
 };
 
+// @public
+export function ruleKey(rule: Pick<AomiRule, "asset" | "to">): string;
+
 // @public (undocumented)
 export const RULES_ERROR_CODES: {
     readonly appUnknown: "rules_app_unknown";
     readonly assetInvalid: "rules_asset_invalid";
-    readonly amountInvalid: "rules_amount_invalid";
+    readonly addressInvalid: "rules_address_invalid";
     readonly duplicate: "rules_duplicate";
+    readonly periodInvalid: "rules_period_invalid";
     readonly adminWalletNotLinked: "rules_admin_wallet_not_linked";
     readonly connectionInvalid: "rules_connection_invalid";
     readonly walletNotFound: "agent_wallet_not_found";
@@ -3897,6 +3952,14 @@ export const RULES_ERROR_CODES: {
     readonly changeNotOpen: "rules_change_not_open";
     readonly changed: "rules_changed";
     readonly chainNotSettled: "chain_not_settled";
+    readonly notEnforceable: "rules_not_enforceable";
+    readonly ruleNotFound: "rule_not_found";
+    readonly bindingNotFound: "binding_not_found";
+    readonly providerNotFound: "policy_provider_not_found";
+    readonly deploymentTooLarge: "deployment_too_large";
+    readonly stepSignatureRequired: "signature_required";
+    readonly stepSignatureInvalid: "signature_invalid";
+    readonly stepSignatureUnexpected: "signature_unexpected";
     readonly changePending: "rules_change_pending";
     readonly signatureRequired: "rules_signature_required";
     readonly signatureInvalid: "rules_signature_invalid";

@@ -197,9 +197,12 @@ describe("help", () => {
 });
 
 describe("command validation", () => {
-  it.each(["session", "wallet", "app", "byok"])("rejects retired command %s", async (name) => {
-    expect((await cli(name)).code).toBe(2);
-  });
+  it.each(["session", "wallet", "app", "byok"])(
+    "rejects retired command %s",
+    async (name) => {
+      expect((await cli(name)).code).toBe(2);
+    },
+  );
 
   it("is a usage error to mistype a command or pass a non-decimal chain", async () => {
     expect((await cli("thraeds")).code).toBe(2);
@@ -369,7 +372,6 @@ describe("sign-in", () => {
       "Bearer device-token",
     );
   });
-
 });
 
 describe("aomi rules", () => {
@@ -379,7 +381,7 @@ describe("aomi rules", () => {
     id: CHANGE,
     agent_wallet_id: WALLET,
     wallet_name: "Trading wallet",
-    lines: [{ text: "USDC on Base: 200 → 400 a day", loosens: true }],
+    lines: [{ text: "USDC on Base: 200 → 400", loosens: true }],
     state: "awaiting_admin",
     proposed_by: "agent:telegram:7712345678",
     expires_at: Math.floor(Date.now() / 1000) + 23 * 3600 + 600,
@@ -390,20 +392,13 @@ describe("aomi rules", () => {
     agent_wallet_id: WALLET,
     wallet_name: "Trading wallet",
     revision: 3,
-    rules: { apps: null, limits: [], not_after: null, owner_only: true },
-    sentences: ["Can use Jupiter, Kamino", "Up to 0.5 SOL a day on Solana"],
+    rules: { mode: "blacklist", rules: [], linked_only: true },
+    sentences: [
+      "Up to 0.5 SOL on Jupiter (Solana), until 2026-12-11",
+      "Sends only to your linked wallets",
+    ],
     admin: { kind: "aomi_managed" },
     stopped_until: null,
-    usage: [
-      {
-        asset: "solana:mainnet-beta/native",
-        used: "200000000",
-        cap: "500000000",
-        symbol: "SOL",
-        decimals: 9,
-      },
-    ],
-    window_ends_at: 1795046400,
     pending: change,
     enforcement: [],
     admin_wallets: [],
@@ -440,17 +435,16 @@ describe("aomi rules", () => {
     for (const key of Object.values(paths)) delete routes[key];
   });
 
-  it("lists each agent wallet's sentences, use, admin and waiting change", async () => {
+  it("lists each agent wallet's sentences, admin and waiting change, with no spend count", async () => {
     const { code, stdout } = await cli("rules", "--private-key", KEY);
     expect(code).toBe(0);
     expect(stdout.split("\n")).toEqual([
       `Trading wallet  ${WALLET}`,
-      "  Can use Jupiter, Kamino",
-      "  Up to 0.5 SOL a day on Solana",
-      "  used 0.2 / 0.5 SOL",
-      "  Admin: Aomi-managed",
+      "  Up to 0.5 SOL on Jupiter (Solana), until 2026-12-11",
+      "  Sends only to your linked wallets",
+      "  Rule change authority: self-approval",
       `  Pending ${CHANGE} · 23 h left`,
-      "    ↑ USDC on Base: 200 → 400 a day",
+      "    ↑ USDC on Base: 200 → 400",
       "",
     ]);
     // Archived wallets have no rules to show.
@@ -493,7 +487,13 @@ describe("aomi rules", () => {
   });
 
   it("declines a change, and refuses one that is no longer waiting", async () => {
-    const declined = await cli("rules", "decline", CHANGE, "--private-key", KEY);
+    const declined = await cli(
+      "rules",
+      "decline",
+      CHANGE,
+      "--private-key",
+      KEY,
+    );
     expect(declined.code).toBe(0);
     expect(declined.stdout).toContain("Declined");
     routes[paths.change] = { ...change, state: "applied" };

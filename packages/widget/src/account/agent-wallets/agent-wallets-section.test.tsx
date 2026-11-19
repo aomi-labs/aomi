@@ -168,13 +168,12 @@ const walletRules = (extra: object = {}) => ({
   agent_wallet_id: "g-trading",
   wallet_name: "Trading",
   revision: 1,
-  rules: { apps: null, limits: [], not_after: null, owner_only: true },
-  sentences: ["Sends only to your wallets"],
+  rules: { mode: "blacklist", rules: [], linked_only: true },
+  sentences: ["Sends only to your linked wallets"],
   admin: { kind: "aomi_managed" },
   stopped_until: null,
-  usage: [],
-  window_ends_at: null,
   pending: null,
+  enforced_by: {},
   enforcement: [],
   admin_wallets: [],
   ...extra,
@@ -458,37 +457,96 @@ describe("Agent wallets band", () => {
     );
   });
 
-  it("shows a wallet's rules between its ask modes and its actions, and hides them once archived", async () => {
+  it("counts a wallet's connections and live policies between its ask modes and its actions, with the way to each tab, and hides them once archived", async () => {
+    const rule = (id: string, extra: object = {}) => ({
+      id,
+      asset: "solana:mainnet-beta/native",
+      amount: "500000000",
+      to: { kind: "protocol", id },
+      active_from: 1_760_000_000,
+      symbol: "SOL",
+      decimals: 9,
+      ...extra,
+    });
     respond = (_method, path) =>
-      path.endsWith("/rules") ? Response.json(walletRules()) : undefined;
-    await renderSection();
-    const sheet = await manage("Trading");
-    const rules = await within(sheet).findByRole("region", { name: "Rules" });
-    expect(await within(rules).findByText("Aomi-managed")).toBeInTheDocument();
-    const after = (node: Element) =>
-      Boolean(
-        rules.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING,
+      path.endsWith("/rules")
+        ? Response.json(
+            walletRules({
+              rules: {
+                mode: "whitelist",
+                rules: [
+                  rule("jupiter"),
+                  rule("kamino"),
+                  // Ended: listed in Policies, not counted here.
+                  rule("orca", { active_until: 1_760_000_100 }),
+                ],
+                linked_only: true,
+              },
+            }),
+          )
+        : undefined;
+    const opened: string[] = [];
+    const listen = (event: Event) =>
+      opened.push((event as CustomEvent<string>).detail);
+    window.addEventListener("aomi:open-settings", listen);
+    try {
+      await renderSection();
+      const sheet = await manage("Trading");
+      const summary = await within(sheet).findByRole("region", {
+        name: "Connections and policies",
+      });
+      // The portal is not a connection to manage: one is left.
+      expect(summary).toHaveTextContent("Connections1");
+      await waitFor(() => expect(summary).toHaveTextContent("Policies2"));
+      // The policies themselves are managed in Settings › Policies.
+      expect(
+        within(sheet).queryByRole("switch", { name: /linked wallet/ }),
+      ).toBeNull();
+      expect(sheet).not.toHaveTextContent("Policy change authority");
+      const after = (node: Element) =>
+        Boolean(
+          summary.compareDocumentPosition(node) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+        );
+      expect(after(within(sheet).getByText("Who can use it"))).toBe(false);
+      expect(after(within(sheet).getByRole("button", { name: "Send" }))).toBe(
+        true,
       );
-    expect(after(within(sheet).getByText("Who can use it"))).toBe(false);
-    expect(after(within(sheet).getByRole("button", { name: "Send" }))).toBe(
-      true,
-    );
-    expect(
-      calls.some(
-        (call) => call.path === "/v1/account/agent-wallets/g-trading/rules",
-      ),
-    ).toBe(true);
-    fireEvent.keyDown(sheet, { key: "Escape" });
+      expect(
+        calls.some(
+          (call) => call.path === "/v1/account/agent-wallets/g-trading/rules",
+        ),
+      ).toBe(true);
+      fireEvent.click(
+        within(summary).getByRole("button", { name: /Manage in Policies/ }),
+      );
+      expect(opened).toEqual(["policies"]);
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      fireEvent.click(
+        within(
+          within(await manage("Trading")).getByRole("region", {
+            name: "Connections and policies",
+          }),
+        ).getByRole("button", { name: /Manage in Connections/ }),
+      );
+      expect(opened).toEqual(["policies", "connections"]);
 
-    fireEvent.click(screen.getByRole("button", { name: /Archived/ }));
-    const archived = await manage("Old");
-    expect(
-      within(archived).queryByRole("region", { name: "Rules" }),
-    ).toBeNull();
-    expect(calls.some((call) => call.path.includes("g-old/rules"))).toBe(false);
+      fireEvent.click(screen.getByRole("button", { name: /Archived/ }));
+      const archived = await manage("Old");
+      expect(
+        within(archived).queryByRole("region", {
+          name: "Connections and policies",
+        }),
+      ).toBeNull();
+      expect(calls.some((call) => call.path.includes("g-old/rules"))).toBe(
+        false,
+      );
+    } finally {
+      window.removeEventListener("aomi:open-settings", listen);
+    }
   });
 
-  it("files Instant as a rule change when the wallet's admin must sign it", async () => {
+  it("files Instant as a policy change when the wallet's admin must sign it, and says where to review it", async () => {
     const pending = {
       id: "ch-9",
       agent_wallet_id: "g-trading",
@@ -515,9 +573,16 @@ describe("Agent wallets band", () => {
         );
       return undefined;
     };
+    const opened: string[] = [];
+    const listen = (event: Event) =>
+      opened.push((event as CustomEvent<string>).detail);
+    window.addEventListener("aomi:open-settings", listen);
     await renderSection();
     const sheet = await manage("Trading");
-    await within(sheet).findByText("Aomi-managed");
+    await within(sheet).findByRole("region", {
+      name: "Connections and policies",
+    });
+    expect(sheet).not.toHaveTextContent("A policy change is waiting");
     fireEvent.click(
       within(sheet).getByRole("combobox", { name: "Trading: Ask on Aomi" }),
     );
@@ -525,13 +590,11 @@ describe("Agent wallets band", () => {
     await act(async () =>
       fireEvent.click(await screen.findByRole("button", { name: "Turn on" })),
     );
-    const card = await screen.findByRole("region", {
-      name: "Rule change for Trading",
-    });
-    expect(card).toHaveTextContent("Claude Code: signs without asking");
-    expect(
-      within(card).getByRole("button", { name: "Sign in wallet" }),
-    ).toBeInTheDocument();
+    // The change is decided in Settings › Policies; the sheet says so.
+    const notice = await within(sheet).findByRole("status");
+    expect(notice).toHaveTextContent(
+      "A policy change is waiting for approval.",
+    );
     expect(writes().slice(-2)).toEqual([
       {
         method: "PUT",
@@ -545,6 +608,11 @@ describe("Agent wallets band", () => {
       },
     ]);
     expect(screen.queryByText("Couldn’t save that. Try again.")).toBeNull();
+    fireEvent.click(
+      within(notice).getByRole("button", { name: "Review in Policies" }),
+    );
+    expect(opened).toEqual(["policies"]);
+    window.removeEventListener("aomi:open-settings", listen);
   });
 
   it("manages a wallet: who can use it, actions, and Receive with QR, the address and its networks", async () => {
@@ -600,7 +668,7 @@ describe("Agent wallets band", () => {
     expect(within(receive).queryByText("Base")).toBeNull();
   });
 
-  it("receives at the operating address and shows the rules on chain where a provider can hold them", async () => {
+  it("receives at the operating address, and leaves putting policies on chain to Settings › Policies", async () => {
     const SWIG = "Swig111111111111111111111111111111111Vault";
     list.wallets = [
       {
@@ -623,14 +691,17 @@ describe("Agent wallets band", () => {
             walletRules({
               enforcement: [
                 {
+                  rule: "solana:mainnet-beta/native@any",
                   provider: "swig",
                   name: "Swig",
                   network: "solana:mainnet-beta",
                   state: "off",
-                  covers: { apps: [], limits: [] },
-                  left: {},
-                  note: "Add a daily SOL limit first. Swig needs one.",
-                  ready: false,
+                  ready: true,
+                  left: null,
+                  expires_at: null,
+                  account: null,
+                  deployment_tx: null,
+                  note: null,
                   signer: { family: "svm", address: null },
                 },
               ],
@@ -642,12 +713,18 @@ describe("Agent wallets band", () => {
     // The policy holds the Solana funds, so deposits go there, not the key.
     expect(sheet).toHaveTextContent(shortAddress(SWIG));
     expect(sheet).not.toHaveTextContent(shortAddress(SVM));
-    // The same rules on chain are one row of the rules, with no separate
-    // Limits step and no request that names a provider.
-    expect(await within(sheet).findByText("Swig · Off")).toBeInTheDocument();
+    // The sheet has no Limits step and no on-chain control of its own.
+    await within(sheet).findByRole("region", {
+      name: "Connections and policies",
+    });
     expect(
-      within(sheet).getByText(/Add a daily SOL limit first\. Swig needs one\./),
-    ).toBeInTheDocument();
+      within(sheet).queryByRole("button", {
+        name: /^(\+|Update|Remove from) Swig/,
+      }),
+    ).toBeNull();
+    expect(
+      within(sheet).queryByRole("button", { name: "Sign to deploy" }),
+    ).toBeNull();
     expect(within(sheet).queryByRole("button", { name: /^Limits/ })).toBeNull();
     expect(calls.some((call) => call.path.includes("/policies/"))).toBe(false);
     fireEvent.click(

@@ -57,6 +57,12 @@ vi.mock("@/account/connections/connections-settings", () => ({
   ConnectionsSettings: () => <div>Connections content</div>,
 }));
 
+vi.mock("@/account/policies/policies-settings", () => ({
+  PoliciesSettings: ({ active }: { active?: boolean }) => (
+    <div data-active={String(active)}>Policies content</div>
+  ),
+}));
+
 describe("SettingsModal directory shell", () => {
   afterEach(() => {
     session.status = "ready";
@@ -139,6 +145,36 @@ describe("SettingsModal directory shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "View billing" }));
     expect(screen.getByText("Billing content")).toBeTruthy();
     expect(screen.getByText("Plan, balance, usage and payments")).toBeTruthy();
+  });
+
+  it("lists Policies after Connections, apart from Safety, and tells it when it is in front", async () => {
+    render(<SettingsModal onClose={vi.fn()} />);
+    const nav = screen.getByRole("navigation", { name: "Settings sections" });
+    expect(
+      Array.from(nav.querySelectorAll("button")).map(
+        (button) => button.textContent,
+      ),
+    ).toEqual([
+      "General",
+      "Account",
+      "Connections",
+      "Policies",
+      "Safety",
+      "Billing",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Policies" }));
+    expect(screen.getByRole("heading", { name: "Policies" })).toBeTruthy();
+    expect(await screen.findByText("Policies content")).toHaveAttribute(
+      "data-active",
+      "true",
+    );
+    // Safety keeps its own page; a visited tab stays mounted behind it.
+    fireEvent.click(screen.getByRole("button", { name: "Safety" }));
+    expect(screen.getByText("Policy content")).toBeTruthy();
+    expect(screen.getByText("Policies content")).toHaveAttribute(
+      "data-active",
+      "false",
+    );
   });
 
   it("gives every tab the same reading column", () => {
