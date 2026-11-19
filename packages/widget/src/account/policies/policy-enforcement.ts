@@ -124,14 +124,44 @@ export function signableTypedData(data: AomiRulesTypedData, chainId: number) {
 
 const PLAIN_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
+/** Wallets sign and send on their current chain. */
+export async function switchToChain(
+  kit: Pick<AomiWalletKit, "identity" | "switchChain">,
+  chainId: number,
+) {
+  if (kit.identity.chainId !== chainId && kit.switchChain)
+    await kit.switchChain(chainId);
+}
+
+/** A plain send from the connected account: no AA, no sponsor; throws on revert. */
+export async function sendPlainTransaction(
+  send: NonNullable<AomiWalletKit["sendTransaction"]>,
+  tx: {
+    requestId: string;
+    chainId: number;
+    to: string;
+    data: string;
+    value: string;
+  },
+) {
+  await send(
+    {
+      requestId: tx.requestId,
+      aaPreference: "none",
+      chainId: tx.chainId,
+      to: tx.to,
+      data: tx.data,
+      value: tx.value,
+    },
+    { chainIdAlreadySelected: tx.chainId },
+  );
+}
+
 /**
- * Have the owner's wallet do what the step for `entry` asked: send a
- * transaction, or sign typed data and hand back its signature. An action for
- * another network than the entry's, one this wallet has no name for, and one
- * the owner's wallet family cannot do are refused: nothing is ever sent to a
- * default network. A plain EVM transaction (the owner's signed revocation) is
- * sent from the wallet that owns the policy and only to a plain address,
- * carrying no value.
+ * Run the step's action in the owner's wallet. Refuses another network than
+ * the entry's (never a default network) and a family the wallet can't do. A
+ * plain EVM send (a signed revocation) goes only from the policy's owner, to
+ * a plain address, with no value.
  */
 async function act(
   kit: AomiWalletKit,
@@ -149,9 +179,7 @@ async function act(
     if (entry.signer.family !== "evm" || !chainId || !kit.signTypedData)
       throw new Error("This wallet can't sign that.");
     const typed_data = signableTypedData(action.typed_data, Number(chainId));
-    // A wallet signs typed data for the chain it is on.
-    if (kit.identity.chainId !== Number(chainId) && kit.switchChain)
-      await kit.switchChain(Number(chainId));
+    await switchToChain(kit, Number(chainId));
     const { signature } = await kit.signTypedData({
       typed_data,
       signer: owner,
@@ -184,21 +212,14 @@ async function act(
       throw new Error(
         "Send this from the wallet that owns the policy. Nothing was sent.",
       );
-    if (kit.identity.chainId !== Number(chainId) && kit.switchChain)
-      await kit.switchChain(Number(chainId));
-    // The wallet's own send waits for the receipt and throws when it
-    // reverts; Aomi adds nothing to it (no account abstraction, no sponsor).
-    await kit.sendTransaction(
-      {
-        requestId: "policy-revocation",
-        aaPreference: "none",
-        chainId: Number(chainId),
-        to: action.to,
-        data: action.data,
-        value: action.value,
-      },
-      { chainIdAlreadySelected: Number(chainId) },
-    );
+    await switchToChain(kit, Number(chainId));
+    await sendPlainTransaction(kit.sendTransaction, {
+      requestId: "policy-revocation",
+      chainId: Number(chainId),
+      to: action.to,
+      data: action.data,
+      value: action.value,
+    });
     return {};
   }
   const execute = kit.signAndSendSolanaTransaction ?? kit.sendSolanaTransaction;
