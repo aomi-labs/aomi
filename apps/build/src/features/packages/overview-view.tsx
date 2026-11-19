@@ -1,5 +1,5 @@
 import { Plus } from "lucide-react";
-import { aomiButton, PackageMark, StatusPill } from "@aomi-labs/widget/host-composition";
+import { aomiButton, PackageTile, StatusPill } from "@aomi-labs/widget/host-composition";
 
 import { UrlLink as Link } from "@/components/url-link";
 import { PageHeader, pageFrame } from "@/components/control-plane/page";
@@ -12,7 +12,16 @@ import { releaseLabel, shortName, type Agent, type Package } from "./client";
 import { useAgents, useAllReleases, usePackages, usePublisher } from "./hooks";
 import { agentStatus, channelLabel, packageStatus } from "./inventory-view";
 import { fromDate, toolCalls, useUsage } from "./usage-view";
-import { Card, Cell, EmptyRow, Mono, Row, Tile, plural } from "./ui";
+import {
+  AgentMark,
+  Card,
+  Cell,
+  EmptyRow,
+  Mono,
+  Row,
+  VerifiedCheck,
+  plural,
+} from "./ui";
 
 const ROW_LINK =
   "after:absolute after:inset-0 after:content-[''] hover:underline";
@@ -145,17 +154,14 @@ export function OverviewView() {
                 return (
                   <Row
                     key={pkg.id}
-                    leading={
-                      <Tile>
-                        <PackageMark iconUrl={pkg.icon_url} className="size-4" />
-                      </Tile>
-                    }
+                    leading={<PackageTile iconUrl={pkg.icon_url} />}
                     label={
                       <Link
                         href={`/packages/${shortName(pkg.id)}`}
                         className={ROW_LINK}
                       >
                         {pkg.id}
+                        {pkg.verified ? <VerifiedCheck /> : null}
                       </Link>
                     }
                     hint={counts(detail, usedBy(pkg.id))}
@@ -168,7 +174,10 @@ export function OverviewView() {
                       ) : null}
                     </Cell>
                     <Cell width={132}>
-                      <StatusPill tone={status.tone} dot>
+                      <StatusPill
+                        tone={status.tone}
+                        dot={status.tone === "success"}
+                      >
                         {status.label}
                       </StatusPill>
                     </Cell>
@@ -192,11 +201,7 @@ export function OverviewView() {
                 return (
                   <Row
                     key={agent.id}
-                    leading={
-                      <Tile round>
-                        {agent.display_name.charAt(0).toUpperCase()}
-                      </Tile>
-                    }
+                    leading={<AgentMark />}
                     label={
                       <Link
                         href={`/agents/${shortName(agent.id)}`}
@@ -215,7 +220,10 @@ export function OverviewView() {
                       .join(" · ")}
                   >
                     <Cell width={132}>
-                      <StatusPill tone={status.tone} dot>
+                      <StatusPill
+                        tone={status.tone}
+                        dot={status.tone === "success"}
+                      >
                         {status.label}
                       </StatusPill>
                     </Cell>
@@ -259,7 +267,7 @@ export function OverviewView() {
                     </span>
                   </span>
                   <Cell width={84}>
-                    <StatusPill tone={entry.live ? "success" : "neutral"}>
+                    <StatusPill tone={entry.live ? "success" : "neutral"} dot={entry.live}>
                       {entry.live ? "Current" : "Previous"}
                     </StatusPill>
                   </Cell>

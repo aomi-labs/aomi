@@ -1,7 +1,7 @@
 import {
   aomiButton,
   SectionHeader,
-  PackageMark,
+  PackageTile,
   StatusPill,
   type StatusTone,
 } from "@aomi-labs/widget/host-composition";
@@ -34,6 +34,7 @@ import {
   Mono,
   Notice,
   Row,
+  VerifiedCheck,
   formatTime,
   packageKind,
   repoUrl,
@@ -294,12 +295,11 @@ export function PackageDetailView({ name }: { name: string }) {
     <div className={pageFrame}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3.5">
-          <span className="bg-aomi-accent-subtle text-aomi-accent-strong flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-[12px]">
-            <PackageMark iconUrl={data.package.icon_url} className="size-5" />
-          </span>
+          <PackageTile iconUrl={data.package.icon_url} size="detail" />
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className={pageTitle}>{shortName(data.package.id)}</h1>
+              {data.verified ? <VerifiedCheck /> : null}
               {live ? (
                 <StatusPill tone="success" dot>
                   Live
@@ -308,9 +308,6 @@ export function PackageDetailView({ name }: { name: string }) {
                 <StatusPill>No release live</StatusPill>
               )}
               {live ? <StatusPill>{packageKind(live.tools.length)}</StatusPill> : null}
-              <StatusPill tone={data.verified ? "accent" : "neutral"}>
-                {data.verified ? "Verified" : "Not verified"}
-              </StatusPill>
             </div>
             <p className="text-aomi-muted text-[14px]">
               {data.package.description}

@@ -59,11 +59,10 @@ function renderWithQueries(ui: ReactNode) {
 it("lists the publisher's agents and packages apart", async () => {
   const agents = renderWithQueries(<InventoryView only="agents" />);
   expect(await screen.findByText("Hoodit")).toBeInTheDocument();
-  expect(
-    screen
-      .getAllByRole("link", { name: "View" })
-      .map((link) => link.getAttribute("href")),
-  ).toContain("/agents/hoodit");
+  expect(screen.getByRole("link", { name: "Hoodit" })).toHaveAttribute(
+    "href",
+    "/agents/hoodit",
+  );
   expect(screen.getByText("Needs a rebuild")).toBeInTheDocument();
   expect(screen.queryByText("Trade")).not.toBeInTheDocument();
   agents.unmount();
@@ -133,7 +132,7 @@ it("replaces a builder secret through the package's secret route, never showing 
   renderWithQueries(<PackageDetailView name="trade" />);
   fireEvent.click(await screen.findByRole("tab", { name: "Guards" }));
   expect(screen.getByText("api.gmgn.ai")).toBeInTheDocument();
-  expect(screen.getByText("Verified")).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: "Verified" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("tab", { name: "Secrets" }));
   expect(screen.getByText("Users add their own")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Add value" })).toBeInTheDocument();

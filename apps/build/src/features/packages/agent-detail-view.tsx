@@ -1,17 +1,18 @@
-import { StatusPill } from "@aomi-labs/widget/host-composition";
+import { PackageTile, StatusPill } from "@aomi-labs/widget/host-composition";
 import { UrlLink as Link } from "@/components/url-link";
 import { pageFrame, pageTitle } from "@/components/control-plane/page";
-import { Package as PackageIcon } from "lucide-react";
 import {
   ErrorPanel,
   LoadingPanel,
 } from "@/features/deploy/components/deployments/ui/state-panels";
 
+import { Chains } from "./chains";
 import { releaseLabel, shortName, type Agent } from "./client";
 import { useAgent, usePackages, usePublisher } from "./hooks";
 import { agentStatus } from "./inventory-view";
 import { ReleaseHistory } from "./release-history";
 import {
+  AgentMark,
   Card,
   Cell,
   Columns,
@@ -21,6 +22,7 @@ import {
   Notice,
   Row,
   SourceStrip,
+  VerifiedCheck,
   formatTime,
   plural,
 } from "./ui";
@@ -112,12 +114,13 @@ function Packages({ config, owned }: { config: Config; owned: Set<string> }) {
         config.packages.map((id) => (
           <Row
             key={id}
-            leading={
-              <span className="bg-aomi-surface-2 text-aomi-muted rounded-control flex size-8 shrink-0 items-center justify-center">
-                <PackageIcon className="size-4" aria-hidden />
-              </span>
+            leading={<PackageTile iconUrl={detail(id)?.package.icon_url} />}
+            label={
+              <>
+                {id}
+                {detail(id)?.verified ? <VerifiedCheck /> : null}
+              </>
             }
-            label={id}
             hint={(() => {
               const live = detail(id)?.live;
               return live
@@ -134,11 +137,6 @@ function Packages({ config, owned }: { config: Config; owned: Set<string> }) {
                     digest: detail(id)!.live!.digest,
                   })}
                 </StatusPill>
-              ) : null}
-            </Cell>
-            <Cell width={84}>
-              {detail(id)?.verified ? (
-                <StatusPill tone="accent">Verified</StatusPill>
               ) : null}
             </Cell>
             <Cell width={96} end>
@@ -164,7 +162,7 @@ function Rules({ config }: { config: Config }) {
     <>
       <Card title="Chains" origin="repo">
         <Field label="Allowed chains" hint="Where the agent may trade">
-          {config.chains.join(", ") || "None"}
+          {config.chains.length ? <Chains chains={config.chains} /> : "None"}
         </Field>
       </Card>
       <Card title="Wallet rules" origin="repo">
@@ -233,9 +231,7 @@ export function AgentDetailView({ name }: { name: string }) {
   return (
     <div className={pageFrame}>
       <div className="flex min-w-0 items-start gap-3.5">
-        <span className="bg-aomi-fg text-aomi-bg flex size-11 shrink-0 items-center justify-center rounded-full text-[17px] font-semibold">
-          {data.agent.display_name.charAt(0).toUpperCase()}
-        </span>
+        <AgentMark size={48} />
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className={pageTitle}>{data.agent.display_name}</h1>

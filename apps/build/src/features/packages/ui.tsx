@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@aomi-labs/widget";
 import { ListGroup, SectionHeader } from "@aomi-labs/widget/host-composition";
-import { Github, Info } from "lucide-react";
+import { BadgeCheck, Bot, Github, Info } from "lucide-react";
 
 /** The kit's text input (h36, r10, 14px). */
 export const INPUT =
@@ -80,7 +80,10 @@ export function Card({
   );
 }
 
-/** A list row: leading mark, title 14/500 over a 12px line, trailing cells. */
+/**
+ * A list row: leading mark and title 14/500 over a 12px line in the flexing
+ * name column, then fixed-width trailing cells.
+ */
 export function Row({
   leading,
   label,
@@ -93,16 +96,58 @@ export function Row({
   children?: ReactNode;
 }) {
   return (
-    <div className="relative flex min-h-14 items-center gap-3 px-3.5 py-3">
-      {leading}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="type-row truncate">{label}</div>
-        {hint ? (
-          <div className="type-meta text-aomi-muted truncate">{hint}</div>
-        ) : null}
+    <div className="relative flex min-h-14 items-center gap-4 px-3.5 py-3">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        {leading}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="type-row truncate">{label}</div>
+          {hint ? (
+            <div className="type-meta text-aomi-muted truncate">{hint}</div>
+          ) : null}
+        </div>
       </div>
       {children}
     </div>
+  );
+}
+
+/**
+ * The header row over a list of `Row`s: the name column's title, then one
+ * title per trailing cell at the same widths. `marked` indents the title past
+ * a 32px row mark; `chevron` keeps room for a trailing row chevron.
+ */
+export function ListHeader({
+  title,
+  columns,
+  marked = true,
+  chevron = false,
+}: {
+  title: string;
+  columns: { label?: string; width: number }[];
+  marked?: boolean;
+  chevron?: boolean;
+}) {
+  return (
+    <div className="bg-aomi-surface text-aomi-muted flex h-9 items-center gap-4 px-3.5 text-[12px] font-medium">
+      <span className={cn("min-w-0 flex-1", marked && "pl-11")}>{title}</span>
+      {columns.map((column, index) => (
+        <Cell key={column.label ?? index} width={column.width}>
+          {column.label}
+        </Cell>
+      ))}
+      {chevron ? <span className="w-4 shrink-0" /> : null}
+    </div>
+  );
+}
+
+/** The verified check after a package's name. */
+export function VerifiedCheck() {
+  return (
+    <BadgeCheck
+      role="img"
+      aria-label="Verified"
+      className="text-aomi-accent-strong ml-1 inline size-3.5 shrink-0 align-[-2px]"
+    />
   );
 }
 
@@ -138,24 +183,19 @@ export function Field({
   );
 }
 
-/** A 32px tile holding an icon or an agent's first letter. */
-export function Tile({
-  children,
-  round = false,
-}: {
-  children: ReactNode;
-  round?: boolean;
-}) {
+/** An agent's mark: the accent-subtle circle with the bot glyph (32, 48 or 16). */
+export function AgentMark({ size = 32 }: { size?: 16 | 32 | 48 }) {
   return (
     <span
+      aria-hidden
       className={cn(
-        "flex size-8 shrink-0 items-center justify-center overflow-hidden text-[13px] font-semibold [&_svg]:size-4",
-        round
-          ? "bg-aomi-fg text-aomi-bg rounded-full"
-          : "rounded-control bg-aomi-accent-subtle text-aomi-accent-strong",
+        "bg-aomi-accent-subtle text-aomi-accent-strong flex shrink-0 items-center justify-center rounded-full",
+        size === 48 ? "size-12" : size === 32 ? "size-8" : "size-4",
       )}
     >
-      {children}
+      <Bot
+        className={size === 48 ? "size-6" : size === 32 ? "size-4" : "size-2.5"}
+      />
     </span>
   );
 }

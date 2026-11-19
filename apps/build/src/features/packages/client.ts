@@ -10,6 +10,7 @@ import type {
   Publisher,
   ReleaseKind,
   SlotStatus,
+  Source,
 } from "@aomi-labs/internal/manager";
 
 import { API_PATHS } from "@/lib/api-paths";
@@ -23,6 +24,7 @@ export type {
   PackageRelease,
   Publisher,
   ReleaseKind,
+  Source,
 };
 
 export type Release = PackageRelease | AgentConfigRelease;

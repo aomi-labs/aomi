@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Aomi } from "@aomi-labs/client";
 import { Plus } from "lucide-react";
-import { aomiButton, PackageMark, StatusPill } from "@aomi-labs/widget/host-composition";
+import { aomiButton, PackageTile, StatusPill } from "@aomi-labs/widget/host-composition";
 
 import { UrlLink as Link } from "@/components/url-link";
 import { PageHeader, pageFrame } from "@/components/control-plane/page";
@@ -15,7 +15,7 @@ import { operateFetch } from "@/features/operate/client";
 import { shortName } from "./client";
 import { useAgents, usePublisher } from "./hooks";
 import { channelLabel } from "./inventory-view";
-import { Card, Cell, EmptyRow, Row, Tile } from "./ui";
+import { AgentMark, Card, Cell, EmptyRow, ListHeader, Row } from "./ui";
 
 const PERIODS = ["7 days", "30 days", "This month"] as const;
 type Period = (typeof PERIODS)[number];
@@ -53,7 +53,6 @@ export function useUsage(from: string) {
   });
 }
 
-const HEAD = "type-eyebrow text-aomi-muted bg-aomi-surface flex gap-3 px-3.5 py-2.5";
 
 const usd = (micro: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
@@ -123,12 +122,14 @@ export function UsageView() {
         }
         footer={usage.error ? `Usage could not be read: ${usage.error.message}` : null}
       >
-        <div className={HEAD}>
-          <span className="flex-1">Agent</span>
-          <span className="w-[240px] shrink-0">Channels</span>
-          <span className="w-[120px] shrink-0">Model cost</span>
-          <span className="w-[160px] shrink-0">Paid by</span>
-        </div>
+        <ListHeader
+          title="Agent"
+          columns={[
+            { label: "Channels", width: 240 },
+            { label: "Model cost", width: 120 },
+            { label: "Paid by", width: 160 },
+          ]}
+        />
         {publisher.data.agents.length === 0 ? (
           <EmptyRow>No agents yet</EmptyRow>
         ) : (
@@ -138,7 +139,7 @@ export function UsageView() {
             return (
               <Row
                 key={agent.id}
-                leading={<Tile round>{agent.display_name.charAt(0).toUpperCase()}</Tile>}
+                leading={<AgentMark />}
                 label={agent.display_name}
                 hint="Your agent"
               >
@@ -186,21 +187,17 @@ export function UsageView() {
           </span>
         }
       >
-        <div className={HEAD}>
-          <span className="flex-1">Package</span>
-          <span className="w-[300px] shrink-0">Used in</span>
-        </div>
+        <ListHeader
+          title="Package"
+          columns={[{ label: "Used in", width: 300 }]}
+        />
         {publisher.data.packages.length === 0 ? (
           <EmptyRow>No packages yet</EmptyRow>
         ) : (
           publisher.data.packages.map((pkg) => (
             <Row
               key={pkg.id}
-              leading={
-                <Tile>
-                  <PackageMark iconUrl={pkg.icon_url} className="size-4" />
-                </Tile>
-              }
+              leading={<PackageTile iconUrl={pkg.icon_url} />}
               label={
                 <>
                   <span className="text-aomi-muted font-normal">
