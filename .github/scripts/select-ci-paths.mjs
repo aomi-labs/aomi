@@ -203,6 +203,11 @@ function classifyPath(selection, path) {
     return selection;
   }
 
+  if (path.startsWith(".changeset/") || path.startsWith("api-reports/")) {
+    select(selection, "consumer_compat");
+    return selection;
+  }
+
   if (path.startsWith("scripts/") || path.startsWith("tests/")) {
     return selectAll("unmapped_test_or_script");
   }

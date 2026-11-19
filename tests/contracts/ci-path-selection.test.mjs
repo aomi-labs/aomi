@@ -161,6 +161,16 @@ test("required widget guard workflow changes exercise their actual consumer gate
   }
 });
 
+test("release metadata and API reports select the widget guard", () => {
+  for (const path of [
+    ".changeset/release-note.md",
+    "api-reports/widget.api.md",
+  ]) {
+    const selected = classifyPaths([path]);
+    assert.equal(selected.consumer_compat, true, path);
+  }
+});
+
 test("retired Base paths fail broad across active apps without a retired output", () => {
   const selected = classifyPaths(["apps/base/app/page.tsx"]);
   assert.equal(selected.full, true);
