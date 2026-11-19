@@ -32,6 +32,7 @@ import { useAomiWalletKit } from "@/wallet/context";
 import type { AomiWalletKit } from "@/wallet/types";
 import { useRuleEnforcement } from "./policy-enforcement";
 import { PoliciesView, WalletPolicyCard } from "./policies-view";
+import { WalletVaultRows } from "./vault-rows";
 import {
   adminOf,
   authorityOf,
@@ -534,6 +535,12 @@ function LiveWalletCard({
       wallet={view}
       catalog={picker}
       providers={policyProviders(walletRules)}
+      vaults={
+        <WalletVaultRows
+          enforcement={walletRules.enforcement}
+          catalog={picker}
+        />
+      }
       saving={held.saving}
       notice={held.notice}
       error={held.error}

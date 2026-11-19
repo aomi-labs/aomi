@@ -45,7 +45,7 @@ import {
   type WalletPolicies,
 } from "./policy-model";
 
-const INPUT =
+export const INPUT =
   "border-aomi-border bg-aomi-raised focus-visible:ring-aomi-ring/50 h-8 rounded-[8px] border px-2 text-[13px] outline-none focus-visible:ring-2";
 
 /**
@@ -113,6 +113,7 @@ export function WalletPolicyCard({
   onAuthority,
   deploy,
   takeOff,
+  vaults,
 }: {
   wallet: WalletPolicies;
   /** Null until the picker's lists are read. */
@@ -137,6 +138,8 @@ export function WalletPolicyCard({
   deploy: (policy: Policy) => PolicyDeploy | undefined;
   /** The owner signs to take a removed policy off the chain. */
   takeOff?: (policy: RemovedPolicy) => PolicyDeploy | undefined;
+  /** The owner's vault rows (`VaultRow`), after the policies. */
+  vaults?: ReactNode;
 }) {
   const [adding, setAdding] = useState(false);
   useEffect(() => setAdding(false), [epoch]);
@@ -227,6 +230,8 @@ export function WalletPolicyCard({
           />
         ))}
 
+        {vaults}
+
         <PolicyAuthorityPicker
           key={`${epoch}:${wallet.authority.kind}`}
           authority={wallet.authority}
@@ -270,14 +275,14 @@ function SwitchLine({
 
 type Glyph = ComponentType<{ className?: string }>;
 
-function chainGlyph(chain: PolicyChain): Glyph | undefined {
+export function chainGlyph(chain: PolicyChain): Glyph | undefined {
   const [namespace, reference] = chain.network.split(":");
   return namespace === "solana" ? SolanaIcon : getChainIcon(Number(reference));
 }
-const tokenGlyph = (symbol: string): Glyph =>
+export const tokenGlyph = (symbol: string): Glyph =>
   symbol === "SOL" ? SolanaIcon : symbol === "ETH" ? EthereumIcon : Coins;
 
-function ChainMark({ chain }: { chain: PolicyChain }) {
+export function ChainMark({ chain }: { chain: PolicyChain }) {
   const Icon = chainGlyph(chain);
   return Icon ? (
     <span

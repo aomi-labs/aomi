@@ -11,6 +11,9 @@ import type { AomiRuleSet } from "@aomi-labs/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AccountOverviewFixture } from "@/test/account-overview-fixture";
 import { PoliciesSettings } from "./policies-settings";
+import type { VaultReader } from "./vault-chain";
+import type { VaultHolding } from "./vault-model";
+import { DELEGATION_MANAGER } from "./vault-withdraw";
 import {
   dayFromToday,
   endOfLocalDay,
@@ -55,6 +58,23 @@ const kit = vi.hoisted(() => ({
   refreshAccount: vi.fn(async () => undefined),
 }));
 vi.mock("@/wallet/context", () => ({ useAomiWalletKit: () => kit }));
+// The chain is never read: the vault rows get this fake reader.
+const chain = vi.hoisted(() => ({
+  hasCode: vi.fn(async (_chain: number, _vault: string) => true),
+  balances: vi.fn(
+    async (_chain: number, _vault: string, tokens: readonly unknown[]) =>
+      (tokens as VaultHolding["token"][]).map((token) => ({
+        token,
+        raw:
+          "native" in token.asset
+            ? BigInt("980000000000000000")
+            : BigInt(95_000_000),
+      })),
+  ),
+}));
+vi.mock("./vault-chain", () => ({
+  viemVaultReader: (): VaultReader => chain,
+}));
 
 const USDC = "eip155:8453/erc20:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
 const OP_USDC = "eip155:10/erc20:0x0b2c639c533813f4aa9d7837caf62653d097ff85";
@@ -205,6 +225,8 @@ beforeEach(() => {
   kit.identity.svmAddress = undefined;
   kit.identity.chainId = 1;
   kit.wallets = [];
+  chain.hasCode.mockClear();
+  chain.balances.mockClear();
   for (const mock of [
     kit.signMessage,
     kit.signTypedData,
@@ -2270,5 +2292,151 @@ describe("Settings › Policies", () => {
       expect(document.querySelector("[data-rule-change]")).toBeNull();
       expect(reads("/rules")).toHaveLength(2);
     });
+  });
+});
+
+describe("Settings › Policies › vault", () => {
+  const vaultEntry = (extra: object = {}) =>
+    provider({
+      rule: USDC_RULE,
+      provider: "metamask",
+      name: "MetaMask",
+      network: "eip155:8453",
+      state: "on",
+      ready: false,
+      left: "200000000",
+      account: VAULT,
+      signer: { family: "evm", address: ADMIN },
+      ...extra,
+    });
+  const withVault = (enforcement: object[]) => {
+    rules = body({ enforcement });
+  };
+  const vaults = () =>
+    [...document.querySelectorAll("[data-vault]")] as HTMLElement[];
+  const vaultBalances = (row: HTMLElement) =>
+    within(row).findByText("USDC 95.00 · ETH 0.98");
+  // r, s and v of a signature the vault could use.
+  const usable = `0x${"11".repeat(32)}${"11".repeat(32)}1b`;
+
+  it("shows one row for a wallet's MetaMask vault, with its balances read from the chain", async () => {
+    // Two rules on one vault, one removed: still one vault.
+    withVault([
+      vaultEntry(),
+      vaultEntry({ rule: `${USDC}@protocol:aerodrome`, state: "behind" }),
+    ]);
+    const card = await renderPolicies();
+    const [row] = vaults();
+    expect(vaults()).toHaveLength(1);
+    expect(card.contains(row!)).toBe(true);
+    await vaultBalances(row!);
+    expect(row).toHaveTextContent("Vault");
+    expect(within(row!).getByRole("img")).toHaveAttribute("aria-label", "Base");
+    expect(chain.balances).toHaveBeenCalledTimes(1);
+    expect(chain.balances).toHaveBeenCalledWith(8453, VAULT, [
+      {
+        symbol: "USDC",
+        decimals: 6,
+        asset: { erc20: USDC.split("erc20:")[1] },
+      },
+      { symbol: "ETH", decimals: 18, asset: { native: true } },
+    ]);
+    // After the policy rows, before who may change them.
+    expect(
+      row!.compareDocumentPosition(
+        card.querySelector("[data-policy-authority]")!,
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("shows none for a wallet with no MetaMask vault: another provider, or a chain no withdrawal is built for", async () => {
+    withVault([
+      provider({ account: OWNER }),
+      vaultEntry({ network: "eip155:42161" }),
+      vaultEntry({ account: null }),
+    ]);
+    await renderPolicies();
+    expect(vaults()).toHaveLength(0);
+    expect(chain.balances).not.toHaveBeenCalled();
+  });
+
+  it("withdraws: the owner's wallet goes to the vault's chain, signs, then sends to the DelegationManager, and nothing goes to Aomi", async () => {
+    kit.identity.address = ADMIN.toLowerCase();
+    kit.identity.chainId = 1;
+    kit.signTypedData.mockImplementationOnce(async () => ({
+      signature: usable,
+    }));
+    withVault([vaultEntry()]);
+    await renderPolicies();
+    const [row] = vaults();
+    await vaultBalances(row!);
+    fireEvent.click(within(row!).getByRole("button", { name: "Withdraw" }));
+    fireEvent.change(within(row!).getByRole("textbox", { name: "Amount" }), {
+      target: { value: "12.5" },
+    });
+    const before = calls.length;
+    chain.balances.mockImplementation(async (_chain, _vault, tokens) =>
+      (tokens as VaultHolding["token"][]).map((token) => ({
+        token,
+        raw:
+          "native" in token.asset
+            ? BigInt("980000000000000000")
+            : BigInt(82_500_000),
+      })),
+    );
+    await act(async () => {
+      fireEvent.click(
+        within(row!).getByRole("button", { name: "Sign and send" }),
+      );
+    });
+    expect(await within(row!).findByText("Withdrawn.")).toBeInTheDocument();
+    expect(chain.hasCode).toHaveBeenCalledWith(8453, VAULT);
+    expect(kit.switchChain).toHaveBeenCalledWith(8453);
+    expect(kit.signTypedData).toHaveBeenCalledTimes(1);
+    expect(kit.signTypedData).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signer: ADMIN.toLowerCase(),
+        chainId: 8453,
+        typed_data: expect.objectContaining({
+          primaryType: "Delegation",
+          domain: expect.objectContaining({
+            chainId: 8453,
+            verifyingContract: DELEGATION_MANAGER,
+          }),
+          message: expect.objectContaining({
+            delegate: ADMIN.toLowerCase(),
+            delegator: VAULT,
+          }),
+        }),
+      }),
+    );
+    expect(kit.sendTransaction).toHaveBeenCalledTimes(1);
+    expect(kit.sendTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        aaPreference: "none",
+        chainId: 8453,
+        to: DELEGATION_MANAGER,
+        value: "0x0",
+      }),
+      { chainIdAlreadySelected: 8453 },
+    );
+    await within(row!).findByText("USDC 82.50 · ETH 0.98");
+    // Nothing was stored or sent to the backend by the withdrawal.
+    expect(calls.slice(before).filter((call) => call.method !== "GET")).toEqual(
+      [],
+    );
+  });
+
+  it("disables Withdraw, naming the owner's wallet, when another wallet is connected", async () => {
+    kit.identity.address = OTHER;
+    withVault([vaultEntry()]);
+    await renderPolicies();
+    const [row] = vaults();
+    await vaultBalances(row!);
+    expect(
+      within(row!).getByRole("button", { name: "Withdraw" }),
+    ).toBeDisabled();
+    expect(row).toHaveTextContent("Connect 0xabcd…ef12 to sign.");
+    expect(kit.signTypedData).not.toHaveBeenCalled();
   });
 });
