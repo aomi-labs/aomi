@@ -7,7 +7,7 @@ import type {
 } from "@aomi-labs/client";
 import { useOptionalAomiRuntime } from "@aomi-labs/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronDown, KeyRound, Library } from "lucide-react";
+import { ArrowLeft, Library, Plus } from "lucide-react";
 import { useShellAomi } from "@/account/transport";
 import { useAccountOverview } from "@/account/account-overview";
 import { useAomiWalletKit } from "@/wallet/context";
@@ -26,7 +26,6 @@ import { AddWithCodeSheet, ConnectSheet } from "./package-sheets";
 import { usePackageCatalog } from "./use-package-catalog";
 import {
   FAMILIES,
-  GROUP_PREVIEW,
   GUEST_VIEWS,
   GROUP_TITLES,
   NAV_ITEMS,
@@ -37,7 +36,6 @@ import {
   markNoticeSeen,
   matches,
   noticeSeen,
-  personSlots,
   type LibraryView,
   type LoadFailure,
 } from "./model";
@@ -75,7 +73,6 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   const [noticeRow, setNoticeRow] = useState<AomiPackage | null>(null);
   const [codeOpen, setCodeOpen] = useState(false);
   const [keysRow, setKeysRow] = useState<AomiPackage | null>(null);
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const desktop = useDesktopLayout();
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -89,9 +86,10 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       ? [{ group: "connect" as const, rows: shown }]
       : groupPackages(shown);
   }, [rows, view, family, query]);
-  // The inspector opens for a selected package only. It reads every row, so a
-  // package that leaves the view after a change keeps its inspector open.
-  const selected = rows.find((row) => row.id === selectedId) ?? null;
+  // The detail panel shows the chosen package, else the first one listed. It
+  // reads every row, so a package that leaves the view after a change stays.
+  const selected =
+    rows.find((row) => row.id === selectedId) ?? groups[0]?.rows[0] ?? null;
   const inspector = selected !== null && desktop;
 
   /** Run one mutation, then read the rows again; errors stay in place. */
@@ -118,11 +116,9 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
     void mutate(row, () =>
       aomi.account.packages.setChoice(row.package_id, enabled),
     );
-  /** `noticeShown`: the inspector showed the notice beside its switch. */
-  const toggle = (row: AomiPackage, enabled: boolean, noticeShown = false) => {
-    if (enabled && noticeShown) markNoticeSeen(row);
-    if (enabled && !noticeShown && !row.verified && !noticeSeen(row))
-      setNoticeRow(row);
+  /** A not verified package shows its notice before it first turns on. */
+  const toggle = (row: AomiPackage, enabled: boolean) => {
+    if (enabled && !row.verified && !noticeSeen(row)) setNoticeRow(row);
     else setChoice(row, enabled);
   };
   const saveKeys = (row: AomiPackage, values: [string, string][]) =>
@@ -130,16 +126,6 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       for (const [slot, value] of values)
         await aomi.account.packages.setSecret(row.package_id, slot, value);
     });
-  const disconnect = (row: AomiPackage) =>
-    void mutate(row, async () => {
-      for (const slot of personSlots(row))
-        if (slot.status === "ready")
-          await aomi.account.packages.clearSecret(row.package_id, slot.name);
-    });
-  const connect = (row: AomiPackage) => {
-    open(row);
-    setKeysRow(row);
-  };
   /** Redeem a private package code; the row appears and its detail opens. */
   const activate = async (code: string) => {
     try {
@@ -159,9 +145,6 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
     setSelectedId(row.id);
     setMobileDetailOpen(true);
   }
-  /** A click on the selected row closes the inspector again. */
-  const select = (row: AomiPublicPackage) =>
-    selected?.id === row.id && desktop ? setSelectedId(null) : open(row);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -189,7 +172,6 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
 
   useEffect(() => {
     if (listRef.current) listRef.current.scrollTop = 0;
-    setExpanded(new Set());
   }, [view, family, query]);
 
   const loading = loaded === null && !failure;
@@ -272,17 +254,16 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
           </div>
           {signedIn ? (
             <AomiButton
-              aria-label="Add a private package with a code"
-              className="h-10 px-3"
+              className="h-9 pl-2.5"
               disabled={busyId !== null}
               onClick={() => setCodeOpen(true)}
             >
-              <KeyRound /> <span className="max-md:sr-only">Add with code</span>
+              <Plus /> <span className="max-md:sr-only">Add custom</span>
             </AomiButton>
           ) : null}
         </div>
         {signedIn ? null : (
-          <div className="bg-aomi-surface-2 rounded-control mt-3 flex min-h-8 items-center justify-between gap-3 py-1 pl-3 pr-1">
+          <div className="bg-aomi-surface-2 rounded-control mt-3 flex min-h-8 items-center justify-between gap-3 py-1 pl-3 pr-1 md:hidden">
             <span className="type-meta text-aomi-muted">
               Sign in to turn packages on and add your own
             </span>
@@ -311,56 +292,32 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
           ) : groups.length === 0 ? (
             <EmptyList />
           ) : (
-            groups.map(({ group, rows: members }, index) => {
-              const hidden = expanded.has(group)
-                ? 0
-                : Math.max(0, members.length - GROUP_PREVIEW);
-              return (
-                <section
-                  key={group}
-                  aria-label={GROUP_TITLES[group](agent)}
-                  className={
-                    index === 0
-                      ? "mt-4"
-                      : "border-aomi-border mt-3 border-t pt-3"
-                  }
-                >
-                  <SectionHeader
-                    as="h2"
-                    title={GROUP_TITLES[group](agent)}
-                    count={members.length}
-                    className="px-1"
-                  />
-                  <div className="mt-2 space-y-0.5">
-                    {members.slice(0, members.length - hidden).map((row) => (
-                      <CatalogRow
-                        key={row.id}
-                        row={row}
-                        selected={selected?.id === row.id}
-                        wide={!inspector}
-                        busy={busyId === row.id}
-                        disabled={!signedIn || busyId !== null}
-                        onSelect={() => select(row)}
-                        onToggle={toggle}
-                        onConnect={connect}
-                      />
-                    ))}
-                    {hidden > 0 ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpanded((current) => new Set(current).add(group))
-                        }
-                        className="type-meta text-aomi-muted hover:text-aomi-fg flex h-8 items-center gap-1.5 px-2 font-medium"
-                      >
-                        <ChevronDown className="size-3.5" />
-                        Show {hidden} more
-                      </button>
-                    ) : null}
-                  </div>
-                </section>
-              );
-            })
+            groups.map(({ group, rows: members }, index) => (
+              <section
+                key={group}
+                aria-label={GROUP_TITLES[group](agent)}
+                className={
+                  index === 0 ? "mt-4" : "border-aomi-border mt-3 border-t pt-3"
+                }
+              >
+                <SectionHeader
+                  as="h2"
+                  title={GROUP_TITLES[group](agent)}
+                  count={members.length}
+                  className="px-1"
+                />
+                <div className="mt-2 space-y-0.5">
+                  {members.map((row) => (
+                    <CatalogRow
+                      key={row.id}
+                      row={row}
+                      selected={inspector && selected?.id === row.id}
+                      onSelect={() => open(row)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))
           )}
         </div>
       </main>
@@ -382,19 +339,13 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
             Back to library
           </button>
           <LibraryDetailPanel
+            key={selected.id}
             row={selected}
-            agent={agent}
-            signedIn={signedIn}
             busy={busyId === selected.id}
             error={desktop ? null : actionError}
             onToggle={toggle}
-            onClearChoice={(row) =>
-              void mutate(row, () =>
-                aomi.account.packages.clearChoice(row.package_id),
-              )
-            }
             onConnect={setKeysRow}
-            onDisconnect={disconnect}
+            onSignIn={() => void wallet.connect?.()}
           />
         </div>
       ) : null}

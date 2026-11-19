@@ -25,6 +25,8 @@ export function packageRow(overrides: Partial<AomiPackage> = {}): AomiPackage {
       signatures: [],
     },
     slots: [],
+    tools: [],
+    guards: [],
     ...overrides,
   };
 }

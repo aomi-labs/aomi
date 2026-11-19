@@ -155,10 +155,21 @@ async function renderModal() {
   return view;
 }
 
-const rowSwitch = (name: string) =>
-  within(
-    screen.getByRole("button", { name: `Open ${name} details` }).parentElement!,
-  ).getByRole("switch");
+const details = (name: string) =>
+  screen.getByRole("complementary", { name: `${name} details` });
+
+/** Opens a package's detail panel and clicks its footer action. */
+const actOn = (name: string, action: string) => {
+  fireEvent.click(screen.getByLabelText(`Open ${name} details`));
+  fireEvent.click(within(details(name)).getByRole("button", { name: action }));
+};
+
+const footerAction = async (name: string, action: string) =>
+  waitFor(() =>
+    expect(
+      within(details(name)).getByRole("button", { name: action }),
+    ).toBeTruthy(),
+  );
 
 describe("packages modal", () => {
   beforeEach(() => {
@@ -179,43 +190,50 @@ describe("packages modal", () => {
   it("shows the three groups and keeps agent-listed packages on", async () => {
     installBackend([NOT_VERIFIED, VERIFIED, AGENT_LISTED]);
     await renderModal();
-    const headings = screen
+    const headings = within(screen.getByRole("main"))
       .getAllByRole("heading", { level: 2 })
       .map((heading) => heading.textContent);
     expect(headings.join("|")).toMatch(/Used by Aomi.*Verified.*Not verified/);
-    expect(rowSwitch("Aave")).toBeDisabled();
-    expect(rowSwitch("Aave")).toHaveAttribute("aria-checked", "true");
-    expect(rowSwitch("Jupiter")).toBeEnabled();
-    fireEvent.click(screen.getByLabelText("Open Aave details"));
+    expect(screen.queryAllByRole("switch")).toEqual([]);
+    // The first package listed is open; its row says it is on.
+    expect(within(details("Aave")).getByText("Always on here")).toBeTruthy();
     expect(
-      screen.getByText(/Aomi uses it, so it stays on\./),
-    ).toBeInTheDocument();
+      within(details("Aave")).queryByRole("button", { name: /Turn/ }),
+    ).toBeNull();
+    expect(
+      within(screen.getByLabelText("Open Aave details")).getByText("On"),
+    ).toBeTruthy();
+    expect(
+      within(screen.getByLabelText("Open Hoodit trade details")).queryByText(
+        "On",
+      ),
+    ).toBeNull();
   });
 
   it("shows the notice once per device and again for a wider envelope", async () => {
     const backend = installBackend([NOT_VERIFIED]);
     await renderModal();
+    expect(
+      within(details("Hoodit trade")).getByText("Not in your chats"),
+    ).toBeTruthy();
 
-    fireEvent.click(rowSwitch("Hoodit trade"));
+    actOn("Hoodit trade", "Turn on");
     const notice = await screen.findByRole("alertdialog");
     expect(within(notice).getByText("Talks to: api.gmgn.ai")).toBeTruthy();
-    expect(
-      within(notice).getByText(
-        "Can ask you to: Approve transactions on EVM chains",
-      ),
-    ).toBeTruthy();
+    expect(within(notice).getByText("Prepares EVM transactions")).toBeTruthy();
     fireEvent.click(within(notice).getByRole("button", { name: "Cancel" }));
     expect(backend.writes()).toEqual([]);
 
-    fireEvent.click(rowSwitch("Hoodit trade"));
+    actOn("Hoodit trade", "Turn on");
     fireEvent.click(
       within(await screen.findByRole("alertdialog")).getByRole("button", {
         name: "Turn on",
       }),
     );
-    await waitFor(() =>
-      expect(rowSwitch("Hoodit trade")).toHaveAttribute("aria-checked", "true"),
-    );
+    await footerAction("Hoodit trade", "Turn off");
+    expect(
+      within(details("Hoodit trade")).getByText("In your chats"),
+    ).toBeTruthy();
     expect(backend.writes()).toEqual([
       {
         method: "PUT",
@@ -226,19 +244,12 @@ describe("packages modal", () => {
     const readsAfterOn = backend.reads();
 
     // Off and on again with the same envelope: no notice.
-    fireEvent.click(rowSwitch("Hoodit trade"));
-    await waitFor(() =>
-      expect(rowSwitch("Hoodit trade")).toHaveAttribute(
-        "aria-checked",
-        "false",
-      ),
-    );
+    actOn("Hoodit trade", "Turn off");
+    await footerAction("Hoodit trade", "Turn on");
     expect(backend.reads()).toBeGreaterThan(readsAfterOn);
-    fireEvent.click(rowSwitch("Hoodit trade"));
+    actOn("Hoodit trade", "Turn on");
     expect(screen.queryByRole("alertdialog")).toBeNull();
-    await waitFor(() =>
-      expect(rowSwitch("Hoodit trade")).toHaveAttribute("aria-checked", "true"),
-    );
+    await footerAction("Hoodit trade", "Turn off");
 
     // A release with a wider envelope asks again.
     cleanup();
@@ -249,14 +260,19 @@ describe("packages modal", () => {
       },
     ]);
     await renderModal();
-    fireEvent.click(rowSwitch("Hoodit trade"));
+    actOn("Hoodit trade", "Turn on");
     expect(await screen.findByRole("alertdialog")).toBeTruthy();
   });
 
-  it("connects a person key from the row in a sheet", async () => {
+  it("connects a person key from the panel in a sheet", async () => {
     const backend = installBackend([NEEDS_KEY]);
     await renderModal();
-    fireEvent.click(screen.getByRole("button", { name: "Connect Polymarket" }));
+    const keys = within(details("Polymarket"));
+    expect(keys.getByText("POLY_API_KEY")).toBeTruthy();
+    expect(keys.getByText("Not added")).toBeTruthy();
+    expect(keys.queryByText("POLY_BUILDER")).toBeNull();
+    expect(keys.getByRole("button", { name: "Add keys" })).toBeTruthy();
+    actOn("Polymarket", "Connect");
     const sheet = await screen.findByRole("dialog", {
       name: "Connect Polymarket",
     });
@@ -267,11 +283,7 @@ describe("packages modal", () => {
       target: { value: " secret " },
     });
     fireEvent.click(connect);
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("button", { name: "Connect Polymarket" }),
-      ).toBeNull(),
-    );
+    await footerAction("Polymarket", "Turn off");
     expect(
       screen.queryByRole("dialog", { name: "Connect Polymarket" }),
     ).toBeNull();
@@ -282,13 +294,7 @@ describe("packages modal", () => {
         body: { value: "secret" },
       },
     ]);
-    const details = screen.getByRole("complementary", {
-      name: "Polymarket details",
-    });
-    expect(within(details).getByText("Connected")).toBeTruthy();
-    expect(
-      within(details).getByRole("button", { name: "Replace key" }),
-    ).toBeTruthy();
+    expect(within(details("Polymarket")).getByText("Added")).toBeTruthy();
   });
 
   it("closes a sheet with Escape and keeps the Library open", async () => {
@@ -297,11 +303,7 @@ describe("packages modal", () => {
     render(<PackagesModal onClose={onClose} />, {
       wrapper: AccountOverviewFixture,
     });
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "Add a private package with a code",
-      }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "Add custom" }));
     const sheet = await screen.findByRole("dialog", {
       name: "Add a private package",
     });
@@ -319,24 +321,29 @@ describe("packages modal", () => {
     await renderModal();
     fireEvent.click(screen.getByRole("button", { name: /^To connect/ }));
     expect(
-      screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent),
+      within(screen.getByRole("main"))
+        .getAllByRole("heading", { level: 2 })
+        .map((h) => h.textContent),
     ).toEqual(["To connect"]);
     expect(screen.getAllByRole("article")).toHaveLength(1);
   });
 
-  it("opens the inspector only for a selected package", async () => {
-    installBackend([VERIFIED]);
+  it("opens the first package listed, then the one clicked", async () => {
+    installBackend([NOT_VERIFIED, VERIFIED]);
     await renderModal();
-    const details = () =>
-      screen.queryByRole("complementary", { name: "Jupiter details" });
-    expect(details()).toBeNull();
-    fireEvent.click(screen.getByLabelText("Open Jupiter details"));
-    expect(details()).toBeTruthy();
-    fireEvent.click(screen.getByLabelText("Open Jupiter details"));
-    expect(details()).toBeNull();
+    expect(details("Jupiter")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Open Hoodit trade details"));
+    expect(details("Hoodit trade")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Open Hoodit trade details"));
+    expect(details("Hoodit trade")).toBeTruthy();
+    // A search starts again from its first result.
+    fireEvent.change(screen.getByLabelText("Search library"), {
+      target: { value: "solana" },
+    });
+    expect(details("Jupiter")).toBeTruthy();
   });
 
-  it("shows five rows per group, then the rest on request", async () => {
+  it("lists every package, with no Show more", async () => {
     installBackend(
       Array.from({ length: 7 }, (_, index) => ({
         ...VERIFIED,
@@ -346,34 +353,63 @@ describe("packages modal", () => {
       })),
     );
     await renderModal();
-    expect(screen.getAllByRole("article")).toHaveLength(5);
-    fireEvent.click(screen.getByRole("button", { name: "Show 2 more" }));
     expect(screen.getAllByRole("article")).toHaveLength(7);
+    expect(screen.queryByRole("button", { name: /more/ })).toBeNull();
   });
 
-  it("switches a not verified package on from the inspector after its notice", async () => {
-    const backend = installBackend([NOT_VERIFIED]);
+  it("shows the panel sections the account row has data for", async () => {
+    installBackend([
+      {
+        ...VERIFIED,
+        tool_count: 2,
+        tools: [
+          { name: "quote", description: "Read a swap quote." },
+          { name: "prepare", description: "Prepare a swap." },
+        ],
+        guards: ["svm/jupiter"],
+        live: { release: 4, digest: "sha256:7c21deadbeef9a" },
+        slots: [
+          {
+            name: "JUPITER_API_KEY",
+            owner: "builder",
+            description: "",
+            required: false,
+            status: "ready",
+          },
+        ],
+      },
+      {
+        ...AGENT_LISTED,
+        tool_count: 0,
+        envelope: { ...AGENT_LISTED.envelope, transactions: [], hosts: [] },
+      },
+    ]);
     await renderModal();
-    fireEvent.click(screen.getByLabelText("Open Hoodit trade details"));
-    const details = screen.getByRole("complementary", {
-      name: "Hoodit trade details",
-    });
+    fireEvent.click(screen.getByLabelText("Open Jupiter details"));
+    const panel = within(details("Jupiter"));
     expect(
-      within(details).getByText(
-        "Not verified by Aomi. It can reach api.gmgn.ai and can ask you to approve transactions.",
-      ),
-    ).toBeTruthy();
-    fireEvent.click(within(details).getByRole("switch"));
-    expect(screen.queryByRole("alertdialog")).toBeNull();
-    await waitFor(() =>
-      expect(backend.writes()).toEqual([
-        {
-          method: "PUT",
-          path: "/api/account/packages/9010/choice",
-          body: { enabled: true },
-        },
-      ]),
+      panel.getAllByRole("heading", { level: 3 }).map((h) => h.textContent),
+    ).toEqual(["Chains", "Wallet", "Skills", "Tools2", "Connects to"]);
+    expect(panel.getByText("Solana")).toBeTruthy();
+    expect(panel.getByText("Prepares Solana transactions")).toBeTruthy();
+    expect(panel.getByText("svm/jupiter")).toBeTruthy();
+    expect(panel.getByText("api.jup.ag")).toBeTruthy();
+    expect(panel.getByText("The publisher provides the API key.")).toBeTruthy();
+    expect(panel.getByText(/Release 4/)).toHaveTextContent(
+      "Release 4 · 7c21…9a",
     );
+    expect(panel.queryByText("quote")).toBeNull();
+    fireEvent.click(panel.getByRole("button", { name: /Tools/ }));
+    expect(panel.getByText("quote")).toBeTruthy();
+    expect(panel.getByText("Prepare a swap.")).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("Open Aave details"));
+    const aave = within(details("Aave"));
+    expect(
+      aave.getByText("Never asks for a transaction or a signature."),
+    ).toBeTruthy();
+    expect(aave.queryByText("Tools")).toBeNull();
+    expect(aave.queryByText("Connects to")).toBeNull();
   });
 
   it("asks before a not verified package only, and calls optional keys optional", async () => {
@@ -394,11 +430,12 @@ describe("packages modal", () => {
       binance,
     ]);
     await renderModal();
-    fireEvent.click(rowSwitch("Jupiter"));
+    actOn("Jupiter", "Turn on");
     expect(screen.queryByRole("alertdialog")).toBeNull();
     await waitFor(() => expect(backend.writes()).toHaveLength(1));
 
-    fireEvent.click(rowSwitch("Hoodit trade"));
+    // An optional key does not stand in the way of Turn on.
+    actOn("Hoodit trade", "Turn on");
     const notice = await screen.findByRole("alertdialog");
     expect(
       within(notice).getByText("Add your own key: BINANCE_API_KEY · optional"),
@@ -406,17 +443,17 @@ describe("packages modal", () => {
     expect(within(notice).queryByText(/Needs your key/)).toBeNull();
   });
 
-  it("shows a refused switch in place", async () => {
+  it("shows a refused change in place", async () => {
     installBackend([VERIFIED]);
     await renderModal();
     vi.mocked(fetch).mockImplementationOnce(async () =>
       Response.json({ error: "agent_listed" }, { status: 409 }),
     );
-    fireEvent.click(rowSwitch("Jupiter"));
+    actOn("Jupiter", "Turn off");
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Aomi uses this package, so it stays on.",
     );
-    expect(rowSwitch("Jupiter")).toHaveAttribute("aria-checked", "true");
+    await footerAction("Jupiter", "Turn off");
   });
 
   it("shows a guest the public catalog, read only", async () => {
@@ -427,7 +464,7 @@ describe("packages modal", () => {
     expect(screen.getByLabelText("Open Hoodit trade details")).toBeTruthy();
     expect(screen.queryByLabelText("Open Secret Tool details")).toBeNull();
     expect(
-      screen
+      within(screen.getByRole("main"))
         .getAllByRole("heading", { level: 2 })
         .map((heading) => heading.textContent),
     ).toEqual(["Verified", "Not verified"]);
@@ -437,26 +474,18 @@ describe("packages modal", () => {
         .getAllByRole("button")
         .map((item) => item.textContent),
     ).toEqual(["All packages2", "Verified1", "Not verified1"]);
-    expect(screen.queryAllByRole("switch")).toEqual([]);
-    expect(
-      screen.queryByRole("button", {
-        name: "Add a private package with a code",
-      }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add custom" })).toBeNull();
+    expect(screen.queryByText("On")).toBeNull();
 
-    fireEvent.click(screen.getByLabelText("Open Jupiter details"));
-    const details = screen.getByRole("complementary", {
-      name: "Jupiter details",
-    });
-    expect(within(details).getByText("What it contains")).toBeTruthy();
-    expect(within(details).queryByText("Access")).toBeNull();
-    expect(within(details).queryByText("Can reach")).toBeNull();
-    expect(within(details).queryByRole("switch")).toBeNull();
-
-    expect(
-      screen.getByText("Sign in to turn packages on and add your own"),
-    ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    const panel = within(details("Jupiter"));
+    expect(panel.getByText("Skills")).toBeTruthy();
+    expect(panel.getByText("Solana")).toBeTruthy();
+    expect(panel.getByText("Tools")).toBeTruthy();
+    expect(panel.queryByText("Wallet")).toBeNull();
+    expect(panel.queryByText("Connects to")).toBeNull();
+    expect(panel.queryByText(/Release/)).toBeNull();
+    expect(panel.getByText("Sign in to turn it on")).toBeTruthy();
+    fireEvent.click(panel.getByRole("button", { name: "Sign in" }));
     expect(host.connect).toHaveBeenCalledOnce();
     expect(backend.calls.map((call) => call.path)).toEqual([
       "/api/public/catalog/packages",
@@ -466,9 +495,7 @@ describe("packages modal", () => {
   it("adds a private package with a code and opens its detail", async () => {
     const backend = installBackend([VERIFIED]);
     await renderModal();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Add a private package with a code" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Add custom" }));
     fireEvent.change(screen.getByLabelText("Activation code"), {
       target: { value: "good-code" },
     });
@@ -476,6 +503,7 @@ describe("packages modal", () => {
     expect(
       await screen.findByRole("button", { name: "Open Secret Tool details" }),
     ).toBeTruthy();
+    expect(details("Secret Tool")).toBeTruthy();
     expect(backend.writes()).toEqual([
       {
         method: "POST",
@@ -491,9 +519,7 @@ describe("packages modal", () => {
   it("shows an invalid code in place", async () => {
     installBackend([VERIFIED]);
     await renderModal();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Add a private package with a code" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Add custom" }));
     fireEvent.change(screen.getByLabelText("Activation code"), {
       target: { value: "nope" },
     });

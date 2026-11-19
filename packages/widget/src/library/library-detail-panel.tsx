@@ -2,195 +2,238 @@
 import type { AomiPackage, AomiPublicPackage } from "@aomi-labs/client";
 import { useState, type ReactNode } from "react";
 import {
-  ExternalLink,
-  KeyRound,
+  ChevronDown,
+  FileText,
   Loader2,
-  Send,
-  ShieldCheck,
-  WandSparkles,
-  Wrench,
+  Lock,
+  Plus,
+  Shield,
 } from "lucide-react";
+import { cn } from "@/lib/cn";
 import { AomiButton } from "@/ui/aomi/button";
-import { StatusPill } from "@/ui/aomi/status-pill";
-import { Switch } from "@/ui/aomi/switch";
-import { Publisher } from "./catalog-row";
+import { SectionHeader } from "@/ui/aomi/section-header";
 import { PackageTile } from "@/icons/package-mark";
+import { Publisher } from "./catalog-row";
 import {
-  askLines,
-  connected,
-  contentsLine,
+  chainPills,
   isAccountRow,
   needsConnect,
-  noticeText,
   personSlots,
-  reasonText,
+  shortDigest,
+  walletLines,
 } from "./model";
 
-export function VerifiedPill({ verified }: { verified: boolean }) {
-  return verified ? (
-    <StatusPill tone="accent">Verified</StatusPill>
-  ) : (
-    <StatusPill tone="neutral">Not verified</StatusPill>
-  );
-}
-
-function DetailSection({
+function Section({
   title,
+  count,
+  action,
   children,
 }: {
   title: string;
+  count?: number;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <section className="border-aomi-border border-t pt-5">
-      <h3 className="type-eyebrow text-aomi-muted">{title}</h3>
-      <div className="mt-2.5">{children}</div>
+    <section className="flex flex-col gap-2.5">
+      <SectionHeader title={title} count={count} action={action} />
+      {children}
     </section>
   );
 }
 
-function IconLines({
-  icon: Icon,
-  tone = "text-aomi-accent",
-  lines,
+/** Name over description, with an optional trailing status. */
+function Lines({
+  rows,
 }: {
-  icon: typeof Send;
-  tone?: string;
-  lines: string[];
+  rows: { key: string; name: string; description: string; status?: string }[];
 }) {
   return (
-    <ul className="type-control space-y-2">
-      {lines.map((line) => (
-        <li key={line} className="flex items-start gap-2">
-          <Icon className={`${tone} mt-0.5 size-3.5 shrink-0`} />
-          <span className="[overflow-wrap:anywhere]">{line}</span>
+    <ul className="border-aomi-border divide-aomi-border divide-y rounded-xl border">
+      {rows.map((row) => (
+        <li key={row.key} className="flex gap-3 px-3 py-2.5">
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="font-mono text-[12px] leading-4 [overflow-wrap:anywhere]">
+              {row.name}
+            </span>
+            {row.description ? (
+              <span className="type-meta text-aomi-muted">
+                {row.description}
+              </span>
+            ) : null}
+          </span>
+          {row.status ? (
+            <span className="type-meta text-aomi-muted shrink-0">
+              {row.status}
+            </span>
+          ) : null}
         </li>
       ))}
     </ul>
   );
 }
 
-/** Verified, not verified, or the person's key state when the package takes one. */
-function AccessSection({
-  row,
-  agent,
-  signedIn,
-  busy,
-  onClearChoice,
-  onConnect,
-  onDisconnect,
-}: {
-  row: AomiPackage;
-  agent: string;
-  signedIn: boolean;
-  busy: boolean;
-  onClearChoice: () => void;
-  onConnect: () => void;
-  onDisconnect: () => void;
-}) {
-  if (needsConnect(row))
-    return (
-      <DetailSection title="Access">
-        <div className="flex flex-col items-start gap-2">
-          <StatusPill>Needs your key</StatusPill>
-          <IconLines
-            icon={KeyRound}
-            tone="text-aomi-muted"
-            lines={[`Needs your ${row.display_name} key`]}
-          />
-        </div>
-      </DetailSection>
-    );
-  if (connected(row))
-    return (
-      <DetailSection title="Access">
-        <div className="flex flex-col items-start gap-2">
-          <StatusPill tone="success" dot>
-            Connected
-          </StatusPill>
-          <div className="-ml-2.5 flex gap-1">
-            <AomiButton
-              variant="ghost"
-              size="sm"
-              className="text-aomi-muted"
-              disabled={busy || !signedIn}
-              onClick={onConnect}
-            >
-              Replace key
-            </AomiButton>
-            <AomiButton
-              variant="ghost"
-              size="sm"
-              className="text-aomi-danger hover:text-aomi-danger"
-              disabled={busy || !signedIn}
-              onClick={onDisconnect}
-            >
-              Disconnect
-            </AomiButton>
-          </div>
-        </div>
-      </DetailSection>
-    );
+function WalletSection({ row }: { row: AomiPackage }) {
+  const lines = walletLines(row);
   return (
-    <DetailSection title="Access">
-      <div className="flex items-center gap-2">
-        <VerifiedPill verified={row.verified} />
-        <span className="type-meta text-aomi-muted">
-          {contentsLine(row)}. {reasonText(row, agent)}
-        </span>
-      </div>
-      {personSlots(row).length > 0 && signedIn ? (
-        <AomiButton
-          variant="ghost"
-          size="sm"
-          className="text-aomi-muted -ml-2.5 mt-1"
-          disabled={busy}
-          onClick={onConnect}
+    <Section title="Wallet">
+      {lines.length === 0 ? (
+        <p className="type-control text-aomi-fg/80 flex gap-2.5">
+          <Shield className="text-aomi-muted mt-px size-4 shrink-0" />
+          Never asks for a transaction or a signature.
+        </p>
+      ) : (
+        lines.map(({ kind, icon: Icon, title, detail }) => (
+          <div key={title} className="flex gap-2.5">
+            <Icon
+              className={cn(
+                "mt-px size-4 shrink-0",
+                kind === "guard"
+                  ? "text-aomi-accent-strong"
+                  : "text-aomi-muted",
+              )}
+            />
+            <span className="flex min-w-0 flex-col">
+              <span className="type-control">{title}</span>
+              <span
+                className={cn(
+                  "type-meta text-aomi-muted",
+                  kind === "guard" &&
+                    "font-mono text-[11.5px] [overflow-wrap:anywhere]",
+                )}
+              >
+                {detail}
+              </span>
+            </span>
+          </div>
+        ))
+      )}
+    </Section>
+  );
+}
+
+/** The tool count; with the live release's tools, a toggle that lists them. */
+function ToolsSection({ row }: { row: AomiPublicPackage }) {
+  const [open, setOpen] = useState(false);
+  const tools = isAccountRow(row) ? (row.tools ?? []) : [];
+  if (tools.length === 0)
+    return <SectionHeader title="Tools" count={row.tool_count} />;
+  return (
+    <section className="flex flex-col gap-2.5">
+      <h3>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+          className="flex min-h-7 w-full items-center gap-2 px-0.5 text-left"
         >
-          <KeyRound /> Add your own key
-        </AomiButton>
+          <span className="type-section">Tools</span>
+          <span className="type-meta text-aomi-muted tabular-nums">
+            {tools.length}
+          </span>
+          <ChevronDown
+            className={cn(
+              "text-aomi-muted ml-auto size-3.5 transition-transform",
+              open && "rotate-180",
+            )}
+          />
+        </button>
+      </h3>
+      {open ? (
+        <Lines
+          rows={tools.map((tool) => ({
+            key: tool.name,
+            name: tool.name,
+            description: tool.description,
+          }))}
+        />
       ) : null}
-      {row.choice !== null && signedIn ? (
-        <AomiButton
-          variant="ghost"
-          size="sm"
-          className="text-aomi-muted -ml-2.5 mt-1"
-          disabled={busy}
-          onClick={onClearChoice}
-        >
-          Use the default
+    </section>
+  );
+}
+
+/** State on the left, the one action on the right. */
+function ActivationBar({
+  row,
+  busy,
+  onToggle,
+  onConnect,
+  onSignIn,
+}: {
+  row: AomiPublicPackage;
+  busy: boolean;
+  onToggle: (row: AomiPackage, enabled: boolean) => void;
+  onConnect: (row: AomiPackage) => void;
+  onSignIn: () => void;
+}) {
+  if (!isAccountRow(row))
+    return (
+      <>
+        <span className="text-aomi-muted">Sign in to turn it on</span>
+        <AomiButton variant="primary" className="ml-auto" onClick={onSignIn}>
+          Sign in
         </AomiButton>
-      ) : null}
-    </DetailSection>
+      </>
+    );
+  if (row.agent_listed)
+    return (
+      <>
+        <Lock className="text-aomi-muted size-3.5 shrink-0" />
+        <span className="text-aomi-muted">Always on here</span>
+      </>
+    );
+  const action = busy ? (
+    <Loader2
+      aria-label="Saving"
+      className="text-aomi-muted size-4 animate-spin"
+    />
+  ) : needsConnect(row) ? (
+    <AomiButton variant="primary" onClick={() => onConnect(row)}>
+      Connect
+    </AomiButton>
+  ) : row.enabled ? (
+    <AomiButton onClick={() => onToggle(row, false)}>Turn off</AomiButton>
+  ) : (
+    <AomiButton variant="primary" onClick={() => onToggle(row, true)}>
+      Turn on
+    </AomiButton>
+  );
+  return (
+    <>
+      {row.enabled ? (
+        <>
+          <span aria-hidden className="bg-aomi-success size-1.5 rounded-full" />
+          <span className="font-medium">In your chats</span>
+        </>
+      ) : (
+        <span className="text-aomi-muted">Not in your chats</span>
+      )}
+      <span className="ml-auto flex">{action}</span>
+    </>
   );
 }
 
 export function LibraryDetailPanel({
   row,
-  agent,
-  signedIn,
   busy,
   error,
   onToggle,
-  onClearChoice,
   onConnect,
-  onDisconnect,
+  onSignIn,
 }: {
   /** A guest's public row shows what the package is, nothing tied to an account. */
   row: AomiPublicPackage;
-  agent: string;
-  signedIn: boolean;
   busy: boolean;
   error: string | null;
-  /** `noticeShown`: the inspector already showed the not verified notice. */
-  onToggle: (row: AomiPackage, enabled: boolean, noticeShown: boolean) => void;
-  onClearChoice: (row: AomiPackage) => void;
+  onToggle: (row: AomiPackage, enabled: boolean) => void;
   onConnect: (row: AomiPackage) => void;
-  onDisconnect: (row: AomiPackage) => void;
+  onSignIn: () => void;
 }) {
   const account = isAccountRow(row) ? row : null;
-  const asks = account ? askLines(account.envelope) : [];
-  const notice = account !== null && !account.verified && !account.enabled;
+  const keys = account ? personSlots(account) : [];
+  const chains = chainPills(row);
+  const hosts = account?.envelope.hosts ?? [];
+  const publisherKey = account?.slots.some((slot) => slot.owner === "builder");
   const [scrolled, setScrolled] = useState(false);
   return (
     <aside
@@ -198,149 +241,152 @@ export function LibraryDetailPanel({
       className="bg-aomi-raised border-aomi-border flex min-h-0 flex-1 flex-col md:border-l"
     >
       <div
-        className="min-h-0 flex-1 overflow-y-auto"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto"
         onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}
       >
         {/* Once scrolled, content passes under this band, clear of the
             shell's close button (top 16px, 28px tall). */}
         <div
           aria-hidden
-          className={`bg-aomi-raised pointer-events-none sticky top-0 z-10 -mb-8 h-[52px] ${scrolled ? "border-aomi-border border-b" : "invisible"}`}
+          className={`bg-aomi-raised pointer-events-none sticky top-0 z-10 -mb-8 h-[52px] shrink-0 ${scrolled ? "border-aomi-border border-b" : "invisible"}`}
         />
-        <div className="px-5 pb-5 pt-1">
-          <PackageTile iconUrl={row.icon_url} size="detail" />
-          <h2 className="type-title mt-4">{row.display_name}</h2>
-          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-            <span className="type-address text-aomi-muted">{row.id}</span>
-            <span aria-hidden className="type-meta text-aomi-muted/60">
-              ·
-            </span>
-            <Publisher row={row} />
-          </div>
-          <p className="type-control text-aomi-muted mt-2">{row.description}</p>
-        </div>
+        <div className="flex flex-1 flex-col gap-6 px-5 pb-5 pt-1">
+          <header>
+            <div className="flex items-start gap-3 pr-8">
+              <PackageTile iconUrl={row.icon_url} size="detail" />
+              <div className="flex min-w-0 flex-col gap-0.5 pt-0.5">
+                <h2 className="type-title [overflow-wrap:anywhere]">
+                  {row.display_name}
+                </h2>
+                <Publisher row={row} />
+              </div>
+            </div>
+            <p className="type-control text-aomi-fg/80 mt-3">
+              {row.description}
+            </p>
+          </header>
 
-        <div className="space-y-5 px-5 pb-9">
-          {account ? (
-            <AccessSection
-              row={account}
-              agent={agent}
-              signedIn={signedIn}
-              busy={busy}
-              onClearChoice={() => onClearChoice(account)}
-              onConnect={() => onConnect(account)}
-              onDisconnect={() => onDisconnect(account)}
-            />
+          {account && keys.length > 0 ? (
+            <Section
+              title="Your keys"
+              action={
+                <AomiButton
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => onConnect(account)}
+                >
+                  <Plus /> Add keys
+                </AomiButton>
+              }
+            >
+              <Lines
+                rows={keys.map((slot) => ({
+                  key: slot.name,
+                  name: slot.name,
+                  description: slot.description,
+                  status: slot.status === "ready" ? "Added" : "Not added",
+                }))}
+              />
+            </Section>
           ) : null}
+
+          {chains.length > 0 ? (
+            <Section
+              title="Chains"
+              count={chains.length > 1 ? chains.length : undefined}
+            >
+              <ul className="flex flex-wrap gap-1.5">
+                {chains.map(({ key, label, icon: Icon }) => (
+                  <li
+                    key={key}
+                    className="border-aomi-border type-meta inline-flex h-[26px] items-center gap-1.5 rounded-full border px-2.5"
+                  >
+                    {Icon ? <Icon className="size-3.5 shrink-0" /> : null}
+                    {label}
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          ) : null}
+
+          {account ? <WalletSection row={account} /> : null}
 
           {row.skills.length > 0 ? (
-            <DetailSection title="What it contains">
-              <ul className="space-y-2.5">
-                {row.skills.map((skill) => (
-                  <li key={skill.id} className="flex items-start gap-2">
-                    <WandSparkles className="text-aomi-accent mt-0.5 size-3.5 shrink-0" />
-                    <span className="type-control min-w-0">
-                      <span className="font-medium">{skill.id}</span>
-                      <span className="type-meta text-aomi-muted ml-1.5">
-                        {skill.description}
-                      </span>
+            <Section title="Skills" count={row.skills.length}>
+              {row.skills.map((skill) => (
+                <div key={skill.id} className="flex gap-2.5">
+                  <span className="bg-aomi-surface-2 text-aomi-muted flex size-7 shrink-0 items-center justify-center rounded-[8px]">
+                    <FileText className="size-3.5" />
+                  </span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="type-control font-medium">{skill.id}</span>
+                    <span className="type-meta text-aomi-muted">
+                      {skill.description}
                     </span>
-                  </li>
-                ))}
-                <li className="type-control text-aomi-muted flex items-start gap-2">
-                  <Wrench className="mt-0.5 size-3.5 shrink-0" />
-                  {row.tool_count} tool{row.tool_count === 1 ? "" : "s"} load
-                  when a skill is opened
-                </li>
-              </ul>
-            </DetailSection>
+                  </span>
+                </div>
+              ))}
+            </Section>
           ) : null}
 
-          {asks.length > 0 ? (
-            <DetailSection title="Can ask you to">
-              <IconLines icon={Send} lines={asks} />
-            </DetailSection>
+          {row.tool_count > 0 ? <ToolsSection row={row} /> : null}
+
+          {hosts.length > 0 || publisherKey ? (
+            <Section
+              title="Connects to"
+              count={hosts.length > 1 ? hosts.length : undefined}
+            >
+              {hosts.length > 0 ? (
+                <ul className="text-aomi-fg/80 font-mono text-[12px] leading-5">
+                  {hosts.map((host) => (
+                    <li key={host} className="[overflow-wrap:anywhere]">
+                      {host}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {publisherKey ? (
+                <p className="type-meta text-aomi-muted">
+                  The publisher provides the API key.
+                </p>
+              ) : null}
+            </Section>
           ) : null}
 
-          {account && account.envelope.hosts.length > 0 ? (
-            <DetailSection title="Can reach">
-              <ul className="space-y-1.5">
-                {account.envelope.hosts.map((host) => (
-                  <li
-                    key={host}
-                    className="flex items-center gap-2 font-mono text-[12px] leading-4"
-                  >
-                    <ExternalLink className="text-aomi-muted size-3 shrink-0" />
-                    <span className="[overflow-wrap:anywhere]">{host}</span>
-                  </li>
-                ))}
-              </ul>
-            </DetailSection>
+          {account ? (
+            <p className="type-meta text-aomi-muted mt-auto">
+              Release {account.live.release} ·{" "}
+              <span className="font-mono text-[11.5px]">
+                {shortDigest(account.live.digest)}
+              </span>
+            </p>
           ) : null}
         </div>
         {/* While more is below, the last lines fade into the strip; at the
             end the fade covers only the padding. */}
         <div
           aria-hidden
-          className="from-aomi-raised pointer-events-none sticky bottom-0 -mt-6 h-6 bg-gradient-to-t to-transparent"
+          className="from-aomi-raised pointer-events-none sticky bottom-0 -mt-6 h-6 shrink-0 bg-gradient-to-t to-transparent"
         />
       </div>
 
-      {account ? (
-        <div className="shrink-0 px-5 pb-5 pt-3">
-          {error ? (
-            <p
-              role="alert"
-              className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta mb-2.5 px-3 py-2"
-            >
-              {error}
-            </p>
-          ) : null}
-          {needsConnect(account) ? (
-            <AomiButton
-              variant="primary"
-              className="w-full"
-              disabled={!signedIn || busy}
-              onClick={() => onConnect(account)}
-            >
-              Connect
-            </AomiButton>
-          ) : (
-            <>
-              {notice ? (
-                <div className="rounded-control bg-aomi-surface-2 type-meta text-aomi-fg/80 mb-2.5 flex items-start gap-2.5 px-3 py-2.5">
-                  <ShieldCheck className="text-aomi-muted mt-px size-3.5 shrink-0" />
-                  <span>{noticeText(account)}</span>
-                </div>
-              ) : null}
-              <div className="bg-aomi-surface-2 rounded-control flex h-8 items-center justify-between gap-3 px-3">
-                <span className="type-control font-medium">
-                  {account.enabled ? "On in your chats" : "Off in your chats"}
-                </span>
-                {busy ? (
-                  <Loader2 className="text-aomi-muted size-4 animate-spin" />
-                ) : (
-                  <Switch
-                    checked={account.enabled}
-                    disabled={!signedIn || account.agent_listed}
-                    onCheckedChange={(enabled) =>
-                      onToggle(account, enabled, notice)
-                    }
-                    aria-label={`${row.display_name} on in your chats`}
-                    title={
-                      account.agent_listed
-                        ? reasonText(account, agent)
-                        : !signedIn
-                          ? "Sign in to change your packages"
-                          : undefined
-                    }
-                  />
-                )}
-              </div>
-            </>
-          )}
-        </div>
+      {error ? (
+        <p
+          role="alert"
+          className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta mx-5 mb-2 px-3 py-2"
+        >
+          {error}
+        </p>
       ) : null}
+      <div className="border-aomi-border type-control flex min-h-14 shrink-0 items-center gap-2 border-t px-5 py-3">
+        <ActivationBar
+          row={row}
+          busy={busy}
+          onToggle={onToggle}
+          onConnect={onConnect}
+          onSignIn={onSignIn}
+        />
+      </div>
     </aside>
   );
 }

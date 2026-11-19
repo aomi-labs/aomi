@@ -12,7 +12,7 @@ export function SearchField({
   searchRef: RefObject<HTMLInputElement | null>;
 }) {
   return (
-    <label className="border-aomi-border bg-aomi-surface focus-within:border-aomi-muted rounded-control flex h-10 min-w-0 items-center gap-2.5 border px-3.5">
+    <label className="border-aomi-border bg-aomi-surface focus-within:border-aomi-muted rounded-control flex h-9 min-w-0 items-center gap-2 border px-3">
       <Search className="text-aomi-muted size-4 shrink-0" />
       <input
         ref={searchRef}

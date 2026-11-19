@@ -1,20 +1,26 @@
-import type {
-  AomiPackage,
-  AomiPackageEnvelope,
-  AomiPackageFamily,
-  AomiPackageSlot,
-  AomiPublicPackage,
+import {
+  CHAIN_NAMES,
+  type AomiPackage,
+  type AomiPackageFamily,
+  type AomiPackageSlot,
+  type AomiPublicPackage,
 } from "@aomi-labs/client";
+import type { ComponentType } from "react";
 import {
   BadgeCheck,
   Box,
-  Hexagon,
   KeyRound,
-  Orbit,
   Package,
+  PenLine,
+  Send,
+  ShieldCheck,
   ToggleRight,
   type LucideIcon,
 } from "lucide-react";
+import { EthereumIcon, SolanaIcon } from "@/icons/chain-icons";
+import { getChainIcon } from "@/icons/chain-map";
+
+type IconComponent = ComponentType<{ className?: string }>;
 
 export type LibraryView =
   | "all"
@@ -41,10 +47,10 @@ export const NAV_ITEMS: { id: LibraryView; label: string; icon: LucideIcon }[] =
 export const FAMILIES: {
   id: AomiPackageFamily;
   label: string;
-  icon: LucideIcon;
+  icon: IconComponent;
 }[] = [
-  { id: "evm", label: "EVM", icon: Hexagon },
-  { id: "svm", label: "Solana", icon: Orbit },
+  { id: "evm", label: "EVM", icon: EthereumIcon },
+  { id: "svm", label: "Solana", icon: SolanaIcon },
 ];
 
 export const GROUP_TITLES: Record<LibraryGroup, (agent: string) => string> = {
@@ -81,9 +87,6 @@ const GROUP_ORDER: readonly LibraryGroup[] = [
   "other",
 ];
 
-/** Rows a group shows before its "Show N more". */
-export const GROUP_PREVIEW = 5;
-
 export function groupPackages<Row extends AomiPublicPackage>(
   rows: readonly Row[],
 ): { group: LibraryGroup; rows: Row[] }[] {
@@ -111,12 +114,6 @@ export function needsConnect(row: AomiPackage): boolean {
   return personSlots(row).some(
     (slot) => slot.required && slot.status === "missing",
   );
-}
-
-/** At least one person key is in and no required one is missing. */
-export function connected(row: AomiPackage): boolean {
-  const slots = personSlots(row);
-  return slots.some((slot) => slot.status === "ready") && !needsConnect(row);
 }
 
 export function inView(row: AomiPublicPackage, view: LibraryView): boolean {
@@ -159,80 +156,106 @@ export function publisher(row: AomiPublicPackage): string {
   return row.id.split("/")[0] ?? row.id;
 }
 
-/** The brand key for curated artwork: the package name without its publisher. */
-export function reasonText(row: AomiPackage, agent: string): string {
-  switch (row.reason) {
-    case "agent_listed":
-      return `${agent} uses it, so it stays on.`;
-    case "verified_default":
-      return "On until you switch it off.";
-    case "chosen_on":
-      return "On because you switched it on.";
-    case "chosen_off":
-      return "Off because you switched it off.";
-    case "off_by_default":
-      return "Off until you switch it on.";
-  }
-}
-
-export function contentsLine(row: AomiPublicPackage): string {
-  const skills = `${row.skills.length} skill${row.skills.length === 1 ? "" : "s"}`;
-  return `${skills} · ${row.tool_count} tool${row.tool_count === 1 ? "" : "s"}`;
-}
-
-const CHAIN_LABELS: Record<number, string> = {
-  1: "Ethereum",
-  10: "Optimism",
-  137: "Polygon",
-  143: "Monad",
-  8453: "Base",
-  42161: "Arbitrum",
-  5_042_002: "Arc",
+/** Chain names the client's chain list lacks, for signature domains. */
+const MORE_CHAIN_NAMES: Record<number, string> = {
+  56: "BNB Chain",
+  100: "Gnosis",
+  43114: "Avalanche",
 };
 
-export function chainLabel(id: number): string {
-  return CHAIN_LABELS[id] ?? `chain ${id}`;
+export function chainName(id: number): string {
+  return CHAIN_NAMES[id] ?? MORE_CHAIN_NAMES[id] ?? `Chain ${id}`;
 }
 
-const FAMILY_NAMES: Record<AomiPackageFamily, string> = {
-  evm: "EVM chains",
+export interface ChainPill {
+  key: string;
+  label: string;
+  icon?: IconComponent;
+}
+
+/**
+ * Where a package works: its families, with EVM spelled out as the chains its
+ * signature domains name (account rows only).
+ */
+export function chainPills(row: AomiPublicPackage): ChainPill[] {
+  const ids = isAccountRow(row)
+    ? [
+        ...new Set(
+          row.envelope.signatures
+            .filter((signature) => signature.kind.startsWith("evm"))
+            .flatMap((signature) => signature.domains)
+            .map((domain) => domain.chain_id)
+            .filter((id) => Number.isSafeInteger(id)),
+        ),
+      ]
+    : [];
+  return FAMILIES.filter((family) => row.families.includes(family.id)).flatMap(
+    (family): ChainPill[] =>
+      family.id === "evm" && ids.length
+        ? ids.map((id) => ({
+            key: `evm:${id}`,
+            label: chainName(id),
+            icon: getChainIcon(id),
+          }))
+        : [{ key: family.id, label: family.label, icon: family.icon }],
+  );
+}
+
+const FAMILY_WORDS: Record<AomiPackageFamily, string> = {
+  evm: "EVM",
   svm: "Solana",
 };
 
-/** "Can ask you to" lines from the envelope, in plain words. */
-export function askLines(envelope: AomiPackageEnvelope): string[] {
-  return [
-    ...envelope.transactions.map(
-      (family) => `Approve transactions on ${FAMILY_NAMES[family]}`,
+export interface WalletLine {
+  kind: "transactions" | "signature" | "guard";
+  icon: LucideIcon;
+  title: string;
+  detail: string;
+}
+
+/** What the package may ask of the person's wallet; empty when nothing. */
+export function walletLines(row: AomiPackage): WalletLine[] {
+  const { transactions, signatures } = row.envelope;
+  const signs = new Set(
+    signatures.map((signature) =>
+      signature.kind.endsWith("-message") ? "a message" : "typed data",
     ),
-    ...envelope.signatures.map((signature) => {
-      const what = signature.primary_types.length
-        ? signature.primary_types.join(", ")
-        : signature.kind === "evm-typed-data"
-          ? "typed data"
-          : "messages";
-      const chains = [
-        ...new Set(signature.domains.map((domain) => domain.chain_id)),
-      ].map(chainLabel);
-      return `Sign ${what}${chains.length ? ` on ${chains.join(", ")}` : ""}`;
-    }),
+  );
+  const guards = row.guards ?? [];
+  return [
+    ...(transactions.length
+      ? [
+          {
+            kind: "transactions" as const,
+            icon: Send,
+            title: `Prepares ${transactions.map((family) => FAMILY_WORDS[family]).join(" and ")} transactions`,
+            detail: "You approve each one in your wallet.",
+          },
+        ]
+      : []),
+    ...[...signs].map((what) => ({
+      kind: "signature" as const,
+      icon: PenLine,
+      title: `Asks you to sign ${what}`,
+      detail: "You sign each one in your wallet.",
+    })),
+    ...(guards.length
+      ? [
+          {
+            kind: "guard" as const,
+            icon: ShieldCheck,
+            title: "Checked by a guard before you approve",
+            detail: guards.join(", "),
+          },
+        ]
+      : []),
   ];
 }
 
-/** The inspector's line before a not verified package is first switched on. */
-export function noticeText(row: AomiPackage): string {
-  const { hosts, transactions, signatures } = row.envelope;
-  const can = [
-    ...(hosts.length ? [`can reach ${hosts.join(", ")}`] : []),
-    ...(transactions.length
-      ? ["can ask you to approve transactions"]
-      : signatures.length
-        ? ["can ask you to sign"]
-        : []),
-  ];
-  return can.length
-    ? `Not verified by Aomi. It ${can.join(" and ")}.`
-    : "Not verified by Aomi. It reaches no outside service.";
+/** `sha256:7c21…9a` → `7c21…9a`. */
+export function shortDigest(digest: string): string {
+  const hex = digest.slice(digest.indexOf(":") + 1);
+  return hex.length > 8 ? `${hex.slice(0, 4)}…${hex.slice(-2)}` : hex;
 }
 
 /** The one-time notice is acknowledged per device, per package and envelope. */

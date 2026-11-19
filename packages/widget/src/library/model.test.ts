@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  askLines,
+  chainPills,
   groupPackages,
   markNoticeSeen,
   matches,
   noticeSeen,
-  reasonText,
+  shortDigest,
+  walletLines,
 } from "./model";
 import {
   AGENT_LISTED,
@@ -35,10 +36,6 @@ describe("library model", () => {
       ["verified", ["aomi/jupiter"]],
       ["other", ["arixoneth/hoodit-trade"]],
     ]);
-    expect(reasonText(AGENT_LISTED, "Aomi")).toBe(
-      "Aomi uses it, so it stays on.",
-    );
-    expect(reasonText(NOT_VERIFIED, "Aomi")).toMatch(/Off until you switch/);
   });
 
   it("filters by section, family and search", () => {
@@ -56,11 +53,80 @@ describe("library model", () => {
     ]);
   });
 
-  it("says what the envelope can ask for in plain words", () => {
-    expect(askLines(NOT_VERIFIED.envelope)).toEqual([
-      "Approve transactions on EVM chains",
-      "Sign Order on Base",
+  it("says what the package asks of the wallet in plain words", () => {
+    const lines = (row: Parameters<typeof walletLines>[0]) =>
+      walletLines(row).map(({ title, detail }) => [title, detail]);
+    expect(lines(NOT_VERIFIED)).toEqual([
+      ["Prepares EVM transactions", "You approve each one in your wallet."],
+      ["Asks you to sign typed data", "You sign each one in your wallet."],
     ]);
+    expect(
+      lines(
+        packageRow({
+          guards: ["svm/jupiter"],
+          envelope: {
+            ...VERIFIED.envelope,
+            transactions: ["evm", "svm"],
+            signatures: [
+              { kind: "svm-message", domains: [], primary_types: [] },
+            ],
+          },
+        }),
+      ),
+    ).toEqual([
+      [
+        "Prepares EVM and Solana transactions",
+        "You approve each one in your wallet.",
+      ],
+      ["Asks you to sign a message", "You sign each one in your wallet."],
+      ["Checked by a guard before you approve", "svm/jupiter"],
+    ]);
+    const quiet = packageRow({
+      envelope: { ...VERIFIED.envelope, transactions: [], signatures: [] },
+    });
+    expect(walletLines(quiet)).toEqual([]);
+  });
+
+  it("names chains from signature domains, else the family", () => {
+    const labels = (row: Parameters<typeof chainPills>[0]) =>
+      chainPills(row).map((pill) => pill.label);
+    expect(labels(NOT_VERIFIED)).toEqual(["Base"]);
+    expect(labels(VERIFIED)).toEqual(["Solana"]);
+    const zerox = packageRow({
+      families: ["evm"],
+      envelope: {
+        ...VERIFIED.envelope,
+        signatures: [
+          {
+            kind: "evm-typed-data",
+            domains: [1, 56, 8453, 1].map((chain_id) => ({
+              chain_id,
+              verifying_contract: "0x22",
+            })),
+            primary_types: ["PermitTransferFrom"],
+          },
+        ],
+      },
+    });
+    expect(labels(zerox)).toEqual(["Ethereum", "BNB Chain", "Base"]);
+    expect(chainPills(zerox)[1]!.icon).toBeUndefined();
+    // A guest's public row has families only.
+    expect(
+      labels({
+        id: "aomi/zerox",
+        display_name: "0x",
+        description: "",
+        icon_url: null,
+        families: ["evm"],
+        tool_count: 0,
+        skills: [],
+        verified: true,
+      }),
+    ).toEqual(["EVM"]);
+  });
+
+  it("shortens a release digest", () => {
+    expect(shortDigest("sha256:7c21deadbeef9a")).toBe("7c21…9a");
   });
 
   it("remembers the notice per device, package and envelope hash", () => {

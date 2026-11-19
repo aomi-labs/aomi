@@ -1,8 +1,8 @@
 "use client";
 import type { AomiPackage } from "@aomi-labs/client";
 import { ConfirmDialog } from "@/ui/aomi/confirm-dialog";
-import { VerifiedPill } from "./library-detail-panel";
-import { askLines, personSlots } from "./model";
+import { StatusPill } from "@/ui/aomi/status-pill";
+import { personSlots, walletLines } from "./model";
 
 /**
  * Shown before a not verified package is first switched on, on this device,
@@ -28,7 +28,9 @@ export function PackageNotice({
         ...(row.envelope.hosts.length
           ? [`Talks to: ${row.envelope.hosts.join(", ")}`]
           : []),
-        ...askLines(row.envelope).map((line) => `Can ask you to: ${line}`),
+        ...walletLines(row)
+          .filter((line) => line.kind !== "guard")
+          .map((line) => line.title),
         ...(required.length ? [`Needs your key: ${required.join(", ")}`] : []),
         ...(optional.length
           ? [`Add your own key: ${optional.join(", ")}`]
@@ -48,7 +50,7 @@ export function PackageNotice({
     >
       {row ? (
         <div className="space-y-2">
-          <VerifiedPill verified={false} />
+          <StatusPill tone="neutral">Not verified</StatusPill>
           <ul className="type-control space-y-1">
             {lines.length ? (
               lines.map((line) => (
