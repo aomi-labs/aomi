@@ -520,7 +520,6 @@ export type {
   AomiRule,
   AomiRuleSet,
   AomiRuleTo,
-  AomiRuleUsage,
   AomiRulesAction,
   AomiRulesAdmin,
   AomiRulesAdminWallet,
@@ -529,9 +528,12 @@ export type {
   AomiRulesCatalogToken,
   AomiRulesChangeRequest,
   AomiRulesChangeResult,
+  AomiRulesConfirmRequest,
   AomiRulesEnforceRequest,
   AomiRulesEnforcement,
   AomiRulesMode,
+  AomiRulesProvider,
+  AomiRulesTypedData,
   AomiWalletRules,
 } from "./account/rules";
 export { AomiWallets } from "./sdk/wallets";

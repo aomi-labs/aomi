@@ -4,10 +4,8 @@ import {
   hasRules,
   type Aomi,
   type AomiRuleChange,
-  type AomiRuleUsage,
   type AomiWalletRules,
 } from "@aomi-labs/client";
-import { formatUnits } from "viem";
 import {
   CliError,
   baseUrlOf,
@@ -18,19 +16,6 @@ import {
 } from "../context";
 
 type Flags = ConnectFlags & { json?: boolean };
-
-/**
- * `used 0.2 / 0.5 SOL · protocol:jupiter`; an unknown token shows raw units
- * and its asset id.
- */
-function usageLine(usage: AomiRuleUsage): string {
-  const amount = (value: string) =>
-    usage.decimals === null
-      ? value
-      : formatUnits(BigInt(value), usage.decimals);
-  const to = usage.rule.slice(usage.asset.length + 1);
-  return `used ${amount(usage.used)} / ${amount(usage.cap)} ${usage.symbol ?? usage.asset} · ${to}`;
-}
 
 function timeLeft(expiresAt: number): string {
   const seconds = expiresAt - Math.floor(Date.now() / 1000);
@@ -43,12 +28,11 @@ function timeLeft(expiresAt: number): string {
 const changeLines = (change: AomiRuleChange) =>
   change.lines.map((line) => `${line.loosens ? "↑" : "-"} ${line.text}`);
 
-/** One wallet: its sentences, today's use, the admin and any waiting change. */
+/** One wallet: its sentences, the admin and any waiting change. */
 export function rulesLines(rules: AomiWalletRules): string[] {
   const lines = [`${rules.wallet_name}  ${rules.agent_wallet_id}`];
   if (rules.revision === 0 || !hasRules(rules.rules)) lines.push("  No rules");
   for (const sentence of rules.sentences) lines.push(`  ${sentence}`);
-  for (const usage of rules.usage) lines.push(`  ${usageLine(usage)}`);
   if (rules.stopped_until) lines.push("  Stopped by the agent until 00:00 UTC");
   lines.push(
     `  Rule change authority: ${

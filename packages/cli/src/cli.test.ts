@@ -381,7 +381,7 @@ describe("aomi rules", () => {
     id: CHANGE,
     agent_wallet_id: WALLET,
     wallet_name: "Trading wallet",
-    lines: [{ text: "USDC on Base: 200 → 400 a day", loosens: true }],
+    lines: [{ text: "USDC on Base: 200 → 400", loosens: true }],
     state: "awaiting_admin",
     proposed_by: "agent:telegram:7712345678",
     expires_at: Math.floor(Date.now() / 1000) + 23 * 3600 + 600,
@@ -394,22 +394,11 @@ describe("aomi rules", () => {
     revision: 3,
     rules: { mode: "blacklist", rules: [], linked_only: true },
     sentences: [
-      "Up to 0.5 SOL a day on Jupiter (Solana)",
+      "Up to 0.5 SOL on Jupiter (Solana), until 2026-12-11",
       "Sends only to your linked wallets",
     ],
     admin: { kind: "aomi_managed" },
     stopped_until: null,
-    usage: [
-      {
-        rule: "solana:mainnet-beta/native@protocol:jupiter",
-        asset: "solana:mainnet-beta/native",
-        used: "200000000",
-        cap: "500000000",
-        symbol: "SOL",
-        decimals: 9,
-      },
-    ],
-    window_ends_at: 1795046400,
     pending: change,
     enforcement: [],
     admin_wallets: [],
@@ -446,17 +435,16 @@ describe("aomi rules", () => {
     for (const key of Object.values(paths)) delete routes[key];
   });
 
-  it("lists each agent wallet's sentences, use, admin and waiting change", async () => {
+  it("lists each agent wallet's sentences, admin and waiting change, with no spend count", async () => {
     const { code, stdout } = await cli("rules", "--private-key", KEY);
     expect(code).toBe(0);
     expect(stdout.split("\n")).toEqual([
       `Trading wallet  ${WALLET}`,
-      "  Up to 0.5 SOL a day on Jupiter (Solana)",
+      "  Up to 0.5 SOL on Jupiter (Solana), until 2026-12-11",
       "  Sends only to your linked wallets",
-      "  used 0.2 / 0.5 SOL · protocol:jupiter",
       "  Rule change authority: self-approval",
       `  Pending ${CHANGE} · 23 h left`,
-      "    ↑ USDC on Base: 200 → 400 a day",
+      "    ↑ USDC on Base: 200 → 400",
       "",
     ]);
     // Archived wallets have no rules to show.

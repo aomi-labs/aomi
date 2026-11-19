@@ -208,9 +208,16 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       /^\/v1\/account\/rule-changes\/([^/]+)(?:\/(approve|decline))?$/.exec(
         url.pathname,
       );
+    const stepPrefix = `/v1/account/agent-wallets/${AGENT_GROUP.id}/rules/enforcement/`;
+    const stepPath = url.pathname.startsWith(stepPrefix)
+      ? /^([^/]+)\/(prepare|confirm)$/.exec(
+          url.pathname.slice(stepPrefix.length),
+        )
+      : null;
     if (
       rulesPath ||
       changePath ||
+      stepPath ||
       url.pathname === "/v1/account/rules/catalog"
     ) {
       const principal = verifyBearer(request, "aomi-backend");
@@ -224,6 +231,7 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
           revision: 0,
           rules: NO_RULES,
           admin: { kind: "aomi_managed" },
+          deployed: {},
         } as FakeRules);
       walletRules.set(owner, state);
       // A change nobody decided in time is closed before anything reads it.
@@ -249,18 +257,128 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
         if (error) json(response, 403, { error });
         return error !== null;
       };
-      if (method === "GET" && !rulesPath && !changePath)
+      if (method === "GET" && !rulesPath && !changePath && !stepPath)
         return json(response, 200, RULES_CATALOG);
       if (method === "GET" && rulesPath) return json(response, 200, body());
+      if (method === "POST" && stepPath) {
+        // The owner's own wallet does what prepare answers, and confirm
+        // reads the chain (or the signature) and starts a waiting rule.
+        if (ownerOnly()) return;
+        const provider = PROVIDERS[stepPath[1]!];
+        const sent = JSON.parse(await readBody(request)) as {
+          network: string;
+          rule: string;
+          revision: number;
+          owner?: string;
+          remove?: boolean;
+          signature?: string;
+        };
+        if (!provider || provider.network !== sent.network)
+          return json(response, 404, {
+            error: "policy_provider_not_found",
+            message: `\`${stepPath[1]}\` cannot hold this wallet's rules on \`${sent.network}\``,
+          });
+        if (sent.revision !== state.revision)
+          return json(response, 409, { error: "rules_changed" });
+        const rule = state.rules.rules.find(
+          (entry) => fakeRuleKey(entry) === sent.rule,
+        );
+        const held = state.deployed[sent.rule];
+        if (!rule && !held)
+          return json(response, 404, { error: "rule_not_found" });
+        // A rule that was removed or has ended is taken off without `remove`.
+        const removing =
+          sent.remove === true ||
+          !rule ||
+          (rule.active_until !== undefined && rule.active_until <= now);
+        // The owner signed the revocation of a removed rule's grant: sending
+        // it, a plain transaction from their own wallet, is what is left.
+        const sending = !rule && held?.revoked === true;
+        if (stepPath[2] === "prepare") {
+          const current = removing
+            ? !held
+            : held?.amount === rule.amount &&
+              held?.active_until === rule.active_until;
+          // A removed rule has no rule left: the step is about what is held.
+          return json(response, 200, {
+            action: current
+              ? null
+              : sending
+                ? sendAction(provider)
+                : stepAction(provider, (rule ?? held)!),
+          });
+        }
+        // A grant, and the revoking of one, are signatures; a deployment
+        // that is already gone, and a sent revocation, need none.
+        if (
+          provider.family === "evm" &&
+          (!removing || held) &&
+          !sending &&
+          !/^0x[0-9a-f]+$/i.test(sent.signature ?? "")
+        )
+          return json(response, 422, {
+            error: "invalid_policy",
+            message: "A signature is required to confirm a grant",
+          });
+        if (removing && provider.family === "evm" && held && !sending) {
+          // The signed revocation is kept; the grant stays until it is sent.
+          held.revoked = true;
+        } else if (removing) delete state.deployed[sent.rule];
+        else if (rule) {
+          state.deployed[sent.rule] = {
+            amount: rule.amount,
+            active_until: rule.active_until,
+            // A grant is a signature: nothing is deployed, so no transaction.
+            tx: provider.family === "svm" ? (sent.signature ?? null) : null,
+          };
+          if (rule.awaiting) {
+            delete rule.awaiting;
+            rule.active_from = now;
+          }
+        }
+        return json(response, 200, { rules: body() });
+      }
       if (method === "POST" && rulesPath) {
         if (ownerOnly()) return;
         const sent = JSON.parse(await readBody(request)) as {
-          rules?: Partial<FakeRuleSet>;
+          rules?: Partial<Omit<FakeRuleSet, "rules">> & {
+            rules?: Omit<FakeRule, "active_from">[];
+          };
           admin?: FakeRules["admin"];
           instant?: string[];
         };
+        // A rule keeps its start unless it is new or its amount or end moved;
+        // a new or moved end must be in the future.
+        const held = new Map(
+          state.rules.rules.map((rule) => [fakeRuleKey(rule), rule]),
+        );
+        let periodInvalid = false;
+        const rules = (sent.rules?.rules ?? []).map((rule) => {
+          const before = held.get(fakeRuleKey(rule));
+          const same =
+            before &&
+            before.amount === rule.amount &&
+            before.active_until === rule.active_until;
+          if (!same && rule.active_until !== undefined)
+            periodInvalid ||= rule.active_until <= now;
+          if (same) return { ...rule, ...stored(before) };
+          // A new rule a provider can hold starts when the owner signs its
+          // deployment, not before; any other starts at once.
+          const holder =
+            sent.rules?.mode === "whitelist" &&
+            !state.deployed[fakeRuleKey(rule)]
+              ? providerOf(rule, sent.rules.mode)
+              : undefined;
+          return holder
+            ? { ...rule, awaiting: holder }
+            : { ...rule, active_from: now };
+        });
+        if (periodInvalid)
+          return json(response, 400, { error: "rules_period_invalid" });
         // A field left out of a write is a rule turned off.
-        const next = sent.rules ? { ...NO_RULES, ...sent.rules } : state.rules;
+        const next: FakeRuleSet = sent.rules
+          ? { ...NO_RULES, ...sent.rules, rules }
+          : state.rules;
         const waits =
           Boolean(sent.admin || sent.instant?.length) ||
           loosens(state.rules, next);
@@ -550,22 +668,166 @@ const AGENT_GROUP = {
   connections: [],
 };
 
+type FakeTo =
+  | { kind: "any_protocol" }
+  | { kind: "protocol"; id: string }
+  | { kind: "address"; address: string };
+/** A rule as the fake holds it; `amount` is a total that never resets. */
+type FakeRule = {
+  asset: string;
+  amount: string;
+  to: FakeTo;
+  /** Unix seconds; set here, never by the client. Unset while `awaiting`. */
+  active_from?: number;
+  /** The provider whose deployment starts the rule; it has not started yet. */
+  awaiting?: string;
+  /** Unix seconds; left out, the rule is always on. */
+  active_until?: number;
+};
 type FakeRuleSet = {
-  apps: string[] | null;
-  limits: { asset: string; amount: string }[];
-  not_after: number | null;
-  owner_only: boolean;
+  mode: "whitelist" | "blacklist";
+  rules: FakeRule[];
+  linked_only: boolean;
 };
 const NO_RULES: FakeRuleSet = {
-  apps: null,
-  limits: [],
-  not_after: null,
-  owner_only: false,
+  mode: "blacklist",
+  rules: [],
+  linked_only: false,
 };
+/** A rule's key as the backend writes it: `<asset>@<to>`. */
+const fakeRuleKey = ({ asset, to }: Pick<FakeRule, "asset" | "to">) =>
+  `${asset}@${
+    to.kind === "any_protocol"
+      ? "any"
+      : to.kind === "protocol"
+        ? `protocol:${to.id}`
+        : `address:${to.address.startsWith("0x") ? to.address.toLowerCase() : to.address}`
+  }`;
+/** The two on-chain providers: one deployment per rule, by rule key. */
+const PROVIDERS: Record<
+  string,
+  { name: string; network: string; family: "evm" | "svm"; owner: string }
+> = {
+  // Swig deploys a transaction on Solana.
+  swig: {
+    name: "Swig",
+    network: "solana:mainnet-beta",
+    family: "svm",
+    owner: "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T",
+  },
+  // MetaMask holds an EVM rule by a signed grant: nothing is deployed.
+  metamask: {
+    name: "MetaMask",
+    network: "eip155:8453",
+    family: "evm",
+    owner: "0x00000000000000000000000000000000000000a1",
+  },
+};
+/**
+ * What each provider could hold for the wallet before any rule exists: the
+ * backend's `providers`, one per provider and network it is switched on for.
+ */
+const PROVIDER_HOLDS: Record<
+  string,
+  { holds: "total_and_period" | "total_period_and_destination"; note: string }
+> = {
+  swig: {
+    holds: "total_period_and_destination",
+    note: "Holds a rule's total, its end and where it may go.",
+  },
+  metamask: {
+    holds: "total_and_period",
+    note: "Holds a rule's total and its end on chain. A rule to an address also holds that destination; for an app the destination is checked by Aomi only.",
+  },
+};
+const providersOf = () =>
+  Object.entries(PROVIDERS).map(([id, provider]) => ({
+    provider: id,
+    name: provider.name,
+    network: provider.network,
+    ...PROVIDER_HOLDS[id]!,
+  }));
+/** The provider that can hold `rule`: whitelist mode, a total above zero. */
+const providerOf = (rule: FakeRule, mode: FakeRuleSet["mode"]) =>
+  mode === "whitelist" && rule.amount !== "0"
+    ? Object.keys(PROVIDERS).find((id) =>
+        rule.asset.startsWith(`${PROVIDERS[id]!.network}/`),
+      )
+    : undefined;
+/** What a stored rule already says about its start. */
+const stored = (rule: FakeRule) => ({
+  ...(rule.active_from !== undefined ? { active_from: rule.active_from } : {}),
+  ...(rule.awaiting ? { awaiting: rule.awaiting } : {}),
+});
+/** The owner's signed revocation, as a transaction for their wallet to send. */
+const sendAction = (provider: (typeof PROVIDERS)[string]) => ({
+  kind: "evm_transaction",
+  network: provider.network,
+  to: "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+  data: "0xcafe0001",
+  value: "0x0",
+});
+/** What the owner's wallet does to hold `rule` with `provider`. */
+function stepAction(
+  provider: (typeof PROVIDERS)[string],
+  rule: Pick<FakeRule, "amount" | "active_until">,
+) {
+  if (provider.family === "svm")
+    return {
+      kind: "transaction",
+      network: provider.network,
+      unsigned_base64: "AQAB",
+    };
+  return {
+    kind: "typed_data",
+    network: provider.network,
+    typed_data: {
+      domain: {
+        name: "DelegationManager",
+        version: "1",
+        chainId: Number(provider.network.split(":")[1]),
+        verifyingContract: "0x00000000000000000000000000000000000000d1",
+      },
+      types: {
+        Delegation: [
+          { name: "delegate", type: "address" },
+          { name: "authority", type: "bytes32" },
+          { name: "salt", type: "uint256" },
+          { name: "total", type: "uint256" },
+          { name: "validUntil", type: "uint256" },
+        ],
+      },
+      primaryType: "Delegation",
+      // Numbers above 2^53 go as decimal strings.
+      message: {
+        delegate: "0x00000000000000000000000000000000000000a9",
+        authority: `0x${"ff".repeat(32)}`,
+        salt: "98765432109876543210",
+        total: rule.amount,
+        validUntil: String(rule.active_until ?? 0),
+      },
+    },
+  };
+}
 type FakeAdmin =
   | { kind: "aomi_managed" }
   | { kind: "wallet"; family: "evm" | "svm"; address: string };
-type FakeRules = { revision: number; rules: FakeRuleSet; admin: FakeAdmin };
+type FakeRules = {
+  revision: number;
+  rules: FakeRuleSet;
+  admin: FakeAdmin;
+  /** What each provider holds on chain, by rule key. */
+  deployed: Record<
+    string,
+    {
+      amount: string;
+      active_until?: number;
+      tx: string | null;
+      /** The owner signed the grant's revocation; nothing has sent it yet. */
+      revoked?: boolean;
+    }
+  >;
+};
 type FakeChange = {
   id: string;
   agent_wallet_id: string;
@@ -609,75 +871,155 @@ const RULES_CATALOG = {
 
 /** Whether `next` gives the agent anything `current` did not. */
 function loosens(current: FakeRuleSet, next: FakeRuleSet): boolean {
-  const was = current.limits;
-  const now = next.limits;
-  if (was.length && !now.length) return true;
+  if (current.mode === "whitelist" && next.mode === "blacklist") return true;
+  if (current.linked_only && !next.linked_only) return true;
+  const was = new Map(current.rules.map((rule) => [fakeRuleKey(rule), rule]));
+  const now = new Set(next.rules.map(fakeRuleKey));
+  // In a blacklist a rule is a cap: taking one away gives the agent more.
   if (
-    now.some((limit) => {
-      const before = was.find((entry) => entry.asset === limit.asset);
-      return before
-        ? BigInt(limit.amount) > BigInt(before.amount)
-        : was.length > 0;
-    })
+    next.mode === "blacklist" &&
+    current.rules.some((rule) => !now.has(fakeRuleKey(rule)))
   )
     return true;
-  if (
-    current.apps &&
-    (!next.apps || next.apps.some((app) => !current.apps!.includes(app)))
-  )
-    return true;
-  if (
-    current.not_after !== null &&
-    (next.not_after === null || next.not_after > current.not_after)
-  )
-    return true;
-  return current.owner_only && !next.owner_only;
+  return next.rules.some((rule) => {
+    const before = was.get(fakeRuleKey(rule));
+    // In a whitelist a new rule allows something that was not.
+    if (!before) return next.mode === "whitelist" && rule.amount !== "0";
+    if (BigInt(rule.amount) > BigInt(before.amount)) return true;
+    return (
+      before.active_until !== undefined &&
+      (rule.active_until === undefined ||
+        rule.active_until > before.active_until)
+    );
+  });
+}
+
+/** One entry per rule and provider, as the chain would show it. */
+function enforcementOf(state: FakeRules) {
+  const entry = (
+    key: string,
+    id: string,
+    extra: { state: string; ready: boolean; note?: string; amount?: string },
+    until?: number,
+  ) => {
+    const provider = PROVIDERS[id]!;
+    const held = state.deployed[key];
+    return {
+      rule: key,
+      provider: id,
+      name: provider.name,
+      network: provider.network,
+      state: extra.state,
+      ready: extra.ready,
+      // A deployment counts its total down; the fake shows it untouched.
+      left: held ? held.amount : null,
+      expires_at: held && until !== undefined ? until + 600 : null,
+      account: held ? provider.owner : null,
+      deployment_tx: held?.tx ?? null,
+      note: extra.note ?? null,
+      signer: {
+        family: provider.family,
+        address: held ? provider.owner : null,
+      },
+    };
+  };
+  const entries = state.rules.rules.flatMap((rule) => {
+    const key = fakeRuleKey(rule);
+    const id = Object.keys(PROVIDERS).find((candidate) =>
+      rule.asset.startsWith(`${PROVIDERS[candidate]!.network}/`),
+    );
+    // A rule no provider can hold has no entry: another chain, or a
+    // blacklist, in which nothing goes on chain.
+    if (!id || state.rules.mode !== "whitelist") return [];
+    if (rule.amount === "0")
+      return [
+        entry(key, id, {
+          state: "off",
+          ready: false,
+          note: `${PROVIDERS[id]!.name} cannot hold a rule that allows nothing.`,
+        }),
+      ];
+    const held = state.deployed[key];
+    const current =
+      held?.amount === rule.amount && held?.active_until === rule.active_until;
+    return [
+      entry(
+        key,
+        id,
+        {
+          state: current ? "on" : held ? "behind" : "off",
+          ready: !current,
+          ...(held && !current
+            ? { note: "Your rules changed since you signed." }
+            : {}),
+        },
+        rule.active_until,
+      ),
+    ];
+  });
+  // A rule removed while its deployment is still on chain keeps its entry.
+  const removed = Object.keys(state.deployed)
+    .filter(
+      (key) => !state.rules.rules.some((rule) => fakeRuleKey(rule) === key),
+    )
+    .map((key) =>
+      entry(
+        key,
+        Object.keys(PROVIDERS).find((id) =>
+          key.startsWith(`${PROVIDERS[id]!.network}/`),
+        )!,
+        {
+          state: "behind",
+          ready: true,
+          note: state.deployed[key]?.revoked
+            ? "Your revocation is signed. Send it from your wallet to take the grant off chain, or wait for Aomi to send it where the network supports that."
+            : "This rule was removed or has ended. Sign to take off what the chain holds for it.",
+        },
+      ),
+    );
+  return [...entries, ...removed];
 }
 
 function rulesBody(state: FakeRules, pending: FakeChange | null) {
   const { apply: _, ...view } = pending ?? ({} as FakeChange);
+  const tokenOf = (rule: FakeRule) =>
+    RULES_CATALOG.tokens.find((entry) => entry.asset === rule.asset);
   return {
     agent_wallet_id: AGENT_GROUP.id,
     wallet_name: AGENT_GROUP.name,
     revision: state.revision,
     rules: {
       ...state.rules,
-      limits: state.rules.limits.map((limit) => {
-        const token = RULES_CATALOG.tokens.find(
-          (entry) => entry.asset === limit.asset,
-        );
-        return {
-          ...limit,
-          symbol: token?.symbol ?? null,
-          decimals: token?.decimals ?? null,
-        };
-      }),
+      rules: state.rules.rules.map((rule) => ({
+        id: fakeRuleKey(rule),
+        ...rule,
+        symbol: tokenOf(rule)?.symbol ?? null,
+        decimals: tokenOf(rule)?.decimals ?? null,
+      })),
     },
     sentences: [
-      ...(state.rules.apps ? [`Can use ${state.rules.apps.join(", ")}`] : []),
-      ...state.rules.limits.map((limit) => {
-        const token = RULES_CATALOG.tokens.find(
-          (entry) => entry.asset === limit.asset,
-        );
+      ...state.rules.rules.map((rule) => {
+        const token = tokenOf(rule);
+        const where =
+          rule.to.kind === "any_protocol"
+            ? "on any protocol"
+            : rule.to.kind === "protocol"
+              ? `on ${rule.to.id}`
+              : `to ${rule.to.address}`;
         return token
-          ? `Up to ${Number(limit.amount) / 10 ** token.decimals} ${token.symbol} a day on ${token.chain}`
-          : `Up to ${limit.amount} base units of ${limit.asset} a day`;
+          ? `Up to ${Number(rule.amount) / 10 ** token.decimals} ${token.symbol} ${where} (${token.chain})`
+          : `Up to ${rule.amount} base units of ${rule.asset} ${where}`;
       }),
-      ...(state.rules.not_after === null
-        ? []
-        : [
-            `Until ${new Date(state.rules.not_after * 1000).toISOString().slice(0, 10)}`,
-          ]),
-      ...(state.rules.owner_only || state.rules.apps
-        ? ["Sends only to your wallets"]
-        : []),
+      ...(state.rules.linked_only ? ["Sends only to your linked wallets"] : []),
     ],
     admin: state.admin,
     stopped_until: null,
-    usage: [],
-    window_ends_at: (Math.floor(Date.now() / 86_400_000) + 1) * 86_400,
     pending: pending ? view : null,
-    enforcement: [],
+    enforced_by: Object.fromEntries(
+      state.rules.rules.map((rule) => [fakeRuleKey(rule), ["Aomi"]]),
+    ),
+    enforcement: enforcementOf(state),
+    providers: providersOf(),
     // One linked wallet, so the admin picker has a wallet to choose.
     admin_wallets: [
       {
