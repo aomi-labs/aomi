@@ -6,30 +6,29 @@ import { PackageMark, PackageTile } from "./package-mark";
 const URL = "/api/packages/aomi%2Fdefillama/icon";
 
 describe("PackageMark", () => {
-  it("draws icon_url as a mask in the accent colour, never as an image", () => {
+  it("draws icon_url as a mask in currentColor, never as an image", () => {
     const { container } = render(
       <PackageMark iconUrl={URL} className="size-3.5" />,
     );
     const mark = container.querySelector<HTMLElement>("[data-package-icon]")!;
     expect(mark.dataset.packageIcon).toBe(URL);
-    expect(mark).toHaveClass("bg-current", "text-aomi-accent");
+    expect(mark).toHaveClass("bg-current");
+    expect(mark.className).not.toMatch(/\btext-aomi-/);
     expect(mark.className).toContain("size-3.5");
     expect(mark.getAttribute("style")).toContain(`url("${URL}")`);
     expect(container.querySelector("img")).toBeNull();
   });
 
-  it("takes a caller's text colour instead of the accent", () => {
+  it("takes the colour its caller gives it", () => {
     const { container } = render(
       <PackageMark iconUrl={URL} className="text-aomi-fg/80" />,
     );
     const mark = container.querySelector<HTMLElement>("[data-package-icon]")!;
     expect(mark).toHaveClass("bg-current", "text-aomi-fg/80");
-    expect(mark).not.toHaveClass("text-aomi-accent");
     const glyph = render(
       <PackageMark iconUrl={null} className="text-aomi-fg/80" />,
     ).container.querySelector("svg.lucide-package")!;
     expect(glyph).toHaveClass("text-aomi-fg/80");
-    expect(glyph).not.toHaveClass("text-aomi-accent");
   });
 
   it("shows the generic package icon without an icon_url", () => {
@@ -41,6 +40,7 @@ describe("PackageMark", () => {
   it("sits in the Library's soft tile at the row and detail sizes", () => {
     const row = render(<PackageTile iconUrl={URL} />).container;
     expect(row.firstElementChild?.className).toContain("size-9");
+    expect(row.firstElementChild).toHaveClass("text-aomi-accent");
     expect(row.querySelector("[data-package-icon]")?.className).toContain(
       "size-5",
     );

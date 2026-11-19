@@ -4,10 +4,11 @@ import { cn } from "@/lib/cn";
 
 /**
  * A package's icon: the SVG its bundle ships (`icon_url`), drawn as a CSS mask
- * in the text colour, else the generic package glyph. The one way the UI
- * draws a package; the release check holds the SVG to a square shape in
- * `currentColor`, so only its silhouette matters here. Accent by default; a
- * caller's `text-*` class overrides it (trace and sidebar chips are neutral).
+ * in `currentColor`, else the generic package glyph. The one way the UI draws
+ * a package; the release check holds the SVG to a square shape in
+ * `currentColor`, so only its silhouette matters here. It has no colour of its
+ * own: the surface around it decides, as the curated marks did (accent in the
+ * Library tile and a sent tag, muted in the picker, grey in trace chips).
  */
 export function PackageMark({
   iconUrl,
@@ -18,20 +19,14 @@ export function PackageMark({
 }) {
   if (!iconUrl) {
     return (
-      <PackageIcon
-        aria-hidden="true"
-        className={cn("text-aomi-accent shrink-0", className)}
-      />
+      <PackageIcon aria-hidden="true" className={cn("shrink-0", className)} />
     );
   }
   return (
     <span
       aria-hidden="true"
       data-package-icon={iconUrl}
-      className={cn(
-        "text-aomi-accent inline-block shrink-0 bg-current",
-        className,
-      )}
+      className={cn("inline-block shrink-0 bg-current", className)}
       style={{
         maskImage: `url(${JSON.stringify(iconUrl)})`,
         maskSize: "contain",
@@ -54,7 +49,7 @@ export function PackageTile({
   return (
     <span
       className={cn(
-        "border-aomi-overlay-border bg-aomi-surface-2 flex shrink-0 items-center justify-center rounded-xl border",
+        "border-aomi-overlay-border bg-aomi-surface-2 text-aomi-accent flex shrink-0 items-center justify-center rounded-xl border",
         detail ? "size-12" : "size-9",
       )}
     >
