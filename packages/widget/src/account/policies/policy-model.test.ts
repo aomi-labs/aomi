@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AomiRulesEnforcement } from "@aomi-labs/client";
+import type { AomiPolicyEnforcement } from "@aomi-labs/client";
 import {
   activePolicyCount,
   dayFromToday,
@@ -44,7 +44,7 @@ const SWIG_WALLET = "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN";
 const EVM_TX = `0x${"ab".repeat(32)}`;
 const VAULT = "0x00000000000000000000000000000000000000a1";
 /** One provider's entry for one rule: Swig on Solana, off. */
-const provider = (extra: Partial<AomiRulesEnforcement> = {}) =>
+const provider = (extra: Partial<AomiPolicyEnforcement> = {}) =>
   ({
     rule: `${SOL}@any`,
     provider: "swig",
@@ -59,8 +59,8 @@ const provider = (extra: Partial<AomiRulesEnforcement> = {}) =>
     note: null,
     signer: { family: "svm", address: null },
     ...extra,
-  }) as AomiRulesEnforcement;
-const metamask = (asset: string, extra: Partial<AomiRulesEnforcement> = {}) =>
+  }) as AomiPolicyEnforcement;
+const metamask = (asset: string, extra: Partial<AomiPolicyEnforcement> = {}) =>
   provider({
     rule: `${asset}@any`,
     provider: "metamask",
@@ -69,11 +69,11 @@ const metamask = (asset: string, extra: Partial<AomiRulesEnforcement> = {}) =>
     signer: { family: "evm", address: null },
     ...extra,
   });
-const wallet = (rules: object[], enforcement: AomiRulesEnforcement[] = []) => ({
+const wallet = (rules: object[], enforcement: AomiPolicyEnforcement[] = []) => ({
   rules: { mode: "whitelist" as const, rules, linked_only: false } as never,
   enforcement,
 });
-const rows = (rules: object[], entries: AomiRulesEnforcement[] = []) =>
+const rows = (rules: object[], entries: AomiPolicyEnforcement[] = []) =>
   policyRows(wallet(rules, entries), null, NOW);
 
 describe("policy rows", () => {
@@ -218,7 +218,7 @@ describe("a rule's on-chain enforcement", () => {
 
   it("says what is left of the total, in the token's own units, when the chain reports it", () => {
     const SOL_UNITS = { symbol: "SOL", decimals: 9 };
-    const left = (entry: AomiRulesEnforcement, units?: typeof SOL_UNITS) =>
+    const left = (entry: AomiPolicyEnforcement, units?: typeof SOL_UNITS) =>
       ruleEnforcement(sol, [entry], units).left;
     expect(left(provider({ state: "on", left: "400000000" }), SOL_UNITS)).toBe(
       "0.4 SOL left",
@@ -274,7 +274,7 @@ describe("per-rule enforcement rows", () => {
     ]);
   });
 
-  const both = (extra: Partial<AomiRulesEnforcement>) => [
+  const both = (extra: Partial<AomiPolicyEnforcement>) => [
     metamask(BASE_USDC, extra),
     metamask(OP_USDC, extra),
   ];
@@ -334,7 +334,7 @@ describe("removed policies the chain still holds", () => {
   const NOTE =
     "This rule was removed or has ended. Sign to take off what the chain holds for it.";
   /** What the backend keeps under the old id: behind, ready, with a total left. */
-  const held = (extra: Partial<AomiRulesEnforcement> = {}) =>
+  const held = (extra: Partial<AomiPolicyEnforcement> = {}) =>
     metamask(BASE_USDC, {
       rule: REMOVED,
       state: "behind",
@@ -346,7 +346,7 @@ describe("removed policies the chain still holds", () => {
       signer: { family: "evm", address: OWNER },
       ...extra,
     });
-  const removed = (entries: AomiRulesEnforcement[], rules: object[] = []) =>
+  const removed = (entries: AomiPolicyEnforcement[], rules: object[] = []) =>
     removedPolicies(wallet(rules, entries), catalog);
 
   it("makes a row of an entry whose rule is gone, from what its id and the catalog say", () => {
@@ -372,7 +372,7 @@ describe("removed policies the chain still holds", () => {
 
   it("marks the step as a send once the owner's revocation is signed, and only then", () => {
     const SENT = "Your revocation is signed. Send it from your wallet.";
-    const send = (extra: Partial<AomiRulesEnforcement>) =>
+    const send = (extra: Partial<AomiPolicyEnforcement>) =>
       removed([held(extra)])[0]!.enforcement.send;
     expect(send({ note: SENT })).toBe(true);
     // Not ready, still to sign, or the relay's older wording.
