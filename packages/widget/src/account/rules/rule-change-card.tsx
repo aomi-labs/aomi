@@ -87,16 +87,16 @@ async function signChange(
     signer: signer.address,
     message: utf8ToBase64(message),
     cluster: kit.identity.svmCluster,
-    description: "Approve a rule change for your agent wallet.",
+    description: "Approve a policy change for your agent wallet.",
   });
   return signed.signature;
 }
 
 /**
- * One waiting rule change: its lines (a line that gives the agent power is
- * marked), when it expires, Decline, and Approve or, when a wallet is the
- * admin, Sign in wallet. Used in the wallet's Manage sheet and on
- * `/rules/:id`.
+ * One waiting rule change, shown as a "Policy change": its lines (a line that
+ * gives the agent power is marked), when it expires, Decline, and Approve or,
+ * when a wallet is the admin, Sign in wallet. Used in Settings › Policies and
+ * on `/rules/:id`.
  */
 export function RuleChangeCard({
   change,
@@ -179,7 +179,7 @@ export function RuleChangeCard({
         setError(rulesFailure(caught, "Couldn’t do that. Try again."));
       else if (signed.current)
         setError(
-          "Your wallet signed, but the change couldn’t be sent. Check the rules before trying again.",
+          "Your wallet signed, but the change couldn’t be sent. Check the policies before trying again.",
         );
       // A wallet prompt the user closed is not a failure of the change.
       else if (step === "approve" && signer)
@@ -201,13 +201,13 @@ export function RuleChangeCard({
 
   return (
     <section
-      aria-label={`Rule change for ${change.wallet_name}`}
+      aria-label={`Policy change for ${change.wallet_name}`}
       data-rule-change={change.id}
       className={cn(listGroupClass, "flex flex-col gap-3 p-3.5", className)}
     >
       <div className="flex items-baseline justify-between gap-3">
         <h4 className="type-row min-w-0 truncate">
-          Rule change · {change.wallet_name}
+          Policy change · {change.wallet_name}
         </h4>
         <span className="type-meta text-aomi-muted shrink-0">
           {left ? `expires in ${left}` : "expired"}
@@ -226,7 +226,7 @@ export function RuleChangeCard({
           role="alert"
           className="rounded-control bg-aomi-warning/15 type-meta flex items-center justify-between gap-3 px-3 py-2"
         >
-          <span>For a rule change, sign in again.</span>
+          <span>For a policy change, sign in again.</span>
           <AomiButton
             size="sm"
             onClick={() =>
@@ -313,15 +313,15 @@ const DECIDED: Record<
   Exclude<AomiRuleChange["state"], "awaiting_admin">,
   { title: string; detail: string }
 > = {
-  applied: { title: "Approved", detail: "The new rules are in force." },
-  declined: { title: "Declined", detail: "The rules stay as they were." },
+  applied: { title: "Approved", detail: "The new policies are in force." },
+  declined: { title: "Declined", detail: "The policies stay as they were." },
   expired: {
     title: "Expired",
-    detail: "Nobody approved it in time. The rules stay as they were.",
+    detail: "Nobody approved it in time. The policies stay as they were.",
   },
   superseded: {
     title: "Replaced by a newer change",
-    detail: "Open the wallet in Settings to see what is waiting now.",
+    detail: "Open Policies in Settings to see what is waiting now.",
   },
 };
 
@@ -387,7 +387,7 @@ export function RuleChangePanel({
   let header: { title: string; description?: string };
   let body: ReactNode = null;
   if (state.step === "loading") {
-    header = { title: "Rule change" };
+    header = { title: "Policy change" };
     body = <WaitingButton>Loading…</WaitingButton>;
   } else if (state.step === "failed") {
     header = { title: state.title, description: state.detail };
@@ -405,10 +405,10 @@ export function RuleChangePanel({
   } else if (state.change.state === "awaiting_admin") {
     const { change } = state;
     header = {
-      title: "Review rule change",
+      title: "Review policy change",
       description: change.proposed_by.startsWith("agent:")
-        ? "Aomi asks to change this wallet's rules."
-        : "You asked to change this wallet's rules.",
+        ? "Aomi asks to change this wallet's policies."
+        : "You asked to change this wallet's policies.",
     };
     body = (
       <RuleChangeCard
@@ -454,7 +454,7 @@ export function RuleChangePanel({
         onClose={onClose}
       />
       <section
-        aria-label="Rule change"
+        aria-label="Policy change"
         data-rule-change-panel={
           state.step === "ready" ? state.change.state : state.step
         }

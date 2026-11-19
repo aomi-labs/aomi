@@ -69,15 +69,16 @@ export function HelpHint({ label, text }: { label: string; text: string }) {
         <button
           type="button"
           aria-label={`About ${label}`}
-          className="border-aomi-border text-aomi-muted hover:text-aomi-fg flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors"
+          className="text-aomi-muted hover:text-aomi-fg flex size-5 shrink-0 items-center justify-center rounded-full transition-colors"
         >
-          <CircleHelp size={12} />
+          <CircleHelp size={14} />
         </button>
       </TooltipTrigger>
       <TooltipContent
         side="top"
+        align="start"
         sideOffset={6}
-        className="bg-aomi-fg text-aomi-bg z-[90] max-w-64 text-pretty"
+        className="bg-aomi-surface-2 text-aomi-muted rounded-control z-[90] max-w-64 text-pretty font-medium [&>span]:hidden"
       >
         {text}
       </TooltipContent>
