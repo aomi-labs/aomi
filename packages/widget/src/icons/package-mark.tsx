@@ -37,7 +37,11 @@ export function PackageMark({
   );
 }
 
-/** A package's icon in the soft tile of a Library row or detail header. */
+/**
+ * A package's mark in a Library row (32px) or detail header (48px): its own
+ * icon on a plain tile with a hairline, else the accent package glyph on the
+ * accent-subtle tile.
+ */
 export function PackageTile({
   iconUrl,
   size = "row",
@@ -49,11 +53,14 @@ export function PackageTile({
   return (
     <span
       className={cn(
-        "border-aomi-overlay-border bg-aomi-surface-2 text-aomi-accent flex shrink-0 items-center justify-center rounded-xl border",
-        detail ? "size-12" : "size-9",
+        "text-aomi-accent-strong flex shrink-0 items-center justify-center",
+        iconUrl
+          ? "border-aomi-border bg-aomi-raised border"
+          : "bg-aomi-accent-subtle",
+        detail ? "size-12 rounded-xl" : "rounded-control size-8",
       )}
     >
-      <PackageMark iconUrl={iconUrl} className={detail ? "size-7" : "size-5"} />
+      <PackageMark iconUrl={iconUrl} className={detail ? "size-6" : "size-4"} />
     </span>
   );
 }

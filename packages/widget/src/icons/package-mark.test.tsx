@@ -37,19 +37,23 @@ describe("PackageMark", () => {
     expect(container.querySelector("[data-package-icon]")).toBeNull();
   });
 
-  it("sits in the Library's soft tile at the row and detail sizes", () => {
+  it("sits on a plain tile with its icon, the accent tile without", () => {
     const row = render(<PackageTile iconUrl={URL} />).container;
-    expect(row.firstElementChild?.className).toContain("size-9");
-    expect(row.firstElementChild).toHaveClass("text-aomi-accent");
-    expect(row.querySelector("[data-package-icon]")?.className).toContain(
-      "size-5",
+    expect(row.firstElementChild).toHaveClass(
+      "size-8",
+      "bg-aomi-raised",
+      "border",
+      "text-aomi-accent-strong",
     );
+    expect(row.querySelector("[data-package-icon]")).toHaveClass("size-4");
+    const plain = render(<PackageTile iconUrl={null} />).container;
+    expect(plain.firstElementChild).toHaveClass("bg-aomi-accent-subtle");
+    expect(plain.firstElementChild).not.toHaveClass("border");
+    expect(plain.querySelector("svg.lucide-package")).not.toBeNull();
     const detail = render(
       <PackageTile iconUrl={URL} size="detail" />,
     ).container;
-    expect(detail.firstElementChild?.className).toContain("size-12");
-    expect(detail.querySelector("[data-package-icon]")?.className).toContain(
-      "size-7",
-    );
+    expect(detail.firstElementChild).toHaveClass("size-12");
+    expect(detail.querySelector("[data-package-icon]")).toHaveClass("size-6");
   });
 });
