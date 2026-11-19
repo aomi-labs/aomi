@@ -299,7 +299,8 @@ export function PolicyRow({
   policy: Policy;
   saving?: boolean;
   deploy?: PolicyDeploy;
-  onRemove: () => void;
+  /** Left out where the row is only there to be signed (the chat panel). */
+  onRemove?: () => void;
 }) {
   const { enforcement } = policy;
   const where = policyToPhrase(policy.to);
@@ -335,15 +336,17 @@ export function PolicyRow({
             <ChainMark key={entry.network} chain={entry} />
           ))}
         </p>
-        <button
-          type="button"
-          aria-label={`Remove the policy for ${policy.symbol} ${where}`}
-          disabled={saving}
-          onClick={onRemove}
-          className={aomiButton({ variant: "ghost", size: "icon-sm" })}
-        >
-          <X />
-        </button>
+        {onRemove ? (
+          <button
+            type="button"
+            aria-label={`Remove the policy for ${policy.symbol} ${where}`}
+            disabled={saving}
+            onClick={onRemove}
+            className={aomiButton({ variant: "ghost", size: "icon-sm" })}
+          >
+            <X />
+          </button>
+        ) : null}
       </div>
       <p
         className={cn(

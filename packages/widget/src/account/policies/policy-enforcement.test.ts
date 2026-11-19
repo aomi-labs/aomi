@@ -5,7 +5,11 @@ import type {
   AomiRulesEnforcement,
   AomiRulesTypedData,
 } from "@aomi-labs/client";
-import { signableTypedData, useRuleEnforcement } from "./policy-enforcement";
+import {
+  failureText,
+  signableTypedData,
+  useRuleEnforcement,
+} from "./policy-enforcement";
 
 const kit = vi.hoisted(() => ({
   identity: {
@@ -207,5 +211,23 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
       { chainIdAlreadySelected: 8453 },
     );
     expect(confirmEnforcement).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("failureText", () => {
+  it("reads the message of an Error, a string and a plain wallet object", () => {
+    expect(failureText(new Error("boom"))).toBe("boom");
+    expect(failureText("nope")).toBe("nope");
+    expect(failureText({ shortMessage: "short", message: "long" })).toBe(
+      "short",
+    );
+    expect(failureText({ details: "from the node" })).toBe("from the node");
+    expect(failureText(undefined)).toBe("");
+  });
+
+  it("explains a block the wallet's Solana network does not know", () => {
+    expect(failureText({ message: "Blockhash not found" })).toMatch(
+      /same network as Aomi/,
+    );
   });
 });
