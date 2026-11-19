@@ -1,6 +1,28 @@
+import { useEffect, useState } from "react";
 import { PackageIcon } from "lucide-react";
 
 import { cn } from "@/lib/cn";
+
+const failed = new Set<string>();
+
+/** The icon url once it is known to load; null while unknown-bad or failed. */
+function useIcon(iconUrl?: string | null): string | null {
+  const [bad, setBad] = useState(() => !!iconUrl && failed.has(iconUrl));
+  useEffect(() => {
+    if (!iconUrl || failed.has(iconUrl)) {
+      setBad(!!iconUrl);
+      return;
+    }
+    setBad(false);
+    const img = new Image();
+    img.onerror = () => {
+      failed.add(iconUrl);
+      setBad(true);
+    };
+    img.src = iconUrl;
+  }, [iconUrl]);
+  return iconUrl && !bad ? iconUrl : null;
+}
 
 /**
  * A package's icon: the SVG its bundle ships (`icon_url`), drawn as a CSS mask
@@ -17,7 +39,8 @@ export function PackageMark({
   iconUrl?: string | null;
   className?: string;
 }) {
-  if (!iconUrl) {
+  const url = useIcon(iconUrl);
+  if (!url) {
     return (
       <PackageIcon aria-hidden="true" className={cn("shrink-0", className)} />
     );
@@ -25,10 +48,10 @@ export function PackageMark({
   return (
     <span
       aria-hidden="true"
-      data-package-icon={iconUrl}
+      data-package-icon={url}
       className={cn("inline-block shrink-0 bg-current", className)}
       style={{
-        maskImage: `url(${JSON.stringify(iconUrl)})`,
+        maskImage: `url(${JSON.stringify(url)})`,
         maskSize: "contain",
         maskRepeat: "no-repeat",
         maskPosition: "center",
@@ -50,17 +73,18 @@ export function PackageTile({
   size?: "row" | "detail";
 }) {
   const detail = size === "detail";
+  const url = useIcon(iconUrl);
   return (
     <span
       className={cn(
         "text-aomi-accent-strong flex shrink-0 items-center justify-center",
-        iconUrl
+        url
           ? "border-aomi-border bg-aomi-raised border"
           : "bg-aomi-accent-subtle",
         detail ? "size-12 rounded-xl" : "rounded-control size-8",
       )}
     >
-      <PackageMark iconUrl={iconUrl} className={detail ? "size-6" : "size-4"} />
+      <PackageMark iconUrl={url} className={detail ? "size-6" : "size-4"} />
     </span>
   );
 }
