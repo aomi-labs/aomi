@@ -7,10 +7,13 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import type { AomiRuleSet } from "@aomi-labs/client";
+import type { AomiPolicySet } from "@aomi-labs/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AccountOverviewFixture } from "@/test/account-overview-fixture";
 import { PoliciesSettings } from "./policies-settings";
+import type { VaultReader } from "./vault-chain";
+import type { VaultHolding } from "./vault-model";
+import { DELEGATION_MANAGER } from "./vault-withdraw";
 import {
   dayFromToday,
   endOfLocalDay,
@@ -46,6 +49,22 @@ const kit = vi.hoisted(() => ({
   refreshAccount: vi.fn(async () => undefined),
 }));
 vi.mock("@/wallet/context", () => ({ useAomiWalletKit: () => kit }));
+// The chain is never read: vault rows get this fake reader.
+const holdings = (usdc: number) =>
+  vi.fn(async (_chain: number, _vault: string, tokens: readonly unknown[]) =>
+    (tokens as VaultHolding["token"][]).map((token) => ({
+      token,
+      raw:
+        "native" in token.asset ? BigInt("980000000000000000") : BigInt(usdc),
+    })),
+  );
+const chain = {
+  hasCode: vi.fn(async (_chain: number, _vault: string) => true),
+  balances: holdings(95_000_000),
+};
+vi.mock("./vault-chain", () => ({
+  viemVaultReader: (): VaultReader => chain,
+}));
 
 const USDC = "eip155:8453/erc20:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
 const OP_USDC = "eip155:10/erc20:0x0b2c639c533813f4aa9d7837caf62653d097ff85";
@@ -259,21 +278,13 @@ beforeEach(() => {
     agentWallet("g-old", "Old", 1_760_000_100),
   ];
   respond = () => undefined;
-  kit.identity.address = undefined;
-  kit.identity.svmAddress = undefined;
-  kit.identity.chainId = 1;
+  Object.assign(kit.identity, {
+    address: undefined,
+    svmAddress: undefined,
+    chainId: 1,
+  });
   kit.wallets = [];
-  for (const mock of [
-    kit.signMessage,
-    kit.signTypedData,
-    kit.switchChain,
-    kit.sendTransaction,
-    kit.signSolanaMessage,
-    kit.signAndSendSolanaTransaction,
-    kit.signOutAccount,
-    kit.disconnect,
-  ])
-    mock.mockClear();
+  chain.balances = holdings(95_000_000);
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -308,7 +319,7 @@ async function renderPolicies() {
   return card;
 }
 const sentRules = (index: number) =>
-  (writes()[index]!.body as { rules: AomiRuleSet }).rules;
+  (writes()[index]!.body as { rules: AomiPolicySet }).rules;
 const rows = () =>
   [...document.querySelectorAll("[data-policy]")] as HTMLElement[];
 const removedRows = () =>
@@ -1328,7 +1339,7 @@ describe("Settings › Policies", () => {
 
       describe("the owner sends their own signed revocation", () => {
         const SENT_NOTE =
-          "Your revocation is signed. Send it from your wallet to take the grant off chain, or wait for Aomi to send it where the network supports that.";
+          "Your revocation is signed. Send it from your wallet to take the grant off chain.";
         const MANAGER = "0xdb9b1e94b5b69df7e401ddbede43491141047db3";
         const sendAction = {
           kind: "evm_transaction",
@@ -1402,7 +1413,7 @@ describe("Settings › Policies", () => {
                 return Response.json({ action: sendAction });
               confirms += 1;
               return Response.json({
-                rules: confirms < 3 ? still : without([]),
+                rules: confirms < 3 ? still : without([kept({ state: "off", note: null })]),
               });
             };
             await renderPolicies();
@@ -1452,7 +1463,7 @@ describe("Settings › Policies", () => {
         it.each([
           [{ network: "eip155:10" }, NETWORK_REFUSED],
           [{ to: "vitalik.eth" }, /action.to must be a 20-byte/],
-          [{ to: "0x1234" }, /action.to must be a 20-byte/],
+          [{ to: OTHER }, /different delegation manager/],
           [{ value: "0xde0b6b3a7640000" }, /Aomi asked to send funds/],
         ] as const)("refuses a send with %o", async (bad, message) => {
           kit.identity.address = ADMIN;
@@ -1617,98 +1628,144 @@ describe("Settings › Policies", () => {
         }),
       });
       await renderPolicies();
-      fireEvent.click(screen.getByRole("button", { name: "Sign in wallet" }));
+      fireEvent.click(button("Sign in wallet"));
       await waitFor(() => expect(writes()).toHaveLength(1));
-      const sent = kit.signSolanaMessage.mock.calls[0] as unknown as [
+      const [sent] = kit.signSolanaMessage.mock.calls[0] as unknown as [
         { message: string; signer: string },
       ];
-      expect(sent[0].signer).toBe(mint);
-      expect(
-        new TextDecoder().decode(
-          Uint8Array.from(atob(sent[0].message), (char) => char.charCodeAt(0)),
-        ),
-      ).toBe("limit → 400");
+      expect(sent.signer).toBe(mint);
+      const bytes = Uint8Array.from(atob(sent.message), (c) => c.charCodeAt(0));
+      expect(new TextDecoder().decode(bytes)).toBe("limit → 400");
       expect(writes()[0]!.body).toEqual({ signature: "c2lnbmVk" });
     });
 
     it("names the wallet that must sign when another one is connected", async () => {
       kit.identity.address = "0x9999000000000000000000000000000000001111";
-      rules = body({
-        pending: change({
-          signer: { kind: "wallet", family: "evm", address: ADMIN },
-          sign_message: "m",
-        }),
-      });
+      rules = adminChange("m", { admin: { kind: "aomi_managed" } });
       await renderPolicies();
-      expect(
-        screen.getByText(
-          "Connect 0xAbCd…Ef12 to sign. 0x9999…1111 is connected now.",
-        ),
-      ).toBeTruthy();
-      expect(
-        screen.getByRole("button", { name: "Sign in wallet" }),
-      ).toBeDisabled();
+      await see("Connect 0xAbCd…Ef12 to sign. 0x9999…1111 is connected now.");
+      expect(button("Sign in wallet")).toBeDisabled();
       expect(kit.signMessage).not.toHaveBeenCalled();
     });
 
-    it("says the wallet signed when sending the signature fails", async () => {
+    it("says the wallet signed when sending the signature fails, and nothing signed when the prompt is closed", async () => {
       kit.identity.address = ADMIN;
-      rules = body({
-        admin: { kind: "wallet", family: "evm", address: ADMIN },
-        pending: change({
-          signer: { kind: "wallet", family: "evm", address: ADMIN },
-          sign_message: "Aomi rule change ch-1",
-        }),
+      rules = adminChange("Aomi rule change ch-1");
+      await renderPolicies();
+      onPost(() => {
+        throw new TypeError("network down");
       });
-      await renderPolicies();
-      respond = (method) => {
-        if (method === "POST") throw new TypeError("network down");
-        return undefined;
-      };
-      fireEvent.click(screen.getByRole("button", { name: "Sign in wallet" }));
-      expect(
-        await screen.findByText(
-          "Your wallet signed, but the change couldn’t be sent. Check the policies before trying again.",
-        ),
-      ).toBeTruthy();
+      fireEvent.click(button("Sign in wallet"));
+      await see(
+        "Your wallet signed, but the change couldn’t be sent. Check the policies before trying again.",
+      );
       expect(screen.queryByText("Nothing was signed. Try again.")).toBeNull();
-      // A prompt the user closes still says nothing was signed.
       kit.signMessage.mockRejectedValueOnce(new Error("User rejected"));
-      fireEvent.click(screen.getByRole("button", { name: "Sign in wallet" }));
-      expect(
-        await screen.findByText("Nothing was signed. Try again."),
-      ).toBeTruthy();
+      fireEvent.click(button("Sign in wallet"));
+      await see("Nothing was signed. Try again.");
     });
 
-    it("asks an old sign-in to sign in again before approving", async () => {
+    it("asks an old sign-in to sign in again, and rereads when the change was already decided", async () => {
       rules = body({ pending: change() });
       await renderPolicies();
-      respond = (method) =>
-        method === "POST" ? refused("login_stale", 403) : undefined;
-      fireEvent.click(screen.getByRole("button", { name: "Approve" }));
-      expect(
-        await screen.findByText("For a policy change, sign in again."),
-      ).toBeTruthy();
-      fireEvent.click(screen.getByRole("button", { name: "Sign in again" }));
+      onPost(() => refused("login_stale", 403));
+      fireEvent.click(button("Approve"));
+      await see("For a policy change, sign in again.");
+      fireEvent.click(button("Sign in again"));
       await waitFor(() => expect(kit.signOutAccount).toHaveBeenCalledTimes(1));
-      // The change is still waiting.
       expect(document.querySelector("[data-rule-change]")).toBeTruthy();
-    });
-
-    it("reads the policies again when the change was already decided", async () => {
-      rules = body({ pending: change() });
-      await renderPolicies();
-      respond = (method) => {
-        if (method !== "POST") return undefined;
+      const before = reads("/rules").length;
+      onPost(() => {
         rules = body();
         return refused("rules_change_not_open", 409);
-      };
-      fireEvent.click(screen.getByRole("button", { name: "Approve" }));
-      expect(
-        await screen.findByText("That change was already decided."),
-      ).toBeTruthy();
+      });
+      fireEvent.click(button("Approve"));
+      await see("That change was already decided.");
       expect(document.querySelector("[data-rule-change]")).toBeNull();
-      expect(reads("/rules")).toHaveLength(2);
+      expect(reads("/rules")).toHaveLength(before + 1);
     });
+  });
+});
+
+describe("Settings › Policies › vault", () => {
+  const vaultEntry = (extra: object = {}) =>
+    grant({
+      state: "on",
+      ready: false,
+      left: "200000000",
+      account: VAULT,
+      signer: { family: "evm", address: ADMIN },
+      ...extra,
+    });
+  const vaults = () =>
+    [...document.querySelectorAll("[data-vault]")] as HTMLElement[];
+  const renderVault = async (enforcement = [vaultEntry()]) => {
+    rules = body({ enforcement });
+    const card = await renderPolicies();
+    const [row] = vaults();
+    await within(row!).findByText("USDC 95.00 · ETH 0.98");
+    return { card, row: row! };
+  };
+
+  it("withdraws: the owner's wallet goes to the vault's chain, signs, then sends to the DelegationManager, and nothing goes to Aomi", async () => {
+    kit.identity.address = ADMIN.toLowerCase();
+    // r, s and v of a signature the vault could use.
+    const usable = `0x${"11".repeat(32)}${"11".repeat(32)}1b`;
+    kit.signTypedData.mockImplementationOnce(async () => ({
+      signature: usable,
+    }));
+    const { row } = await renderVault();
+    fireEvent.click(within(row).getByRole("button", { name: "Withdraw" }));
+    fireEvent.change(within(row).getByRole("textbox", { name: "Amount" }), {
+      target: { value: "12.5" },
+    });
+    const before = calls.length;
+    chain.balances.mockImplementation(holdings(82_500_000));
+    await click("Sign and send", row);
+    await see("Withdrawn.", row);
+    expect(chain.hasCode).toHaveBeenCalledWith(8453, VAULT);
+    expect(kit.switchChain).toHaveBeenCalledWith(8453);
+    expect(kit.signTypedData).toHaveBeenCalledTimes(1);
+    expect(kit.signTypedData).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signer: ADMIN.toLowerCase(),
+        chainId: 8453,
+        typed_data: expect.objectContaining({
+          primaryType: "Delegation",
+          domain: expect.objectContaining({
+            chainId: 8453,
+            verifyingContract: DELEGATION_MANAGER,
+          }),
+          message: expect.objectContaining({
+            delegate: ADMIN.toLowerCase(),
+            delegator: VAULT,
+          }),
+        }),
+      }),
+    );
+    expect(kit.sendTransaction).toHaveBeenCalledTimes(1);
+    expect(kit.sendTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        aaPreference: "none",
+        chainId: 8453,
+        to: DELEGATION_MANAGER,
+        value: "0x0",
+      }),
+      { chainIdAlreadySelected: 8453 },
+    );
+    await within(row).findByText("USDC 82.50 · ETH 0.98");
+    expect(calls.slice(before).filter((call) => call.method !== "GET")).toEqual(
+      [],
+    );
+  });
+
+  it("disables Withdraw, naming the owner's wallet, when another wallet is connected", async () => {
+    kit.identity.address = OTHER;
+    const { row } = await renderVault();
+    expect(
+      within(row).getByRole("button", { name: "Withdraw" }),
+    ).toBeDisabled();
+    has(row, "Connect 0xabcd…ef12 to sign.");
+    expect(kit.signTypedData).not.toHaveBeenCalled();
   });
 });

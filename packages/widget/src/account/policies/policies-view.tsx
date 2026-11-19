@@ -45,14 +45,10 @@ import {
   type WalletPolicies,
 } from "./policy-model";
 
-const INPUT =
+export const INPUT =
   "border-aomi-border bg-aomi-raised focus-visible:ring-aomi-ring/50 h-8 rounded-[8px] border px-2 text-[13px] outline-none focus-visible:ring-2";
 
-/**
- * Settings › Policies: every agent wallet's policies in one place. Changes
- * waiting for the owner come first, then one card per wallet: its two
- * switches, its policies, and who may change them.
- */
+/** Settings › Policies: waiting changes first, then one card per wallet. */
 export function PoliciesView({
   title = true,
   changes,
@@ -109,30 +105,29 @@ export function WalletPolicyCard({
   onAuthority,
   deploy,
   takeOff,
+  vaults,
 }: {
   wallet: WalletPolicies;
-  /** Null until the picker's lists are read. */
+  /** Null until read. */
   catalog: PolicyCatalog | null;
   providers?: PolicyProviders;
-  /** A save is in flight: nothing else can be sent. */
   saving?: boolean;
-  /** What the last save or decision came to, e.g. `Saved`. */
+  /** e.g. `Saved`. */
   notice?: string | null;
   error?: string | null;
-  /** Moves on each answered save: the picker closes and drafts reset. */
+  /** A change closes the picker and resets drafts. */
   epoch?: number;
-  /** Set when the catalog could not be read; reads it again. */
   onRetryCatalog?: () => void;
   onLinkedOnly: (on: boolean) => void;
   onOnlyListed: (on: boolean) => void;
   onAdd: (draft: PolicyDraft) => void;
-  /** Removes the policy on every chain of its row. */
+  /** Removes it on every chain of its row. */
   onRemove: (policy: Policy) => void;
   onAuthority: (authority: PolicyAuthority) => void;
-  /** The owner signs the provider's deployment of this policy. */
   deploy: (policy: Policy) => PolicyDeploy | undefined;
-  /** The owner signs to take a removed policy off the chain. */
   takeOff?: (policy: RemovedPolicy) => PolicyDeploy | undefined;
+  /** `VaultRow`s, after the policies. */
+  vaults?: ReactNode;
 }) {
   const [adding, setAdding] = useState(false);
   useEffect(() => setAdding(false), [epoch]);
@@ -223,6 +218,8 @@ export function WalletPolicyCard({
           />
         ))}
 
+        {vaults}
+
         <PolicyAuthorityPicker
           key={`${epoch}:${wallet.authority.kind}`}
           authority={wallet.authority}
@@ -266,14 +263,14 @@ function SwitchLine({
 
 type Glyph = ComponentType<{ className?: string }>;
 
-function chainGlyph(chain: PolicyChain): Glyph | undefined {
+export function chainGlyph(chain: PolicyChain): Glyph | undefined {
   const [namespace, reference] = chain.network.split(":");
   return namespace === "solana" ? SolanaIcon : getChainIcon(Number(reference));
 }
-const tokenGlyph = (symbol: string): Glyph =>
+export const tokenGlyph = (symbol: string): Glyph =>
   symbol === "SOL" ? SolanaIcon : symbol === "ETH" ? EthereumIcon : Coins;
 
-function ChainMark({ chain }: { chain: PolicyChain }) {
+export function ChainMark({ chain }: { chain: PolicyChain }) {
   const Icon = chainGlyph(chain);
   return Icon ? (
     <span

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type {
   AomiRuleChange,
   AomiRulesCatalog,
-  AomiWalletRules,
+  AomiWalletPolicies,
 } from "@aomi-labs/client";
 import { useShellAomi } from "@/account/transport";
 import { RuleChangeCard } from "@/account/rules/rule-change-card";
@@ -82,7 +82,7 @@ export function PolicyChangeCard({
 /** The wallets the agent set rules on, with the rules still waiting for the owner's on-chain signature. */
 export function usePolicyWallets(filings: readonly string[]) {
   const aomi = useShellAomi();
-  const [rules, setRules] = useState<Record<string, AomiWalletRules>>({});
+  const [rules, setRules] = useState<Record<string, AomiWalletPolicies>>({});
   const [catalog, setCatalog] = useState<AomiRulesCatalog | null>(null);
   const [reloads, setReloads] = useState(0);
   const key = filings.join(",");
@@ -104,7 +104,7 @@ export function usePolicyWallets(filings: readonly string[]) {
       if (live)
         setRules(
           Object.fromEntries(
-            read.filter((entry): entry is [string, AomiWalletRules] => !!entry),
+            read.filter((entry): entry is [string, AomiWalletPolicies] => !!entry),
           ),
         );
     });
@@ -126,7 +126,7 @@ export function usePolicyWallets(filings: readonly string[]) {
   }, [aomi, wantCatalog, catalog]);
   const signing = ids
     .map((id) => rules[id])
-    .filter((wallet): wallet is AomiWalletRules => Boolean(wallet))
+    .filter((wallet): wallet is AomiWalletPolicies => Boolean(wallet))
     .map((wallet) => ({
       rules: wallet,
       rows: policyRows(wallet, catalog).filter(
@@ -139,7 +139,7 @@ export function usePolicyWallets(filings: readonly string[]) {
     catalog,
     reload: useCallback(() => setReloads((count) => count + 1), []),
     update: useCallback(
-      (next: AomiWalletRules) =>
+      (next: AomiWalletPolicies) =>
         setRules((held) => ({ ...held, [next.agent_wallet_id]: next })),
       [],
     ),
@@ -153,9 +153,9 @@ export function WalletSignatures({
   onRules,
   onStale,
 }: {
-  wallet: AomiWalletRules;
+  wallet: AomiWalletPolicies;
   rows: ReturnType<typeof policyRows>;
-  onRules: (rules: AomiWalletRules) => void;
+  onRules: (rules: AomiWalletPolicies) => void;
   onStale: () => void;
 }) {
   const aomi = useShellAomi();

@@ -1,9 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
-  AomiRulesAction,
-  AomiRulesEnforcement,
-  AomiRulesTypedData,
+  AomiPolicyAction,
+  AomiPolicyEnforcement,
+  AomiPolicyTypedData,
 } from "@aomi-labs/client";
 import {
   failureText,
@@ -22,7 +22,7 @@ const kit = vi.hoisted(() => ({
 }));
 vi.mock("@/wallet/context", () => ({ useAomiWalletKit: () => kit }));
 
-const data = (overrides: Partial<AomiRulesTypedData> = {}) =>
+const data = (overrides: Partial<AomiPolicyTypedData> = {}) =>
   ({
     domain: { name: "Delegation", chainId: "8453", salt: "0x01" },
     types: {
@@ -50,7 +50,7 @@ const data = (overrides: Partial<AomiRulesTypedData> = {}) =>
       memo: "42",
     },
     ...overrides,
-  }) satisfies AomiRulesTypedData;
+  }) satisfies AomiPolicyTypedData;
 
 describe("typed data the backend asks the owner to sign", () => {
   it("reads every declared integer as a bigint, in structs and arrays, and the domain's chain id as a number", () => {
@@ -105,7 +105,7 @@ describe("typed data the backend asks the owner to sign", () => {
 
 describe("sending the owner's signed revocation, whatever the client parsed", () => {
   const OWNER = "0xAbCd00000000000000000000000000000000Ef12";
-  const entry = (extra: object = {}): AomiRulesEnforcement => ({
+  const entry = (extra: object = {}): AomiPolicyEnforcement => ({
     rule: "eip155:8453/native@any",
     provider: "metamask",
     name: "MetaMask",
@@ -120,7 +120,7 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
     signer: { family: "evm", address: OWNER },
     ...extra,
   });
-  const action = (extra: object = {}): AomiRulesAction => ({
+  const action = (extra: object = {}): AomiPolicyAction => ({
     kind: "evm_transaction",
     network: "eip155:8453",
     to: "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
@@ -134,7 +134,7 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
     kit.switchChain.mockClear();
     kit.sendTransaction.mockClear();
   });
-  async function run(answer: AomiRulesAction, held = entry()) {
+  async function run(answer: AomiPolicyAction, held = entry()) {
     const confirmEnforcement = vi.fn(async () => ({ enforcement: [] }));
     const client = {
       account: {

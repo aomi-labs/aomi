@@ -1,7 +1,7 @@
 "use client";
 
 import { useContext, useEffect, useState } from "react";
-import type { AomiWalletRules } from "@aomi-labs/client";
+import type { AomiWalletPolicies } from "@aomi-labs/client";
 import { useDisplayQuery } from "@aomi-labs/react";
 import { connectionsQuery } from "@/account/account-queries";
 import {
@@ -25,13 +25,13 @@ export function AgentWalletPolicySummary({
 }: {
   wallet: { id: string };
   /** Rules another control just filed a change on (an ask mode made Instant). */
-  filed?: AomiWalletRules | null;
+  filed?: AomiWalletPolicies | null;
   onClose: () => void;
 }) {
   const aomi = useShellAomi();
   const goTo = useContext(SettingsNavContext);
   const connections = useDisplayQuery(connectionsQuery(aomi));
-  const [read, setRead] = useState<AomiWalletRules | null>(null);
+  const [read, setRead] = useState<AomiWalletPolicies | null>(null);
   useEffect(() => {
     let live = true;
     aomi.account.rules.get(wallet.id).then(

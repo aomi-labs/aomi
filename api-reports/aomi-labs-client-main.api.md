@@ -1629,7 +1629,7 @@ export interface AomiRequestOptions {
 export type AomiRequestQueryValue = string | number | boolean | readonly (string | number | boolean)[] | null | undefined;
 
 // @public
-export type AomiRule = {
+type AomiRule = {
     id?: string;
     asset: string;
     amount: string;
@@ -1639,6 +1639,8 @@ export type AomiRule = {
     symbol?: string | null;
     decimals?: number | null;
 };
+export { AomiRule as AomiPolicy }
+export { AomiRule }
 
 // @public
 export type AomiRuleChange = {
@@ -1663,7 +1665,7 @@ export type AomiRuleChangeLine = {
 export type AomiRuleChangeState = (typeof CHANGE_STATES)[number];
 
 // @public
-export type AomiRulesAction =
+type AomiRulesAction =
 /** Sign this transaction and send it; `confirm` then reads the chain. */
     {
     kind: "transaction";
@@ -1684,11 +1686,15 @@ export type AomiRulesAction =
     data: string;
     value: string;
 };
+export { AomiRulesAction as AomiPolicyAction }
+export { AomiRulesAction }
 
 // @public
-export type AomiRulesAdmin = {
+type AomiRulesAdmin = {
     kind: "aomi_managed";
 } | AomiRulesAdminWallet;
+export { AomiRulesAdmin as AomiPolicyAdmin }
+export { AomiRulesAdmin }
 
 // @public (undocumented)
 export type AomiRulesAdminWallet = {
@@ -1698,10 +1704,12 @@ export type AomiRulesAdminWallet = {
 };
 
 // @public
-export type AomiRulesCatalog = {
+type AomiRulesCatalog = {
     apps: AomiRulesCatalogApp[];
     tokens: AomiRulesCatalogToken[];
 };
+export { AomiRulesCatalog as AomiPolicyCatalog }
+export { AomiRulesCatalog }
 
 // @public (undocumented)
 export type AomiRulesCatalogApp = {
@@ -1719,11 +1727,13 @@ export type AomiRulesCatalogToken = {
 };
 
 // @public
-export type AomiRulesChangeRequest = {
+type AomiRulesChangeRequest = {
     rules?: AomiRuleSet;
     admin?: AomiRulesAdmin;
     instant?: string[];
 };
+export { AomiRulesChangeRequest as AomiPolicyChangeRequest }
+export { AomiRulesChangeRequest }
 
 // @public
 export type AomiRulesChangeResult = {
@@ -1737,7 +1747,7 @@ export type AomiRulesConfirmRequest = AomiRulesEnforceRequest & {
 };
 
 // @public
-export type AomiRulesEnforcement = {
+type AomiRulesEnforcement = {
     rule: string;
     provider: string;
     name: string;
@@ -1754,6 +1764,8 @@ export type AomiRulesEnforcement = {
         address: string | null;
     };
 };
+export { AomiRulesEnforcement as AomiPolicyEnforcement }
+export { AomiRulesEnforcement }
 
 // @public
 export type AomiRulesEnforceRequest = {
@@ -1765,26 +1777,30 @@ export type AomiRulesEnforceRequest = {
 };
 
 // @public
-export type AomiRuleSet = {
+type AomiRuleSet = {
     mode: AomiRulesMode;
     rules: AomiRule[];
     linked_only: boolean;
 };
+export { AomiRuleSet as AomiPolicySet }
+export { AomiRuleSet }
 
 // @public
 export type AomiRulesMode = (typeof MODES)[number];
 
 // @public
-export type AomiRulesProvider = {
+type AomiRulesProvider = {
     provider: string;
     name: string;
     network: string;
     holds: "total_and_period" | "total_period_and_destination";
     note: string | null;
 };
+export { AomiRulesProvider as AomiPolicyProvider }
+export { AomiRulesProvider }
 
 // @public
-export type AomiRulesTypedData = {
+type AomiRulesTypedData = {
     domain: Record<string, unknown>;
     types: Record<string, {
         name: string;
@@ -1793,9 +1809,11 @@ export type AomiRulesTypedData = {
     primaryType: string;
     message: Record<string, unknown>;
 };
+export { AomiRulesTypedData as AomiPolicyTypedData }
+export { AomiRulesTypedData }
 
 // @public
-export type AomiRuleTo =
+type AomiRuleTo =
 /** Any listed app on the asset's chain. Never a plain send. */
     {
     kind: "any_protocol";
@@ -1810,6 +1828,8 @@ export type AomiRuleTo =
     kind: "address";
     address: string;
 };
+export { AomiRuleTo as AomiPolicyTo }
+export { AomiRuleTo }
 
 // @public
 export interface AomiSecretSlot {
@@ -1944,7 +1964,7 @@ export type AomiWalletErrorCode = (typeof WALLET_ERROR_CODES)[keyof typeof WALLE
 export type AomiWalletFamily = "evm" | "svm";
 
 // @public (undocumented)
-export type AomiWalletRules = {
+type AomiWalletRules = {
     agent_wallet_id: string;
     wallet_name: string;
     revision: number;
@@ -1958,6 +1978,8 @@ export type AomiWalletRules = {
     providers: AomiRulesProvider[];
     admin_wallets: AomiRulesAdminWallet[];
 };
+export { AomiWalletRules as AomiWalletPolicies }
+export { AomiWalletRules }
 
 // @public
 export class AomiWallets {
