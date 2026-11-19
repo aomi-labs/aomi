@@ -297,12 +297,26 @@ function ActivitySidebarContent() {
     const parent = anchorRef.current?.parentElement;
     if (!parent) return;
     layoutParent.current = parent;
-    if (showRail && !compact && !sheet)
-      parent.style.setProperty(
-        "--activity-chat-max-width",
-        "calc(100% - (100cqw - 960px))",
-      );
-    else parent.style.removeProperty("--activity-chat-max-width");
+    if (compact || sheet) {
+      parent.style.removeProperty("--activity-chat-max-width");
+      return;
+    }
+    // Make room only as wide as the rail is now: 0 when it is about to slide
+    // open (onUpdate then widens the room with it), full when it mounted
+    // open. Jumping straight to full jerks the chat for a frame on open; a
+    // closing rail keeps shrinking the room through onUpdate.
+    const rail = railRef.current;
+    if (!showRail && !rail) {
+      parent.style.removeProperty("--activity-chat-max-width");
+      return;
+    }
+    const progress = rail
+      ? Math.max(0, Math.min(1, rail.getBoundingClientRect().width / 352))
+      : 0;
+    parent.style.setProperty(
+      "--activity-chat-max-width",
+      `calc(100% - (100cqw - 960px) * ${progress})`,
+    );
   }, [showRail, compact, sheet]);
   if (sheet) {
     return (
