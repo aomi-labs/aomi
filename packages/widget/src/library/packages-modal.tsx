@@ -192,6 +192,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       dismissLabel="Dismiss library"
       closeLabel="Close library"
       onClose={onClose}
+      wide
       inspector={inspector}
     >
       <ModalSidebar

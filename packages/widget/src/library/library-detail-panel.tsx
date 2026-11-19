@@ -250,7 +250,7 @@ export function LibraryDetailPanel({
           aria-hidden
           className={`bg-aomi-raised pointer-events-none sticky top-0 z-10 -mb-8 h-[52px] shrink-0 ${scrolled ? "border-aomi-border border-b" : "invisible"}`}
         />
-        <div className="flex flex-1 flex-col gap-6 px-5 pb-5 pt-1">
+        <div className="flex flex-1 flex-col gap-6 px-6 pb-6 pt-1">
           <header>
             <div className="flex items-start gap-3 pr-8">
               <PackageTile iconUrl={row.icon_url} size="detail" />
@@ -373,12 +373,12 @@ export function LibraryDetailPanel({
       {error ? (
         <p
           role="alert"
-          className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta mx-5 mb-2 px-3 py-2"
+          className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta mx-6 mb-2 px-3 py-2"
         >
           {error}
         </p>
       ) : null}
-      <div className="border-aomi-border type-control flex min-h-14 shrink-0 items-center gap-2 border-t px-5 py-3">
+      <div className="border-aomi-border type-control flex min-h-14 shrink-0 items-center gap-2 border-t px-6 py-3">
         <ActivationBar
           row={row}
           busy={busy}

@@ -11,9 +11,9 @@ type IconComponent = ComponentType<{ className?: string }>;
 
 /**
  * The full-frame directory modal shared by Library and Settings: backdrop,
- * shell (radius, border, shadow, fixed 1000×620 geometry), the round close
- * button, and a sidebar | content grid. `inspector` adds Library's fixed
- * 300px third column. Children are the grid cells — usually a
+ * shell (radius, border, shadow, fixed 1000×620 geometry, or 1120×700 when
+ * `wide`), the round close button, and a sidebar | content grid. `inspector`
+ * adds Library's fixed 380px third column. Children are the grid cells — usually a
  * `ModalSidebar` followed by the content column.
  *
  * Below md the shell is a full-screen page: no radius, border or margin, and
@@ -25,6 +25,7 @@ export function ModalShell({
   dismissLabel,
   closeLabel,
   onClose,
+  wide = false,
   inspector = false,
   children,
 }: {
@@ -35,6 +36,8 @@ export function ModalShell({
   /** Accessible name of the close button, e.g. "Close settings". */
   closeLabel: string;
   onClose: () => void;
+  /** Library's larger frame, which leaves room for its detail panel. */
+  wide?: boolean;
   inspector?: boolean;
   children: ReactNode;
 }) {
@@ -51,7 +54,8 @@ export function ModalShell({
         className={cn(
           "border-aomi-border bg-aomi-raised text-aomi-fg relative h-full w-full overflow-hidden",
           "max-md:animate-in max-md:fade-in-0 max-md:slide-in-from-bottom-3 motion-reduce:animate-none max-md:pb-[var(--aomi-safe-bottom,0px)] max-md:pt-[var(--aomi-safe-top,0px)] max-md:duration-200",
-          "md:rounded-shell md:shadow-modal md:h-[620px] md:max-h-[92%] md:w-[1000px] md:max-w-[96%] md:border",
+          "md:rounded-shell md:shadow-modal md:max-h-[92%] md:max-w-[96%] md:border",
+          wide ? "md:h-[700px] md:w-[1120px]" : "md:h-[620px] md:w-[1000px]",
         )}
       >
         <ModalCloseButton
@@ -63,7 +67,7 @@ export function ModalShell({
           className={cn(
             "grid h-full min-h-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] md:grid-rows-1",
             inspector
-              ? "md:grid-cols-[185px_minmax(0,1fr)_300px]"
+              ? "md:grid-cols-[185px_minmax(0,1fr)_380px]"
               : "md:grid-cols-[185px_minmax(0,1fr)]",
           )}
         >
