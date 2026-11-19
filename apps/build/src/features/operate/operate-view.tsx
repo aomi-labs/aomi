@@ -1,11 +1,5 @@
 import type { Project } from "@aomi-labs/deploy";
-import {
-  Activity,
-  ListFilter,
-  ScrollText,
-  WalletCards,
-  type LucideIcon,
-} from "lucide-react";
+import { StatusPill } from "@aomi-labs/widget/host-composition";
 import { UrlLink as Link } from "@/components/url-link";
 import {
   useLocation,
@@ -39,7 +33,8 @@ import {
   LogRows,
   type LogsPageFilter,
 } from "./log-rows";
-import { pageFrame, pageTitle } from "@/components/control-plane/page";
+import { PageHeader, pageFrame } from "@/components/control-plane/page";
+import { Select } from "@/components/select";
 
 // OperateView renders every operate surface except Channels, which has its own
 // dedicated ChannelsView (register form + table) instead of the generic
@@ -76,11 +71,19 @@ type PaymentState = {
   retry: () => void;
 };
 
-const meta = {
-  transactions: { title: "Transactions", icon: WalletCards },
-  logs: { title: "Logs", icon: ScrollText },
-  observability: { title: "Health", icon: Activity },
-} satisfies Record<ViewKind, { title: string; icon: LucideIcon }>;
+const meta: Record<ViewKind, { title: string; summary?: string }> = {
+  transactions: { title: "Transactions" },
+  logs: {
+    title: "Logs",
+    summary:
+      "Every tool call, with its input, result and timing. Open a row to see the call.",
+  },
+  observability: {
+    title: "Health",
+    summary:
+      "How your agents are running. Open one for charts, tools and recent events.",
+  },
+};
 
 function projectLabel(project: Projectish) {
   return project.repositoryLink || `Project ${project.id}`;
@@ -632,7 +635,6 @@ export function OperateView({ kind }: { kind: ViewKind }) {
           },
         }
       : null;
-  const Icon = meta[kind].icon;
   const projects = useMemo(() => payload?.projects ?? [], [payload?.projects]);
   const canPage = kind === "transactions" || kind === "logs";
   const nextCursor = canPage ? payload?.nextCursor : null;
@@ -731,39 +733,33 @@ export function OperateView({ kind }: { kind: ViewKind }) {
 
   return (
     <div className={pageFrame}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Icon className="text-aomi-muted size-5" />
-          <h1 className={pageTitle}>{meta[kind].title}</h1>
-          {payload?.example ? (
-            <span
-              title="Live data for this view isn't connected yet — showing example data."
-              className="border-border bg-surface-subtle text-aomi-muted rounded-full border px-2 py-0.5 text-xs"
-            >
-              Example data
-            </span>
-          ) : null}
-        </div>
-        <label className="text-aomi-muted flex items-center gap-2 text-sm">
-          <ListFilter className="size-4" />
-          <select
-            value={projectId ?? ""}
-            onChange={(event) =>
-              setSourceId(
-                event.target.value ? Number(event.target.value) : null,
-              )
-            }
-            className="border-border bg-surface text-foreground h-9 rounded-control border px-2"
-          >
-            <option value="">All projects</option>
-            {projects.map((source) => (
-              <option key={source.id} value={source.id}>
-                {projectLabel(source)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <PageHeader
+        title={meta[kind].title}
+        badges={
+          payload?.example ? (
+            <StatusPill>
+              <span title="Live data for this view isn't connected yet — showing example data.">
+                Example data
+              </span>
+            </StatusPill>
+          ) : null
+        }
+        summary={meta[kind].summary ? <p>{meta[kind].summary}</p> : null}
+        actions={
+          <Select
+            label="Project"
+            value={projectId == null ? "" : String(projectId)}
+            onChange={(value) => setSourceId(value ? Number(value) : null)}
+            options={[
+              { value: "", label: "All" },
+              ...projects.map((source) => ({
+                value: String(source.id),
+                label: projectLabel(source),
+              })),
+            ]}
+          />
+        }
+      />
       {loading ? (
         <div className="border-border bg-surface-subtle text-aomi-muted rounded-control border px-4 py-10 text-center text-sm">
           Loading

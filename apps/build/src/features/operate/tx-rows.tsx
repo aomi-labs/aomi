@@ -5,6 +5,7 @@
 
 import { Fragment } from "react";
 import { ChevronDown, ChevronRight, Copy, ExternalLink, X } from "lucide-react";
+import { Select } from "@/components/select";
 import {
   chainLabel,
   secondsLabel,
@@ -263,18 +264,15 @@ export function TransactionRows({
   return (
     <div className="space-y-3">
       <div className="border-border bg-surface-subtle flex flex-wrap items-center gap-2 rounded-control border px-3 py-2">
-        <select
+        <Select
+          label="Agent"
           value={agentFilter ?? ""}
-          onChange={(event) => onAgentFilterChange(event.target.value || null)}
-          className="border-border bg-surface text-foreground h-8 rounded-control border px-2 text-xs"
-        >
-          <option value="">All agents</option>
-          {agents.map((agent) => (
-            <option key={agent} value={agent}>
-              {agent}
-            </option>
-          ))}
-        </select>
+          onChange={(agent) => onAgentFilterChange(agent || null)}
+          options={[
+            { value: "", label: "All" },
+            ...agents.map((agent) => ({ value: agent, label: agent })),
+          ]}
+        />
         {agentFilter ? (
           <button
             type="button"

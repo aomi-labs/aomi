@@ -5,6 +5,7 @@
 // payloads.
 
 import { Lock, X } from "lucide-react";
+import { Select } from "@/components/select";
 import {
   clockLabel,
   creditsToUsd,
@@ -28,9 +29,6 @@ export const EMPTY_LOGS_PAGE_FILTER: LogsPageFilter = {
   errorsOnly: false,
   paymentsOnly: false,
 };
-
-const SELECT_CLS =
-  "border-border bg-surface text-foreground h-8 rounded-control border px-2 text-xs";
 
 const DOT: Record<string, string> = {
   ok: "bg-aomi-success",
@@ -211,35 +209,25 @@ export function LogRows({
     <div className="space-y-3">
       {/* Filter bar */}
       <div className="border-border bg-surface-subtle flex flex-wrap items-center gap-2 rounded-control border px-3 py-2">
-        <select
+        <Select
+          label="Agent"
           value={filter.agent ?? ""}
-          onChange={(event) =>
-            onFilterChange({ ...filter, agent: event.target.value || null })
-          }
-          className={SELECT_CLS}
-        >
-          <option value="">All agents</option>
-          {agents.map((agent) => (
-            <option key={agent} value={agent}>
-              {agent}
-            </option>
-          ))}
-        </select>
+          onChange={(agent) => onFilterChange({ ...filter, agent: agent || null })}
+          options={[
+            { value: "", label: "All" },
+            ...agents.map((agent) => ({ value: agent, label: agent })),
+          ]}
+        />
         {tools.length ? (
-          <select
+          <Select
+            label="Tool"
             value={filter.tool ?? ""}
-            onChange={(event) =>
-              onFilterChange({ ...filter, tool: event.target.value || null })
-            }
-            className={SELECT_CLS}
-          >
-            <option value="">All tools</option>
-            {tools.map((tool) => (
-              <option key={tool} value={tool}>
-                {tool}
-              </option>
-            ))}
-          </select>
+            onChange={(tool) => onFilterChange({ ...filter, tool: tool || null })}
+            options={[
+              { value: "", label: "Any" },
+              ...tools.map((tool) => ({ value: tool, label: tool })),
+            ]}
+          />
         ) : null}
         <button
           type="button"
