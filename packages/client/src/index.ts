@@ -534,6 +534,7 @@ export type {
   AomiRulesMode,
   AomiRulesProvider,
   AomiRulesTypedData,
+  AomiRulesVault,
   AomiWalletRules,
 } from "./account/rules";
 export { AomiWallets } from "./sdk/wallets";

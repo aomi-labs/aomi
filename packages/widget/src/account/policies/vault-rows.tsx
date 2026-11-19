@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { AomiRulesEnforcement } from "@aomi-labs/client";
+import type { AomiWalletRules } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@/wallet/context";
 import { viemVaultReader, type VaultReader } from "./vault-chain";
 import type { PolicyCatalog } from "./policy-model";
@@ -10,16 +10,17 @@ import { vaultTokens, vaultsOf } from "./vault-model";
 import { vaultSigner, withdrawFromVault } from "./vault-withdraw-flow";
 
 /**
- * A wallet's vault rows on the real wallet: one per distinct vault its
- * enforcement entries name, balances read from the chain, withdrawals signed
- * and sent by the connected wallet. Nothing if the wallet has no vault.
+ * A wallet's vault rows on the real wallet: one per distinct vault its rules
+ * name (`vaults`, then the enforcement entries), balances read from the
+ * chain, withdrawals signed and sent by the connected wallet. Nothing if the
+ * wallet has no vault.
  */
 export function WalletVaultRows({
-  enforcement,
+  rules,
   catalog,
   reader,
 }: {
-  enforcement: readonly AomiRulesEnforcement[];
+  rules: Pick<AomiWalletRules, "vaults" | "enforcement">;
   /** Null until the catalog is read: a vault then lists only ETH. */
   catalog: PolicyCatalog | null;
   /** Reads the chain; tests pass a fake. */
@@ -32,7 +33,7 @@ export function WalletVaultRows({
   );
   return (
     <>
-      {vaultsOf(enforcement).map((vault) => (
+      {vaultsOf(rules).map((vault) => (
         <VaultRow
           key={vault.key}
           vault={vault}

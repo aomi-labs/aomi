@@ -2349,6 +2349,39 @@ describe("Settings › Policies › vault", () => {
     ).toBeTruthy();
   });
 
+  it("keeps the row after the last grant is revoked: the backend still lists the vault", async () => {
+    const listed = {
+      provider: "metamask",
+      network: "eip155:8453",
+      address: VAULT,
+      owner: ADMIN.toLowerCase(),
+    };
+    // Nothing is held on chain any more, so there is no entry to name it.
+    rules = body({ enforcement: [], vaults: [listed] });
+    await renderPolicies();
+    const [row] = vaults();
+    expect(vaults()).toHaveLength(1);
+    await vaultBalances(row!);
+    expect(chain.balances).toHaveBeenCalledWith(8453, VAULT, expect.anything());
+    expect(within(row!).getByRole("button", { name: "Withdraw" })).toBeTruthy();
+  });
+
+  it("shows one row per vault when both the list and an entry name it", async () => {
+    rules = body({
+      enforcement: [vaultEntry()],
+      vaults: [
+        {
+          provider: "metamask",
+          network: "eip155:8453",
+          address: VAULT,
+          owner: ADMIN.toLowerCase(),
+        },
+      ],
+    });
+    await renderPolicies();
+    expect(vaults()).toHaveLength(1);
+  });
+
   it("shows none for a wallet with no MetaMask vault: another provider, or a chain no withdrawal is built for", async () => {
     withVault([
       provider({ account: OWNER }),

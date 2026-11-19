@@ -112,6 +112,14 @@ const body = {
       note: null,
     },
   ],
+  vaults: [
+    {
+      provider: "metamask",
+      network: "eip155:8453",
+      address: "0xf140e63cd8cfd832980b7214c6394f0974112b3d",
+      owner: "0x321d02a5fb29e85d7431d8a0ee70df9e5e7ebd4f",
+    },
+  ],
   admin_wallets: [{ kind: "wallet", family: "svm", address: "HZpj1111" }],
 };
 
@@ -182,6 +190,7 @@ describe("wallet rules", () => {
       enforced_by: {},
       enforcement: [],
       providers: [],
+      vaults: [],
       admin_wallets: [],
     });
   });
@@ -439,6 +448,22 @@ describe("wallet rules", () => {
         providers: [{ ...body.providers[0], network: 8453 }],
       }),
     ).toThrow(/providers.network must be a string/);
+  });
+
+  it("reads the owner's vaults, kept with no rule on chain, and refuses a malformed one", () => {
+    // The last grant is revoked: nothing is held, and the vault is still listed.
+    const revoked = { ...body, enforcement: [], enforced_by: {} };
+    expect(parseWalletRules(revoked).vaults).toEqual(body.vaults);
+    // A backend from before the field sends none.
+    const { vaults: _omitted, ...older } = body;
+    expect(parseWalletRules(older).vaults).toEqual([]);
+    const { owner: _owner, ...ownerless } = body.vaults[0]!;
+    expect(() => parseWalletRules({ ...body, vaults: [ownerless] })).toThrow(
+      /vaults.owner must be a string/,
+    );
+    expect(() => parseWalletRules({ ...body, vaults: {} })).toThrow(
+      /vaults must be an array/,
+    );
   });
 
   it("keeps amounts beyond 2^53 as strings and an unknown token's null symbol", () => {

@@ -535,12 +535,7 @@ function LiveWalletCard({
       wallet={view}
       catalog={picker}
       providers={policyProviders(walletRules)}
-      vaults={
-        <WalletVaultRows
-          enforcement={walletRules.enforcement}
-          catalog={picker}
-        />
-      }
+      vaults={<WalletVaultRows rules={walletRules} catalog={picker} />}
       saving={held.saving}
       notice={held.notice}
       error={held.error}

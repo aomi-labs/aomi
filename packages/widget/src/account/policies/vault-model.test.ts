@@ -1,4 +1,4 @@
-import type { AomiRulesEnforcement } from "@aomi-labs/client";
+import type { AomiRulesEnforcement, AomiRulesVault } from "@aomi-labs/client";
 import { describe, expect, it } from "vitest";
 import type { PolicyCatalog } from "./policy-model";
 import {
@@ -32,9 +32,71 @@ const entry = (extra: Partial<AomiRulesEnforcement> = {}) =>
     ...extra,
   }) as AomiRulesEnforcement;
 
+const listed = (extra: Partial<AomiRulesVault> = {}): AomiRulesVault => ({
+  provider: "metamask",
+  network: "eip155:8453",
+  address: VAULT,
+  owner: OWNER,
+  ...extra,
+});
+
+/** Vaults from enforcement entries alone: a backend from before `vaults`. */
+const fromEntries = (enforcement: AomiRulesEnforcement[]) =>
+  vaultsOf({ vaults: [], enforcement });
+
 describe("vaultsOf", () => {
+  it("keeps a listed vault once its last grant is revoked and no entry names it", () => {
+    expect(vaultsOf({ vaults: [listed()], enforcement: [] })).toEqual([
+      {
+        key: `8453:${VAULT}`,
+        address: VAULT,
+        chainId: 8453,
+        chain: { label: "Base", network: "eip155:8453" },
+        owner: OWNER,
+        explorer: `https://basescan.org/address/${VAULT}`,
+      },
+    ]);
+  });
+
+  it("names a vault both lists and entries name once, listed ones first", () => {
+    const vaults = vaultsOf({
+      vaults: [
+        listed({ network: "eip155:10" }),
+        listed({ address: VAULT.toUpperCase().replace("0X", "0x") }),
+      ],
+      enforcement: [entry(), entry({ rule: "b", state: "behind" })],
+    });
+    expect(vaults.map((vault) => vault.key)).toEqual([
+      `10:${VAULT}`,
+      `8453:${VAULT}`,
+    ]);
+    // An entry still names a vault the list leaves out.
+    expect(
+      vaultsOf({
+        vaults: [listed()],
+        enforcement: [entry({ network: "eip155:1" })],
+      }).map((vault) => vault.key),
+    ).toEqual([`8453:${VAULT}`, `1:${VAULT}`]);
+  });
+
+  it("checks a listed vault as it checks an entry", () => {
+    expect(
+      vaultsOf({
+        vaults: [
+          listed({ provider: "swig" }),
+          listed({ network: "eip155:42161" }),
+          listed({ network: "solana:mainnet-beta" }),
+          listed({ address: OWNER }),
+          listed({ owner: "not an address" }),
+          listed({ address: "" }),
+        ],
+        enforcement: [],
+      }),
+    ).toEqual([]);
+  });
+
   it("names a vault from a MetaMask entry: its address, chain and owner", () => {
-    expect(vaultsOf([entry()])).toEqual([
+    expect(fromEntries([entry()])).toEqual([
       {
         key: `8453:${VAULT}`,
         address: VAULT,
@@ -47,7 +109,7 @@ describe("vaultsOf", () => {
   });
 
   it("counts removed entries too, and names each distinct vault and chain once", () => {
-    const rules = vaultsOf([
+    const rules = fromEntries([
       entry({ rule: "a" }),
       // The same vault under a removed rule and in another case.
       entry({
@@ -71,7 +133,7 @@ describe("vaultsOf", () => {
 
   it("names none for another provider, an unsupported chain, no vault yet, no EVM owner or the owner's own account", () => {
     expect(
-      vaultsOf([
+      fromEntries([
         entry({ provider: "swig", network: "solana:mainnet-beta" }),
         entry({ provider: "swig" }),
         entry({ network: "eip155:42161" }),
@@ -86,7 +148,7 @@ describe("vaultsOf", () => {
   });
 
   it("keeps the vault and the owner in lower case, whatever case the entry writes", () => {
-    const [vault] = vaultsOf([
+    const [vault] = fromEntries([
       entry({
         account: "0x7C4C1F0A2B3D4E5F60718293A4B5C6D7E8F9E079",
         signer: {
@@ -100,7 +162,7 @@ describe("vaultsOf", () => {
 
   it("covers Ethereum, OP, Base and Base Sepolia", () => {
     expect(
-      vaultsOf(
+      fromEntries(
         ["eip155:1", "eip155:10", "eip155:8453", "eip155:84532"].map(
           (network) => entry({ network }),
         ),

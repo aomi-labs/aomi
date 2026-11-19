@@ -223,6 +223,23 @@ export type AomiRulesProvider = {
   note: string | null;
 };
 
+/**
+ * An account of the owner's that held the wallet's rules on one network,
+ * listed whether or not a rule is on it now: funds stay in it after the last
+ * rule is taken off, and the owner withdraws them from it. Today the owner's
+ * MetaMask vault: one per owner wallet, the same address on every chain.
+ */
+export type AomiRulesVault = {
+  /** The id the enforcement steps take (`metamask`). */
+  provider: string;
+  /** The chain, as `AomiRulesEnforcement.network` writes it. */
+  network: string;
+  /** The address that holds the funds, as `AomiRulesEnforcement.account`. */
+  address: string;
+  /** The owner's wallet that controls it, as `AomiRulesEnforcement.signer.address`. */
+  owner: string;
+};
+
 /** The EIP-712 data an owner's EVM wallet signs. */
 export type AomiRulesTypedData = {
   domain: Record<string, unknown>;
@@ -316,6 +333,12 @@ export type AomiWalletRules = {
    * backend that does not send it.
    */
   providers: AomiRulesProvider[];
+  /**
+   * The owner's accounts that held this wallet's rules on chain, one per
+   * provider, network and address, kept after the last rule is taken off.
+   * Empty from a backend that does not send it.
+   */
+  vaults: AomiRulesVault[];
   /** The account's own wallets that may become the admin. */
   admin_wallets: AomiRulesAdminWallet[];
 };
@@ -580,6 +603,16 @@ function parseProvider(value: unknown): AomiRulesProvider {
   };
 }
 
+function parseVault(value: unknown): AomiRulesVault {
+  const record = asRecord(value);
+  return {
+    provider: text(record?.provider, "vaults.provider"),
+    network: text(record?.network, "vaults.network"),
+    address: text(record?.address, "vaults.address"),
+    owner: text(record?.owner, "vaults.owner"),
+  };
+}
+
 function parseTypedData(value: unknown): AomiRulesTypedData {
   const record = asRecord(value);
   const types = asRecord(record?.types);
@@ -681,6 +714,8 @@ export function parseWalletRules(value: unknown): AomiWalletRules {
     ),
     // A backend from before the picker's hint sends none.
     providers: list(record.providers ?? [], "providers").map(parseProvider),
+    // A backend from before vaults were listed on their own sends none.
+    vaults: list(record.vaults ?? [], "vaults").map(parseVault),
     admin_wallets: list(record.admin_wallets, "admin_wallets").map(
       parseAdminWallet,
     ),

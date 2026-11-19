@@ -1795,6 +1795,14 @@ export type AomiRulesTypedData = {
 };
 
 // @public
+export type AomiRulesVault = {
+    provider: string;
+    network: string;
+    address: string;
+    owner: string;
+};
+
+// @public
 export type AomiRuleTo =
 /** Any listed app on the asset's chain. Never a plain send. */
     {
@@ -1956,6 +1964,7 @@ export type AomiWalletRules = {
     enforced_by: Record<string, string[]>;
     enforcement: AomiRulesEnforcement[];
     providers: AomiRulesProvider[];
+    vaults: AomiRulesVault[];
     admin_wallets: AomiRulesAdminWallet[];
 };
 

@@ -1020,6 +1020,9 @@ function rulesBody(state: FakeRules, pending: FakeChange | null) {
     ),
     enforcement: enforcementOf(state),
     providers: providersOf(),
+    // The owner's vaults, kept after the last grant is revoked. The fake's
+    // MetaMask has no vault of its own (its account is the owner's), so none.
+    vaults: [],
     // One linked wallet, so the admin picker has a wallet to choose.
     admin_wallets: [
       {

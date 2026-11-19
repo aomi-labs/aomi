@@ -1,4 +1,4 @@
-import type { AomiRulesEnforcement } from "@aomi-labs/client";
+import type { AomiWalletRules } from "@aomi-labs/client";
 import {
   assetChain,
   fromBaseUnits,
@@ -41,44 +41,61 @@ export type VaultHolding = { token: VaultToken; raw: bigint };
 const PLAIN_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const ZERO = BigInt(0);
 
+/** A vault as one source writes it, before it is checked. */
+type Named = {
+  provider: string;
+  network: string;
+  address: string | null;
+  owner: string | null;
+};
+
 /**
- * The vaults a wallet's enforcement entries name, one per distinct vault and
- * chain, in the order the entries come. Only a MetaMask entry on a chain a
- * withdrawal is built for counts, live or removed: the vault outlives the
- * rule. An entry with no vault yet, no EVM owner, or whose vault is the
- * owner's own account (nothing to withdraw from) names none. Addresses are
- * kept in lower case.
+ * The vaults of a wallet, one per distinct vault and chain: first those the
+ * backend lists in `vaults`, which it keeps after the last rule is taken off
+ * (the funds stay in the vault), then any that only an enforcement entry
+ * names, live or removed (a backend from before `vaults`). Only a MetaMask
+ * vault on a chain a withdrawal is built for counts. One with no address
+ * yet, no EVM owner, or whose address is the owner's own account (nothing to
+ * withdraw from) names none. Addresses are kept in lower case.
  */
-export function vaultsOf(entries: readonly AomiRulesEnforcement[]): Vault[] {
+export function vaultsOf(
+  rules: Pick<AomiWalletRules, "vaults" | "enforcement">,
+): Vault[] {
+  const named: Named[] = [
+    ...rules.vaults,
+    ...rules.enforcement
+      .filter((entry) => entry.signer.family === "evm")
+      .map(({ provider, network, account, signer }) => ({
+        provider,
+        network,
+        address: account,
+        owner: signer.address,
+      })),
+  ];
   const found = new Map<string, Vault>();
-  for (const entry of entries) {
-    if (entry.provider !== VAULT_PROVIDER || entry.signer.family !== "evm")
-      continue;
-    const chainId = Number(/^eip155:(\d+)$/.exec(entry.network)?.[1]);
-    const { account, signer } = entry;
+  for (const { provider, network, address, owner } of named) {
+    if (provider !== VAULT_PROVIDER) continue;
+    const chainId = Number(/^eip155:(\d+)$/.exec(network)?.[1]);
     if (
       !WITHDRAW_CHAINS.includes(chainId) ||
-      !account ||
-      !signer.address ||
-      !PLAIN_ADDRESS.test(account) ||
-      !PLAIN_ADDRESS.test(signer.address) ||
-      account.toLowerCase() === signer.address.toLowerCase()
+      !address ||
+      !owner ||
+      !PLAIN_ADDRESS.test(address) ||
+      !PLAIN_ADDRESS.test(owner) ||
+      address.toLowerCase() === owner.toLowerCase()
     )
       continue;
-    const key = `${chainId}:${account.toLowerCase()}`;
+    const key = `${chainId}:${address.toLowerCase()}`;
     if (found.has(key)) continue;
     // Lower case: a mixed-case address must carry a valid checksum, and the
     // backend may write the owner either way.
     found.set(key, {
       key,
-      address: account.toLowerCase(),
+      address: address.toLowerCase(),
       chainId,
-      chain: {
-        label: assetChain(`${entry.network}/`),
-        network: entry.network,
-      },
-      owner: signer.address.toLowerCase(),
-      explorer: networkExplorer(entry.network, "address", account),
+      chain: { label: assetChain(`${network}/`), network },
+      owner: owner.toLowerCase(),
+      explorer: networkExplorer(network, "address", address),
     });
   }
   return [...found.values()];
