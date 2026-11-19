@@ -128,6 +128,15 @@ export {
   type NetworkSelectProps,
 } from "./controls/network-select";
 export {
+  ControlMenuCheck,
+  ControlSelectChevron,
+  controlMenuContentClass,
+  controlMenuItemClass,
+} from "./controls/control-menu";
+export { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+export { EthereumIcon, SolanaIcon } from "./icons/chain-icons";
+export { getChainIcon } from "./icons/chain-map";
+export {
   DEFAULT_SIDEBAR_PRODUCTS,
   ProductSwitcher,
   type SidebarProduct,
