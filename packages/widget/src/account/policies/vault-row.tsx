@@ -13,7 +13,6 @@ import {
   holdingsLine,
   nonzero,
   parseWithdrawAmount,
-  sameHoldings,
   tokenKey,
   type Vault,
   type VaultHolding,
@@ -58,7 +57,7 @@ function useVaultBalances(
       const next = await latest.current.read(latest.current.tokens);
       if (live.current && id === reads.current) {
         setHoldings(next);
-        setFailed(false);
+        setFailed(next.length < latest.current.tokens.length);
       }
       return next;
     } catch {
@@ -72,10 +71,13 @@ function useVaultBalances(
     void load();
   }, [load, key]);
 
-  const refresh = async (before: readonly VaultHolding[]) => {
+  /** Read again until the balance of the withdrawn token `key` changes. */
+  const refresh = async (before: readonly VaultHolding[], key: string) => {
+    const rawOf = (list: readonly VaultHolding[]) =>
+      list.find((entry) => tokenKey(entry.token) === key)?.raw;
     for (let attempt = 0; attempt < 4 && live.current; attempt += 1) {
       const next = await load();
-      if (!next || !sameHoldings(next, before)) return;
+      if (!next || rawOf(next) !== rawOf(before)) return;
       await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
     }
   };
@@ -112,8 +114,13 @@ export function VaultRow({
   const [empty, setEmpty] = useState(false);
 
   const held = nonzero(holdings ?? []);
-  const chosen =
-    held.find((entry) => tokenKey(entry.token) === picked) ?? held[0];
+  const chosen = held.find((entry) => tokenKey(entry.token) === picked);
+  // A token that disappears while the form is open never hands its amount to another.
+  useEffect(() => {
+    if (!open || chosen) return;
+    setDraft("");
+    setPicked(held[0] ? tokenKey(held[0].token) : null);
+  }, [open, chosen, held]);
   const address = shortAddress(vault.address);
 
   const close = () => {
@@ -142,7 +149,7 @@ export function VaultRow({
       }
       close();
       setNotice("Withdrawn.");
-      await refresh(holdings ?? []);
+      await refresh(holdings ?? [], tokenKey(chosen.token));
     } catch (cause) {
       const raw = cause instanceof Error ? cause.message : "";
       setError(
@@ -189,6 +196,7 @@ export function VaultRow({
             if (open) return close();
             setNotice(null);
             setEmpty(false);
+            setPicked(tokenKey(held[0]!.token));
             setOpen(true);
           }}
         >
@@ -199,7 +207,10 @@ export function VaultRow({
       <p className="type-meta text-aomi-muted flex items-center gap-2">
         {failed ? (
           <>
-            Couldn’t read the balance.
+            {holdingsLine(holdings ?? [])
+              ? `${holdingsLine(holdings ?? [])} · `
+              : null}
+            Couldn’t read {holdings?.length ? "every" : "the"} balance.
             <button
               type="button"
               onClick={() => void reload()}

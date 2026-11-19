@@ -102,17 +102,6 @@ export const tokenKey = (token: VaultToken) =>
 export const nonzero = (holdings: readonly VaultHolding[]) =>
   holdings.filter((held) => held.raw > ZERO);
 
-export const sameHoldings = (
-  left: readonly VaultHolding[],
-  right: readonly VaultHolding[],
-) =>
-  left.length === right.length &&
-  left.every(
-    (held, index) =>
-      tokenKey(held.token) === tokenKey(right[index]!.token) &&
-      held.raw === right[index]!.raw,
-  );
-
 /** Unrounded, as `Max` types it, so it parses back whole. */
 export const exactAmount = (raw: bigint, decimals: number) =>
   fromBaseUnits(raw.toString(), decimals);

@@ -94,4 +94,18 @@ describe("the vault row", () => {
     type("1");
     expect(row).not.toHaveTextContent("Enter an amount");
   });
+
+  it("shows what a partial read found and offers a retry instead of an empty vault", async () => {
+    const readBalances = vi.fn(async () => [
+      { token: ETH, raw: BigInt("980000000000000000") },
+    ]);
+    const { row, button } = await show({ readBalances });
+    await waitFor(() =>
+      expect(row).toHaveTextContent("Couldn’t read every balance."),
+    );
+    expect(row).toHaveTextContent("ETH");
+    expect(row).not.toHaveTextContent("Nothing in the vault.");
+    fireEvent.click(button("Try again"));
+    await waitFor(() => expect(readBalances).toHaveBeenCalledTimes(2));
+  });
 });
