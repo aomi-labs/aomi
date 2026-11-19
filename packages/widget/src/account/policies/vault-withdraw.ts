@@ -1,22 +1,16 @@
 /**
  * The owner's withdraw from their MetaMask vault, with nothing stored by Aomi.
  *
- * The owner signs ONE typed-data `Delegation` from the vault to their own
- * account (delegate = the owner, authority root, a fresh salt) that two
- * caveats bound: `Timestamp(0, deadline + 1)` and `LimitedCalls(1)`. The
- * wallet then sends a plain transaction from the owner's account to the
- * DelegationManager: `redeemDelegations` for one execution, the vault's own
- * ERC-20 `transfer(owner, amount)` or a native send to the owner. Only the
- * delegate redeems a delegation, so the signature is no use to anyone else
- * and is never sent to Aomi.
+ * The owner signs ONE `Delegation` from the vault to their own account
+ * (authority root, fresh salt) bound by `Timestamp(0, deadline + 1)` and
+ * `LimitedCalls(1)`, then sends `redeemDelegations` from that account: one
+ * ERC-20 `transfer(owner, amount)` or native send to the owner. Only the
+ * delegate can redeem, so the signature is useless to others and never sent
+ * to Aomi.
  *
- * This module is plain: no React, no widget imports, only `viem`'s encoders,
- * so a Node script can import it. It builds and guards; it signs and sends
- * nothing (the Policies tab's Withdraw row does, through
- * `vault-withdraw-flow.ts`). The typed data has the same shape the backend uses for grants
- * (`aomi/crates/sign/src/aa/delegation.rs`, `typed_data`), and the caveat
- * terms are encoded the way its `terms` module does:
- * `Timestamp = uint128(after) ‖ uint128(before)`, `LimitedCalls = uint256`.
+ * Plain module (viem only, no React) so Node can import it; it builds and
+ * guards, never signs or sends. Shapes and caveat terms match the backend's
+ * `aomi/crates/sign/src/aa/delegation.rs`.
  */
 import {
   encodeAbiParameters,
@@ -37,9 +31,9 @@ export const LIMITED_CALLS_ENFORCER =
   "0x04658b29f6b82ed55274221a06fc97d318e25416";
 /** `authority` of a delegation the vault grants itself. */
 export const ROOT_AUTHORITY: Hex = `0x${"ff".repeat(32)}`;
-/** The chains whose DelegationManager the backend pins: Ethereum, Optimism, Base, Base Sepolia. */
+/** Ethereum, Optimism, Base, Base Sepolia: where the backend pins the manager. */
 export const WITHDRAW_CHAINS: readonly number[] = [1, 10, 8453, 84532];
-/** The longest a withdrawal may stay redeemable after it is signed, in seconds. */
+/** Seconds a signed withdrawal may stay redeemable. */
 export const MAX_WITHDRAW_WINDOW = 3_600;
 
 const UINT256_MAX = BigInt(2) ** BigInt(256) - BigInt(1);
@@ -78,10 +72,8 @@ const TYPES = {
   ],
 } as const;
 
-/** What a withdrawal moves: an ERC-20 by its contract, or the chain's native coin. */
 export type WithdrawAsset = { erc20: string } | { native: true };
 
-/** The typed data the owner's wallet signs: the backend's grant shape. */
 export type WithdrawTypedData = {
   types: typeof TYPES;
   primaryType: "Delegation";
@@ -94,17 +86,15 @@ export type WithdrawTypedData = {
   message: WithdrawDelegation;
 };
 
-/** The delegation, as the typed data carries it (the signature is separate). */
 export type WithdrawDelegation = {
   delegate: Hex;
   delegator: Hex;
   authority: Hex;
   caveats: { enforcer: Hex; terms: Hex }[];
-  /** Decimal string: a salt is a uint256 and does not fit a JSON number. */
+  /** Decimal string: a uint256 does not fit a JSON number. */
   salt: string;
 };
 
-/** What the wallet sends: a plain transaction to the DelegationManager. */
 export type WithdrawTransaction = {
   to: typeof DELEGATION_MANAGER;
   data: Hex;
@@ -124,7 +114,6 @@ function address(value: unknown, what: string): Hex {
   return value.toLowerCase() as Hex;
 }
 
-/** `value` as a uint256: a bigint, a safe integer or decimal digits. */
 function uint(value: unknown, what: string, { positive = false } = {}): bigint {
   let found: bigint;
   if (typeof value === "bigint") found = value;
@@ -151,7 +140,6 @@ export const limitedCallsTerms = (limit: bigint): Hex => `0x${word(limit)}`;
 
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 
-/** A random uint256 for a new withdrawal's salt, as a decimal string. */
 export function freshSalt(
   random: (bytes: Uint8Array) => Uint8Array = (bytes) =>
     globalThis.crypto.getRandomValues(bytes),
@@ -162,10 +150,7 @@ export function freshSalt(
   ).toString();
 }
 
-/**
- * The typed data that lets `owner`, and only `owner`, redeem one withdrawal
- * from `vault` until `deadline` (unix seconds, inclusive). `now` is for tests.
- */
+/** Lets only `owner` redeem one withdrawal from `vault` until `deadline` (inclusive). */
 export function withdrawTypedData({
   chainId,
   vault,
@@ -220,10 +205,7 @@ export function withdrawTypedData({
   };
 }
 
-/**
- * The typed data as viem signs and hashes it: the salt a bigint and no
- * `EIP712Domain` entry among the types (viem derives it from the domain).
- */
+/** For viem: salt as bigint, no `EIP712Domain` type (viem derives it). */
 export function withdrawSigningArgs(data: WithdrawTypedData) {
   const { EIP712Domain: _domain, ...types } = data.types;
   return {
@@ -248,10 +230,8 @@ function vaultSignature(value: unknown): Hex {
 }
 
 /**
- * The delegation exactly as `withdrawTypedData` makes it, or a refusal: the
- * delegate is `owner`, the authority is root, and the caveats are the two
- * that bound it, in order, with their terms well formed. Nothing else is ever
- * put in a transaction.
+ * Refuses anything but what `withdrawTypedData` makes: delegate `owner`, root
+ * authority, exactly its two caveats in order. Nothing else reaches a tx.
  */
 function checkedDelegation(
   delegation: WithdrawDelegation,
@@ -310,12 +290,7 @@ function checkedDelegation(
   };
 }
 
-/**
- * The transaction the owner's account sends to redeem the signed delegation
- * once: the vault moves `amount` of `asset` to `owner`, and only there. The
- * delegation must be what `withdrawTypedData` made for this same `owner`.
- * `now` is for tests.
- */
+/** Redeems the delegation once: `amount` of `asset` to `owner`, and only there. */
 export function withdrawCalldata({
   delegation,
   signature,

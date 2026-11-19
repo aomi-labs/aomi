@@ -21,7 +21,6 @@ import {
 } from "./vault-model";
 import type { WithdrawAsset } from "./vault-withdraw";
 
-/** What a vault's balances are read with: its tokens in, what it holds out. */
 export type ReadBalances = (
   tokens: readonly VaultToken[],
 ) => Promise<VaultHolding[]>;
@@ -33,10 +32,8 @@ export type WithdrawVault = (
 ) => Promise<"sent" | "no_vault">;
 
 /**
- * A vault's balances, read when its tokens change and again on `refresh`. A
- * read that a newer one has overtaken, or that ends after the row is gone, is
- * dropped. `refresh` reads until the balances differ from `before`, a few
- * times, because the wallet's node may show a withdrawal before this one does.
+ * Stale or post-unmount reads are dropped. `refresh` retries until balances
+ * differ from `before`: the wallet's node may see a withdrawal first.
  */
 function useVaultBalances(
   read: ReadBalances,
@@ -88,12 +85,7 @@ function useVaultBalances(
   return { holdings, failed, reload: load, refresh };
 }
 
-/**
- * The owner's vault in a wallet's card: its address, what it holds, and one
- * button, Withdraw. That opens the form inline: a token the vault holds, an
- * amount (`Max` fills it all), then Sign and send. The row reads balances and
- * asks `withdraw` to move them; it stores nothing and knows no wallet.
- */
+/** The owner's vault with an inline Withdraw form; it knows no wallet. */
 export function VaultRow({
   vault,
   tokens,
@@ -103,11 +95,10 @@ export function VaultRow({
   retryDelayMs = 2_000,
 }: {
   vault: Vault;
-  /** What the vault may hold; those with a balance are offered. */
+  /** Those with a balance are offered. */
   tokens: readonly VaultToken[];
   readBalances: ReadBalances;
   withdraw: WithdrawVault;
-  /** The owner's wallet is not the connected one: Withdraw waits, with why. */
   signer: { canSign: boolean; hint: string | null };
   /** Between reads while a withdrawal is not yet shown in the balances. */
   retryDelayMs?: number;

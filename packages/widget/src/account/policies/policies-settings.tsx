@@ -51,16 +51,15 @@ import {
 
 type Aomi = ReturnType<typeof useShellAomi>;
 
-/** One wallet's rules as the tab holds them. */
 type Held = {
   rules: AomiWalletRules | null;
   failed: boolean;
   saving: boolean;
   notice: string | null;
   error: string | null;
-  /** Bumped after each answered save, so pickers and drafts start again. */
+  /** Bumped per answered save to reset pickers and drafts. */
   epoch: number;
-  /** The owner put the waiting change aside: it shows as one line. */
+  /** The waiting change was put aside. */
   later: boolean;
 };
 
@@ -74,11 +73,7 @@ const EMPTY: Held = {
   later: false,
 };
 
-/**
- * Every listed wallet's rules, read once each and kept current by what each
- * write answers. A read that started before a newer source of rules (a save,
- * a decision, an enforcement step) cannot overwrite it.
- */
+/** Each wallet's rules; a read older than a newer write cannot overwrite it. */
 function useWalletRules(aomi: Aomi, ids: readonly string[]) {
   const [book, setBook] = useState<Record<string, Held>>({});
   const live = useRef(true);
@@ -137,7 +132,6 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
     }
   }, [key, load]);
 
-  /** Read every wallet again, e.g. when the tab comes back into view. */
   const reload = useCallback(() => {
     for (const id of started.current) void load(id);
   }, [load]);
@@ -195,7 +189,6 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
     void refreshWallets();
   };
 
-  /** Decline from the one-line reminder, without opening the card. */
   const decline = async (id: string, changeId: string) => {
     if (saving.current.has(id)) return;
     saving.current.add(id);
@@ -211,14 +204,13 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
     }
   };
 
-  /** The change is no longer open, or the rules moved: read them again. */
   const stale = (id: string) =>
     void load(id).then((next) => {
       if (!next || next.pending) return;
       patch(id, { later: false, notice: "That change was already decided" });
     });
 
-  /** Rules an enforcement step answered; a late one cannot undo a newer write. */
+  /** A late step answer cannot undo a newer write. */
   const stepped = (id: string, next: AomiWalletRules) => {
     bump(id);
     patch(id, (held) => ({
@@ -231,10 +223,8 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
 }
 
 /**
- * The account's own signed-in wallets that may approve changes. An agent
- * wallet is never one, and a wallet that is not signed in here could not
- * sign the change that names it. The wallet that is the authority now stays
- * listed either way, so it can be seen.
+ * Signed-in, non-agent wallets that can sign approvals; the current
+ * authority stays listed either way.
  */
 function authorityWallets(
   rules: AomiWalletRules,
@@ -269,11 +259,8 @@ function authorityWallets(
 }
 
 /**
- * Settings › Policies: every agent wallet's rules in one place, under the
- * word the product uses for them. Changes waiting for the owner come first;
- * then one card per wallet. Each edit sends the wallet's full new rule set:
- * one that only takes power away saves at once, one that gives power waits
- * as a change at the top for whoever approves changes.
+ * Settings › Policies. Each edit sends the full new rule set: tightening
+ * saves at once, loosening waits for approval.
  */
 export function PoliciesSettings({
   active = true,
@@ -439,7 +426,6 @@ export function PoliciesSettings({
   );
 }
 
-/** A waiting change put aside with Later: one line, Decline and Review. */
 function PendingLine({
   change,
   saving,
@@ -485,7 +471,6 @@ function PendingLine({
   );
 }
 
-/** One wallet's card on its real rules, with every write it can make. */
 function LiveWalletCard({
   aomi,
   kit,

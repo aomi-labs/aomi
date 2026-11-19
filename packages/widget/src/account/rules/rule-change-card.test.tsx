@@ -65,8 +65,7 @@ afterEach(() => {
 describe("RuleChangePanel", () => {
   const client = async () =>
     (await import("@/account/transport")).createShellTransport().aomi;
-
-  it("renders the waiting change's card as a policy change, and its outcome once approved", async () => {
+  const show = async () =>
     render(
       <RuleChangePanel
         client={await client()}
@@ -74,6 +73,9 @@ describe("RuleChangePanel", () => {
         onClose={vi.fn()}
       />,
     );
+
+  it("renders the waiting change's card as a policy change, and its outcome once approved", async () => {
+    await show();
     const card = await screen.findByRole("region", {
       name: "Policy change for Trading wallet",
     });
@@ -96,13 +98,7 @@ describe("RuleChangePanel", () => {
     ["superseded", "Replaced by a newer change"],
   ])("shows a %s change as %s", async (state, title) => {
     held = change({ state });
-    render(
-      <RuleChangePanel
-        client={await client()}
-        changeId="ch-1"
-        onClose={vi.fn()}
-      />,
-    );
+    await show();
     expect(await screen.findByText(title)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Decline" })).toBeNull();
@@ -111,13 +107,7 @@ describe("RuleChangePanel", () => {
   it("says when the change does not exist", async () => {
     respond = () =>
       Response.json({ error: "rules_change_not_found" }, { status: 404 });
-    render(
-      <RuleChangePanel
-        client={await client()}
-        changeId="ch-1"
-        onClose={vi.fn()}
-      />,
-    );
+    await show();
     expect(await screen.findByText("This change doesn’t exist")).toBeTruthy();
   });
 });

@@ -16,17 +16,12 @@ import {
 /** How long a signed withdrawal stays redeemable. */
 export const WITHDRAW_SECONDS = 600;
 
-/** The parts of the wallet kit a withdrawal uses. */
 export type WithdrawKit = Pick<
   AomiWalletKit,
   "identity" | "switchChain" | "signTypedData" | "sendTransaction"
 >;
 
-/**
- * Whether the connected EVM wallet is the vault's owner, and if not, which
- * wallet to connect (the same hint a policy's signing step gives). Only the
- * owner's own account can sign a withdrawal.
- */
+/** Only the owner's own account can sign; otherwise, which wallet to connect. */
 export function vaultSigner(
   kit: Pick<AomiWalletKit, "identity">,
   owner: string,
@@ -38,13 +33,8 @@ export function vaultSigner(
 }
 
 /**
- * Withdraw `amount` of `asset` from the owner's vault to the owner, with
- * nothing stored and nothing sent to Aomi. In order: the vault must have code
- * (`"no_vault"` if not, and nothing is asked of the wallet); the wallet goes
- * to the vault's chain; the owner's wallet signs the delegation (valid for
- * `WITHDRAW_SECONDS`, a fresh salt); the same wallet sends the transaction
- * `withdrawCalldata` builds from it. Resolves `"sent"` once the wallet has
- * the receipt; throws what the wallet or the guards refused.
+ * Vault to owner, nothing sent to Aomi: check code (`"no_vault"` before any
+ * wallet prompt), switch chain, sign, send. `"sent"` once the receipt is in.
  */
 export async function withdrawFromVault(
   kit: WithdrawKit,
@@ -57,8 +47,7 @@ export async function withdrawFromVault(
   if (!signTypedData || !sendTransaction)
     throw new Error("This wallet can't sign that.");
   if (amount <= BigInt(0)) throw new Error("The amount must be above 0.");
-  // The transaction goes out from the connected account, and only the owner's
-  // own signature redeems the delegation: it must be the owner's.
+  // Only the owner's own account can redeem the delegation.
   if (!vaultSigner(kit, owner).canSign)
     throw new Error(
       "Send this from the wallet that owns the vault. Nothing was signed.",

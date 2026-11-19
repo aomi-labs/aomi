@@ -12,24 +12,21 @@ import {
 } from "./policy-model";
 import { WITHDRAW_CHAINS, type WithdrawAsset } from "./vault-withdraw";
 
-/** The provider whose entries carry a vault: the owner's MetaMask account. */
+/** The provider whose entries carry a vault. */
 export const VAULT_PROVIDER = "metamask";
 
-/** One vault of the owner's on one chain: what a Withdraw row stands for. */
+/** One vault on one chain: one Withdraw row. */
 export type Vault = {
-  /** `<chain id>:<vault address, lower case>`: one row per key. */
+  /** `<chain id>:<lower-case vault address>`. */
   key: string;
-  /** The vault's address. */
   address: string;
   chainId: number;
   chain: PolicyChain;
-  /** The owner's EVM account: it signs the withdrawal and receives it. */
+  /** Signs the withdrawal and receives it. */
   owner: string;
-  /** The vault's page on the chain's explorer. */
   explorer?: string;
 };
 
-/** A token a vault may hold: its symbol, decimals and how it is moved. */
 export type VaultToken = {
   symbol: string;
   decimals: number;
@@ -42,12 +39,9 @@ const PLAIN_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const ZERO = BigInt(0);
 
 /**
- * The vaults a wallet's enforcement entries name, one per distinct vault and
- * chain, in the order the entries come. Only a MetaMask entry on a chain a
- * withdrawal is built for counts, live or removed: the vault outlives the
- * rule. An entry with no vault yet, no EVM owner, or whose vault is the
- * owner's own account (nothing to withdraw from) names none. Addresses are
- * kept in lower case.
+ * One vault per chain and address from MetaMask entries, live or removed
+ * (the vault outlives the rule). Skips entries without a vault or EVM owner,
+ * or whose vault is the owner's own account.
  */
 export function vaultsOf(entries: readonly AomiRulesEnforcement[]): Vault[] {
   const found = new Map<string, Vault>();
@@ -84,11 +78,7 @@ export function vaultsOf(entries: readonly AomiRulesEnforcement[]): Vault[] {
   return [...found.values()];
 }
 
-/**
- * What a vault on `network` may hold: the catalog's ERC-20 tokens on that
- * chain, then the chain's native coin (ETH on every chain a withdrawal is
- * built for, whether or not the catalog lists it).
- */
+/** The catalog's ERC-20s on `network`, then native ETH (on every withdraw chain). */
 export function vaultTokens(
   catalog: PolicyCatalog | null,
   network: string,
@@ -111,15 +101,12 @@ export function vaultTokens(
   return [...tokens, { symbol: "ETH", decimals: 18, asset: { native: true } }];
 }
 
-/** A token's identity within one vault. */
 export const tokenKey = (token: VaultToken) =>
   "erc20" in token.asset ? `erc20:${token.asset.erc20}` : "native";
 
-/** The holdings that are not zero, in the order read. */
 export const nonzero = (holdings: readonly VaultHolding[]) =>
   holdings.filter((held) => held.raw > ZERO);
 
-/** Both holdings lists say the same of every token. */
 export const sameHoldings = (
   left: readonly VaultHolding[],
   right: readonly VaultHolding[],
@@ -131,14 +118,11 @@ export const sameHoldings = (
       held.raw === right[index]!.raw,
   );
 
-/** The exact amount, as `Max` types it: no rounding, so it parses back whole. */
+/** Unrounded, as `Max` types it, so it parses back whole. */
 export const exactAmount = (raw: bigint, decimals: number) =>
   fromBaseUnits(raw.toString(), decimals);
 
-/**
- * An amount as the row shows it: at least two decimals, at most six, grouped
- * thousands (`95.00`, `0.98`, `1,250.5`). A dust amount reads `<0.000001`.
- */
+/** 2 to 6 decimals, grouped (`95.00`, `1,250.5`); dust reads `<0.000001`. */
 export function shownAmount(raw: bigint, decimals: number) {
   const [whole = "0", fraction = ""] = exactAmount(raw, decimals).split(".");
   if (decimals === 0) return policyAmount(whole);
@@ -160,11 +144,7 @@ export function holdingsLine(holdings: readonly VaultHolding[]) {
     : null;
 }
 
-/**
- * What the owner typed as an amount to withdraw, in the token's base units, or
- * the plain reason it cannot be sent. Nothing above what the vault holds, and
- * nothing that is not a positive number the token can hold.
- */
+/** A typed amount in base units, positive and within `balance`, or why not. */
 export function parseWithdrawAmount(
   text: string,
   token: VaultToken,

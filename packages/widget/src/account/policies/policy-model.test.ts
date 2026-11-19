@@ -25,6 +25,8 @@ const OWNER = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T";
 const NOW = new Date(2026, 10, 18, 12).getTime();
 const at = (year: number, month: number, day: number, hour = 9) =>
   Math.floor(new Date(year, month - 1, day, hour).getTime() / 1000);
+const DEC_11 = at(2026, 12, 11, 23);
+const NOV_17 = at(2026, 11, 17, 23);
 
 const rule = (asset: string, extra: object = {}) => ({
   id: `${asset}@any`,
@@ -41,7 +43,7 @@ const SWIG_TX =
 const SWIG_WALLET = "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN";
 const EVM_TX = `0x${"ab".repeat(32)}`;
 const VAULT = "0x00000000000000000000000000000000000000a1";
-/** One provider's entry for one rule; it defaults to Swig on Solana, off. */
+/** One provider's entry for one rule: Swig on Solana, off. */
 const provider = (extra: Partial<AomiRulesEnforcement> = {}) =>
   ({
     rule: `${SOL}@any`,
@@ -58,7 +60,6 @@ const provider = (extra: Partial<AomiRulesEnforcement> = {}) =>
     signer: { family: "svm", address: null },
     ...extra,
   }) as AomiRulesEnforcement;
-/** MetaMask holding one EVM rule by a signed grant: no transaction. */
 const metamask = (asset: string, extra: Partial<AomiRulesEnforcement> = {}) =>
   provider({
     rule: `${asset}@any`,
@@ -72,30 +73,26 @@ const wallet = (rules: object[], enforcement: AomiRulesEnforcement[] = []) => ({
   rules: { mode: "whitelist" as const, rules, linked_only: false } as never,
   enforcement,
 });
+const rows = (rules: object[], entries: AomiRulesEnforcement[] = []) =>
+  policyRows(wallet(rules, entries), null, NOW);
 
 describe("policy rows", () => {
   it("merges rules that differ only by chain into one row, and keeps the rest apart", () => {
-    const rows = policyRows(
-      wallet([
-        rule(BASE_USDC),
-        rule(OP_USDC),
-        // Another total: its own row.
-        rule(BASE_USDC, {
-          id: `${BASE_USDC}@protocol:uniswap`,
-          to: { kind: "protocol", id: "uniswap" },
-        }),
-        // Another period: its own row.
-        rule(OP_USDC, {
-          id: `${OP_USDC}@protocol:aave`,
-          to: { kind: "protocol", id: "aave" },
-          active_until: at(2026, 12, 11, 23),
-        }),
-      ]),
-      null,
-      NOW,
-    );
-    expect(rows).toHaveLength(3);
-    expect(rows[0]).toMatchObject({
+    const result = rows([
+      rule(BASE_USDC),
+      rule(OP_USDC),
+      rule(BASE_USDC, {
+        id: `${BASE_USDC}@protocol:uniswap`,
+        to: { kind: "protocol", id: "uniswap" },
+      }),
+      rule(OP_USDC, {
+        id: `${OP_USDC}@protocol:aave`,
+        to: { kind: "protocol", id: "aave" },
+        active_until: DEC_11,
+      }),
+    ]);
+    expect(result).toHaveLength(3);
+    expect(result[0]).toMatchObject({
       ruleIds: [`${BASE_USDC}@any`, `${OP_USDC}@any`],
       symbol: "USDC",
       amount: "1,000",
@@ -107,15 +104,17 @@ describe("policy rows", () => {
       activeUntil: null,
       ended: false,
     });
-    expect(periodLine(rows[0]!)).toBe(
+    expect(periodLine(result[0]!)).toBe(
       "Active period: Always on, since 11/11/2026",
     );
-    expect(periodLine(rows[2]!)).toBe("Active period: 11/11/2026 – 11/12/2026");
+    expect(periodLine(result[2]!)).toBe(
+      "Active period: 11/11/2026 – 11/12/2026",
+    );
   });
 
   it("keeps an ended rule, says when it ended, and does not count it", () => {
     const rules = wallet([
-      rule(BASE_USDC, { active_until: at(2026, 11, 17, 23) }),
+      rule(BASE_USDC, { active_until: NOV_17 }),
       rule(SOL),
     ]);
     const [ended, open] = policyRows(rules, null, NOW);
@@ -126,13 +125,14 @@ describe("policy rows", () => {
   });
 
   it("shows a token it cannot name in raw units, and a zero total as a block", () => {
-    const [row] = policyRows(
-      wallet([rule(BASE_USDC, { amount: "0", symbol: null, decimals: null })]),
-      null,
-      NOW,
-    );
-    expect(row).toMatchObject({ amount: "0", blocked: true });
-    expect(row!.symbol).toBe("0x8335…2913");
+    const [row] = rows([
+      rule(BASE_USDC, { amount: "0", symbol: null, decimals: null }),
+    ]);
+    expect(row).toMatchObject({
+      amount: "0",
+      blocked: true,
+      symbol: "0x8335…2913",
+    });
   });
 
   it("groups thousands by string, past 2^53", () => {
@@ -145,174 +145,125 @@ describe("policy rows", () => {
 
 describe("a rule's on-chain enforcement", () => {
   const sol = rule(SOL);
-  it("is None where no provider has an entry for this very rule", () => {
-    expect(ruleEnforcement(sol, [])).toEqual({ name: null });
-    // Another rule's entry says nothing about this one, nor does the chain's.
-    expect(
-      ruleEnforcement(sol, [
-        provider({ rule: `${SOL}@protocol:jupiter`, state: "on", ready: true }),
-      ]),
-    ).toEqual({ name: null });
+  const base = rule(BASE_USDC);
+  const on = provider({ state: "on" });
+  const held = metamask(BASE_USDC, { state: "on", account: VAULT });
+  const DEPLOY = `swig:solana:mainnet-beta:${SOL}@any`;
+  const NOTE = "Swig cannot hold a rule that allows nothing.";
+
+  const behind = { name: "Swig", href: undefined, deploy: DEPLOY };
+  const unread = "The chain could not be read.";
+  it.each([
+    [[], { name: null }],
+    // Another rule's entry says nothing about this one.
+    [
+      [provider({ rule: `${SOL}@protocol:jupiter`, state: "on" })],
+      { name: null },
+    ],
+    [[provider()], { name: null }],
+    [[provider({ note: NOTE })], { name: null, note: NOTE }],
+    [[on], { name: "Swig", href: undefined }],
+    [[provider({ ready: true })], { name: "Swig", deploy: DEPLOY }],
+    [
+      [provider({ state: "behind", ready: true, note: "Changed." })],
+      { ...behind, warning: { label: "Out of date" }, note: "Changed." },
+    ],
+    [
+      [provider({ state: "unverified", note: unread })],
+      {
+        name: "Swig",
+        href: undefined,
+        warning: { label: "Not verified" },
+        note: unread,
+      },
+    ],
+  ] as const)("reads entries %#", (entries, expected) => {
+    expect(ruleEnforcement(sol, entries as never)).toEqual(expected);
   });
 
-  it("is None, with the reason, where the provider declines the rule", () => {
-    expect(ruleEnforcement(sol, [provider()])).toEqual({ name: null });
-    expect(
-      ruleEnforcement(sol, [
-        provider({ note: "Swig cannot hold a rule that allows nothing." }),
-      ]),
-    ).toEqual({
-      name: null,
-      note: "Swig cannot hold a rule that allows nothing.",
-    });
-  });
-
-  it("names the provider that holds it and links the deployment, else the account", () => {
-    const on = provider({ state: "on" });
-    // On, but the chain gave no account and the wallet no transaction.
-    expect(ruleEnforcement(sol, [on])).toEqual({
-      name: "Swig",
-      href: undefined,
-    });
-    // The owner's wallet is the account to see until there is a transaction.
-    expect(
-      ruleEnforcement(sol, [
-        { ...on, signer: { family: "svm", address: OWNER } },
-      ]).href,
-    ).toBe(`https://solscan.io/account/${OWNER}`);
-    expect(ruleEnforcement(sol, [{ ...on, account: SWIG_WALLET }]).href).toBe(
-      `https://solscan.io/account/${SWIG_WALLET}`,
-    );
-    expect(
-      ruleEnforcement(sol, [
-        { ...on, account: SWIG_WALLET, deployment_tx: SWIG_TX },
-      ]).href,
-    ).toBe(`https://solscan.io/tx/${SWIG_TX}`);
-  });
-
-  it("links an EVM grant to the owner's account: nothing was deployed, so no transaction", () => {
-    const base = rule(BASE_USDC);
-    const held = metamask(BASE_USDC, { state: "on", account: VAULT });
-    expect(ruleEnforcement(base, [held])).toEqual({
-      name: "MetaMask",
-      href: `https://basescan.org/address/${VAULT}`,
-    });
-    // A signature is not a transaction hash: the account is still the link.
-    expect(
-      ruleEnforcement(base, [
-        { ...held, deployment_tx: `0x${"cd".repeat(65)}` },
-      ]).href,
-    ).toBe(`https://basescan.org/address/${VAULT}`);
-    expect(
-      ruleEnforcement(base, [{ ...held, deployment_tx: EVM_TX }]).href,
-    ).toBe(`https://basescan.org/tx/${EVM_TX}`);
-  });
-
-  it("has no link until something is on chain", () => {
-    expect(
-      ruleEnforcement(sol, [
-        provider({ ready: true, account: SWIG_WALLET, deployment_tx: SWIG_TX }),
-      ]).href,
-    ).toBeUndefined();
-  });
-
-  it("offers to sign where the entry is ready, with its own step", () => {
-    expect(ruleEnforcement(sol, [provider({ ready: true })])).toEqual({
-      name: "Swig",
-      deploy: `swig:solana:mainnet-beta:${SOL}@any`,
-    });
-    expect(
-      ruleEnforcement(sol, [
-        provider({ state: "behind", ready: true, note: "Your rules changed." }),
-      ]),
-    ).toEqual({
-      name: "Swig",
-      href: undefined,
-      deploy: `swig:solana:mainnet-beta:${SOL}@any`,
-      warning: { label: "Out of date" },
-      note: "Your rules changed.",
-    });
-  });
-
-  it("warns, without a step, where the chain could not be read", () => {
-    expect(
-      ruleEnforcement(sol, [
-        provider({ state: "unverified", note: "The chain could not be read." }),
-      ]),
-    ).toEqual({
-      name: "Swig",
-      href: undefined,
-      warning: { label: "Not verified" },
-      note: "The chain could not be read.",
-    });
-  });
+  const SOLSCAN = "https://solscan.io";
+  const BASESCAN = `https://basescan.org/address/${VAULT}`;
+  it.each([
+    [
+      sol,
+      { ...on, signer: { family: "svm", address: OWNER } },
+      `${SOLSCAN}/account/${OWNER}`,
+    ],
+    [sol, { ...on, account: SWIG_WALLET }, `${SOLSCAN}/account/${SWIG_WALLET}`],
+    [
+      sol,
+      { ...on, account: SWIG_WALLET, deployment_tx: SWIG_TX },
+      `${SOLSCAN}/tx/${SWIG_TX}`,
+    ],
+    // Nothing on chain yet: no link.
+    [
+      sol,
+      provider({ ready: true, account: SWIG_WALLET, deployment_tx: SWIG_TX }),
+      undefined,
+    ],
+    [base, held, BASESCAN],
+    // A signature is not a transaction hash.
+    [base, { ...held, deployment_tx: `0x${"cd".repeat(65)}` }, BASESCAN],
+    [
+      base,
+      { ...held, deployment_tx: EVM_TX },
+      `https://basescan.org/tx/${EVM_TX}`,
+    ],
+  ] as const)(
+    "links the deployment, else the account %#",
+    (target, entry, href) => {
+      expect(ruleEnforcement(target, [entry as never]).href).toBe(href);
+    },
+  );
 
   it("says what is left of the total, in the token's own units, when the chain reports it", () => {
-    const on = provider({ state: "on", left: "400000000" });
-    expect(
-      ruleEnforcement(sol, [on], { symbol: "SOL", decimals: 9 }).left,
-    ).toBe("0.4 SOL left");
-    expect(
-      ruleEnforcement(
-        rule(BASE_USDC),
-        [metamask(BASE_USDC, { state: "on", left: "1234500000" })],
-        { symbol: "USDC", decimals: 6 },
-      ).left,
-    ).toBe("1,234.5 USDC left");
-    // A token it cannot name is shown in raw units, like the total.
-    expect(ruleEnforcement(sol, [on]).left).toBe(
+    const SOL_UNITS = { symbol: "SOL", decimals: 9 };
+    const left = (entry: AomiRulesEnforcement, units?: typeof SOL_UNITS) =>
+      ruleEnforcement(sol, [entry], units).left;
+    expect(left(provider({ state: "on", left: "400000000" }), SOL_UNITS)).toBe(
+      "0.4 SOL left",
+    );
+    expect(left(provider({ state: "on", left: "400000000" }))).toBe(
       "400000000 solana:mainnet-beta/native left",
+    );
+    expect(left(provider({ state: "on", left: "0" }), SOL_UNITS)).toBe(
+      "0 SOL left",
     );
     // Nothing on chain, nothing left.
     expect(
-      ruleEnforcement(sol, [provider({ left: "5", ready: true })], {
-        symbol: "SOL",
-        decimals: 9,
-      }).left,
+      left(provider({ left: "5", ready: true }), SOL_UNITS),
     ).toBeUndefined();
-    expect(
-      ruleEnforcement(sol, [provider({ state: "on", left: "0" })], {
-        symbol: "SOL",
-        decimals: 9,
-      }).left,
-    ).toBe("0 SOL left");
   });
 
   it("shows the chain's end only when it is more than a day from the policy's own", () => {
-    const end = at(2026, 12, 11, 23);
-    const ends = rule(SOL, { active_until: end });
-    const on = (expires_at: number) =>
-      ruleEnforcement(ends, [provider({ state: "on", expires_at })]);
-    // The few hours of slack the chain adds are not news.
-    expect(on(end + 14 * 3600).chainEnd).toBeUndefined();
-    expect(on(end - 3600).chainEnd).toBeUndefined();
-    expect(on(end + 2 * 86_400).chainEnd).toBe(localDay(end + 2 * 86_400));
-    // A rule with no end of its own that the chain ends is worth saying.
+    const ends = rule(SOL, { active_until: DEC_11 });
+    const chainEnd = (expires_at: number) =>
+      ruleEnforcement(ends, [provider({ state: "on", expires_at })]).chainEnd;
+    expect(chainEnd(DEC_11 + 14 * 3600)).toBeUndefined();
+    expect(chainEnd(DEC_11 - 3600)).toBeUndefined();
+    expect(chainEnd(DEC_11 + 2 * 86_400)).toBe(localDay(DEC_11 + 2 * 86_400));
+    // A rule with no end of its own that the chain ends.
     expect(
-      ruleEnforcement(sol, [provider({ state: "on", expires_at: end })])
+      ruleEnforcement(sol, [provider({ state: "on", expires_at: DEC_11 })])
         .chainEnd,
     ).toBe("2026-12-11");
   });
 });
 
 describe("per-rule enforcement rows", () => {
-  const sol = rule(SOL);
-  const jupiter = rule(SOL, {
-    id: `${SOL}@protocol:jupiter`,
-    to: { kind: "protocol", id: "jupiter" },
-  });
-  const enforcements = (rules: object[], entries: AomiRulesEnforcement[]) =>
-    policyRows(wallet(rules, entries), null, NOW).map((row) => row.enforcement);
-
   it("gives each rule its own state, even on the same chain", () => {
+    const jupiter = rule(SOL, {
+      id: `${SOL}@protocol:jupiter`,
+      to: { kind: "protocol", id: "jupiter" },
+    });
     expect(
-      enforcements(
-        [sol, jupiter],
+      rows(
+        [rule(SOL), jupiter],
         [
           provider({ state: "on", left: "100000000", account: SWIG_WALLET }),
           provider({ rule: jupiter.id, ready: true }),
         ],
-      ),
+      ).map((row) => row.enforcement),
     ).toEqual([
       {
         name: "Swig",
@@ -323,122 +274,49 @@ describe("per-rule enforcement rows", () => {
     ]);
   });
 
-  it("merges rules across chains only while everything shown about them is the same", () => {
-    // Neither chain has an entry: one row, as before.
-    expect(
-      policyRows(wallet([rule(BASE_USDC), rule(OP_USDC)]), null, NOW),
-    ).toHaveLength(1);
-    // Both declined for the same reason: still one row.
-    const declined = (asset: string) =>
-      metamask(asset, { note: "No grant for a zero total." });
-    expect(
-      policyRows(
-        wallet(
-          [rule(BASE_USDC), rule(OP_USDC)],
-          [declined(BASE_USDC), declined(OP_USDC)],
-        ),
-        null,
-        NOW,
-      ),
-    ).toHaveLength(1);
-    // One chain held, the other not: two rows.
-    expect(
-      policyRows(
-        wallet(
-          [rule(BASE_USDC), rule(OP_USDC)],
-          [metamask(BASE_USDC, { state: "on", account: VAULT })],
-        ),
-        null,
-        NOW,
-      ),
-    ).toHaveLength(2);
-    // Held on both, but each chain links to its own explorer: a row each.
-    expect(
-      policyRows(
-        wallet(
-          [rule(BASE_USDC), rule(OP_USDC)],
-          [
-            metamask(BASE_USDC, { state: "on", account: VAULT }),
-            metamask(OP_USDC, { state: "on", account: VAULT }),
-          ],
-        ),
-        null,
-        NOW,
-      ),
-    ).toHaveLength(2);
-    // Out of date on one chain, held on the other: two rows.
-    expect(
-      policyRows(
-        wallet(
-          [rule(BASE_USDC), rule(OP_USDC)],
-          [
-            metamask(BASE_USDC, { state: "behind" }),
-            metamask(OP_USDC, { state: "unverified" }),
-          ],
-        ),
-        null,
-        NOW,
-      ),
-    ).toHaveLength(2);
-  });
-
-  it("keeps one row per chain where each is waiting for its own signature", () => {
-    const rows = policyRows(
-      wallet(
-        [rule(BASE_USDC), rule(OP_USDC)],
-        [
-          metamask(BASE_USDC, { ready: true }),
-          metamask(OP_USDC, { ready: true }),
-        ],
-      ),
-      null,
-      NOW,
-    );
-    expect(rows.map((row) => row.enforcement.deploy)).toEqual([
-      `metamask:eip155:8453:${BASE_USDC}@any`,
-      `metamask:eip155:10:${OP_USDC}@any`,
-    ]);
+  const both = (extra: Partial<AomiRulesEnforcement>) => [
+    metamask(BASE_USDC, extra),
+    metamask(OP_USDC, extra),
+  ];
+  // One row only while everything shown about the chains is the same.
+  it.each([
+    [[], 1],
+    [both({ note: "No grant for a zero total." }), 1],
+    [[metamask(BASE_USDC, { state: "on", account: VAULT })], 2],
+    // Held on both, but each links its own explorer.
+    [both({ state: "on", account: VAULT }), 2],
+    [
+      [
+        metamask(BASE_USDC, { state: "behind" }),
+        metamask(OP_USDC, { state: "unverified" }),
+      ],
+      2,
+    ],
+    // Each waits for its own signature.
+    [both({ ready: true }), 2],
+  ])("merges chains only when alike %#", (entries, count) => {
+    expect(rows([rule(BASE_USDC), rule(OP_USDC)], entries)).toHaveLength(count);
   });
 
   it("says a rule waiting for its deployment starts when you sign", () => {
-    const [waiting] = policyRows(
-      wallet(
-        [rule(SOL, { active_from: undefined })],
+    const waiting = (extra: object) =>
+      rows(
+        [rule(SOL, { active_from: undefined, ...extra })],
         [provider({ ready: true })],
-      ),
-      null,
-      NOW,
-    );
-    expect(waiting!.activeFrom).toBeNull();
-    expect(periodLine(waiting!)).toBe(
+      )[0]!;
+    expect(waiting({}).activeFrom).toBeNull();
+    expect(periodLine(waiting({}))).toBe(
       "Active period: always on, starts when you sign",
     );
-    const [ends] = policyRows(
-      wallet(
-        [
-          rule(SOL, {
-            active_from: undefined,
-            active_until: at(2026, 12, 11, 23),
-          }),
-        ],
-        [provider({ ready: true })],
-      ),
-      null,
-      NOW,
-    );
-    expect(periodLine(ends!)).toBe(
+    expect(periodLine(waiting({ active_until: DEC_11 }))).toBe(
       "Active period: starts when you sign, through 11/12/2026",
     );
   });
 
   it("offers nothing to sign for a policy that ended", () => {
-    const [ended] = policyRows(
-      wallet(
-        [rule(SOL, { active_until: at(2026, 11, 17, 23) })],
-        [provider({ state: "behind", ready: true })],
-      ),
-      null,
-      NOW,
+    const [ended] = rows(
+      [rule(SOL, { active_until: NOV_17 })],
+      [provider({ state: "behind", ready: true })],
     );
     expect(ended!.enforcement).toEqual({ name: null });
   });
@@ -468,9 +346,11 @@ describe("removed policies the chain still holds", () => {
       signer: { family: "evm", address: OWNER },
       ...extra,
     });
+  const removed = (entries: AomiRulesEnforcement[], rules: object[] = []) =>
+    removedPolicies(wallet(rules, entries), catalog);
 
   it("makes a row of an entry whose rule is gone, from what its id and the catalog say", () => {
-    const [row, ...rest] = removedPolicies(wallet([], [held()]), catalog);
+    const [row, ...rest] = removed([held()]);
     expect(rest).toEqual([]);
     expect(row).toEqual({
       key: `metamask:eip155:8453:${REMOVED}`,
@@ -491,42 +371,30 @@ describe("removed policies the chain still holds", () => {
   });
 
   it("marks the step as a send once the owner's revocation is signed, and only then", () => {
-    const SENT =
-      "Your revocation is signed. Send it from your wallet to take the grant off chain, or wait for Aomi to send it where the network supports that.";
+    const SENT = "Your revocation is signed. Send it from your wallet.";
     const send = (extra: Partial<AomiRulesEnforcement>) =>
-      removedPolicies(wallet([], [held(extra)]), catalog)[0]!.enforcement;
-    expect(send({ note: SENT })).toMatchObject({
-      deploy: `metamask:eip155:8453:${REMOVED}`,
-      send: true,
-    });
-    // Signed but nothing to send from here (not ready), still to sign, or
-    // the relay's older wording: none of them is a send.
-    expect(send({ note: SENT, ready: false })).not.toHaveProperty("send");
-    expect(send({ note: NOTE })).not.toHaveProperty("send");
-    expect(send({ note: null })).not.toHaveProperty("send");
-    expect(
-      send({
-        note: "Your revocation is signed. It takes effect once it is sent: Aomi sends it where the network supports that, otherwise any account can. Until then the grant stays valid on chain.",
-      }),
-    ).not.toHaveProperty("send");
+      removed([held(extra)])[0]!.enforcement.send;
+    expect(send({ note: SENT })).toBe(true);
+    // Not ready, still to sign, or the relay's older wording.
+    for (const extra of [
+      { note: SENT, ready: false },
+      { note: NOTE },
+      { note: null },
+      { note: "Your revocation is signed. It takes effect once it is sent." },
+    ])
+      expect(send(extra)).toBeUndefined();
   });
 
   it("reads a destination of any app, or an address, and the Solana chain", () => {
-    const [any, address] = removedPolicies(
-      wallet(
-        [],
-        [
-          provider({ rule: `${SOL}@any`, state: "behind", ready: true }),
-          provider({
-            rule: `${SOL}@address:${SWIG_WALLET}`,
-            state: "behind",
-            ready: true,
-            left: "2500000000",
-          }),
-        ],
-      ),
-      catalog,
-    );
+    const [any, address] = removed([
+      provider({ state: "behind", ready: true }),
+      provider({
+        rule: `${SOL}@address:${SWIG_WALLET}`,
+        state: "behind",
+        ready: true,
+        left: "2500000000",
+      }),
+    ]);
     expect(any).toMatchObject({
       symbol: "SOL",
       to: { kind: "any_app" },
@@ -540,26 +408,15 @@ describe("removed policies the chain still holds", () => {
   });
 
   it("shows what it cannot name as the id writes it: the raw asset, the app id, units", () => {
-    const [row] = removedPolicies(
-      wallet(
-        [],
-        [
-          held({
-            rule: "eip155:10/erc20:0x0b2c639c533813f4aa9d7837caf62653d097ff85@protocol:velodrome",
-            network: "eip155:10",
-          }),
-        ],
-      ),
-      catalog,
-    );
+    const [row] = removed([
+      held({ rule: `${OP_USDC}@protocol:velodrome`, network: "eip155:10" }),
+    ]);
     expect(row).toMatchObject({
       symbol: "0x0b2c…ff85",
       to: { kind: "app", id: "velodrome", label: "Velodrome" },
       chain: { label: "Optimism" },
     });
-    // No decimals to read it by: the chain's number as it is.
     expect(row!.enforcement.left).toBe("5000000 0x0b2c…ff85 left");
-    // Without the catalog at all, the same.
     expect(removedPolicies(wallet([], [held()]))[0]).toMatchObject({
       symbol: "0x8335…2913",
       to: { label: "Aave" },
@@ -567,40 +424,32 @@ describe("removed policies the chain still holds", () => {
   });
 
   it("ignores an entry that is off, and an entry for a rule that is still current", () => {
-    const rules = wallet(
-      [rule(BASE_USDC, { id: REMOVED })],
-      [
-        // A provider that declined, and one not on chain yet.
-        held({ state: "off", ready: false, left: null }),
-        held({ rule: `${SOL}@any`, state: "off", ready: true, left: null }),
-        // The rule is current: its own row shows this entry, not a removed one.
-        held(),
-      ],
-    );
-    expect(removedPolicies(rules, catalog)).toEqual([]);
-    expect(removedPolicies(wallet([], [held({ state: "off" })]))).toEqual([]);
+    expect(
+      removed(
+        [
+          held({ state: "off", ready: false, left: null }),
+          held({ rule: `${SOL}@any`, state: "off", ready: true, left: null }),
+          held(),
+        ],
+        [rule(BASE_USDC, { id: REMOVED })],
+      ),
+    ).toEqual([]);
   });
 
   it("gives every entry its own row, offers the step only where it is ready, and warns where the chain could not be read", () => {
     const other = `${BASE_USDC}@any`;
-    const rows = removedPolicies(
-      wallet(
-        [],
-        [
-          held(),
-          held({ rule: other }),
-          held({ rule: `${SOL}@any`, ready: false, state: "unverified" }),
-        ],
-      ),
-      catalog,
-    );
-    expect(rows.map((row) => row.id)).toEqual([REMOVED, other, `${SOL}@any`]);
-    expect(rows.map((row) => row.enforcement.deploy !== undefined)).toEqual([
+    const result = removed([
+      held(),
+      held({ rule: other }),
+      held({ rule: `${SOL}@any`, ready: false, state: "unverified" }),
+    ]);
+    expect(result.map((row) => row.id)).toEqual([REMOVED, other, `${SOL}@any`]);
+    expect(result.map((row) => row.enforcement.deploy !== undefined)).toEqual([
       true,
       true,
       false,
     ]);
-    expect(rows[2]!.enforcement.warning).toEqual({ label: "Not verified" });
+    expect(result[2]!.enforcement.warning).toEqual({ label: "Not verified" });
   });
 
   it("is no live policy: the rows and the count are the rules' alone", () => {
@@ -612,32 +461,22 @@ describe("removed policies the chain still holds", () => {
 });
 
 describe("the picker's providers", () => {
-  const swig = {
-    provider: "swig",
-    name: "Swig",
-    network: "solana:mainnet-beta",
-    holds: "total_period_and_destination" as const,
+  const listed = (provider: string, name: string, network: string) => ({
+    provider,
+    name,
+    network,
+    holds: "total_and_period" as const,
     note: null,
-  };
+  });
   it("reads each network's provider from the backend's list, rule or not", () => {
     expect(
       policyProviders({
         providers: [
-          swig,
           {
-            ...swig,
-            provider: "metamask",
-            name: "MetaMask",
-            network: "eip155:1",
-            holds: "total_and_period",
+            ...listed("swig", "Swig", "solana:mainnet-beta"),
+            holds: "total_period_and_destination",
           },
-          {
-            ...swig,
-            provider: "metamask",
-            name: "MetaMask",
-            network: "eip155:10",
-            holds: "total_and_period",
-          },
+          listed("metamask", "MetaMask", "eip155:1"),
         ],
         enforcement: [],
       }),
@@ -647,7 +486,6 @@ describe("the picker's providers", () => {
         holds: "total_period_and_destination",
       },
       "eip155:1": { name: "MetaMask", holds: "total_and_period" },
-      "eip155:10": { name: "MetaMask", holds: "total_and_period" },
     });
   });
 
@@ -668,13 +506,14 @@ describe("the picker's catalog and draft", () => {
       { asset: SOL, symbol: "SOL", decimals: 9, chain: "Solana" },
     ],
   });
+  const [usdc, sol] = catalog.tokens;
 
   it("lists one token with its chains and each contract's explorer page", () => {
     expect(catalog.tokens.map((token) => token.symbol)).toEqual([
       "USDC",
       "SOL",
     ]);
-    expect(catalog.tokens[0]!.chains[0]).toEqual({
+    expect(usdc!.chains[0]).toEqual({
       chain: { label: "Base", network: "eip155:8453" },
       asset: BASE_USDC,
       decimals: 6,
@@ -682,58 +521,43 @@ describe("the picker's catalog and draft", () => {
       explorer:
         "https://basescan.org/token/0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
     });
-    // A native token has no contract.
-    expect(catalog.tokens[1]!.chains[0]).not.toHaveProperty("address");
+    expect(sol!.chains[0]).not.toHaveProperty("address");
   });
 
   it("makes one rule per chain, ending at the end of the chosen local day", () => {
-    const rules = draftRules({
-      symbol: "USDC",
-      amount: "12.5",
-      chains: catalog.tokens[0]!.chains,
-      to: { kind: "app", id: "uniswap", label: "Uniswap" },
-      activeUntil: "2026-12-11",
-    });
     const end = endOfLocalDay("2026-12-11");
     expect(new Date(end * 1000).getHours()).toBe(23);
     expect(new Date(end * 1000).getMinutes()).toBe(59);
     expect(localDay(end)).toBe("2026-12-11");
     expect(localDay(end + 1)).toBe("2026-12-12");
-    expect(rules).toEqual([
-      {
-        asset: BASE_USDC,
-        amount: "12500000",
-        to: { kind: "protocol", id: "uniswap" },
-        active_until: end,
-      },
-      {
-        asset: OP_USDC,
-        amount: "12500000",
-        to: { kind: "protocol", id: "uniswap" },
-        active_until: end,
-      },
-    ]);
-    // Always on sends no end; more digits than the token holds is refused.
-    expect(
-      draftRules({
-        symbol: "SOL",
-        amount: "1",
-        chains: catalog.tokens[1]!.chains,
-        to: { kind: "any_app" },
-        activeUntil: null,
-      }),
-    ).toEqual([
-      { asset: SOL, amount: "1000000000", to: { kind: "any_protocol" } },
-    ]);
+    const to = { kind: "protocol", id: "uniswap" };
     expect(
       draftRules({
         symbol: "USDC",
-        amount: "0.0000001",
-        chains: catalog.tokens[0]!.chains,
+        amount: "12.5",
+        chains: usdc!.chains,
+        to: { kind: "app", id: "uniswap", label: "Uniswap" },
+        activeUntil: "2026-12-11",
+      }),
+    ).toEqual([
+      { asset: BASE_USDC, amount: "12500000", to, active_until: end },
+      { asset: OP_USDC, amount: "12500000", to, active_until: end },
+    ]);
+  });
+
+  it("sends no end for always on, and refuses more digits than the token holds", () => {
+    const draft = (symbol: string, amount: string, chains = usdc!.chains) =>
+      draftRules({
+        symbol,
+        amount,
+        chains,
         to: { kind: "any_app" },
         activeUntil: null,
-      }),
-    ).toBeNull();
+      });
+    expect(draft("SOL", "1", sol!.chains)).toEqual([
+      { asset: SOL, amount: "1000000000", to: { kind: "any_protocol" } },
+    ]);
+    expect(draft("USDC", "0.0000001")).toBeNull();
   });
 
   it("counts days on the local calendar", () => {

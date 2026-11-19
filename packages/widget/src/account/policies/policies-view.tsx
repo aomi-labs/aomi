@@ -48,11 +48,7 @@ import {
 export const INPUT =
   "border-aomi-border bg-aomi-raised focus-visible:ring-aomi-ring/50 h-8 rounded-[8px] border px-2 text-[13px] outline-none focus-visible:ring-2";
 
-/**
- * Settings › Policies: every agent wallet's policies in one place. Changes
- * waiting for the owner come first, then one card per wallet: its two
- * switches, its policies, and who may change them.
- */
+/** Settings › Policies: waiting changes first, then one card per wallet. */
 export function PoliciesView({
   title = true,
   changes,
@@ -60,9 +56,8 @@ export function PoliciesView({
 }: {
   /** Off where the page around it already says "Policies". */
   title?: boolean;
-  /** The changes waiting for approval, one card each. */
+  /** One card per waiting change. */
   changes?: ReactNode;
-  /** One `WalletPolicyCard` per wallet. */
   children: ReactNode;
 }) {
   return (
@@ -86,17 +81,14 @@ export function PoliciesView({
   );
 }
 
-/** What a row's "Sign to deploy" does, and how it is going. */
 export type PolicyDeploy = {
   run: () => void;
   busy?: boolean;
   disabled?: boolean;
-  /** Which wallet to connect first. */
   hint?: string | null;
   error?: string | null;
 };
 
-/** One wallet: the switches, each policy, then who may change them. */
 export function WalletPolicyCard({
   wallet,
   catalog,
@@ -116,29 +108,25 @@ export function WalletPolicyCard({
   vaults,
 }: {
   wallet: WalletPolicies;
-  /** Null until the picker's lists are read. */
+  /** Null until read. */
   catalog: PolicyCatalog | null;
   providers?: PolicyProviders;
-  /** A save is in flight: nothing else can be sent. */
   saving?: boolean;
-  /** What the last save or decision came to, e.g. `Saved`. */
+  /** e.g. `Saved`. */
   notice?: string | null;
   error?: string | null;
-  /** Moves on each answered save: the picker closes and drafts reset. */
+  /** A change closes the picker and resets drafts. */
   epoch?: number;
-  /** Set when the catalog could not be read; reads it again. */
   onRetryCatalog?: () => void;
   onLinkedOnly: (on: boolean) => void;
   onOnlyListed: (on: boolean) => void;
   onAdd: (draft: PolicyDraft) => void;
-  /** Removes the policy on every chain of its row. */
+  /** Removes it on every chain of its row. */
   onRemove: (policy: Policy) => void;
   onAuthority: (authority: PolicyAuthority) => void;
-  /** The owner signs the provider's deployment of this policy. */
   deploy: (policy: Policy) => PolicyDeploy | undefined;
-  /** The owner signs to take a removed policy off the chain. */
   takeOff?: (policy: RemovedPolicy) => PolicyDeploy | undefined;
-  /** The owner's vault rows (`VaultRow`), after the policies. */
+  /** `VaultRow`s, after the policies. */
   vaults?: ReactNode;
 }) {
   const [adding, setAdding] = useState(false);
@@ -298,11 +286,7 @@ export function ChainMark({ chain }: { chain: PolicyChain }) {
   );
 }
 
-/**
- * One policy: its sentence and chains, when it is active, and who enforces
- * it on chain. A policy that ended stays listed, muted. Nothing counts what
- * was spent: the total never resets.
- */
+/** One policy row; an ended one stays listed, muted. */
 export function PolicyRow({
   policy,
   saving = false,
@@ -428,10 +412,8 @@ export function PolicyRow({
 }
 
 /**
- * A policy the owner removed that the chain still holds: muted, marked
- * "Removed", with the provider and what is left, and the one thing to do,
- * sign to take it off (or, once that is signed, send the revocation). No remove button and no period: it is not a live
- * policy, and it goes once the chain no longer holds it.
+ * A removed policy the chain still holds; its one action takes it off (or
+ * sends the signed revocation). Gone once the chain lets go.
  */
 export function RemovedPolicyRow({
   policy,
@@ -517,10 +499,7 @@ const SESSIONS = [
   { label: "1 month", days: 30 },
 ] as const;
 
-/**
- * A choice in the picker, drawn like the chat trace's chips: a glyph, then
- * its label. A picked one takes the ink colour.
- */
+/** A picker choice, styled like the chat trace's chips. */
 export function PickChip({
   icon: Icon,
   label,
@@ -558,10 +537,8 @@ export function PickChip({
 }
 
 /**
- * The new-policy field: `token / amount / chain / to`, filled in that order
- * like a date. Several chains make one policy on each. An active period is set
- * apart from the field: without one the policy is always on; with one it
- * starts when saved and runs through the end of the day picked.
+ * The new-policy field, `token / amount / chain / to`; one policy per chain.
+ * An optional period runs from save through the end of the picked day.
  */
 export function PolicyPicker({
   catalog,
@@ -576,7 +553,6 @@ export function PolicyPicker({
   /** Off, nothing can be held on chain: providers only allow what is listed. */
   onlyListed: boolean;
   saving?: boolean;
-  /** Set when the catalog could not be read; reads it again. */
   onRetry?: () => void;
   onAdd: (draft: PolicyDraft) => void;
 }) {
@@ -600,7 +576,6 @@ export function PolicyPicker({
     (catalog?.apps ?? []).filter((app) =>
       list.every((entry) => app.chains.includes(entry.chain.network)),
     );
-  // Only apps that run on every picked chain can be the destination.
   const apps = onEvery(chains);
   const solana = (entry: PolicyTokenChain) =>
     entry.chain.network.startsWith("solana:");
@@ -609,11 +584,9 @@ export function PolicyPicker({
   const shownTokens = tokens.filter((entry) =>
     entry.symbol.toLowerCase().includes(query.trim().toLowerCase()),
   );
-  // A provider holds what is listed; with the switch off it holds nothing.
   const providerOf = (entry: PolicyTokenChain) =>
     onlyListed && to ? (providers[entry.chain.network]?.name ?? null) : null;
-  // A provider that holds the total and period only leaves where an app
-  // policy sends to Aomi's own check; a policy to an address is held whole.
+  // `total_and_period` leaves an app destination to Aomi; an address is held whole.
   const partial = [
     ...new Set(
       chains
@@ -722,7 +695,6 @@ export function PolicyPicker({
             className="placeholder:text-aomi-muted h-7 w-20 min-w-0 rounded-[6px] bg-transparent px-2 text-[13px] tabular-nums outline-none"
             value={draft}
             onChange={(event) =>
-              // Digits and one decimal point only.
               setDraft(
                 event.target.value
                   .replace(/[^0-9.]/g, "")
@@ -790,7 +762,6 @@ export function PolicyPicker({
                 onClick={() => {
                   setSymbol(entry.symbol);
                   setError(null);
-                  // A token on one chain needs no chain picked.
                   const only =
                     entry.chains.length === 1 ? [...entry.chains] : [];
                   setChains(only);
@@ -1023,9 +994,8 @@ const walletKey = (wallet: { family: string; address: string }) =>
   `${wallet.family}:${wallet.address}`;
 
 /**
- * Who approves a change that gives the agent more: the owner while signed in
- * to Aomi, or one signed-in wallet by its signature. Nothing is sent until
- * Save: a new authority is itself a change that waits for approval.
+ * Who approves loosening changes: the signed-in owner, or one wallet's
+ * signature. A new authority is itself a change that waits for approval.
  */
 export function PolicyAuthorityPicker({
   authority,
@@ -1161,10 +1131,7 @@ export function PolicyAuthorityPicker({
   );
 }
 
-/**
- * The agent wallet popup's summary: how many connections and policies the
- * wallet has, each with a link to the tab that manages them.
- */
+/** Connection and policy counts, each linking to its tab. */
 export function WalletPolicySummary({
   connections,
   policies,

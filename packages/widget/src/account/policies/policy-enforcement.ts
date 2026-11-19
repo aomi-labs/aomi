@@ -94,10 +94,9 @@ function typedValue(
 }
 
 /**
- * The backend's typed data as the wallet signs it. Numbers above 2^53 arrive
- * as decimal strings, so every field the types declare as an integer becomes
- * a bigint, and the domain's chain id a number; a number that JSON already
- * rounded, or a domain for another chain than `chainId`, is refused.
+ * The backend's typed data as the wallet signs it: declared integers become
+ * bigints (they arrive as strings past 2^53). Refuses JSON-rounded numbers
+ * and a domain for another chain than `chainId`.
  */
 export function signableTypedData(data: AomiRulesTypedData, chainId: number) {
   if (!data.types[data.primaryType])
@@ -125,7 +124,7 @@ export function signableTypedData(data: AomiRulesTypedData, chainId: number) {
 
 const PLAIN_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
-/** A wallet signs and sends on the chain it is on: put it on `chainId` first. */
+/** Wallets sign and send on their current chain. */
 export async function switchToChain(
   kit: Pick<AomiWalletKit, "identity" | "switchChain">,
   chainId: number,
@@ -134,12 +133,7 @@ export async function switchToChain(
     await kit.switchChain(chainId);
 }
 
-/**
- * The wallet's own send of a plain transaction from the connected account on
- * a chain that is already selected. It waits for the receipt and throws when
- * the transaction reverts; Aomi adds nothing to it (no account abstraction,
- * no sponsor).
- */
+/** A plain send from the connected account: no AA, no sponsor; throws on revert. */
 export async function sendPlainTransaction(
   send: NonNullable<AomiWalletKit["sendTransaction"]>,
   tx: {
@@ -164,13 +158,10 @@ export async function sendPlainTransaction(
 }
 
 /**
- * Have the owner's wallet do what the step for `entry` asked: send a
- * transaction, or sign typed data and hand back its signature. An action for
- * another network than the entry's, one this wallet has no name for, and one
- * the owner's wallet family cannot do are refused: nothing is ever sent to a
- * default network. A plain EVM transaction (the owner's signed revocation) is
- * sent from the wallet that owns the policy and only to a plain address,
- * carrying no value.
+ * Run the step's action in the owner's wallet. Refuses another network than
+ * the entry's (never a default network) and a family the wallet can't do. A
+ * plain EVM send (a signed revocation) goes only from the policy's owner, to
+ * a plain address, with no value.
  */
 async function act(
   kit: AomiWalletKit,
@@ -188,7 +179,6 @@ async function act(
     if (entry.signer.family !== "evm" || !chainId || !kit.signTypedData)
       throw new Error("This wallet can't sign that.");
     const typed_data = signableTypedData(action.typed_data, Number(chainId));
-    // A wallet signs typed data for the chain it is on.
     await switchToChain(kit, Number(chainId));
     const { signature } = await kit.signTypedData({
       typed_data,
@@ -212,8 +202,6 @@ async function act(
       throw new Error(
         "Aomi asked to send funds with the revocation. Nothing was sent.",
       );
-    // The transaction goes out from the connected account: it must be the
-    // one that owns the policy.
     if (
       !sameWallet(
         { family: "evm", address: owner },
@@ -242,32 +230,24 @@ async function act(
   return {};
 }
 
-/** The rules still carry the step's entry: the chain has not changed yet. */
+/** The step's entry is still there: the chain has not changed yet. */
 const stillHeld = (rules: AomiWalletRules, key: string) =>
   rules.enforcement.some((entry) => enforcementKey(entry) === key);
 
 /** One provider's step as a policy row shows it. */
 export type EnforcementStep = {
   busy: boolean;
-  /** The wallet that must sign is not the one connected here. */
   disabled: boolean;
-  /**
-   * Which wallet to connect, when it is not connected; while a wallet prompt
-   * for typed data is open, what the owner is signing for.
-   */
+  /** Which wallet to connect, or what is being signed while the wallet asks. */
   hint: string | null;
   error: string | null;
   run: () => void;
 };
 
 /**
- * Putting one rule on chain with a provider: the backend prepares what to
- * sign, the owner's own wallet signs it, and the backend reads the chain (or
- * checks the signature) to confirm. It is the same for every provider and
- * there is nothing to fill in: the backend derives the deployment from the
- * rule. `step(entry)` is what a policy row needs for its "Sign to deploy"
- * button; each rule has its own entry and its own step. `takeOff(entry)` is
- * the same for a removed policy whose deployment the chain still holds.
+ * Prepare, sign in the owner's wallet, confirm: one rule on chain, the same
+ * for every provider. `step` backs "Sign to deploy"; `takeOff` backs a
+ * removed policy still on chain.
  */
 export function useRuleEnforcement({
   client,
@@ -280,16 +260,14 @@ export function useRuleEnforcement({
   client: RulesClient;
   walletId: string;
   revision: number;
-  /** The rules as the backend read them after a step. */
   onRules: (rules: AomiWalletRules) => void;
-  /** A step failed, so what is shown may be out of date. */
+  /** A step failed; what is shown may be out of date. */
   onStale: () => void;
   retryDelayMs?: number;
 }) {
   const kit = useAomiWalletKit();
   const [busy, setBusy] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  /** What the owner is about to sign, by step key, while the wallet asks. */
   const [signing, setSigning] = useState<Record<string, string>>({});
 
   const signerOf = (entry: AomiRulesEnforcement) => {
@@ -307,11 +285,7 @@ export function useRuleEnforcement({
     };
   };
 
-  /**
-   * Put the rule on chain, replace what the chain holds for it, or `remove`
-   * it. `summary` says what the owner signs, shown while a typed-data prompt
-   * is open.
-   */
+  /** `summary` is shown while the wallet prompt is open. */
   const run = async (
     entry: AomiRulesEnforcement,
     { remove = false, summary }: { remove?: boolean; summary?: string } = {},
@@ -341,8 +315,7 @@ export function useRuleEnforcement({
             ...held,
             [key]: `You’re sending: ${summary}. Your wallet pays the network fee.`,
           }));
-        // A signed grant can also be the removal of an earlier grant: the
-        // backend revokes what the chain holds before it asks for the new one.
+        // Replacing a grant: the backend asks to revoke the old one first.
         if (summary && action.kind === "typed_data")
           setSigning((held) => ({
             ...held,
@@ -372,8 +345,8 @@ export function useRuleEnforcement({
           retryDelayMs,
         );
       let rules = await confirm();
-      // A sent transaction has no signature to prove it: the backend reads
-      // the chain, and answers the rules unchanged until its node shows it.
+      // No signature proves a sent tx: rules come back unchanged until the
+      // backend's node shows it.
       if (action?.kind === "evm_transaction") {
         for (
           let attempt = 0;
@@ -430,15 +403,9 @@ export function useRuleEnforcement({
     };
   };
 
-  /** The step for a rule's entry: "Sign to deploy". */
   const step = (entry: AomiRulesEnforcement, summary?: string) =>
     stepOf(entry, summary);
 
-  /**
-   * The step for the entry of a removed policy: "Sign to take off". The
-   * provider asks for a revoking signature or a transaction, as it does to
-   * deploy, and confirms once the chain no longer holds it.
-   */
   const takeOff = (entry: AomiRulesEnforcement, summary?: string) =>
     stepOf(entry, summary, true);
 

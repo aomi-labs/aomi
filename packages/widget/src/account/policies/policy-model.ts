@@ -19,11 +19,7 @@ import {
 } from "@/account/rules/rules-model";
 import { explorerUrl, type IdentifierKind } from "@/thread/explorer-links";
 
-/**
- * A wallet's rules as the Policies tab shows them. "Policy" is the on-screen
- * word; the wire calls them rules. One row may stand for the same policy on
- * several chains: each chain keeps its own total.
- */
+/** "Policy" on screen, "rule" on the wire. One row may span chains, each with its own total. */
 export type PolicyChain = {
   label: string;
   /** CAIP-2, as the rules' asset ids write it: `eip155:8453`. */
@@ -39,50 +35,36 @@ export type PolicyTo =
 export type PolicyEnforcement = {
   /** The provider's name, e.g. `Swig`; null when only Aomi enforces it. */
   name: string | null;
-  /**
-   * Where to see the provider's side of it on the chain's explorer: the
-   * deployment's transaction when it is known, else the owner's account.
-   */
+  /** Explorer link: the deployment tx if known, else the owner's account. */
   href?: string;
-  /** Set when the owner can sign it onto the chain: the step's key. */
+  /** The step's key, when the owner can sign it onto the chain. */
   deploy?: string;
-  /**
-   * Set on a removed policy whose revocation the owner already signed: the
-   * step left is to send it from their own wallet, not to sign.
-   */
+  /** A removed policy whose revocation is signed and only needs sending. */
   send?: boolean;
-  /** The chain holds something else, or could not be read. */
   warning?: { label: string };
-  /** Why the provider cannot hold it, or what is wrong. */
   note?: string;
-  /** What the chain will still let through, as shown: `0.4 SOL left`. */
+  /** e.g. `0.4 SOL left`. */
   left?: string;
-  /**
-   * The local day the chain stops signing, `YYYY-MM-DD`, when that is more
-   * than a day from the policy's own end (a slack the chain adds).
-   */
+  /** `YYYY-MM-DD` the chain stops, when over a day from the policy's end. */
   chainEnd?: string;
-  /** What of the policy the chain holds, when it is not all of it. */
+  /** What of the policy the chain holds, when not all of it. */
   scope?: string;
 };
 
 export type Policy = {
   id: string;
-  /** The rules this row stands for, one per chain. */
+  /** One rule per chain. */
   ruleIds: readonly string[];
   symbol: string;
-  /** The total, in the token's own units, as shown: `1,000`. */
+  /** In token units, as shown: `1,000`. */
   amount: string;
-  /** A total of zero: the token is blocked there. */
+  /** A zero total. */
   blocked: boolean;
   to: PolicyTo;
-  /** The chains it applies on; each chain has its own total. */
   chains: readonly PolicyChain[];
-  /** The local day it took effect, `YYYY-MM-DD`. Set by the system. */
+  /** Local `YYYY-MM-DD` days; a null end is "Always on". */
   activeFrom: string | null;
-  /** The local day it ends, `YYYY-MM-DD`; null is "Always on". */
   activeUntil: string | null;
-  /** Its end has passed. */
   ended: boolean;
   enforcement: PolicyEnforcement;
 };
@@ -100,20 +82,18 @@ export type PolicyAuthority =
   | { kind: "wallet"; family: "EVM" | "SVM"; address: string };
 
 /**
- * A policy the owner removed whose deployment the chain still holds: the
- * rule is gone, its provider's entry is not. It has no total, no period and
- * no remove button; it is one step, taking what the chain holds off.
+ * A removed policy whose deployment the chain still holds; its one step is
+ * taking that off.
  */
 export type RemovedPolicy = {
-  /** The key of its provider's step: the row's own, one per entry. */
+  /** The provider step's key, one per entry. */
   key: string;
-  /** The id the rule had. */
+  /** The rule's old id. */
   id: string;
   symbol: string;
-  /** Where it could send, as far as the id says. */
+  /** As far as the id says. */
   to: PolicyTo | null;
   chain: PolicyChain;
-  /** Who holds it, what is left, the note, and the step (`deploy`). */
   enforcement: PolicyEnforcement;
 };
 
@@ -123,10 +103,9 @@ export type WalletPolicies = {
   linkedOnly: boolean;
   onlyListed: boolean;
   policies: readonly Policy[];
-  /** Removed policies the chain still holds, after the live ones. */
+  /** Removed policies the chain still holds. */
   removed?: readonly RemovedPolicy[];
   authority: PolicyAuthority;
-  /** The signed-in wallets that may be the authority. */
   authorityWallets: readonly PolicyAuthorityWallet[];
   /** The agent stopped the wallet for today. */
   stopped?: boolean;
@@ -135,18 +114,14 @@ export type WalletPolicies = {
 /** A token on one chain; a native token has no contract. */
 export type PolicyTokenChain = {
   chain: PolicyChain;
-  /** The asset id a rule names. */
   asset: string;
   decimals: number;
   address?: string;
-  /** The contract's page on the chain's explorer. */
   explorer?: string;
 };
 
-/** What the picker can offer: tokens with their chains, and apps per chain. */
 export type PolicyCatalog = {
   tokens: readonly { symbol: string; chains: readonly PolicyTokenChain[] }[];
-  /** `chains` are the networks the app runs on. */
   apps: readonly { id: string; label: string; chains: readonly string[] }[];
 };
 
@@ -156,11 +131,7 @@ export type PolicyProviders = Readonly<
     string,
     {
       name: string;
-      /**
-       * What the provider holds of a rule at least (`AomiRulesProvider.holds`).
-       * `total_and_period` leaves the destination to Aomi. Unknown from a
-       * backend that does not report its providers.
-       */
+      /** Unknown from a backend that does not report its providers. */
       holds?: AomiRulesProvider["holds"];
       /** Shown on an app policy when the chain holds only part of it. */
       appScope?: string;
@@ -171,11 +142,11 @@ export type PolicyProviders = Readonly<
 /** What the picker hands over: one policy on each picked chain. */
 export type PolicyDraft = {
   symbol: string;
-  /** The total as typed, in the token's own units. */
+  /** As typed, in token units. */
   amount: string;
   chains: readonly PolicyTokenChain[];
   to: PolicyTo;
-  /** The last local day it is active, `YYYY-MM-DD`; null is always on. */
+  /** Last active local day, `YYYY-MM-DD`; null is always on. */
   activeUntil: string | null;
 };
 
@@ -186,7 +157,6 @@ const dayOf = (date: Date) =>
 /** Unix seconds as the local day they fall on, `YYYY-MM-DD`. */
 export const localDay = (seconds: number) => dayOf(new Date(seconds * 1000));
 
-/** The local day `days` after today. */
 export function dayFromToday(days: number, now = new Date()) {
   return dayOf(
     new Date(now.getFullYear(), now.getMonth(), now.getDate() + days),
@@ -207,7 +177,6 @@ export function policyDay(day: string) {
   return `${date}/${month}/${year}`;
 }
 
-/** The row's period line. */
 export function periodLine(
   policy: Pick<Policy, "activeFrom" | "activeUntil" | "ended">,
 ) {
@@ -226,18 +195,13 @@ export function periodLine(
 const short = (address: string) =>
   `${address.slice(0, 6)}…${address.slice(-4)}`;
 
-/** The destination as the end of the sentence. */
 export function policyToPhrase(to: PolicyTo) {
   if (to.kind === "any_app") return "on any protocol";
   if (to.kind === "app") return `on ${to.label}`;
   return `to ${short(to.address)}`;
 }
 
-/**
- * What signing a policy's grant asks of the owner, in a line: the total, the
- * token, where it may go, the chain and the end. It comes from the policy, not
- * from the bytes: the wallet shows the signed data itself.
- */
+/** What signing a policy asks, in a line; from the policy, not the signed bytes. */
 export function policySummary(
   policy: Pick<Policy, "amount" | "symbol" | "blocked" | "to" | "chains"> & {
     activeUntil: string | null;
@@ -264,7 +228,6 @@ export function policyAmount(value: string | number) {
   return fraction ? `${grouped}.${fraction}` : grouped;
 }
 
-/** A network's explorer page for an address or a token, if it has one. */
 export function networkExplorer(
   network: string,
   kind: IdentifierKind,
@@ -286,34 +249,25 @@ const WARNINGS: Partial<Record<AomiRulesEnforcement["state"], string>> = {
 };
 
 /**
- * What the backend's entry for a removed rule starts with once the owner's
- * signed revocation is stored and is theirs to send ("Your revocation is
- * signed. Send it from your wallet to take the grant off chain, ..."). The
- * entry carries no field for which step is next, so this sentence is how the
- * row knows to say "Send revocation" before it asks the backend; what the
- * wallet then does is decided by the action `prepare` answers, never by this.
+ * The backend note that marks a signed revocation waiting to be sent. The
+ * entry has no field for the next step, so this only picks the row's label;
+ * the wallet's action always comes from `prepare`.
  */
 export const SEND_NOTE_PREFIX = "Your revocation is signed. Send it";
 
-/** A removed rule's entry waits for the owner to send their signed revocation. */
 export const sendsRevocation = (
   entry: Pick<AomiRulesEnforcement, "ready" | "note">,
 ) => entry.ready && Boolean(entry.note?.startsWith(SEND_NOTE_PREFIX));
 
-/**
- * The key of one provider's step for one rule on one network: what "Sign to
- * deploy" runs. The backend signs per rule, so every rule has its own.
- */
+/** One provider's step for one rule on one network. */
 export const enforcementKey = (
   entry: Pick<AomiRulesEnforcement, "provider" | "network" | "rule">,
 ) => `${entry.provider}:${entry.network}:${entry.rule}`;
 
 const DAY = 86_400;
 
-/** The token a rule's amounts are shown in: its symbol, and its decimals if known. */
 type PolicyUnits = { symbol: string; decimals?: number | null };
 
-/** What the chain will still let through, as shown: `0.4 SOL left`. */
 const leftLine = (left: string, symbol: string, decimals?: number | null) =>
   `${
     typeof decimals === "number"
@@ -322,11 +276,8 @@ const leftLine = (left: string, symbol: string, decimals?: number | null) =>
   } ${symbol} left`;
 
 /**
- * A rule's "Onchain Enforcement" line, from its own entry: a rule is one
- * deployment, so the entry says who holds it, whether it is on chain, what
- * is left of its total and when the chain ends it. A rule no provider can
- * hold has no entry, and an entry that is off and not ready is a provider
- * declining it: either way only Aomi enforces it.
+ * A rule's "Onchain Enforcement" line. No entry, or one off and not ready (a
+ * provider declining), means only Aomi enforces it.
  */
 export function ruleEnforcement(
   rule: Pick<AomiRule, "id" | "asset" | "to" | "active_until">,
@@ -361,11 +312,6 @@ export function ruleEnforcement(
   };
 }
 
-/**
- * The deployment's transaction when the wallet reported one, else the
- * account that holds what the rule spends (the owner's account for a signed
- * grant) on the chain's explorer.
- */
 function deploymentLink(entry: AomiRulesEnforcement): string | undefined {
   const tx = entry.deployment_tx
     ? networkExplorer(entry.network, "tx", entry.deployment_tx)
@@ -387,7 +333,6 @@ const viewTo = (
       ? { kind: "app", id: to.id, label: toLabel(to, catalog) }
       : { kind: "address", address: to.address };
 
-/** A picked destination as a rule writes it. */
 export const wireTo = (to: PolicyTo): AomiRuleTo =>
   to.kind === "any_app"
     ? { kind: "any_protocol" }
@@ -396,10 +341,8 @@ export const wireTo = (to: PolicyTo): AomiRuleTo =>
       : { kind: "address", address: to.address };
 
 /**
- * A wallet's rules as rows. Rules that differ only by chain share a row: the
- * same token, total, destination, period and enforcement state. A policy
- * waiting to be signed onto a chain keeps its own row, because the backend
- * deploys each rule on its own and each is its own signature.
+ * Rules that differ only by chain share a row. One waiting to be signed
+ * keeps its own: each rule deploys with its own signature.
  */
 export function policyRows(
   rules: Pick<AomiWalletRules, "rules" | "enforcement">,
@@ -409,7 +352,6 @@ export function policyRows(
   const rows = new Map<string, Policy>();
   for (const rule of rules.rules.rules) {
     const id = rule.id ?? ruleKey(rule);
-    // A token neither the rule nor the catalog names is shown in raw units.
     const token = catalog?.tokens.find((entry) => entry.asset === rule.asset);
     const symbol = rule.symbol ?? token?.symbol;
     const decimals =
@@ -422,7 +364,6 @@ export function policyRows(
       rules.enforcement,
       known ? { symbol, decimals } : undefined,
     );
-    // Nothing is left to sign for a policy that ended.
     const enforcement: PolicyEnforcement =
       ended && held.deploy ? { name: null } : held;
     const chain: PolicyChain = {
@@ -461,9 +402,7 @@ export function policyRows(
       policy.activeFrom,
       policy.activeUntil,
       ended,
-      // Rules merge only while everything shown about their enforcement is
-      // the same: its state, its link, its end. A row waiting for a signature
-      // never merges, because its step is the rule's own.
+      // Merge only when all shown enforcement matches; `deploy` is per rule.
       enforcement.name,
       enforcement.deploy ?? null,
       enforcement.href ?? null,
@@ -484,7 +423,7 @@ export function policyRows(
   return [...rows.values()];
 }
 
-/** A rule's key `<asset>@<to>` in parts; `to` is null when the key does not say. */
+/** A `<asset>@<to>` key in parts; `to` is null when the key does not say. */
 function ruleKeyParts(id: string): { asset: string; to: AomiRuleTo | null } {
   const at = id.lastIndexOf("@");
   if (at < 0) return { asset: id, to: null };
@@ -503,13 +442,9 @@ function ruleKeyParts(id: string): { asset: string; to: AomiRuleTo | null } {
 }
 
 /**
- * The policies the owner removed that a provider still holds on chain. The
- * backend keeps their entries under the old rule id, ready to be taken off,
- * so they are read from the entries: an entry whose rule is not among the
- * wallet's rules and that is not `off` (not on chain, or a provider that
- * declined). Each entry is its own row, and none is a live policy: they are
- * not counted and never merge. Only the old id says what the rule was, so a
- * token or app the catalog does not know shows as the id writes it.
+ * Removed policies still on chain: entries not `off` whose rule is no longer
+ * the wallet's. One row each, never counted or merged; only the old id says
+ * what the rule was.
  */
 export function removedPolicies(
   rules: Pick<AomiWalletRules, "rules" | "enforcement">,
@@ -556,7 +491,6 @@ export function removedPolicies(
   });
 }
 
-/** What signing a removed policy's step asks of the owner, in a line. */
 export function removalSummary(policy: RemovedPolicy) {
   return `Take ${policy.symbol}${policy.to ? ` ${policyToPhrase(policy.to)}` : ""} (${policy.chain.label}) off the chain`;
 }
@@ -567,7 +501,6 @@ export const activePolicyCount = (
   now = Date.now(),
 ) => policyRows(rules, null, now).filter((policy) => !policy.ended).length;
 
-/** The backend's catalog as the picker reads it: one token, its chains. */
 export function policyCatalog(catalog: AomiRulesCatalog): PolicyCatalog {
   const tokens = new Map<string, PolicyTokenChain[]>();
   for (const token of catalog.tokens) {
@@ -595,9 +528,8 @@ export function policyCatalog(catalog: AomiRulesCatalog): PolicyCatalog {
 }
 
 /**
- * Who could hold a new policy on each network: the providers the backend
- * lists, which hold for a wallet with no rules too. A backend that does not
- * list them is read from the wallet's own entries, which exist per rule.
+ * Who could hold a new policy per network. An older backend that lists no
+ * providers falls back to the wallet's own entries.
  */
 export function policyProviders(
   rules: Pick<AomiWalletRules, "providers" | "enforcement">,
@@ -613,10 +545,7 @@ export function policyProviders(
   return found;
 }
 
-/**
- * The rules a draft adds, one per picked chain; null when the amount is not
- * one the token can hold. The end is the end of the chosen local day.
- */
+/** One rule per picked chain; null when the amount does not fit the token. */
 export function draftRules(draft: PolicyDraft): AomiRule[] | null {
   const rules: AomiRule[] = [];
   for (const entry of draft.chains) {

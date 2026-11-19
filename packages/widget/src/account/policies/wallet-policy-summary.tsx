@@ -15,10 +15,8 @@ import { WalletPolicySummary } from "./policies-view";
 import { activePolicyCount } from "./policy-model";
 
 /**
- * An agent wallet's Manage sheet: how many connections can use the wallet
- * and how many policies it has, each with a link to the Settings tab that
- * manages them. A policy change waiting for approval is named here too, with
- * the way to the tab where it is decided.
+ * An agent wallet's Manage sheet: connection and policy counts linking to
+ * their Settings tabs, and any policy change waiting for approval.
  */
 export function AgentWalletPolicySummary({
   wallet,
@@ -28,7 +26,6 @@ export function AgentWalletPolicySummary({
   wallet: { id: string };
   /** Rules another control just filed a change on (an ask mode made Instant). */
   filed?: AomiWalletRules | null;
-  /** Close the sheet before the page moves to another tab. */
   onClose: () => void;
 }) {
   const aomi = useShellAomi();

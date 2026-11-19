@@ -41,11 +41,9 @@ export type AomiRuleTo =
   | { kind: "address"; address: string };
 
 /**
- * At most `amount` of `asset` may go to `to` in total; `"0"` blocks it. The
- * total never resets. `amount` is in base units, a decimal string that can
- * exceed 2^53. `id`, `active_from`, `symbol` and `decimals` are filled by the
- * server (`symbol` is null for a token it does not know); a write does not
- * send them.
+ * At most `amount` (base units, may exceed 2^53) of `asset` may ever go to
+ * `to`; `"0"` blocks it. `id`, `active_from`, `symbol` and `decimals` are
+ * server-filled and never written.
  */
 export type AomiRule = {
   /** The rule's key, `<asset>@<to>`. */
@@ -57,12 +55,9 @@ export type AomiRule = {
   asset: string;
   amount: string;
   to: AomiRuleTo;
-  /** Unix seconds: when the rule took effect. Set by the server. */
+  /** Unix seconds. */
   active_from?: number;
-  /**
-   * Unix seconds: when the rule ends. Left out, it is always on. A rule past
-   * its end stays in the list; compare this with the clock.
-   */
+  /** Unix seconds; absent means no end. An ended rule stays in the list. */
   active_until?: number;
   symbol?: string | null;
   decimals?: number | null;
@@ -70,10 +65,7 @@ export type AomiRule = {
 
 const MODES = ["whitelist", "blacklist"] as const;
 
-/**
- * `blacklist`: everything may be spent, except as a rule caps it.
- * `whitelist`: only what a rule lists may be spent.
- */
+/** `blacklist`: all allowed unless a rule caps it. `whitelist`: only what rules list. */
 export type AomiRulesMode = (typeof MODES)[number];
 
 /** What the agent may sign with a wallet. */
@@ -145,11 +137,8 @@ export type AomiRuleChange = {
 const ENFORCEMENT_STATES = ["off", "on", "behind", "unverified"] as const;
 
 /**
- * One on-chain provider's hold on one rule: a rule is one deployment, with
- * its own total and its own end. A client shows it and signs what its steps
- * hand back; it never needs to know which provider it is. A rule no provider
- * can hold has no entry; a rule that was removed while its deployment is
- * still on chain keeps one under its old id.
+ * One on-chain provider's hold on one rule (one deployment each). A removed
+ * rule still deployed on chain keeps an entry under its old id.
  */
 export type AomiRulesEnforcement = {
   /** The rule's key (`AomiRule.id`) the entry is about. */
@@ -158,39 +147,22 @@ export type AomiRulesEnforcement = {
   provider: string;
   /** The name to show. */
   name: string;
-  /**
-   * The chain it holds the rule on, as the rules' asset ids write it
-   * (`solana:mainnet-beta`, `eip155:8453`). A provider on several chains has
-   * one entry per rule and chain.
-   */
+  /** As asset ids write it (`solana:mainnet-beta`, `eip155:8453`). */
   network: string;
   /**
-   * `off`: not on chain. `on`: the chain holds the rule as it stands.
-   * `behind`: the chain holds something else (an earlier version, a rule that
-   * was removed or has ended). `unverified`: the chain could not be read.
+   * `behind`: the chain holds something else (older, removed or ended rule).
+   * `unverified`: the chain could not be read.
    */
   state: (typeof ENFORCEMENT_STATES)[number];
-  /**
-   * There is something to do: deploy the rule, replace what the chain holds,
-   * or take it off.
-   */
+  /** There is something to deploy, replace or take off. */
   ready: boolean;
-  /**
-   * What the chain will still let through of the rule's total, a decimal
-   * string in base units of the rule's asset; null when nothing is on chain.
-   */
+  /** Base units still allowed on chain; null when nothing is on chain. */
   left: string | null;
-  /**
-   * Unix seconds at which the deployment stops signing on chain, for a rule
-   * with an end. An estimate, a little later than the rule's own end.
-   */
+  /** Unix seconds; an estimate a little after the rule's own end. */
   expires_at: number | null;
-  /** The address that holds the funds the rule spends; null before any. */
+  /** The address that holds the funds the rule spends. */
   account: string | null;
-  /**
-   * What the owner's wallet returned for the deployment, when it was
-   * reported. Null for a rule held by a signed grant: nothing is deployed.
-   */
+  /** Null for a rule held by a signed grant: nothing is deployed. */
   deployment_tx: string | null;
   /** Why the provider cannot hold the rule, or what is wrong. */
   note: string | null;
@@ -199,11 +171,8 @@ export type AomiRulesEnforcement = {
 };
 
 /**
- * One on-chain provider on one network that this deployment has switched on
- * and that could hold the wallet's rules there, whether or not any rule is on
- * it yet. A picker reads it before a rule exists, when `enforcement` has no
- * entry to learn from. In blacklist mode providers hold nothing; they are
- * still listed.
+ * A provider/network enabled here that could hold the wallet's rules, rule
+ * or not; a picker reads it before `enforcement` has entries.
  */
 export type AomiRulesProvider = {
   /** The id the enforcement steps take. */
@@ -212,12 +181,7 @@ export type AomiRulesProvider = {
   name: string;
   /** The chain, as `AomiRulesEnforcement.network` writes it. */
   network: string;
-  /**
-   * What a rule it can hold gets on chain, at least. `total_and_period`: the
-   * total and the end, with where the money goes checked by Aomi only.
-   * `total_period_and_destination`: those and where it may go. `note` says
-   * where a kind of rule is held further.
-   */
+  /** The minimum held on chain; `total_and_period` leaves `to` to Aomi. */
   holds: "total_and_period" | "total_period_and_destination";
   /** What else it holds, or what it leaves to Aomi. */
   note: string | null;
@@ -228,17 +192,13 @@ export type AomiRulesTypedData = {
   domain: Record<string, unknown>;
   types: Record<string, { name: string; type: string }[]>;
   primaryType: string;
-  /**
-   * Numbers above 2^53 arrive as decimal strings: convert the fields the
-   * types declare as integers before signing.
-   */
+  /** Integers above 2^53 arrive as decimal strings; convert before signing. */
   message: Record<string, unknown>;
 };
 
 /**
- * What the owner's wallet does next, tagged by `kind`. A kind this client
- * does not know fails to parse rather than being guessed at; so does an
- * action whose `network` is not the one asked for.
+ * What the owner's wallet does next. An unknown `kind`, or a `network` other
+ * than the one asked for, fails to parse.
  */
 export type AomiRulesAction =
   /** Sign this transaction and send it; `confirm` then reads the chain. */
@@ -283,12 +243,8 @@ export type AomiRulesEnforceRequest = {
 };
 
 /**
- * `confirm`'s body. For a `typed_data` action `signature` is the signed data
- * (0x hex) and the provider cannot confirm without it. For a `transaction`
- * action the chain proves the step, so it is optional and only recorded. An
- * `evm_transaction` action takes none. `confirm` answers the rules as they
- * stand; while the chain does not show the sent transaction yet they come
- * back unchanged, so ask again.
+ * `signature` (0x hex) is required for `typed_data`, optional and only
+ * recorded for `transaction`, and absent for `evm_transaction`.
  */
 export type AomiRulesConfirmRequest = AomiRulesEnforceRequest & {
   signature?: string;
@@ -310,11 +266,7 @@ export type AomiWalletRules = {
   enforced_by: Record<string, string[]>;
   /** The on-chain providers that can hold these rules; Aomi always checks. */
   enforcement: AomiRulesEnforcement[];
-  /**
-   * The providers switched on for this deployment that could hold this
-   * wallet's rules, one per provider and network, rule or not. Empty from a
-   * backend that does not send it.
-   */
+  /** One per provider and network; empty from an older backend. */
   providers: AomiRulesProvider[];
   /** The account's own wallets that may become the admin. */
   admin_wallets: AomiRulesAdminWallet[];
@@ -531,7 +483,6 @@ export function parseRuleChange(value: unknown): AomiRuleChange {
   };
 }
 
-/** A number of unix seconds, or null when the server sent none. */
 function optionalSeconds(value: unknown, field: string): number | null {
   return value === undefined || value === null
     ? null
@@ -715,10 +666,7 @@ export function parseRulesCatalog(value: unknown): AomiRulesCatalog {
   };
 }
 
-/**
- * The rule set as a write sends it: no server-filled fields. A rule's end
- * goes along; its start is the server's.
- */
+/** The rule set as a write sends it: no server-filled fields. */
 const wireRules = (rules: AomiRuleSet): AomiRuleSet => ({
   mode: rules.mode,
   rules: rules.rules.map(({ asset, amount, to, active_until }) => ({
@@ -811,10 +759,8 @@ export class AccountRulesTransport {
   }
 
   /**
-   * What the owner's wallet does to put one rule (`request.rule`) on chain
-   * with `provider`, to replace what the chain holds for it, or to `remove`
-   * it. Null when the chain already shows what was asked: confirm straight
-   * away.
+   * The owner's next step to deploy, replace or `remove` `request.rule` with
+   * `provider`. Null when the chain already matches: confirm straight away.
    */
   async prepareEnforcement(
     agentWalletId: string,
@@ -833,12 +779,9 @@ export class AccountRulesTransport {
 
   /**
    * Have the backend read the chain after the owner's wallet did what
-   * `prepareEnforcement` answered. For a `typed_data` action pass the
-   * wallet's `signature`; for a transaction (`transaction`, `evm_transaction`)
-   * the chain is the proof. Answers the rules with the provider's new state;
-   * `chain_not_settled` means its node does not show the transaction yet:
-   * confirm again. After a sent `evm_transaction` the rules also come back
-   * unchanged until the node shows it, so ask again.
+   * `prepareEnforcement` answered (`typed_data` needs its `signature`).
+   * `chain_not_settled`, or unchanged rules after an `evm_transaction`, mean
+   * the node does not show it yet: confirm again.
    */
   async confirmEnforcement(
     agentWalletId: string,

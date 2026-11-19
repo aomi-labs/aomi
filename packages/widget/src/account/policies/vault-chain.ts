@@ -8,17 +8,11 @@ import {
 import { base, baseSepolia, mainnet, optimism } from "viem/chains";
 import type { VaultHolding, VaultToken } from "./vault-model";
 
-/**
- * What the Withdraw row reads from a chain: whether the vault exists yet, and
- * what it holds. It sends nothing. Tests and the fixture pass a fake.
- */
+/** Read-only chain access for the Withdraw row; tests pass a fake. */
 export type VaultReader = {
   /** The vault has code: it is created with its owner's first trade. */
   hasCode: (chainId: number, vault: string) => Promise<boolean>;
-  /**
-   * `tokens` the vault holds, each with its balance (zero included). A token
-   * that could not be read is left out; every read failing throws.
-   */
+  /** Zero balances included; unreadable tokens left out; throws if all fail. */
   balances: (
     chainId: number,
     vault: string,
@@ -28,12 +22,7 @@ export type VaultReader = {
 
 const KNOWN: readonly Chain[] = [mainnet, optimism, base, baseSepolia];
 
-/**
- * The page's own EVM read path: a viem public client per chain over the
- * chain's default RPC, the same as the checkout reads USDC with. The wallet
- * kit's chains win over viem's when it lists them, so a host's own RPC is
- * used. ERC-20 reads go out as one multicall where the chain has one.
- */
+/** A viem client per chain; the wallet kit's chains win, so a host's RPC is used. */
 export function viemVaultReader(
   supportedChains: readonly Chain[] = [],
 ): VaultReader {

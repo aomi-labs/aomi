@@ -9,11 +9,7 @@ import { VaultRow } from "./vault-row";
 import { vaultTokens, vaultsOf } from "./vault-model";
 import { vaultSigner, withdrawFromVault } from "./vault-withdraw-flow";
 
-/**
- * A wallet's vault rows on the real wallet: one per distinct vault its
- * enforcement entries name, balances read from the chain, withdrawals signed
- * and sent by the connected wallet. Nothing if the wallet has no vault.
- */
+/** One Withdraw row per vault the entries name, wired to the real wallet. */
 export function WalletVaultRows({
   enforcement,
   catalog,
@@ -22,7 +18,6 @@ export function WalletVaultRows({
   enforcement: readonly AomiRulesEnforcement[];
   /** Null until the catalog is read: a vault then lists only ETH. */
   catalog: PolicyCatalog | null;
-  /** Reads the chain; tests pass a fake. */
   reader?: VaultReader;
 }) {
   const kit = useAomiWalletKit();

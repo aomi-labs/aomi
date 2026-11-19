@@ -69,21 +69,21 @@ describe("typed data the backend asks the owner to sign", () => {
     expect(signable.primaryType).toBe("Delegation");
   });
 
-  it("refuses a number JSON already rounded, and text that is not a number", () => {
-    const sent = (message: Record<string, unknown>) =>
-      data({ message: { ...data().message, ...message } });
-    expect(() =>
-      signableTypedData(sent({ cap: 1.2345678901234568e29 }), 8453),
-    ).toThrow(/number this wallet can't read \(message\.cap\)/);
-    expect(() => signableTypedData(sent({ cap: "12.5" }), 8453)).toThrow(
-      /message\.cap/,
-    );
-    expect(() =>
-      signableTypedData(sent({ caveats: [{ limit: "1", tags: ["x"] }] }), 8453),
-    ).toThrow(/message\.caveats\[0\]\.tags\[0\]/);
-    expect(() => signableTypedData(sent({ caveats: "none" }), 8453)).toThrow(
-      /message\.caveats/,
-    );
+  const sent = (message: Record<string, unknown>) =>
+    data({ message: { ...data().message, ...message } });
+  it.each([
+    [
+      { cap: 1.2345678901234568e29 },
+      /number this wallet can't read \(message\.cap\)/,
+    ],
+    [{ cap: "12.5" }, /message\.cap/],
+    [
+      { caveats: [{ limit: "1", tags: ["x"] }] },
+      /message\.caveats\[0\]\.tags\[0\]/,
+    ],
+    [{ caveats: "none" }, /message\.caveats/],
+  ])("refuses a rounded number or non-numeric text (%#)", (message, error) => {
+    expect(() => signableTypedData(sent(message), 8453)).toThrow(error);
   });
 
   it("refuses a domain for another chain, and a primary type it does not define", () => {
@@ -95,9 +95,7 @@ describe("typed data the backend asks the owner to sign", () => {
     ).toThrow("The data to sign names a type it does not define.");
     // A domain without a chain id is signed as it is.
     const open = data({ domain: { name: "Delegation" } });
-    expect(signableTypedData(open, 8453).domain).toEqual({
-      name: "Delegation",
-    });
+    expect(signableTypedData(open, 8453).domain).toEqual(open.domain);
   });
 });
 
@@ -132,7 +130,6 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
     kit.switchChain.mockClear();
     kit.sendTransaction.mockClear();
   });
-  /** Run the removed policy's step against a client that answers `answer`. */
   async function run(answer: AomiRulesAction, held = entry()) {
     const confirmEnforcement = vi.fn(async () => ({ enforcement: [] }));
     const client = {
@@ -175,7 +172,6 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
 
   it("sends nothing from another account than the owner's, or for a Solana signer", async () => {
     kit.identity.address = "0x1111000000000000000000000000000000002222";
-    // Not the owner: the step itself is off, and a forced run refuses too.
     const other = await run(action());
     expect(other.error).toMatch(/wallet that owns the policy/);
     expect(other.confirmEnforcement).not.toHaveBeenCalled();
@@ -185,7 +181,7 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
       entry({
         signer: {
           family: "svm",
-          address: "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T",
+          address: "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x",
         },
       }),
     );
@@ -195,7 +191,6 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
   });
 
   it("sends the prepared transaction from the owner's wallet and nothing else", async () => {
-    kit.identity.address = OWNER;
     kit.identity.chainId = 1;
     const { error, confirmEnforcement } = await run(action());
     expect(error).toBeNull();

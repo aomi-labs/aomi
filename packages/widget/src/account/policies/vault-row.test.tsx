@@ -3,7 +3,6 @@ import {
   cleanup,
   fireEvent,
   render,
-  screen,
   waitFor,
   within,
 } from "@testing-library/react";
@@ -20,289 +19,227 @@ const VAULT: Vault = {
   explorer:
     "https://basescan.org/address/0x7c4c1f0a2b3d4e5f60718293a4b5c6d7e8f9e079",
 };
-const USDC: VaultToken = {
-  symbol: "USDC",
-  decimals: 6,
-  asset: { erc20: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913" },
-};
-const USDT: VaultToken = {
-  symbol: "USDT",
-  decimals: 6,
-  asset: { erc20: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2" },
-};
-const ETH: VaultToken = {
-  symbol: "ETH",
-  decimals: 18,
-  asset: { native: true },
-};
+const token = (symbol: string, decimals: number, asset: VaultToken["asset"]) =>
+  ({ symbol, decimals, asset }) as VaultToken;
+const USDC = token("USDC", 6, {
+  erc20: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+});
+const USDT = token("USDT", 6, {
+  erc20: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
+});
+const ETH = token("ETH", 18, { native: true });
 const TOKENS = [USDC, USDT, ETH];
-const held = (usdc: number, usdt: number, eth: string): VaultHolding[] => [
+const held = (usdc: number, eth = "980000000000000000"): VaultHolding[] => [
   { token: USDC, raw: BigInt(usdc) },
-  { token: USDT, raw: BigInt(usdt) },
+  { token: USDT, raw: BigInt(0) },
   { token: ETH, raw: BigInt(eth) },
 ];
-const BALANCES = held(95_000_000, 0, "980000000000000000");
+const BALANCES = held(95_000_000);
+const SHOWN = "USDC 95.00 · ETH 0.98";
 
 afterEach(cleanup);
 
-type Overrides = Partial<Parameters<typeof VaultRow>[0]>;
-async function show(extra: Overrides = {}) {
-  const readBalances = vi.fn(
-    async (_tokens: readonly VaultToken[]) => BALANCES,
-  );
-  const withdraw = vi.fn(
-    async (..._args: unknown[]) => "sent" as "sent" | "no_vault",
-  );
-  const props = {
-    vault: VAULT,
-    tokens: TOKENS,
-    readBalances,
-    withdraw,
-    signer: { canSign: true, hint: null },
-    retryDelayMs: 0,
-    ...extra,
-  };
+async function show(extra: Partial<Parameters<typeof VaultRow>[0]> = {}) {
+  const readBalances = vi.fn(async (_: readonly VaultToken[]) => BALANCES);
+  const withdraw = vi.fn(async (..._: unknown[]) => "sent" as const);
   await act(async () => {
-    render(<VaultRow {...props} />);
+    render(
+      <VaultRow
+        vault={VAULT}
+        tokens={TOKENS}
+        readBalances={readBalances}
+        withdraw={withdraw as never}
+        signer={{ canSign: true, hint: null }}
+        retryDelayMs={0}
+        {...extra}
+      />,
+    );
   });
   const row = document.querySelector("[data-vault]") as HTMLElement;
+  const q = within(row);
+  const button = (name: string) => q.getByRole("button", { name });
   return {
     row,
-    readBalances: props.readBalances as typeof readBalances,
-    withdraw: props.withdraw as typeof withdraw,
+    q,
+    button,
+    readBalances,
+    withdraw: withdraw as ReturnType<typeof vi.fn>,
+    open: async () => {
+      await waitFor(() => expect(button("Withdraw")).toBeEnabled());
+      fireEvent.click(button("Withdraw"));
+    },
+    amount: () => q.getByRole("textbox", { name: "Amount" }),
+    type: (value: string) =>
+      fireEvent.change(q.getByRole("textbox", { name: "Amount" }), {
+        target: { value },
+      }),
+    click: (name: string) => fireEvent.click(button(name)),
   };
 }
-const open = async (row: HTMLElement) => {
-  await waitFor(() =>
-    expect(within(row).getByRole("button", { name: "Withdraw" })).toBeEnabled(),
-  );
-  fireEvent.click(within(row).getByRole("button", { name: "Withdraw" }));
-};
-const type = (row: HTMLElement, value: string) =>
-  fireEvent.change(within(row).getByRole("textbox", { name: "Amount" }), {
-    target: { value },
-  });
-const sign = (row: HTMLElement) =>
-  fireEvent.click(within(row).getByRole("button", { name: "Sign and send" }));
 
 describe("the vault row", () => {
-  it("shows the vault, its chain and what it holds, leaving out a zero balance", async () => {
+  it("shows the vault, its chain and what it holds, leaving out a zero balance, with the form closed", async () => {
     let release: (holdings: VaultHolding[]) => void = () => undefined;
-    const pending = new Promise<VaultHolding[]>((resolve) => {
-      release = resolve;
-    });
-    const { row } = await show({ readBalances: () => pending });
+    const pending = new Promise<VaultHolding[]>((r) => (release = r));
+    const { row, q, button } = await show({ readBalances: () => pending });
     expect(row).toHaveTextContent("Vault");
-    expect(
-      within(row).getByRole("link", { name: /0x7c4c…e079/ }),
-    ).toHaveAttribute("href", VAULT.explorer);
-    expect(within(row).getByRole("img")).toHaveAttribute("aria-label", "Base");
+    expect(q.getByRole("link", { name: /0x7c4c…e079/ })).toHaveAttribute(
+      "href",
+      VAULT.explorer,
+    );
+    expect(q.getByRole("img")).toHaveAttribute("aria-label", "Base");
     expect(row).toHaveTextContent("Reading the balance…");
     await act(async () => release(BALANCES));
-    expect(row).toHaveTextContent("USDC 95.00 · ETH 0.98");
+    expect(row).toHaveTextContent(SHOWN);
     expect(row).not.toHaveTextContent("USDT");
-    // The form is closed until Withdraw.
-    expect(within(row).queryByRole("textbox")).toBeNull();
-    expect(
-      within(row).getByRole("button", { name: "Withdraw" }),
-    ).toHaveAttribute("aria-expanded", "false");
+    expect(q.queryByRole("textbox")).toBeNull();
+    expect(button("Withdraw")).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("reads each token once, on first show", async () => {
-    const { readBalances } = await show();
+  it("reads once, opens with a chip per held token, and Max fills that token's exact balance", async () => {
+    const { row, q, open, amount, click, readBalances } = await show();
     expect(readBalances).toHaveBeenCalledTimes(1);
     expect(readBalances).toHaveBeenCalledWith(TOKENS);
-  });
-
-  it("opens inline with a chip for each token held, an amount and the copy", async () => {
-    const { row } = await show();
-    await open(row);
-    const chips = within(
-      within(row).getByRole("group", { name: "Token" }),
-    ).getAllByRole("button");
+    await open();
+    const chips = within(q.getByRole("group", { name: "Token" })).getAllByRole(
+      "button",
+    );
     expect(chips.map((chip) => chip.textContent)).toEqual(["USDC", "ETH"]);
-    expect(chips[0]).toHaveAttribute("aria-pressed", "true");
-    expect(chips[1]).toHaveAttribute("aria-pressed", "false");
-    expect(within(row).getByRole("textbox", { name: "Amount" })).toBeTruthy();
+    expect(chips.map((c) => c.getAttribute("aria-pressed"))).toEqual([
+      "true",
+      "false",
+    ]);
     expect(row).toHaveTextContent(
       "Valid for 10 minutes. You pay the network fee.",
     );
-    const buttons = within(row)
-      .getAllByRole("button")
-      .map((button) => button.textContent);
-    expect(buttons).toContain("Max");
+    const buttons = q.getAllByRole("button").map((b) => b.textContent);
     expect(buttons.indexOf("Sign and send")).toBeLessThan(
       buttons.indexOf("Cancel"),
     );
+    click("Max");
+    expect(amount()).toHaveValue("95");
+    click("ETH");
+    expect(amount()).toHaveValue("");
+    click("Max");
+    expect(amount()).toHaveValue("0.98");
   });
 
-  it("fills the whole balance of the picked token with Max", async () => {
-    const { row } = await show();
-    await open(row);
-    fireEvent.click(within(row).getByRole("button", { name: "Max" }));
-    expect(within(row).getByRole("textbox", { name: "Amount" })).toHaveValue(
-      "95",
-    );
-    fireEvent.click(within(row).getByRole("button", { name: "ETH" }));
-    // Another token starts with an empty amount, and Max is its own balance.
-    expect(within(row).getByRole("textbox", { name: "Amount" })).toHaveValue(
-      "",
-    );
-    fireEvent.click(within(row).getByRole("button", { name: "Max" }));
-    expect(within(row).getByRole("textbox", { name: "Amount" })).toHaveValue(
-      "0.98",
-    );
-  });
+  it.each([
+    ["USDC", "12.5", USDC.asset, BigInt(12_500_000)],
+    ["ETH", "0.1", { native: true }, BigInt("100000000000000000")],
+  ])(
+    "withdraws %s in base units, shows Withdrawn. and reads again until the balance changes",
+    async (symbol, value, asset, raw) => {
+      const { row, q, button, open, type, click, readBalances, withdraw } =
+        await show();
+      await open();
+      click(symbol);
+      type(value);
+      // The first two reads after the send still show the old balances.
+      readBalances
+        .mockResolvedValueOnce(BALANCES)
+        .mockResolvedValueOnce(BALANCES)
+        .mockResolvedValue(held(82_500_000));
+      click("Sign and send");
+      expect(button("Waiting for wallet…")).toBeDisabled();
+      await waitFor(() => expect(row).toHaveTextContent("Withdrawn."));
+      expect(withdraw).toHaveBeenCalledTimes(1);
+      expect(withdraw).toHaveBeenCalledWith(asset, raw);
+      await waitFor(() =>
+        expect(row).toHaveTextContent("USDC 82.50 · ETH 0.98"),
+      );
+      expect(readBalances).toHaveBeenCalledTimes(4);
+      expect(q.queryByRole("textbox")).toBeNull();
+      expect(q.queryByRole("alert")).toBeNull();
+    },
+  );
 
-  it("hands the token and the amount in base units to the withdrawal, then shows Withdrawn. and reads the balances again", async () => {
-    const { row, readBalances, withdraw } = await show();
-    await open(row);
-    type(row, "12.5");
-    readBalances.mockResolvedValue(held(82_500_000, 0, "980000000000000000"));
-    sign(row);
-    expect(
-      within(row).getByRole("button", { name: "Waiting for wallet…" }),
-    ).toBeDisabled();
-    await waitFor(() => expect(row).toHaveTextContent("Withdrawn."));
-    expect(withdraw).toHaveBeenCalledTimes(1);
-    expect(withdraw).toHaveBeenCalledWith(USDC.asset, BigInt(12_500_000));
-    await waitFor(() => expect(row).toHaveTextContent("USDC 82.50 · ETH 0.98"));
-    expect(readBalances).toHaveBeenCalledTimes(2);
-    // The form closed, with nothing left in it.
-    expect(within(row).queryByRole("textbox")).toBeNull();
-    expect(within(row).queryByRole("alert")).toBeNull();
-  });
-
-  it("sends the native coin by its own asset", async () => {
-    const { row, withdraw } = await show();
-    await open(row);
-    fireEvent.click(within(row).getByRole("button", { name: "ETH" }));
-    type(row, "0.1");
-    sign(row);
-    await waitFor(() => expect(withdraw).toHaveBeenCalled());
-    expect(withdraw).toHaveBeenCalledWith(
-      { native: true },
-      BigInt("100000000000000000"),
-    );
-  });
-
-  it("reads again while the balances still show the old amount", async () => {
-    const { row, readBalances } = await show();
-    await open(row);
-    type(row, "1");
-    // The first two reads after the send are the old balances.
-    readBalances
-      .mockResolvedValueOnce(BALANCES)
-      .mockResolvedValueOnce(BALANCES)
-      .mockResolvedValue(held(94_000_000, 0, "980000000000000000"));
-    sign(row);
-    await waitFor(() => expect(row).toHaveTextContent("USDC 94.00 · ETH 0.98"));
-    expect(readBalances).toHaveBeenCalledTimes(4);
-  });
-
-  it("refuses an amount of zero, more than the balance, and text that is not a number, before the wallet", async () => {
-    const { row, withdraw } = await show();
-    await open(row);
+  it("refuses zero, more than the balance, and text that is not a number, before the wallet", async () => {
+    const { row, q, open, type, click, withdraw } = await show();
+    await open();
     for (const [value, message] of [
       ["0", "The amount must be above 0."],
       ["95.01", "That is more than the vault holds of USDC."],
       ["abc", "Enter an amount, like 12.5."],
       ["", "Enter an amount, like 12.5."],
     ] as const) {
-      type(row, value);
-      sign(row);
+      type(value);
+      click("Sign and send");
       expect(row).toHaveTextContent(message);
-      expect(within(row).queryByRole("alert")).toBeNull();
+      expect(q.queryByRole("alert")).toBeNull();
     }
     expect(withdraw).not.toHaveBeenCalled();
-    // The message goes once the amount is changed.
-    type(row, "1");
+    type("1");
     expect(row).not.toHaveTextContent("Enter an amount");
   });
 
-  it("shows a wallet's error in an alert and keeps the form as it was", async () => {
-    const { row, withdraw } = await show();
-    withdraw.mockRejectedValueOnce(new Error("Transaction reverted"));
-    await open(row);
-    type(row, "5");
-    sign(row);
-    expect(await within(row).findByRole("alert")).toHaveTextContent(
-      "Transaction reverted",
-    );
-    expect(within(row).getByRole("textbox", { name: "Amount" })).toHaveValue(
-      "5",
-    );
-    expect(
-      within(row).getByRole("button", { name: "Sign and send" }),
-    ).toBeEnabled();
-    expect(row).not.toHaveTextContent("Withdrawn.");
-    // Trying again clears the alert, and a second try can succeed.
-    sign(row);
-    await waitFor(() => expect(row).toHaveTextContent("Withdrawn."));
-    expect(within(row).queryByRole("alert")).toBeNull();
-  });
-
-  it("says plainly when the owner declined in the wallet", async () => {
-    const { row, withdraw } = await show();
-    withdraw.mockRejectedValueOnce(new Error("User rejected the request."));
-    await open(row);
-    type(row, "5");
-    sign(row);
-    expect(await within(row).findByRole("alert")).toHaveTextContent(
+  it.each([
+    ["Transaction reverted", "Transaction reverted"],
+    [
+      "User rejected the request.",
       "Declined in your wallet. Nothing was withdrawn.",
-    );
-  });
+    ],
+  ])(
+    "shows the wallet error %j as %j, keeps the form, and can try again",
+    async (error, shown) => {
+      const { row, q, button, open, amount, type, click, withdraw } =
+        await show();
+      withdraw.mockRejectedValueOnce(new Error(error));
+      await open();
+      type("5");
+      click("Sign and send");
+      expect(await q.findByRole("alert")).toHaveTextContent(shown);
+      expect(amount()).toHaveValue("5");
+      expect(button("Sign and send")).toBeEnabled();
+      expect(row).not.toHaveTextContent("Withdrawn.");
+      click("Sign and send");
+      await waitFor(() => expect(row).toHaveTextContent("Withdrawn."));
+      expect(q.queryByRole("alert")).toBeNull();
+    },
+  );
 
   it("says the vault is not created yet, with no form, when it has no code", async () => {
-    const { row, withdraw } = await show();
+    const { row, q, open, type, click, withdraw } = await show();
     withdraw.mockResolvedValueOnce("no_vault");
-    await open(row);
-    type(row, "5");
-    sign(row);
+    await open();
+    type("5");
+    click("Sign and send");
     await waitFor(() =>
       expect(row).toHaveTextContent(
         "Nothing to withdraw yet. Your vault is created with your first trade.",
       ),
     );
-    expect(within(row).queryByRole("textbox")).toBeNull();
-    expect(
-      within(row).queryByRole("button", { name: "Sign and send" }),
-    ).toBeNull();
+    expect(q.queryByRole("textbox")).toBeNull();
+    expect(q.queryByRole("button", { name: "Sign and send" })).toBeNull();
     expect(row).not.toHaveTextContent("Withdrawn.");
   });
 
   it("closes with Cancel and forgets the amount", async () => {
-    const { row, withdraw } = await show();
-    await open(row);
-    type(row, "5");
-    fireEvent.click(within(row).getByRole("button", { name: "Cancel" }));
-    expect(within(row).queryByRole("textbox")).toBeNull();
-    fireEvent.click(within(row).getByRole("button", { name: "Withdraw" }));
-    expect(within(row).getByRole("textbox", { name: "Amount" })).toHaveValue(
-      "",
-    );
+    const { q, open, amount, type, click, withdraw } = await show();
+    await open();
+    type("5");
+    click("Cancel");
+    expect(q.queryByRole("textbox")).toBeNull();
+    click("Withdraw");
+    expect(amount()).toHaveValue("");
     expect(withdraw).not.toHaveBeenCalled();
   });
 
-  it("disables Withdraw and names the wallet to connect when it is not the owner's", async () => {
-    const { row } = await show({
-      signer: { canSign: false, hint: "Connect 0x3e14…6dde to sign." },
-    });
-    await waitFor(() => expect(row).toHaveTextContent("USDC 95.00 · ETH 0.98"));
-    expect(
-      within(row).getByRole("button", { name: "Withdraw" }),
-    ).toBeDisabled();
-    expect(row).toHaveTextContent("Connect 0x3e14…6dde to sign.");
-  });
-
-  it("disables Withdraw for an empty vault", async () => {
-    const { row } = await show({
-      readBalances: async () => held(0, 0, "0"),
-    });
-    await waitFor(() => expect(row).toHaveTextContent("Nothing in the vault."));
-    expect(
-      within(row).getByRole("button", { name: "Withdraw" }),
-    ).toBeDisabled();
+  it.each([
+    [
+      "names the owner's wallet when another is connected",
+      { signer: { canSign: false, hint: "Connect 0x3e14…6dde to sign." } },
+      "Connect 0x3e14…6dde to sign.",
+    ],
+    [
+      "says the vault is empty",
+      { readBalances: async () => held(0, "0") },
+      "Nothing in the vault.",
+    ],
+  ])("disables Withdraw and %s", async (_, extra, text) => {
+    const { row, button } = await show(extra);
+    await waitFor(() => expect(row).toHaveTextContent(text));
+    expect(button("Withdraw")).toBeDisabled();
   });
 
   it("says when the balance cannot be read, and reads it again on Try again", async () => {
@@ -310,20 +247,18 @@ describe("the vault row", () => {
       .fn()
       .mockRejectedValueOnce(new Error("rpc down"))
       .mockResolvedValue(BALANCES);
-    const { row } = await show({ readBalances });
+    const { row, button, click } = await show({ readBalances });
     await waitFor(() =>
       expect(row).toHaveTextContent("Couldn’t read the balance."),
     );
-    expect(
-      within(row).getByRole("button", { name: "Withdraw" }),
-    ).toBeDisabled();
-    fireEvent.click(within(row).getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(row).toHaveTextContent("USDC 95.00 · ETH 0.98"));
+    expect(button("Withdraw")).toBeDisabled();
+    click("Try again");
+    await waitFor(() => expect(row).toHaveTextContent(SHOWN));
     expect(row).not.toHaveTextContent("Couldn’t read");
   });
 
-  it("reads again when the tokens it may hold change, as the catalog arrives", async () => {
-    const readBalances = vi.fn(async (_tokens: readonly VaultToken[]) =>
+  it("reads again when the tokens change, not for the same tokens in a new array", async () => {
+    const readBalances = vi.fn(async (_: readonly VaultToken[]) =>
       BALANCES.slice(2),
     );
     const view = (tokens: readonly VaultToken[]) => (
@@ -337,7 +272,6 @@ describe("the vault row", () => {
     );
     const { rerender } = render(view([ETH]));
     await waitFor(() => expect(readBalances).toHaveBeenCalledTimes(1));
-    // The same tokens in a new array do not read again.
     rerender(view([ETH]));
     rerender(view([USDC, ETH]));
     await waitFor(() => expect(readBalances).toHaveBeenCalledTimes(2));
