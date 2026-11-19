@@ -1,9 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { AomiRuleChange } from "@aomi-labs/client";
+import type {
+  AomiRuleChange,
+  AomiRulesCatalog,
+  AomiWalletRules,
+} from "@aomi-labs/client";
 import { useShellAomi } from "@/account/transport";
 import { RuleChangeCard } from "@/account/rules/rule-change-card";
+import { PolicyRow } from "@/account/policies/policies-view";
+import {
+  enforcementKey,
+  policyRows,
+  policySummary,
+} from "@/account/policies/policy-model";
+import { useRuleEnforcement } from "@/account/policies/policy-enforcement";
+import { ListGroup } from "@/ui/aomi/list-group";
 
 /**
  * The changes in `ids` that still wait for the owner. A change another filing
@@ -68,5 +80,128 @@ export function PolicyChangeCard({
       onDecided={() => onDecided(change.id)}
       onStale={onStale}
     />
+  );
+}
+
+/**
+ * The wallets the agent set rules on, read from the server, with the rules
+ * that still wait for the owner's signature on chain. `filings` is one wallet
+ * id per rule filing in this chat: a new one reads its wallet again.
+ */
+export function usePolicyWallets(filings: readonly string[]) {
+  const aomi = useShellAomi();
+  const [rules, setRules] = useState<Record<string, AomiWalletRules>>({});
+  const [catalog, setCatalog] = useState<AomiRulesCatalog | null>(null);
+  const [reloads, setReloads] = useState(0);
+  const key = filings.join(",");
+  const ids = [...new Set(filings)];
+  useEffect(() => {
+    let live = true;
+    if (!key) {
+      setRules({});
+      return;
+    }
+    Promise.all(
+      [...new Set(key.split(","))].map((id) =>
+        aomi.account.rules.get(id).then(
+          (read) => [id, read] as const,
+          () => null,
+        ),
+      ),
+    ).then((read) => {
+      if (live)
+        setRules(
+          Object.fromEntries(
+            read.filter((entry): entry is [string, AomiWalletRules] => !!entry),
+          ),
+        );
+    });
+    return () => {
+      live = false;
+    };
+  }, [aomi, key, reloads]);
+  const wantCatalog = Boolean(key);
+  useEffect(() => {
+    if (!wantCatalog || catalog) return;
+    let live = true;
+    aomi.account.rules.catalog().then(
+      (read) => live && setCatalog(read),
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [aomi, wantCatalog, catalog]);
+  const signing = ids
+    .map((id) => rules[id])
+    .filter((wallet): wallet is AomiWalletRules => Boolean(wallet))
+    .map((wallet) => ({
+      rules: wallet,
+      rows: policyRows(wallet, catalog).filter(
+        (policy) => policy.enforcement.deploy,
+      ),
+    }))
+    .filter((wallet) => wallet.rows.length > 0);
+  return {
+    signing,
+    catalog,
+    reload: useCallback(() => setReloads((count) => count + 1), []),
+    update: useCallback(
+      (next: AomiWalletRules) =>
+        setRules((held) => ({ ...held, [next.agent_wallet_id]: next })),
+      [],
+    ),
+  };
+}
+
+/**
+ * One wallet's policies that wait for the owner's signature on chain: the
+ * same rows and "Sign to deploy" as Settings › Policies, here beside the
+ * chat. The signature starts the policy; nothing else does.
+ */
+export function WalletSignatures({
+  wallet,
+  rows,
+  onRules,
+  onStale,
+}: {
+  wallet: AomiWalletRules;
+  rows: ReturnType<typeof policyRows>;
+  onRules: (rules: AomiWalletRules) => void;
+  onStale: () => void;
+}) {
+  const aomi = useShellAomi();
+  const enforcement = useRuleEnforcement({
+    client: aomi,
+    walletId: wallet.agent_wallet_id,
+    revision: wallet.revision,
+    onRules,
+    onStale,
+  });
+  return (
+    <div data-policy-signatures={wallet.agent_wallet_id}>
+      <p className="type-meta text-aomi-muted mb-2 px-1">
+        {wallet.wallet_name}
+      </p>
+      <ListGroup>
+        {rows.map((policy) => {
+          const entry = wallet.enforcement.find(
+            (candidate) =>
+              enforcementKey(candidate) === policy.enforcement.deploy,
+          );
+          return (
+            <PolicyRow
+              key={policy.id}
+              policy={policy}
+              deploy={
+                entry
+                  ? enforcement.step(entry, policySummary(policy))
+                  : undefined
+              }
+            />
+          );
+        })}
+      </ListGroup>
+    </div>
   );
 }

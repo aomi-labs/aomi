@@ -87,7 +87,10 @@ export function activeWorkDurationMs(
   let total = 0;
   let observed = false;
   const span = (from: number, to: number) =>
-    Math.max(0, Math.min(to, bounds.end ?? to) - Math.max(from, bounds.start ?? from));
+    Math.max(
+      0,
+      Math.min(to, bounds.end ?? to) - Math.max(from, bounds.start ?? from),
+    );
   for (const event of events) {
     if (
       event.type !== "turn_state_changed" ||
@@ -523,9 +526,7 @@ export const WorkingTrace: FC<{
       data-testid={testIds.trace}
       className={cn(
         "aui-working-trace animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-1 mb-3 flex w-full origin-top-left flex-col overflow-hidden rounded-xl border transition-[border-color,background-color,box-shadow] duration-300 ease-out motion-reduce:animate-none motion-reduce:transition-none",
-        open
-          ? "border-aomi-border/70 bg-aomi-surface/25 shadow-[0_6px_20px_rgba(0,0,0,0.025)]"
-          : "border-transparent bg-transparent shadow-none",
+        "border-transparent bg-transparent shadow-none",
       )}
     >
       <button
@@ -534,12 +535,8 @@ export const WorkingTrace: FC<{
         aria-expanded={open}
         className={cn(
           "aui-working-trace-header flex items-center gap-2 border text-left text-sm transition-[height,padding,border-radius,border-color,background-color] duration-300 ease-out motion-reduce:transition-none",
-          open
-            ? "bg-aomi-surface/65 h-10 w-full self-stretch rounded-[11px] border-transparent px-3.5"
-            : cn(
-                WORKING_COLLAPSED_CHIP_CLASS,
-                "hover:border-aomi-muted/40 self-start",
-              ),
+          WORKING_COLLAPSED_CHIP_CLASS,
+          "hover:border-aomi-muted/40 self-start",
         )}
       >
         {outcome === "running" ? (
@@ -593,7 +590,7 @@ export const WorkingTrace: FC<{
         )}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="border-aomi-border/60 bg-aomi-bg/15 relative border-t">
+          <div className="relative pt-2">
             {windowed && overflowing && !animating && (
               <>
                 <span
@@ -862,11 +859,11 @@ export const AssistantTurnParts: FC = () => {
     : closed
       ? "complete"
       : ownStatus === "failed" || (isLast && runtime?.turnState === "failed")
-      ? "failed"
-      : ownStatus === "interrupted" ||
-          (isLast && runtime?.turnState === "interrupted")
-        ? "interrupted"
-        : "complete";
+        ? "failed"
+        : ownStatus === "interrupted" ||
+            (isLast && runtime?.turnState === "interrupted")
+          ? "interrupted"
+          : "complete";
   const delegations = isLast
     ? Object.values(taskRuns).sort((a, b) => a.startedAt - b.startedAt)
     : [];
@@ -910,9 +907,11 @@ export const AssistantTurnParts: FC = () => {
   const answerReady =
     closed ||
     (!live &&
-    !ownStopped &&
-    (ownStatus === "complete" ||
-      (ownStatus === undefined && isLast && runtime?.turnState === "complete")));
+      !ownStopped &&
+      (ownStatus === "complete" ||
+        (ownStatus === undefined &&
+          isLast &&
+          runtime?.turnState === "complete")));
   const represented = new Set(
     parts
       .filter((part) => part.type === "tool-call")

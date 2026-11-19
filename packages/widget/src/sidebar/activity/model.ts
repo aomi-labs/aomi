@@ -146,6 +146,24 @@ export function selectPolicyChangeIds(events: readonly Event[]): string[] {
   return ids;
 }
 
+/**
+ * The agent wallet each `rules_propose` or `rules_tighten` result of this chat
+ * was about, one entry per filing, oldest first. Whether a rule of one still
+ * needs the owner's signature on chain is the server's to say, so each new
+ * filing is a reason to read the wallet again.
+ */
+export function selectPolicyFilings(events: readonly Event[]): string[] {
+  const wallets: string[] = [];
+  for (const event of events) {
+    const tool = toolRecord(event);
+    if (tool?.name !== "rules_propose" && tool?.name !== "rules_tighten")
+      continue;
+    const id = string(tool.result.agent_wallet_id);
+    if (id) wallets.push(id);
+  }
+  return wallets;
+}
+
 function sameInstruction(raw: RecordValue, ix: RecordValue): boolean {
   return (
     Boolean(raw.program_id) &&

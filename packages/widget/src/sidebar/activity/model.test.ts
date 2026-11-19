@@ -9,6 +9,7 @@ import {
   selectActivity,
   selectLegacyReviewAction,
   selectPolicyChangeIds,
+  selectPolicyFilings,
   selectReviewQueue,
 } from "./model";
 
@@ -961,5 +962,21 @@ describe("selectPolicyChangeIds", () => {
     expect(
       selectPolicyChangeIds([propose(1, { id: "c1" }, "rules_get")]),
     ).toEqual([]);
+  });
+});
+
+describe("selectPolicyFilings", () => {
+  const filed = (sequence: number, wallet: string | null, name: string) =>
+    tool(sequence, name, wallet ? { agent_wallet_id: wallet } : {});
+
+  it("lists the wallet of every rules_propose and rules_tighten result, once per filing", () => {
+    const events: Event[] = [
+      filed(1, "w1", "rules_propose"),
+      filed(2, "w1", "rules_tighten"),
+      filed(3, "w2", "rules_propose"),
+      filed(4, null, "rules_propose"),
+      filed(5, "w3", "rules_get"),
+    ];
+    expect(selectPolicyFilings(events)).toEqual(["w1", "w1", "w2"]);
   });
 });

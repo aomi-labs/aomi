@@ -131,7 +131,9 @@ describe("signer is not the active wallet", () => {
   it("offers Switch to <wallet>, activates it, then plain Send", async () => {
     stage(1);
     const { rerender } = render(<ActivitySidebar />);
-    expect(screen.queryByRole("button", { name: "Send transaction" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Send transaction" }),
+    ).toBeNull();
     await act(async () => {
       fireEvent.click(
         screen.getByRole("button", { name: "Switch to My Privy" }),
@@ -142,7 +144,9 @@ describe("signer is not the active wallet", () => {
 
     rerender(<ActivitySidebar />);
     expect(screen.queryByRole("button", { name: /Switch to/ })).toBeNull();
-    expect(screen.getByRole("button", { name: "Send transaction" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Send transaction" }),
+    ).toBeEnabled();
     expect(runtime.commitController!.execute).not.toHaveBeenCalled();
   });
 
@@ -179,7 +183,9 @@ describe("signer is not the active wallet", () => {
     stage(1);
     render(<ActivitySidebar />);
     expect(screen.getByText("Connect Rabby to submit")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Send transaction" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Send transaction" }),
+    ).toBeDisabled();
     expect(screen.queryByRole("button", { name: /Switch to/ })).toBeNull();
     expect(walletKit.activateWallet).not.toHaveBeenCalled();
   });

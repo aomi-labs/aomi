@@ -17,7 +17,11 @@ describe("reviewErrorTitle", () => {
     expect(reviewErrorTitle(new Error("commit_signed_would_fail"))).toMatch(
       /would fail now, so nothing was sent/,
     );
-    expect(reviewErrorTitle(new Error('HTTP 422: {"code":"commit_envelope_mismatch"}'))).toMatch(
+    expect(
+      reviewErrorTitle(
+        new Error('HTTP 422: {"code":"commit_envelope_mismatch"}'),
+      ),
+    ).toMatch(
       /changed the transaction beyond what it may, so nothing was sent/,
     );
     expect(

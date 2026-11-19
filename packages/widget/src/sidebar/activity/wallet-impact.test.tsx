@@ -292,6 +292,8 @@ describe("Solana review detail", () => {
       },
     });
     const amount = screen.getByText("+1.0017");
-    expect(amount.getAttribute("title")).toBe("1 raw × 1.0017 display multiplier");
+    expect(amount.getAttribute("title")).toBe(
+      "1 raw × 1.0017 display multiplier",
+    );
   });
 });

@@ -1,13 +1,26 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AomiRuleChange } from "@aomi-labs/client";
-import { usePolicyChanges } from "./policy-changes";
+import type { AomiRuleChange, AomiWalletRules } from "@aomi-labs/client";
+import { usePolicyChanges, usePolicyWallets } from "./policy-changes";
 
 const shell = vi.hoisted(() => {
   const getChange = vi.fn();
-  return { getChange, aomi: { account: { rules: { getChange } } } };
+  const get = vi.fn();
+  const catalog = vi.fn();
+  return {
+    getChange,
+    get,
+    catalog,
+    aomi: { account: { rules: { getChange, get, catalog } } },
+  };
 });
 const { getChange } = shell;
+// Which rows wait to be signed is policyRows' call; here it is the test's.
+const rows = vi.hoisted(() => ({ current: [] as unknown[] }));
+vi.mock("@/account/policies/policy-model", async (original) => ({
+  ...(await original<object>()),
+  policyRows: () => rows.current,
+}));
 // The shell's client is one object for the life of the page.
 vi.mock("@/account/transport", () => ({ useShellAomi: () => shell.aomi }));
 vi.mock("@/account/rules/rule-change-card", () => ({
@@ -42,5 +55,32 @@ describe("usePolicyChanges", () => {
     await waitFor(() => expect(result.current.changes).toHaveLength(1));
     act(() => result.current.drop("c1"));
     expect(result.current.changes).toEqual([]);
+  });
+});
+
+describe("usePolicyWallets", () => {
+  const wallet = { agent_wallet_id: "w1", wallet_name: "Trading" };
+  beforeEach(() => {
+    shell.get.mockReset().mockResolvedValue(wallet as AomiWalletRules);
+    shell.catalog.mockReset().mockResolvedValue({ tokens: [] });
+  });
+
+  it("offers the wallets whose policies wait for a signature on chain", async () => {
+    rows.current = [{ id: "r1", enforcement: { name: "Swig", deploy: "k" } }];
+    const { result } = renderHook(() => usePolicyWallets(["w1", "w1"]));
+    await waitFor(() => expect(result.current.signing).toHaveLength(1));
+    expect(result.current.signing[0].rows).toHaveLength(1);
+    // One wallet filed twice is read once per read, not twice.
+    expect(shell.get).toHaveBeenCalledTimes(1);
+    expect(shell.get).toHaveBeenCalledWith("w1");
+  });
+
+  it("shows nothing once no policy waits for a signature", async () => {
+    rows.current = [{ id: "r1", enforcement: { name: "Swig" } }];
+    const { result } = renderHook(() => usePolicyWallets(["w1"]));
+    await waitFor(() => expect(shell.get).toHaveBeenCalled());
+    expect(result.current.signing).toEqual([]);
+    const idle = renderHook(() => usePolicyWallets([]));
+    expect(idle.result.current.signing).toEqual([]);
   });
 });
