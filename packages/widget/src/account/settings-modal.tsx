@@ -12,6 +12,7 @@ import {
 import {
   CreditCard,
   Plug,
+  ScrollText,
   Settings2,
   ShieldCheck,
   SlidersHorizontal,
@@ -31,7 +32,10 @@ import { GeneralSettings } from "./general-settings";
 import { BillingSettings } from "@/account/usage/billing-settings";
 import { PolicyPage } from "@/account/policy/policy-page";
 import { useAomiSession, type AomiSessionStatus } from "./aomi-session-bridge";
-/** Tab ids are stable deep-link keys; "policy" is labelled Safety. */
+/**
+ * Tab ids are stable deep-link keys; "policy" is labelled Safety and
+ * "policies" holds the agent wallets' policies.
+ */
 import { SettingsNavContext, type SettingsTab } from "./settings-events";
 
 // Load with their tab, off the host bundle.
@@ -43,6 +47,11 @@ const AccountSettings = lazy(() =>
 const ConnectionsSettings = lazy(() =>
   import("@/account/connections/connections-settings").then((module) => ({
     default: module.ConnectionsSettings,
+  })),
+);
+const PoliciesSettings = lazy(() =>
+  import("@/account/policies/policies-settings").then((module) => ({
+    default: module.PoliciesSettings,
   })),
 );
 
@@ -71,6 +80,12 @@ const NAV: {
     label: "Connections",
     description: "Apps, bots and terminals that use your account",
     Icon: Plug,
+  },
+  {
+    id: "policies",
+    label: "Policies",
+    description: "What your agent wallets may spend, and where",
+    Icon: ScrollText,
   },
   {
     id: "policy",
@@ -248,6 +263,10 @@ export function SettingsModal({
             ) : id === "connections" ? (
               <Suspense fallback={<LoadingPane label="Loading connections" />}>
                 <ConnectionsSettings />
+              </Suspense>
+            ) : id === "policies" ? (
+              <Suspense fallback={<LoadingPane label="Loading policies" />}>
+                <PoliciesSettings active={tab === "policies"} />
               </Suspense>
             ) : id === "usage" ? (
               <BillingSettings initialTopUp={initialTopUp} />
