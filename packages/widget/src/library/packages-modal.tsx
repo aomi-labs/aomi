@@ -223,8 +223,8 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
           ))}
         </ModalNav>
         <div className="border-aomi-border mt-2 md:mt-5 md:border-t md:pt-4">
-          <span className="type-eyebrow text-aomi-muted hidden px-2.5 md:block">
-            Ecosystem
+          <span className="type-meta text-aomi-muted hidden px-2.5 font-medium md:block">
+            Networks
           </span>
           <ModalNav label="Library ecosystems" className="mt-2">
             {FAMILIES.map((item) => (
