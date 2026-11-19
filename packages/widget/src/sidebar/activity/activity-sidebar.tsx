@@ -31,9 +31,11 @@ import { ToolChipView } from "@/thread/tool-chip";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import {
   selectActivity,
+  selectPolicyChangeIds,
   selectReviewCommit,
   type ActivityTransaction,
 } from "./model";
+import { PolicyChangeCard, usePolicyChanges } from "./policy-changes";
 import { focusRing } from "./presentation";
 import { SubagentRow } from "./subagent-row";
 import { TransactionCard, TransactionList } from "./transactions";
@@ -115,6 +117,11 @@ function ActivitySidebarContent() {
       ),
     [events],
   );
+  const policyChangeIds = useMemo(
+    () => selectPolicyChangeIds(events),
+    [events],
+  );
+  const policy = usePolicyChanges(policyChangeIds);
   const pending = pendingActions[0];
   const pendingCommit = selectReviewCommit(commits, commitController);
   const signing = Boolean(
@@ -217,16 +224,20 @@ function ActivitySidebarContent() {
     activity.history.length ||
     pendingActions.length ||
     commits.length ||
-    scheduled.length,
+    scheduled.length ||
+    policy.changes.length,
   );
-  const waiting = Boolean(pending || pendingCommit || scheduled.length);
+  const waiting = Boolean(
+    pending || pendingCommit || scheduled.length || policy.changes.length,
+  );
   useEffect(() => {
     setWorthShowing(hasActivity, waiting);
   }, [hasActivity, waiting, setWorthShowing]);
   useEffect(() => () => setWorthShowing(false, false), [setWorthShowing]);
   // A new wallet request reopens the sheet: it holds the only sign controls.
   // Key it like WalletReview picks its request: the live commit comes first.
-  const reviewKey = pendingCommit?.commit_id ?? pending?.id;
+  const reviewKey =
+    pendingCommit?.commit_id ?? pending?.id ?? policy.changes[0]?.id;
   useEffect(() => {
     if (sheet && reviewKey) setPanelOpen(true);
   }, [sheet, reviewKey, setPanelOpen]);
@@ -260,6 +271,20 @@ function ActivitySidebarContent() {
       {activity.skills.length > 0 && (
         <Group title="Skills" count={activity.skills.length}>
           <InvokedSkills ids={activity.skills} />
+        </Group>
+      )}
+      {policy.changes.length > 0 && (
+        <Group title="Review policy change" count={policy.changes.length}>
+          <div className="flex flex-col gap-3">
+            {policy.changes.map((change) => (
+              <PolicyChangeCard
+                key={change.id}
+                change={change}
+                onDecided={policy.drop}
+                onStale={policy.reload}
+              />
+            ))}
+          </div>
         </Group>
       )}
       {hasTransactions && (

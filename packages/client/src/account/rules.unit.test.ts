@@ -59,7 +59,7 @@ const body = {
     linked_only: true,
   },
   sentences: [
-    "Whitelist: only what is listed is allowed",
+    "Only allow policy-defined actions: on",
     "Up to 0.5 SOL on Jupiter (Solana)",
   ],
   admin: { kind: "aomi_managed" },

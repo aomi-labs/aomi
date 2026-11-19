@@ -130,6 +130,22 @@ function toolRecord(
   return unwrapped ? { name, result: unwrapped } : undefined;
 }
 
+/**
+ * The policy changes this chat's agent filed with `rules_propose` and that
+ * were left waiting for the owner, oldest first. Whether one still waits is
+ * the server's to say: a later filing replaces it, and the owner may decide.
+ */
+export function selectPolicyChangeIds(events: readonly Event[]): string[] {
+  const ids: string[] = [];
+  for (const event of events) {
+    const tool = toolRecord(event);
+    if (tool?.name !== "rules_propose") continue;
+    const id = string(record(tool.result.waiting_for_admin)?.id);
+    if (id && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
 function sameInstruction(raw: RecordValue, ix: RecordValue): boolean {
   return (
     Boolean(raw.program_id) &&

@@ -242,6 +242,31 @@ async function act(
   return {};
 }
 
+/**
+ * What a wallet or network said when a step failed. Wallets throw plain
+ * objects as often as `Error`s, and a blank message is what made this read
+ * "That didn’t go through" with no cause.
+ */
+export function failureText(cause: unknown): string {
+  const message =
+    cause instanceof Error
+      ? cause.message
+      : typeof cause === "string"
+        ? cause
+        : cause && typeof cause === "object"
+          ? [
+              (cause as { shortMessage?: unknown }).shortMessage,
+              (cause as { message?: unknown }).message,
+              (cause as { details?: unknown }).details,
+            ].find((text): text is string => typeof text === "string" && !!text)
+          : undefined;
+  const text = (message ?? "").trim();
+  // Solana nodes refuse a transaction built against another network.
+  if (/blockhash not found|block ?hash.*(expired|not found)/i.test(text))
+    return "Your wallet’s Solana network doesn’t know the block this transaction was built on. Use a wallet on the same network as Aomi, or try again.";
+  return text.length > 200 ? `${text.slice(0, 197)}…` : text;
+}
+
 /** The rules still carry the step's entry: the chain has not changed yet. */
 const stillHeld = (rules: AomiWalletRules, key: string) =>
   rules.enforcement.some((entry) => enforcementKey(entry) === key);
@@ -394,7 +419,7 @@ export function useRuleEnforcement({
         onStale();
       }
     } catch (cause) {
-      const raw = cause instanceof Error ? cause.message : "";
+      const raw = failureText(cause);
       setErrors((held) => ({
         ...held,
         [key]: isExpectedWalletCancellation(cause)
