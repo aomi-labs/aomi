@@ -7,7 +7,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import type { AomiRuleSet } from "@aomi-labs/client";
+import type { AomiPolicySet } from "@aomi-labs/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AccountOverviewFixture } from "@/test/account-overview-fixture";
 import { PoliciesSettings } from "./policies-settings";
@@ -319,7 +319,7 @@ async function renderPolicies() {
   return card;
 }
 const sentRules = (index: number) =>
-  (writes()[index]!.body as { rules: AomiRuleSet }).rules;
+  (writes()[index]!.body as { rules: AomiPolicySet }).rules;
 const rows = () =>
   [...document.querySelectorAll("[data-policy]")] as HTMLElement[];
 const removedRows = () =>

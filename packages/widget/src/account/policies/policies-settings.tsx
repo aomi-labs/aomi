@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ruleKey,
-  type AomiRulesCatalog,
-  type AomiRulesChangeRequest,
-  type AomiWalletRules,
+  type AomiPolicyCatalog,
+  type AomiPolicyChangeRequest,
+  type AomiWalletPolicies,
 } from "@aomi-labs/client";
 import { useDisplayQuery } from "@aomi-labs/react";
 import { BrandMark } from "@/account/account-management/controls";
@@ -52,7 +52,7 @@ import {
 type Aomi = ReturnType<typeof useShellAomi>;
 
 type Held = {
-  rules: AomiWalletRules | null;
+  rules: AomiWalletPolicies | null;
   failed: boolean;
   saving: boolean;
   notice: string | null;
@@ -142,7 +142,7 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
     if (rulesErrorCode(caught) === "rules_changed") void load(id);
   };
 
-  const save = async (id: string, request: AomiRulesChangeRequest) => {
+  const save = async (id: string, request: AomiPolicyChangeRequest) => {
     if (saving.current.has(id)) return;
     saving.current.add(id);
     patch(id, { saving: true, error: null, notice: null });
@@ -175,7 +175,7 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
 
   const decided = (
     id: string,
-    next: AomiWalletRules,
+    next: AomiWalletPolicies,
     outcome: "approved" | "declined",
   ) => {
     bump(id);
@@ -211,7 +211,7 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
     });
 
   /** A late step answer cannot undo a newer write. */
-  const stepped = (id: string, next: AomiWalletRules) => {
+  const stepped = (id: string, next: AomiWalletPolicies) => {
     bump(id);
     patch(id, (held) => ({
       rules:
@@ -227,7 +227,7 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
  * authority stays listed either way.
  */
 function authorityWallets(
-  rules: AomiWalletRules,
+  rules: AomiWalletPolicies,
   kit: Pick<AomiWalletKit, "wallets">,
 ): PolicyAuthorityWallet[] {
   const { admin } = rules;
@@ -282,7 +282,7 @@ export function PoliciesSettings({
     aomi,
     useMemo(() => wallets.map((wallet) => wallet.id), [wallets]),
   );
-  const [catalog, setCatalog] = useState<AomiRulesCatalog | null>(null);
+  const [catalog, setCatalog] = useState<AomiPolicyCatalog | null>(null);
   const [catalogFailed, setCatalogFailed] = useState(false);
   const live = useRef(true);
 
@@ -432,7 +432,7 @@ function PendingLine({
   onDecline,
   onReview,
 }: {
-  change: NonNullable<AomiWalletRules["pending"]>;
+  change: NonNullable<AomiWalletPolicies["pending"]>;
   saving: boolean;
   onDecline: () => void;
   onReview: () => void;
@@ -488,12 +488,12 @@ function LiveWalletCard({
   kit: Pick<AomiWalletKit, "wallets">;
   wallet: { id: string; name: string };
   held: Held;
-  walletRules: AomiWalletRules;
-  catalog: AomiRulesCatalog | null;
+  walletRules: AomiWalletPolicies;
+  catalog: AomiPolicyCatalog | null;
   picker: PolicyCatalog | null;
   onRetryCatalog?: () => void;
-  onSave: (request: AomiRulesChangeRequest) => void;
-  onStepped: (rules: AomiWalletRules) => void;
+  onSave: (request: AomiPolicyChangeRequest) => void;
+  onStepped: (rules: AomiWalletPolicies) => void;
   onStale: () => void;
 }) {
   const set = walletRules.rules;

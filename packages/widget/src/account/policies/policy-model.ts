@@ -1,13 +1,13 @@
 import {
   normalizeSolanaCluster,
   ruleKey,
-  type AomiRule,
-  type AomiRuleTo,
-  type AomiRulesAdmin,
-  type AomiRulesCatalog,
-  type AomiRulesEnforcement,
-  type AomiRulesProvider,
-  type AomiWalletRules,
+  type AomiPolicy,
+  type AomiPolicyTo,
+  type AomiPolicyAdmin,
+  type AomiPolicyCatalog,
+  type AomiPolicyEnforcement,
+  type AomiPolicyProvider,
+  type AomiWalletPolicies,
 } from "@aomi-labs/client";
 import {
   assetChain,
@@ -132,7 +132,7 @@ export type PolicyProviders = Readonly<
     {
       name: string;
       /** Unknown from a backend that does not report its providers. */
-      holds?: AomiRulesProvider["holds"];
+      holds?: AomiPolicyProvider["holds"];
       /** Shown on an app policy when the chain holds only part of it. */
       appScope?: string;
     }
@@ -243,7 +243,7 @@ export function networkExplorer(
   return explorerUrl(chain, kind, identifier) ?? undefined;
 }
 
-const WARNINGS: Partial<Record<AomiRulesEnforcement["state"], string>> = {
+const WARNINGS: Partial<Record<AomiPolicyEnforcement["state"], string>> = {
   behind: "Out of date",
   unverified: "Not verified",
 };
@@ -256,12 +256,12 @@ const WARNINGS: Partial<Record<AomiRulesEnforcement["state"], string>> = {
 export const SEND_NOTE_PREFIX = "Your revocation is signed. Send it";
 
 export const sendsRevocation = (
-  entry: Pick<AomiRulesEnforcement, "ready" | "note">,
+  entry: Pick<AomiPolicyEnforcement, "ready" | "note">,
 ) => entry.ready && Boolean(entry.note?.startsWith(SEND_NOTE_PREFIX));
 
 /** One provider's step for one rule on one network. */
 export const enforcementKey = (
-  entry: Pick<AomiRulesEnforcement, "provider" | "network" | "rule">,
+  entry: Pick<AomiPolicyEnforcement, "provider" | "network" | "rule">,
 ) => `${entry.provider}:${entry.network}:${entry.rule}`;
 
 const DAY = 86_400;
@@ -280,8 +280,8 @@ const leftLine = (left: string, symbol: string, decimals?: number | null) =>
  * provider declining), means only Aomi enforces it.
  */
 export function ruleEnforcement(
-  rule: Pick<AomiRule, "id" | "asset" | "to" | "active_until">,
-  entries: readonly AomiRulesEnforcement[],
+  rule: Pick<AomiPolicy, "id" | "asset" | "to" | "active_until">,
+  entries: readonly AomiPolicyEnforcement[],
   units?: PolicyUnits,
 ): PolicyEnforcement {
   const id = rule.id ?? ruleKey(rule);
@@ -312,7 +312,7 @@ export function ruleEnforcement(
   };
 }
 
-function deploymentLink(entry: AomiRulesEnforcement): string | undefined {
+function deploymentLink(entry: AomiPolicyEnforcement): string | undefined {
   const tx = entry.deployment_tx
     ? networkExplorer(entry.network, "tx", entry.deployment_tx)
     : undefined;
@@ -324,8 +324,8 @@ function deploymentLink(entry: AomiRulesEnforcement): string | undefined {
 }
 
 const viewTo = (
-  to: AomiRuleTo,
-  catalog: AomiRulesCatalog | null | undefined,
+  to: AomiPolicyTo,
+  catalog: AomiPolicyCatalog | null | undefined,
 ): PolicyTo =>
   to.kind === "any_protocol"
     ? { kind: "any_app" }
@@ -333,7 +333,7 @@ const viewTo = (
       ? { kind: "app", id: to.id, label: toLabel(to, catalog) }
       : { kind: "address", address: to.address };
 
-export const wireTo = (to: PolicyTo): AomiRuleTo =>
+export const wireTo = (to: PolicyTo): AomiPolicyTo =>
   to.kind === "any_app"
     ? { kind: "any_protocol" }
     : to.kind === "app"
@@ -345,8 +345,8 @@ export const wireTo = (to: PolicyTo): AomiRuleTo =>
  * keeps its own: each rule deploys with its own signature.
  */
 export function policyRows(
-  rules: Pick<AomiWalletRules, "rules" | "enforcement">,
-  catalog?: AomiRulesCatalog | null,
+  rules: Pick<AomiWalletPolicies, "rules" | "enforcement">,
+  catalog?: AomiPolicyCatalog | null,
   now = Date.now(),
 ): Policy[] {
   const rows = new Map<string, Policy>();
@@ -424,7 +424,7 @@ export function policyRows(
 }
 
 /** A `<asset>@<to>` key in parts; `to` is null when the key does not say. */
-function ruleKeyParts(id: string): { asset: string; to: AomiRuleTo | null } {
+function ruleKeyParts(id: string): { asset: string; to: AomiPolicyTo | null } {
   const at = id.lastIndexOf("@");
   if (at < 0) return { asset: id, to: null };
   const asset = id.slice(0, at);
@@ -447,8 +447,8 @@ function ruleKeyParts(id: string): { asset: string; to: AomiRuleTo | null } {
  * what the rule was.
  */
 export function removedPolicies(
-  rules: Pick<AomiWalletRules, "rules" | "enforcement">,
-  catalog?: AomiRulesCatalog | null,
+  rules: Pick<AomiWalletPolicies, "rules" | "enforcement">,
+  catalog?: AomiPolicyCatalog | null,
 ): RemovedPolicy[] {
   const current = new Set(
     rules.rules.rules.map((rule) => rule.id ?? ruleKey(rule)),
@@ -497,11 +497,11 @@ export function removalSummary(policy: RemovedPolicy) {
 
 /** How many of a wallet's policies have not ended, as the tab lists them. */
 export const activePolicyCount = (
-  rules: Pick<AomiWalletRules, "rules" | "enforcement">,
+  rules: Pick<AomiWalletPolicies, "rules" | "enforcement">,
   now = Date.now(),
 ) => policyRows(rules, null, now).filter((policy) => !policy.ended).length;
 
-export function policyCatalog(catalog: AomiRulesCatalog): PolicyCatalog {
+export function policyCatalog(catalog: AomiPolicyCatalog): PolicyCatalog {
   const tokens = new Map<string, PolicyTokenChain[]>();
   for (const token of catalog.tokens) {
     const network = assetNetwork(token.asset);
@@ -532,7 +532,7 @@ export function policyCatalog(catalog: AomiRulesCatalog): PolicyCatalog {
  * providers falls back to the wallet's own entries.
  */
 export function policyProviders(
-  rules: Pick<AomiWalletRules, "providers" | "enforcement">,
+  rules: Pick<AomiWalletPolicies, "providers" | "enforcement">,
 ): PolicyProviders {
   const listed = rules.providers.length > 0;
   const found: Record<string, PolicyProviders[string]> = {};
@@ -546,8 +546,8 @@ export function policyProviders(
 }
 
 /** One rule per picked chain; null when the amount does not fit the token. */
-export function draftRules(draft: PolicyDraft): AomiRule[] | null {
-  const rules: AomiRule[] = [];
+export function draftRules(draft: PolicyDraft): AomiPolicy[] | null {
+  const rules: AomiPolicy[] = [];
   for (const entry of draft.chains) {
     const amount = toBaseUnits(draft.amount, entry.decimals);
     if (amount === null) return null;
@@ -563,7 +563,7 @@ export function draftRules(draft: PolicyDraft): AomiRule[] | null {
   return rules;
 }
 
-export const authorityOf = (admin: AomiRulesAdmin): PolicyAuthority =>
+export const authorityOf = (admin: AomiPolicyAdmin): PolicyAuthority =>
   admin.kind === "wallet"
     ? {
         kind: "wallet",
@@ -572,7 +572,7 @@ export const authorityOf = (admin: AomiRulesAdmin): PolicyAuthority =>
       }
     : { kind: "aomi" };
 
-export const adminOf = (authority: PolicyAuthority): AomiRulesAdmin =>
+export const adminOf = (authority: PolicyAuthority): AomiPolicyAdmin =>
   authority.kind === "wallet"
     ? {
         kind: "wallet",

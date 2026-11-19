@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { hashTypedData } from "viem";
-import type { AomiRulesTypedData } from "@aomi-labs/client";
+import type { AomiPolicyTypedData } from "@aomi-labs/client";
 import { signableTypedData } from "./policy-enforcement";
 
 /**
@@ -121,7 +121,7 @@ describe("backend typed data against the wallet's signing digest", () => {
           primaryType: "Delegation",
           domain: DOMAIN,
           message,
-        } as unknown as AomiRulesTypedData,
+        } as unknown as AomiPolicyTypedData,
         DOMAIN.chainId,
       );
       const { EIP712Domain: _domain, ...types } = signable.types as Record<

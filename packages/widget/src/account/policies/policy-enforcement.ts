@@ -4,10 +4,10 @@ import { useState } from "react";
 import {
   normalizeSolanaCluster,
   shortAddress,
-  type AomiRulesAction,
-  type AomiRulesEnforcement,
-  type AomiRulesTypedData,
-  type AomiWalletRules,
+  type AomiPolicyAction,
+  type AomiPolicyEnforcement,
+  type AomiPolicyTypedData,
+  type AomiWalletPolicies,
   type WalletEip712Payload,
 } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@/wallet/context";
@@ -65,7 +65,7 @@ function integer(value: unknown, path: string): bigint {
 function typedValue(
   type: string,
   value: unknown,
-  types: AomiRulesTypedData["types"],
+  types: AomiPolicyTypedData["types"],
   path: string,
 ): unknown {
   if (type.endsWith("]")) {
@@ -99,7 +99,7 @@ function typedValue(
  * bigints (they arrive as strings past 2^53). Refuses JSON-rounded numbers
  * and a domain for another chain than `chainId`.
  */
-export function signableTypedData(data: AomiRulesTypedData, chainId: number) {
+export function signableTypedData(data: AomiPolicyTypedData, chainId: number) {
   if (!data.types[data.primaryType])
     throw new Error("The data to sign names a type it does not define.");
   const domain = { ...data.domain };
@@ -159,8 +159,8 @@ export async function sendPlainTransaction(
 
 async function act(
   kit: AomiWalletKit,
-  entry: AomiRulesEnforcement,
-  action: AomiRulesAction,
+  entry: AomiPolicyEnforcement,
+  action: AomiPolicyAction,
   description: string,
   owner: string,
 ): Promise<{ signature?: string }> {
@@ -230,7 +230,7 @@ async function act(
 }
 
 /** A replacement can keep the same rule key after the old grant is disabled. */
-const stillHeld = (rules: AomiWalletRules, key: string) =>
+const stillHeld = (rules: AomiWalletPolicies, key: string) =>
   rules.enforcement.some(
     (entry) => enforcementKey(entry) === key && sendsRevocation(entry),
   );
@@ -261,7 +261,7 @@ export function useRuleEnforcement({
   client: RulesClient;
   walletId: string;
   revision: number;
-  onRules: (rules: AomiWalletRules) => void;
+  onRules: (rules: AomiWalletPolicies) => void;
   /** A step failed; what is shown may be out of date. */
   onStale: () => void;
   retryDelayMs?: number;
@@ -271,7 +271,7 @@ export function useRuleEnforcement({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [signing, setSigning] = useState<Record<string, string>>({});
 
-  const signerOf = (entry: AomiRulesEnforcement) => {
+  const signerOf = (entry: AomiPolicyEnforcement) => {
     const { family } = entry.signer;
     const connected = connectedAddress(kit, family);
     // Once a rule is on chain, only the wallet that put it there signs.
@@ -288,7 +288,7 @@ export function useRuleEnforcement({
 
   /** `summary` is shown while the wallet prompt is open. */
   const run = async (
-    entry: AomiRulesEnforcement,
+    entry: AomiPolicyEnforcement,
     { remove = false, summary }: { remove?: boolean; summary?: string } = {},
   ) => {
     const key = enforcementKey(entry);
@@ -383,7 +383,7 @@ export function useRuleEnforcement({
   };
 
   const stepOf = (
-    entry: AomiRulesEnforcement,
+    entry: AomiPolicyEnforcement,
     summary?: string,
     remove = false,
   ): EnforcementStep => {
@@ -404,10 +404,10 @@ export function useRuleEnforcement({
     };
   };
 
-  const step = (entry: AomiRulesEnforcement, summary?: string) =>
+  const step = (entry: AomiPolicyEnforcement, summary?: string) =>
     stepOf(entry, summary);
 
-  const takeOff = (entry: AomiRulesEnforcement, summary?: string) =>
+  const takeOff = (entry: AomiPolicyEnforcement, summary?: string) =>
     stepOf(entry, summary, true);
 
   return { step, takeOff, run };

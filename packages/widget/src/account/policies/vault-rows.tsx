@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { AomiRulesEnforcement } from "@aomi-labs/client";
+import type { AomiPolicyEnforcement } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@/wallet/context";
 import { viemVaultReader, type VaultReader } from "./vault-chain";
 import type { PolicyCatalog } from "./policy-model";
@@ -14,7 +14,7 @@ export function WalletVaultRows({
   catalog,
   reader,
 }: {
-  enforcement: readonly AomiRulesEnforcement[];
+  enforcement: readonly AomiPolicyEnforcement[];
   catalog: PolicyCatalog | null;
   reader?: VaultReader;
 }) {

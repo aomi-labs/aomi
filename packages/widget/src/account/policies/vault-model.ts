@@ -1,4 +1,4 @@
-import type { AomiRulesEnforcement } from "@aomi-labs/client";
+import type { AomiPolicyEnforcement } from "@aomi-labs/client";
 import {
   assetChain,
   fromBaseUnits,
@@ -39,7 +39,7 @@ const ZERO = BigInt(0);
  * (the vault outlives the rule). Skips entries without a vault or EVM owner,
  * or whose vault is the owner's own account.
  */
-export function vaultsOf(entries: readonly AomiRulesEnforcement[]): Vault[] {
+export function vaultsOf(entries: readonly AomiPolicyEnforcement[]): Vault[] {
   const found = new Map<string, Vault>();
   for (const entry of entries) {
     if (entry.provider !== VAULT_PROVIDER || entry.signer.family !== "evm")

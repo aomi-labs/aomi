@@ -1,4 +1,4 @@
-import type { AomiRulesEnforcement } from "@aomi-labs/client";
+import type { AomiPolicyEnforcement } from "@aomi-labs/client";
 import { describe, expect, it } from "vitest";
 import type { PolicyCatalog } from "./policy-model";
 import {
@@ -24,7 +24,7 @@ const eth: VaultToken = {
 };
 const upper = (address: string) => `0x${address.slice(2).toUpperCase()}`;
 
-const entry = (extra: Partial<AomiRulesEnforcement> = {}) =>
+const entry = (extra: Partial<AomiPolicyEnforcement> = {}) =>
   ({
     rule: "eip155:8453/native@any_protocol",
     provider: "metamask",
@@ -39,7 +39,7 @@ const entry = (extra: Partial<AomiRulesEnforcement> = {}) =>
     note: null,
     signer: { family: "evm", address: OWNER },
     ...extra,
-  }) as AomiRulesEnforcement;
+  }) as AomiPolicyEnforcement;
 
 describe("vaultsOf", () => {
   it("counts removed entries too, and names each distinct vault and chain once", () => {

@@ -514,6 +514,17 @@ export type {
 export { RULES_ERROR_CODES, hasRules, ruleKey } from "./account/rules";
 export type {
   AccountRulesTransport,
+  AomiRule as AomiPolicy,
+  AomiRuleSet as AomiPolicySet,
+  AomiRuleTo as AomiPolicyTo,
+  AomiRulesAction as AomiPolicyAction,
+  AomiRulesAdmin as AomiPolicyAdmin,
+  AomiRulesCatalog as AomiPolicyCatalog,
+  AomiRulesChangeRequest as AomiPolicyChangeRequest,
+  AomiRulesEnforcement as AomiPolicyEnforcement,
+  AomiRulesProvider as AomiPolicyProvider,
+  AomiRulesTypedData as AomiPolicyTypedData,
+  AomiWalletRules as AomiWalletPolicies,
   AomiRuleChange,
   AomiRuleChangeLine,
   AomiRuleChangeState,
