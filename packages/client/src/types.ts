@@ -396,6 +396,7 @@ export interface AomiPackageEnvelope {
 export interface AomiPublicPackage {
   /** `publisher/name`. */
   id: string;
+  /** The manifest's `display_name`, else the package name. */
   display_name: string;
   description: string;
   icon_url: string | null;
@@ -420,6 +421,10 @@ export interface AomiPackage extends AomiPublicPackage {
   reason: AomiPackageReason;
   envelope: AomiPackageEnvelope;
   slots: AomiPackageSlot[];
+  /** The live release's tools. */
+  tools: { name: string; description: string }[];
+  /** Guard evaluator ids from the live release, e.g. `svm/jupiter`. */
+  guards: string[];
 }
 
 /** `GET /api/account/packages`: the thread's agent and every package row. */
