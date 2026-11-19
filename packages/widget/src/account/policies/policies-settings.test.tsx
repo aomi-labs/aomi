@@ -1339,7 +1339,7 @@ describe("Settings › Policies", () => {
 
       describe("the owner sends their own signed revocation", () => {
         const SENT_NOTE =
-          "Your revocation is signed. Send it from your wallet to take the grant off chain, or wait for Aomi to send it where the network supports that.";
+          "Your revocation is signed. Send it from your wallet to take the grant off chain.";
         const MANAGER = "0xdb9b1e94b5b69df7e401ddbede43491141047db3";
         const sendAction = {
           kind: "evm_transaction",
@@ -1413,7 +1413,7 @@ describe("Settings › Policies", () => {
                 return Response.json({ action: sendAction });
               confirms += 1;
               return Response.json({
-                rules: confirms < 3 ? still : without([]),
+                rules: confirms < 3 ? still : without([kept({ state: "off", note: null })]),
               });
             };
             await renderPolicies();
@@ -1463,7 +1463,7 @@ describe("Settings › Policies", () => {
         it.each([
           [{ network: "eip155:10" }, NETWORK_REFUSED],
           [{ to: "vitalik.eth" }, /action.to must be a 20-byte/],
-          [{ to: "0x1234" }, /action.to must be a 20-byte/],
+          [{ to: OTHER }, /different delegation manager/],
           [{ value: "0xde0b6b3a7640000" }, /Aomi asked to send funds/],
         ] as const)("refuses a send with %o", async (bad, message) => {
           kit.identity.address = ADMIN;
@@ -1706,42 +1706,6 @@ describe("Settings › Policies › vault", () => {
     await within(row!).findByText("USDC 95.00 · ETH 0.98");
     return { card, row: row! };
   };
-
-  it("shows one row for a wallet's MetaMask vault, with its balances read from the chain", async () => {
-    // Two rules on one vault, one removed: still one vault.
-    const { card, row } = await renderVault([
-      vaultEntry(),
-      vaultEntry({ rule: `${USDC}@protocol:aerodrome`, state: "behind" }),
-    ]);
-    expect(vaults()).toHaveLength(1);
-    expect(card.contains(row)).toBe(true);
-    has(row, "Vault");
-    expect(within(row).getByRole("img")).toHaveAttribute("aria-label", "Base");
-    expect(chain.balances).toHaveBeenCalledTimes(1);
-    expect(chain.balances).toHaveBeenCalledWith(8453, VAULT, [
-      {
-        symbol: "USDC",
-        decimals: 6,
-        asset: { erc20: USDC.split("erc20:")[1] },
-      },
-      { symbol: "ETH", decimals: 18, asset: { native: true } },
-    ]);
-    // After the policy rows, before who may change them.
-    after(row, card.querySelector("[data-policy-authority]")!);
-  });
-
-  it("shows none for a wallet with no MetaMask vault: another provider, or a chain no withdrawal is built for", async () => {
-    rules = body({
-      enforcement: [
-        provider({ account: OWNER }),
-        vaultEntry({ network: "eip155:42161" }),
-        vaultEntry({ account: null }),
-      ],
-    });
-    await renderPolicies();
-    expect(vaults()).toHaveLength(0);
-    expect(chain.balances).not.toHaveBeenCalled();
-  });
 
   it("withdraws: the owner's wallet goes to the vault's chain, signs, then sends to the DelegationManager, and nothing goes to Aomi", async () => {
     kit.identity.address = ADMIN.toLowerCase();

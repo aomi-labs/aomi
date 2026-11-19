@@ -12,17 +12,13 @@ import {
 } from "./policy-model";
 import { WITHDRAW_CHAINS, type WithdrawAsset } from "./vault-withdraw";
 
-/** The provider whose entries carry a vault. */
 export const VAULT_PROVIDER = "metamask";
 
-/** One vault on one chain: one Withdraw row. */
 export type Vault = {
-  /** `<chain id>:<lower-case vault address>`. */
   key: string;
   address: string;
   chainId: number;
   chain: PolicyChain;
-  /** Signs the withdrawal and receives it. */
   owner: string;
   explorer?: string;
 };
@@ -78,7 +74,6 @@ export function vaultsOf(entries: readonly AomiRulesEnforcement[]): Vault[] {
   return [...found.values()];
 }
 
-/** The catalog's ERC-20s on `network`, then native ETH (on every withdraw chain). */
 export function vaultTokens(
   catalog: PolicyCatalog | null,
   network: string,
@@ -122,7 +117,6 @@ export const sameHoldings = (
 export const exactAmount = (raw: bigint, decimals: number) =>
   fromBaseUnits(raw.toString(), decimals);
 
-/** 2 to 6 decimals, grouped (`95.00`, `1,250.5`); dust reads `<0.000001`. */
 export function shownAmount(raw: bigint, decimals: number) {
   const [whole = "0", fraction = ""] = exactAmount(raw, decimals).split(".");
   if (decimals === 0) return policyAmount(whole);
@@ -131,7 +125,6 @@ export function shownAmount(raw: bigint, decimals: number) {
   return `${policyAmount(whole)}.${cut.padEnd(2, "0")}`;
 }
 
-/** `USDC 95.00 · ETH 0.98`: what the vault holds, or null when nothing. */
 export function holdingsLine(holdings: readonly VaultHolding[]) {
   const held = nonzero(holdings);
   return held.length
@@ -144,7 +137,6 @@ export function holdingsLine(holdings: readonly VaultHolding[]) {
     : null;
 }
 
-/** A typed amount in base units, positive and within `balance`, or why not. */
 export function parseWithdrawAmount(
   text: string,
   token: VaultToken,

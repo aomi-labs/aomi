@@ -31,10 +31,7 @@ export type WithdrawVault = (
   amount: bigint,
 ) => Promise<"sent" | "no_vault">;
 
-/**
- * Stale or post-unmount reads are dropped. `refresh` retries until balances
- * differ from `before`: the wallet's node may see a withdrawal first.
- */
+// The wallet RPC can confirm before balance reads catch up.
 function useVaultBalances(
   read: ReadBalances,
   tokens: readonly VaultToken[],
@@ -85,7 +82,6 @@ function useVaultBalances(
   return { holdings, failed, reload: load, refresh };
 }
 
-/** The owner's vault with an inline Withdraw form; it knows no wallet. */
 export function VaultRow({
   vault,
   tokens,
@@ -95,12 +91,10 @@ export function VaultRow({
   retryDelayMs = 2_000,
 }: {
   vault: Vault;
-  /** Those with a balance are offered. */
   tokens: readonly VaultToken[];
   readBalances: ReadBalances;
   withdraw: WithdrawVault;
   signer: { canSign: boolean; hint: string | null };
-  /** Between reads while a withdrawal is not yet shown in the balances. */
   retryDelayMs?: number;
 }) {
   const { holdings, failed, reload, refresh } = useVaultBalances(

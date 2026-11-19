@@ -1,17 +1,4 @@
-/**
- * The owner's withdraw from their MetaMask vault, with nothing stored by Aomi.
- *
- * The owner signs ONE `Delegation` from the vault to their own account
- * (authority root, fresh salt) bound by `Timestamp(0, deadline + 1)` and
- * `LimitedCalls(1)`, then sends `redeemDelegations` from that account: one
- * ERC-20 `transfer(owner, amount)` or native send to the owner. Only the
- * delegate can redeem, so the signature is useless to others and never sent
- * to Aomi.
- *
- * Plain module (viem only, no React) so Node can import it; it builds and
- * guards, never signs or sends. Shapes and caveat terms match the backend's
- * `aomi/crates/sign/src/aa/delegation.rs`.
- */
+// The owner redeems a short-lived, single-use delegation from their vault.
 import {
   encodeAbiParameters,
   encodeFunctionData,
@@ -29,15 +16,11 @@ export const DELEGATION_MANAGER = "0xdb9b1e94b5b69df7e401ddbede43491141047db3";
 export const TIMESTAMP_ENFORCER = "0x1046bb45c8d673d4ea75321280db34899413c069";
 export const LIMITED_CALLS_ENFORCER =
   "0x04658b29f6b82ed55274221a06fc97d318e25416";
-/** `authority` of a delegation the vault grants itself. */
 export const ROOT_AUTHORITY: Hex = `0x${"ff".repeat(32)}`;
-/** Ethereum, Optimism, Base, Base Sepolia: where the backend pins the manager. */
 export const WITHDRAW_CHAINS: readonly number[] = [1, 10, 8453, 84532];
-/** Seconds a signed withdrawal may stay redeemable. */
 export const MAX_WITHDRAW_WINDOW = 3_600;
 
 const UINT256_MAX = BigInt(2) ** BigInt(256) - BigInt(1);
-/** secp256k1's group order over two: the vault's ECDSA refuses a larger `s`. */
 const HALF_ORDER = BigInt(
   "0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0",
 );
@@ -135,7 +118,6 @@ const word = (value: bigint) => value.toString(16).padStart(64, "0");
 export const timestampTerms = (after: bigint, before: bigint): Hex =>
   `0x${word(after).slice(32)}${word(before).slice(32)}`;
 
-/** `uint256 limit` on the number of redemptions. */
 export const limitedCallsTerms = (limit: bigint): Hex => `0x${word(limit)}`;
 
 const nowSeconds = () => Math.floor(Date.now() / 1000);
@@ -150,7 +132,6 @@ export function freshSalt(
   ).toString();
 }
 
-/** Lets only `owner` redeem one withdrawal from `vault` until `deadline` (inclusive). */
 export function withdrawTypedData({
   chainId,
   vault,
@@ -205,7 +186,6 @@ export function withdrawTypedData({
   };
 }
 
-/** For viem: salt as bigint, no `EIP712Domain` type (viem derives it). */
 export function withdrawSigningArgs(data: WithdrawTypedData) {
   const { EIP712Domain: _domain, ...types } = data.types;
   return {
@@ -229,10 +209,6 @@ function vaultSignature(value: unknown): Hex {
   return `0x${bytes.slice(0, 128)}${(v === 0 || v === 27 ? 27 : 28).toString(16)}`;
 }
 
-/**
- * Refuses anything but what `withdrawTypedData` makes: delegate `owner`, root
- * authority, exactly its two caveats in order. Nothing else reaches a tx.
- */
 function checkedDelegation(
   delegation: WithdrawDelegation,
   owner: string,
@@ -290,7 +266,6 @@ function checkedDelegation(
   };
 }
 
-/** Redeems the delegation once: `amount` of `asset` to `owner`, and only there. */
 export function withdrawCalldata({
   delegation,
   signature,

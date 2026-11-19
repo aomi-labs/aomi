@@ -9,14 +9,12 @@ import { VaultRow } from "./vault-row";
 import { vaultTokens, vaultsOf } from "./vault-model";
 import { vaultSigner, withdrawFromVault } from "./vault-withdraw-flow";
 
-/** One Withdraw row per vault the entries name, wired to the real wallet. */
 export function WalletVaultRows({
   enforcement,
   catalog,
   reader,
 }: {
   enforcement: readonly AomiRulesEnforcement[];
-  /** Null until the catalog is read: a vault then lists only ETH. */
   catalog: PolicyCatalog | null;
   reader?: VaultReader;
 }) {

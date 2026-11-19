@@ -8,9 +8,7 @@ import {
 import { base, baseSepolia, mainnet, optimism } from "viem/chains";
 import type { VaultHolding, VaultToken } from "./vault-model";
 
-/** Read-only chain access for the Withdraw row; tests pass a fake. */
 export type VaultReader = {
-  /** The vault has code: it is created with its owner's first trade. */
   hasCode: (chainId: number, vault: string) => Promise<boolean>;
   /** Zero balances included; unreadable tokens left out; throws if all fail. */
   balances: (
@@ -22,7 +20,6 @@ export type VaultReader = {
 
 const KNOWN: readonly Chain[] = [mainnet, optimism, base, baseSepolia];
 
-/** A viem client per chain; the wallet kit's chains win, so a host's RPC is used. */
 export function viemVaultReader(
   supportedChains: readonly Chain[] = [],
 ): VaultReader {

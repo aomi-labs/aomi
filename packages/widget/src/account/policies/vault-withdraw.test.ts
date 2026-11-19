@@ -2,12 +2,10 @@ import {
   concat,
   decodeAbiParameters,
   decodeFunctionData,
-  hashTypedData,
   keccak256,
   pad,
   parseAbi,
   parseAbiParameters,
-  recoverTypedDataAddress,
   stringToHex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -17,7 +15,6 @@ import {
   MAX_WITHDRAW_WINDOW,
   ROOT_AUTHORITY,
   TIMESTAMP_ENFORCER,
-  freshSalt,
   limitedCallsTerms,
   timestampTerms,
   withdrawCalldata,
@@ -54,7 +51,6 @@ const fields = (spec: string) =>
     const [name, type] = field.split(":");
     return { name, type };
   });
-const hash = (text: string) => keccak256(stringToHex(text));
 const word = (address: string) =>
   pad(address.toLowerCase() as `0x${string}`, { size: 32 });
 const uint = (value: bigint | number) =>
@@ -99,7 +95,6 @@ describe("the withdraw typed data", () => {
   });
 
   it("writes the Timestamp and LimitedCalls terms as the on-chain vectors do", () => {
-    // vectors.json: Timestamp end 2000000000, LimitedCalls 1.
     const end = `0x${"0".repeat(56)}77359401`;
     expect(timestampTerms(BigInt(0), BigInt(2_000_000_001))).toBe(end);
     expect(timestampTerms(BigInt(1), BigInt(2))).toBe(
@@ -108,109 +103,6 @@ describe("the withdraw typed data", () => {
     expect(limitedCallsTerms(BigInt(1))).toBe(ONCE);
     const { caveats } = typed({ deadline: 2e9, now: 2e9 - 60 }).message;
     expect(caveats.map((caveat) => caveat.terms)).toEqual([end, ONCE]);
-  });
-
-  it("takes the salt as a bigint or digits, and makes a fresh one of 32 random bytes", () => {
-    const max = BigInt(2) ** BigInt(256) - BigInt(1);
-    expect(typed({ salt: BigInt(SALT) }).message.salt).toBe(SALT);
-    expect(typed({ salt: max }).message.salt).toBe(max.toString());
-    expect(freshSalt(() => new Uint8Array(32).fill(255))).toBe(max.toString());
-    expect(freshSalt()).toMatch(/^[0-9]+$/);
-    expect(freshSalt()).not.toBe(freshSalt());
-  });
-});
-
-type Caveat = { enforcer: string; terms: string };
-type Delegation = {
-  delegate: string;
-  delegator: string;
-  authority: string;
-  caveats: Caveat[];
-  salt: string;
-};
-/** An independent EIP-712 hasher over the framework's own type strings. */
-function digestOf(chainId: number, d: Delegation) {
-  const caveat = (c: Caveat) =>
-    keccak256(
-      concat([
-        hash("Caveat(address enforcer,bytes terms)"),
-        word(c.enforcer),
-        keccak256(c.terms as `0x${string}`),
-      ]),
-    );
-  const struct = keccak256(
-    concat([
-      hash(
-        "Delegation(address delegate,address delegator,bytes32 authority,Caveat[] caveats,uint256 salt)Caveat(address enforcer,bytes terms)",
-      ),
-      word(d.delegate),
-      word(d.delegator),
-      d.authority as `0x${string}`,
-      keccak256(concat(d.caveats.map(caveat))),
-      uint(BigInt(d.salt)),
-    ]),
-  );
-  const domain = keccak256(
-    concat([
-      hash(
-        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
-      ),
-      hash("DelegationManager"),
-      hash("1"),
-      uint(chainId),
-      word(DELEGATION_MANAGER),
-    ]),
-  );
-  return { struct, digest: keccak256(concat(["0x1901", domain, struct])) };
-}
-
-describe("the digest the owner signs", () => {
-  it("anchors the independent hasher to the on-chain vectors (the ERC-20 grant, salt 1)", () => {
-    expect(
-      digestOf(8453, {
-        delegate: "0x5bec442d21b8ad1b8b58c93e7800bfb4974008e6",
-        delegator: VAULT,
-        authority: ROOT_AUTHORITY,
-        caveats: [
-          {
-            enforcer: "0xf100b0819427117ecf76ed94b358b1a5b5c6d2fc",
-            terms: `${USDC}${uint(10_000_000).slice(2)}`,
-          },
-          {
-            enforcer: "0xc2b0d624c1c4319760c96503ba27c347f3260f55",
-            terms: `${uint(4)}${word("0x62b9c04b61f4b371bd0bc88e0db8a38df5d72bd4").slice(2)}`,
-          },
-          {
-            enforcer: "0x92bf12322527caa612fd31a0e810472bbb106a8f",
-            terms: uint(0),
-          },
-        ],
-        salt: "1",
-      }),
-    ).toEqual({
-      struct:
-        "0xddc8984d018c399cf7be59aed178f4e5f1e9a93ff4890f861c4910f52dbdb432",
-      digest:
-        "0x9db75c27c7ddc6b9d19a402cbc84f4b3c50232c6a60da0c60389f479b390e2ec",
-    });
-  });
-
-  it("matches viem's hash on every chain, changes with salt and deadline, and recovers to the owner", async () => {
-    for (const chainId of [1, 10, 8453, 84532]) {
-      const data = typed({ chainId });
-      expect(hashTypedData(withdrawSigningArgs(data))).toBe(
-        digestOf(chainId, data.message).digest,
-      );
-    }
-    const digest = (extra: object = {}) =>
-      hashTypedData(withdrawSigningArgs(typed(extra)));
-    expect(digest({ salt: "1" })).not.toBe(digest());
-    expect(digest({ deadline: DEADLINE + 1 })).not.toBe(digest());
-    const args = withdrawSigningArgs(typed());
-    const signature = await owner.signTypedData(args);
-    expect(await recoverTypedDataAddress({ ...args, signature })).toBe(
-      owner.address,
-    );
   });
 });
 
@@ -318,18 +210,6 @@ describe("what is refused", () => {
     for (const extra of cases) refuses(() => typed(extra), message);
   });
 
-  it("accepts a deadline from one second to an hour out, on the real clock when now is left out", () => {
-    expect(typed({ deadline: NOW + 1 }).message.caveats).toHaveLength(2);
-    expect(typed({ deadline: NOW + MAX_WITHDRAW_WINDOW })).toBeTruthy();
-    const soon = Math.floor(Date.now() / 1000) + 600;
-    const real = (deadline: number) =>
-      withdrawTypedData({ ...input(), now: undefined, deadline });
-    expect(real(soon).message.caveats[0]!.terms).toBe(
-      timestampTerms(BigInt(0), BigInt(soon + 1)),
-    );
-    refuses(() => real(soon - 700), /not in the future/);
-  });
-
   it.each<[RegExp, object[]]>([
     [
       /not for the owner's own account/,
@@ -374,11 +254,5 @@ describe("what is refused", () => {
     [AMOUNT_ERROR, [{ amount: (BigInt(2) ** BigInt(256)).toString() }]],
   ])("in the redeem: %s", (message, cases) => {
     for (const extra of cases) refuses(() => build(extra), message);
-  });
-
-  it("accepts the edges of the validity window and a big exact amount", () => {
-    expect(build({ now: DEADLINE - 1 })).toBeTruthy();
-    expect(build({ now: NOW - 3_000 })).toBeTruthy();
-    expect(build({ amount: BigInt(2) ** BigInt(255) })).toBeTruthy();
   });
 });

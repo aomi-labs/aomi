@@ -13,7 +13,6 @@ import {
   type WithdrawAsset,
 } from "./vault-withdraw";
 
-/** How long a signed withdrawal stays redeemable. */
 export const WITHDRAW_SECONDS = 600;
 
 export type WithdrawKit = Pick<
@@ -21,7 +20,6 @@ export type WithdrawKit = Pick<
   "identity" | "switchChain" | "signTypedData" | "sendTransaction"
 >;
 
-/** Only the owner's own account can sign; otherwise, which wallet to connect. */
 export function vaultSigner(
   kit: Pick<AomiWalletKit, "identity">,
   owner: string,

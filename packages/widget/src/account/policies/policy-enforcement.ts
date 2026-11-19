@@ -23,6 +23,7 @@ import {
   sameWallet,
 } from "@/account/rules/rules-model";
 import { enforcementKey, sendsRevocation } from "./policy-model";
+import { DELEGATION_MANAGER } from "./vault-withdraw";
 
 const FAMILY = { evm: "an EVM", svm: "a Solana" };
 
@@ -124,7 +125,6 @@ export function signableTypedData(data: AomiRulesTypedData, chainId: number) {
 
 const PLAIN_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
-/** Wallets sign and send on their current chain. */
 export async function switchToChain(
   kit: Pick<AomiWalletKit, "identity" | "switchChain">,
   chainId: number,
@@ -133,7 +133,7 @@ export async function switchToChain(
     await kit.switchChain(chainId);
 }
 
-/** A plain send from the connected account: no AA, no sponsor; throws on revert. */
+/** Submit from the connected account and wait for the receipt. */
 export async function sendPlainTransaction(
   send: NonNullable<AomiWalletKit["sendTransaction"]>,
   tx: {
@@ -157,12 +157,6 @@ export async function sendPlainTransaction(
   );
 }
 
-/**
- * Run the step's action in the owner's wallet. Refuses another network than
- * the entry's (never a default network) and a family the wallet can't do. A
- * plain EVM send (a signed revocation) goes only from the policy's owner, to
- * a plain address, with no value.
- */
 async function act(
   kit: AomiWalletKit,
   entry: AomiRulesEnforcement,
@@ -198,6 +192,11 @@ async function act(
       throw new Error(
         "Aomi asked to send to something that is not an address. Nothing was sent.",
       );
+    if (
+      entry.provider === "metamask" &&
+      action.to.toLowerCase() !== DELEGATION_MANAGER
+    )
+      throw new Error("The revocation targets a different delegation manager.");
     if (BigInt(action.value) !== BigInt(0))
       throw new Error(
         "Aomi asked to send funds with the revocation. Nothing was sent.",
@@ -230,9 +229,11 @@ async function act(
   return {};
 }
 
-/** The step's entry is still there: the chain has not changed yet. */
+/** A replacement can keep the same rule key after the old grant is disabled. */
 const stillHeld = (rules: AomiWalletRules, key: string) =>
-  rules.enforcement.some((entry) => enforcementKey(entry) === key);
+  rules.enforcement.some(
+    (entry) => enforcementKey(entry) === key && sendsRevocation(entry),
+  );
 
 /** One provider's step as a policy row shows it. */
 export type EnforcementStep = {
