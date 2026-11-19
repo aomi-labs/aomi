@@ -95,8 +95,8 @@ const navGroups: NavGroup[] = [
     title: "Account",
     items: [
       { label: "Keys", href: "/keys", icon: Key },
-      { label: "Providers", href: "/providers", icon: KeyRound },
-      { label: "Integrations", href: "/integrations", icon: Plug },
+      { label: "Model providers", href: "/providers", icon: KeyRound },
+      { label: "Channels", href: "/integrations", icon: Plug },
       { label: "Settings", href: "/settings", icon: Settings, public: true },
     ],
   },

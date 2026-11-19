@@ -906,7 +906,7 @@ export function ProvidersView() {
       <header>
         <div className="flex items-center gap-2">
           <KeyRound className="text-aomi-muted size-5" aria-hidden />
-          <h1 className={pageTitle}>Providers</h1>
+          <h1 className={pageTitle}>Model providers</h1>
         </div>
         <p className="text-aomi-muted mt-1.5 max-w-3xl text-sm leading-5">
           Your keys fund inference for your agents&apos; users — model cost is

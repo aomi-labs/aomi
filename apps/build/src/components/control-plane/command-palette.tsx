@@ -71,7 +71,7 @@ const COMMANDS: CommandItem[] = [
   },
   {
     id: "providers",
-    label: "Providers",
+    label: "Model providers",
     hint: "LLM keys that fund your users",
     href: "/providers",
     icon: KeyRound,
@@ -79,8 +79,8 @@ const COMMANDS: CommandItem[] = [
   },
   {
     id: "integrations",
-    label: "Integrations",
-    hint: "Channels",
+    label: "Channels",
+    hint: "Telegram and other ways people reach your agents",
     href: "/integrations",
     icon: Plug,
   },
