@@ -1,10 +1,6 @@
 "use client";
-import { useMemo, type FC } from "react";
-import {
-  AppWindowIcon,
-  Globe2Icon,
-  WandSparklesIcon,
-} from "lucide-react";
+import { useEffect, useMemo, useRef, type FC } from "react";
+import { AppWindowIcon, Globe2Icon, WandSparklesIcon } from "lucide-react";
 import {
   isTestnetChain,
   packageMentions,
@@ -79,11 +75,23 @@ export function walletPickerItems(rows: readonly WalletRow[]): PickerItem[] {
   });
 }
 
-/** A package's icon at picker size, as the Library draws it. */
-function packageIcon(row: AomiPublicPackage): FC<{ className?: string }> {
-  return function PackageRowIcon({ className }) {
-    return <PackageMark iconUrl={row.icon_url} className={className} />;
-  };
+/**
+ * One icon component per `icon_url`, kept for the page's life: a refetched
+ * catalog then hands back the same component, so a tag already on screen keeps
+ * its mark instead of remounting and repainting it.
+ */
+const packageIcons = new Map<string, FC<{ className?: string }>>();
+
+function packageIcon(iconUrl?: string | null): FC<{ className?: string }> {
+  const key = iconUrl ?? "";
+  let Icon = packageIcons.get(key);
+  if (!Icon) {
+    Icon = function PackageRowIcon({ className }) {
+      return <PackageMark iconUrl={iconUrl} className={className} />;
+    };
+    packageIcons.set(key, Icon);
+  }
+  return Icon;
 }
 
 /** Package rows (`packageMentions`) for the picker, with their icons. */
@@ -101,7 +109,7 @@ export function packagePickerItems(
       description,
       fullDescription: row.description,
       searchText,
-      Icon: packageIcon(row),
+      Icon: packageIcon(row.icon_url),
     };
   });
 }
@@ -133,15 +141,26 @@ export function usePackagePickerItems(): PickerItem[] {
         .then(parsePackageCatalog),
     enabled: accountUserId == null,
   });
-  return useMemo(
+  const rows = useMemo(
     () =>
-      packagePickerItems(
-        accountUserId != null
-          ? (account.data?.packages ?? []).filter((row) => row.enabled)
-          : (publicRows.data ?? []),
-      ),
+      accountUserId != null
+        ? account.data?.packages.filter((row) => row.enabled)
+        : publicRows.data,
     [accountUserId, account.data, publicRows.data],
   );
+  // Sending a new chat's first message gives it a server id, so the account
+  // read re-keys and reloads. Until it lands, keep this account's last rows:
+  // otherwise the sent message loses its tag and mark for a moment.
+  const last = useRef<{ account?: string; rows: AomiPublicPackage[] }>(
+    undefined,
+  );
+  useEffect(() => {
+    if (rows) last.current = { account: accountUserId, rows };
+  }, [accountUserId, rows]);
+  const kept = last.current;
+  const shown =
+    rows ?? (kept?.account === accountUserId ? kept?.rows : undefined);
+  return useMemo(() => packagePickerItems(shown ?? []), [shown]);
 }
 
 export function useCapabilityCatalog(): PickerItem[] {

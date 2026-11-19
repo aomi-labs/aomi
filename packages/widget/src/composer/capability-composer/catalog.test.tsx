@@ -14,12 +14,13 @@ const fixture = vi.hoisted(() => ({
   packages: [] as AomiPackage[],
   publicPackages: [] as AomiPublicPackage[],
   signedIn: true,
+  reloading: false,
 }));
 vi.mock("@aomi-labs/react", async (original) => ({
   ...(await original<typeof import("@aomi-labs/react")>()),
   useDisplayQuery: (query: { resource: string; enabled?: boolean }) => ({
     data:
-      query.enabled === false
+      query.enabled === false || fixture.reloading
         ? undefined
         : query.resource === "packages"
           ? fixture.publicPackages
@@ -63,6 +64,7 @@ vi.mock("@/library/use-package-catalog", () => ({
 import {
   packagePickerItems,
   useCapabilityCatalog,
+  usePackagePickerItems,
   walletPickerItems,
 } from "./catalog";
 import { pickerGroups } from "./model";
@@ -71,6 +73,7 @@ beforeEach(() => {
   fixture.packages = [];
   fixture.publicPackages = [];
   fixture.signedIn = true;
+  fixture.reloading = false;
   fixture.model = "openai:gpt-6.1-sol";
   fixture.agents = [
     {
@@ -311,6 +314,31 @@ describe("packagePickerItems", () => {
         description: "Token prices, TVL and yields from DefiLlama",
       },
     ]);
+  });
+
+  it("hands back the same icon component for an icon_url on every read", () => {
+    const iconUrl = "/api/packages/aomi%2Fdefillama/icon";
+    const [first] = packagePickerItems([pkg({ icon_url: iconUrl })]);
+    const [again] = packagePickerItems([pkg({ icon_url: iconUrl })]);
+    expect(again!.Icon).toBe(first!.Icon);
+  });
+
+  it("keeps the account's rows while its read reloads under a new key", () => {
+    fixture.packages = [pkg({})];
+    const { result, rerender } = renderHook(() => usePackagePickerItems());
+    expect(result.current.map((item) => item.id)).toEqual(["aomi/defillama"]);
+    fixture.reloading = true;
+    rerender();
+    expect(result.current.map((item) => item.id)).toEqual(["aomi/defillama"]);
+  });
+
+  it("drops the last rows once the account changes", () => {
+    fixture.packages = [pkg({})];
+    const { result, rerender } = renderHook(() => usePackagePickerItems());
+    fixture.signedIn = false;
+    fixture.reloading = true;
+    rerender();
+    expect(result.current).toEqual([]);
   });
 
   it("draws the package's own icon as a mask, else the generic package icon", () => {
