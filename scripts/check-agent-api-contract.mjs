@@ -1,4 +1,5 @@
 import { publicApiContract } from "./public-api-contract.mjs";
+import { isDeepStrictEqual } from "node:util";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -15,8 +16,7 @@ const generatedSchemas = join(
 );
 const serialized = publicApiContract(rustRepo);
 const checkedIn = readFileSync(source, "utf8");
-const current = JSON.stringify(JSON.parse(serialized));
-if (current !== JSON.stringify(JSON.parse(checkedIn))) {
+if (!isDeepStrictEqual(JSON.parse(serialized), JSON.parse(checkedIn))) {
   console.error(
     "Rust Agent OpenAPI snapshot is stale. Run `pnpm generate:agent-api`.",
   );
