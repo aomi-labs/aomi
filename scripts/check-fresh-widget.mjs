@@ -271,10 +271,12 @@ try {
           "--docs",
           process.env.AOMI_DOCS_DIRECTORY,
         ]);
-      const port = await new Promise((resolvePort) => {
+      const port = await new Promise((resolvePort, reject) => {
         import("node:net").then(({ createServer }) => {
           const probe = createServer();
-          probe.listen(0, "127.0.0.1", () => {
+          probe.once("error", reject);
+          // The real Privy fixture permits localhost:3000 in its frame policy.
+          probe.listen(provider === "privy" ? 3000 : 0, "127.0.0.1", () => {
             const number = probe.address().port;
             probe.close(() => resolvePort(number));
           });
