@@ -1,8 +1,8 @@
 # /build sandbox runner image
 
-The Cloudflare runner reports the last failed Smithers step when its run
-database records one. It returns a fixed stage label and keeps child-process
-output out of the Build status response.
+When Smithers exits unsuccessfully, the Cloudflare runner reports its last
+recorded step and distinguishes signal termination from a regular exit. The
+status response uses fixed labels and excludes child-process output.
 The runner registers its model egress handler through the Container library's
 `outboundByHost` setter so the proxy routes requests back to the owning run.
 

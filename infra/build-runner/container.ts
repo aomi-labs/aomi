@@ -18,27 +18,42 @@ let failure = "";
 let fileTree = [];
 let stages: { id: string; label: string; kind: string; status: string }[] = [];
 
-function failedStage(statePath: string): string | undefined {
+function lastBuildStep(statePath: string): string | undefined {
   try {
     const db = new Database(statePath, { readonly: true });
     try {
-      const node = db.query(`SELECT node_id FROM _smithers_nodes
-        WHERE run_id = ? AND state = 'failed' ORDER BY updated_at_ms DESC LIMIT 1`)
-        .get(runId!) as { node_id: string } | null;
-      // Return only fixed labels. Child-process errors can contain input or credentials.
-      switch (node?.node_id.slice(app.length + 1)) {
-        case "binaries": return "toolchain setup";
-        case "codegen": return "OpenAPI discovery or code generation";
-        case "curate": return "tool curation";
-        case "validate":
-        case "fix": return "application validation";
-        case "smoke": return "smoke testing";
-        case "result": return "artifact packaging";
-      }
+      const node = db.query(`SELECT node_id, state FROM _smithers_nodes
+        WHERE run_id = ? AND state IN ('failed', 'in-progress', 'finished')
+        ORDER BY updated_at_ms DESC, (state = 'failed') DESC, iteration DESC, node_id LIMIT 1`)
+        .get(runId!) as { node_id: string; state: string } | null;
+      if (!node?.node_id.startsWith(app + ":")) return;
+      const label = stepLabel(node.node_id.slice(app.length + 1));
+      if (label) return `${node.state === "finished" ? "after" : "during"} ${label}`;
     } finally { db.close(); }
   } catch {
-    // The CLI can fail before creating its SQLite state.
+    // The CLI can exit before creating its SQLite state.
   }
+}
+
+function stepLabel(step: string): string | undefined {
+  switch (step) {
+    case "binaries": return "toolchain setup";
+    case "codegen": return "OpenAPI discovery or code generation";
+    case "curate": return "tool curation";
+    case "validate-loop":
+    case "validate":
+    case "fix": return "application validation";
+    case "smoke": return "smoke testing";
+    case "result": return "artifact packaging";
+  }
+}
+
+function processFailure(statePath: string, signal: string | null): string {
+  // Child-process output can contain input or credentials. Report fixed labels only.
+  const step = lastBuildStep(statePath) ?? "without a recognized build step";
+  if (signal === "SIGKILL") return `Build process was killed ${step}`;
+  if (signal) return `Build process was interrupted ${step}`;
+  return `Build failed ${step}`;
 }
 
 async function execute(prompt: string, builder: string) {
@@ -53,10 +68,7 @@ async function execute(prompt: string, builder: string) {
     env: childEnv, stdout: "inherit", stderr: "inherit",
   });
   const statePath = join("/tmp/run-state", app, "smithers.sqlite");
-  if (await child.exited !== 0) {
-    const stage = failedStage(statePath);
-    throw new Error(stage ? `Build failed during ${stage}` : "Smithers execution failed");
-  }
+  if (await child.exited !== 0) throw new Error(processFailure(statePath, child.signalCode));
   const db = new Database(statePath, { readonly: true });
   try {
     const result = db.query("SELECT status, summary, file_tree_json, crate_tar_b64 FROM result WHERE run_id = ? ORDER BY iteration DESC LIMIT 1")
