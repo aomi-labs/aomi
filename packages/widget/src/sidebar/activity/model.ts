@@ -130,6 +130,31 @@ function toolRecord(
   return unwrapped ? { name, result: unwrapped } : undefined;
 }
 
+/** Changes this chat's agent filed with `rules_propose`, oldest first; the server says which still wait. */
+export function selectPolicyChangeIds(events: readonly Event[]): string[] {
+  const ids: string[] = [];
+  for (const event of events) {
+    const tool = toolRecord(event);
+    if (tool?.name !== "rules_propose") continue;
+    const id = string(record(tool.result.waiting_for_admin)?.id);
+    if (id && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
+/** The wallet of each `rules_propose`/`rules_tighten` filing in this chat, oldest first. */
+export function selectPolicyFilings(events: readonly Event[]): string[] {
+  const wallets: string[] = [];
+  for (const event of events) {
+    const tool = toolRecord(event);
+    if (tool?.name !== "rules_propose" && tool?.name !== "rules_tighten")
+      continue;
+    const id = string(tool.result.agent_wallet_id);
+    if (id) wallets.push(id);
+  }
+  return wallets;
+}
+
 function sameInstruction(raw: RecordValue, ix: RecordValue): boolean {
   return (
     Boolean(raw.program_id) &&

@@ -36,6 +36,7 @@ const SETTINGS_TABS: readonly SettingsTab[] = [
   "general",
   "account",
   "connections",
+  "policies",
   "policy",
   "usage",
 ];

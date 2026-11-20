@@ -548,7 +548,7 @@ export function SettingsModal(input: {
 }): JSX.Element;
 
 // @public
-export type SettingsTab = "general" | "account" | "connections" | "policy" | "usage";
+export type SettingsTab = "general" | "account" | "connections" | "policies" | "policy" | "usage";
 
 // @public (undocumented)
 export function SheetAlert(input: {

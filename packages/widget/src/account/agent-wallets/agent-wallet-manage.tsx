@@ -36,7 +36,7 @@ import {
 } from "@/account/account-management/wallet-model";
 import { usedLabel } from "@/account/connections/connections-settings";
 import { ConnectionAskModes } from "@/account/connections/connection-ask-modes";
-import { WalletRules } from "@/account/rules/wallet-rules";
+import { AgentWalletPolicySummary } from "@/account/policies/wallet-policy-summary";
 import { explorerUrl } from "@/thread/explorer-links";
 import { AddressQr } from "./address-qr";
 import { FamilyLabel } from "./family-label";
@@ -45,10 +45,11 @@ import { useRenameWallet, type AgentWalletActions } from "./agent-wallet-row";
 
 /**
  * Account › agent wallet › Manage: its addresses behind one Receive row,
- * every connection with its ask mode on it, its rules, then Send, Rename and
- * Pause as rows, and Archive alone at the bottom.
- * Changes save at once; a rule change that gives the agent power waits for
- * the wallet's admin.
+ * every connection with its ask mode on it, how many connections and policies it
+ * has with the way to the tabs that manage them, then Send, Rename and Pause
+ * as rows, and Archive alone at the bottom.
+ * Changes save at once; an ask mode that needs the admin wallet's signature is
+ * filed as a policy change, reviewed in Settings › Policies.
  */
 export function AgentWalletManage({
   wallet,
@@ -186,7 +187,13 @@ export function AgentWalletManage({
           </p>
         ) : null}
 
-        {archived ? null : <WalletRules wallet={wallet} filed={filed} />}
+        {archived ? null : (
+          <AgentWalletPolicySummary
+            wallet={wallet}
+            filed={filed}
+            onClose={onClose}
+          />
+        )}
 
         <ListGroup>
           <ActionRow icon={ArrowUpRight} label="Send" step onClick={onSend} />

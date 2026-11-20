@@ -465,7 +465,13 @@ export function AomiPrivyPluginProvider({
                 await embeddedSigner.wallet.getEthereumProvider();
               const signature = await provider.request({
                 method: "eth_signTypedData_v4",
-                params: [owner, JSON.stringify(args)],
+                // uint256 fields arrive as bigints; JSON carries them as decimal strings.
+                params: [
+                  owner,
+                  JSON.stringify(args, (_key, value: unknown) =>
+                    typeof value === "bigint" ? value.toString() : value,
+                  ),
+                ],
               });
               if (typeof signature !== "string") {
                 throw new Error("Privy returned an invalid signature");

@@ -2,11 +2,15 @@
 
 import { createContext, useEffect, useRef } from "react";
 
-/** Settings modal tabs; `policy` is the Safety tab. */
+/**
+ * Settings modal tabs; `policy` is the Safety tab and `policies` the agent
+ * wallets' policies.
+ */
 export type SettingsTab =
   | "general"
   | "account"
   | "connections"
+  | "policies"
   | "policy"
   | "usage";
 

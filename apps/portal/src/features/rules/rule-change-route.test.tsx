@@ -8,6 +8,6 @@ describe("/rules/$changeId", () => {
   it("is the page Telegram links a rule change to", async () => {
     expect(Route.options.component).toBeTypeOf("function");
     const head = await Route.options.head!({} as never);
-    expect(head?.meta).toContainEqual({ title: "Review rule change — Aomi" });
+    expect(head?.meta).toContainEqual({ title: "Review policy change — Aomi" });
   });
 });
