@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, normalize, resolve } from "node:path";
 import {
@@ -254,13 +254,22 @@ export async function publish(flags: PublishFlags): Promise<void> {
   try {
     for (const entry of packages) {
       if (!everything && !flags.package?.includes(entry.name)) continue;
+      // A package with no `src/` is text-only: it ships no component.
+      const source = existsSync(join(entry.dir, "src"));
       const built =
         wasm.get(entry.name) ??
-        (flags.build === false ? undefined : cargoBuild(entry.dir));
-      if (!built) throw usage(`--no-build needs --wasm ${entry.name}=<path>`);
+        (source && flags.build !== false ? cargoBuild(entry.dir) : undefined);
+      if (source && !built)
+        throw usage(`--no-build needs --wasm ${entry.name}=<path>`);
       // The Manager's own pack and release check, run here before upload.
       const bundle = join(bundles, `${entry.name}.tar`);
-      core(["pack", entry.dir, "--wasm", built, "--out", bundle]);
+      core([
+        "pack",
+        entry.dir,
+        ...(built ? ["--wasm", built] : []),
+        "--out",
+        bundle,
+      ]);
       core(["check", bundle]);
       const result = await refused(
         client.publishPackage({

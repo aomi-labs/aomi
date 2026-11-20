@@ -231,6 +231,53 @@ describe("aomi publish", () => {
     expect(stdout).not.toContain(KEY);
   });
 
+  it("text_only_package_publishes_without_wasm", async () => {
+    answers["POST /api/build/packages/price/releases"] = Response.json(
+      {
+        package: "alice/price",
+        release: release(1),
+        live: null,
+        verified: false,
+      },
+      { status: 201 },
+    );
+    // No `src/`: nothing to build, and the bundle has no component.
+    const { code, stderr } = await cli(
+      "publish",
+      "--root",
+      root,
+      "--package",
+      "price",
+    );
+    expect(stderr).toBe("");
+    expect(code).toBe(0);
+    const [pack] = readFileSync(join(root, "core.log"), "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as string[]);
+    expect(pack).toEqual([
+      "pack",
+      join(root, "packages/price"),
+      "--out",
+      pack!.at(-1),
+    ]);
+    expect(sent).toHaveLength(1);
+
+    // With `src/`, a package needs its component.
+    write("packages/price/src/lib.rs", "");
+    const built = await cli(
+      "publish",
+      "--root",
+      root,
+      "--package",
+      "price",
+      "--no-build",
+    );
+    expect(built.code).toBe(2);
+    expect(built.stderr).toContain("--no-build needs --wasm price=<path>");
+    expect(sent).toHaveLength(1);
+  });
+
   it("prints a refusal's code and exits non-zero", async () => {
     answers["POST /api/build/packages/price/releases"] = Response.json(
       { code: "manifest_invalid", message: "contract must be 1" },
