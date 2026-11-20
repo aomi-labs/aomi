@@ -16,6 +16,7 @@ export function packageRow(overrides: Partial<AomiPackage> = {}): AomiPackage {
     verified: true,
     listed: true,
     agent_listed: false,
+    available: true,
     choice: null,
     enabled: true,
     reason: "verified_default",

@@ -418,6 +418,8 @@ export interface AomiPackage extends AomiPublicPackage {
   listed: boolean;
   /** The agent lists it: always on, the switch is disabled. */
   agent_listed: boolean;
+  /** False for a host package this agent doesn't list: it can't be turned on (409 `not_listed_by_agent`). */
+  available: boolean;
   /** The person's explicit choice; `null` means none. */
   choice: boolean | null;
   /** Effective state used by the runtime at the next turn. */

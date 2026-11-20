@@ -513,6 +513,27 @@ describe("packages modal", () => {
     expect(panel.queryByText(/1a2b/)).toBeNull();
   });
 
+  it("unavailable_host_row_has_no_turn_on", async () => {
+    installBackend([
+      {
+        ...VERIFIED,
+        id: "aomi/scheduling",
+        display_name: "Scheduling",
+        available: false,
+        enabled: false,
+        reason: "off_by_default",
+        live: { release: null, digest: "sha256:1a2b3c4d5e6f" },
+        envelope: { hash: null, hosts: [], transactions: [], signatures: [] },
+      },
+    ]);
+    await renderModal();
+    fireEvent.click(screen.getByLabelText("Open Scheduling details"));
+    const panel = within(details("Scheduling"));
+    expect(panel.getByText("Not in this agent")).toBeTruthy();
+    expect(panel.queryByRole("button", { name: /Turn/ })).toBeNull();
+
+  });
+
   it("asks before a not verified package only, and calls optional keys optional", async () => {
     const binance: AomiPackage = {
       ...NOT_VERIFIED,

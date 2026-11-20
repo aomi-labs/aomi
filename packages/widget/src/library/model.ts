@@ -4,6 +4,7 @@ import type {
   AomiPackageSlot,
   AomiPublicPackage,
 } from "@aomi-labs/client";
+import { isAomiError } from "@aomi-labs/client";
 import type { ComponentType } from "react";
 import {
   BadgeCheck,
@@ -333,8 +334,10 @@ export function loadFailure(cause: unknown): LoadFailure {
   return statusOf(cause) === 401 ? "session_ended" : "failed";
 }
 
-/** A mutation error in words, with the agent-listed refusal named. */
+/** A mutation error in words, with the agent's refusals named. */
 export function explainMutationError(cause: unknown, agent: string): string {
+  if (isAomiError(cause, "not_listed_by_agent"))
+    return `${agent} doesn’t include this package, so it can’t be turned on here.`;
   const status = statusOf(cause);
   if (status === 409) return `${agent} uses this package, so it stays on.`;
   if (status === 401) return "Sign in to change your packages.";

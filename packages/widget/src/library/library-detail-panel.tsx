@@ -182,6 +182,8 @@ function ActivationBar({
         <span className="text-aomi-muted">Always on here</span>
       </>
     );
+  if (!row.available)
+    return <span className="text-aomi-muted">Not in this agent</span>;
   const action = busy ? (
     <Loader2
       aria-label="Saving"

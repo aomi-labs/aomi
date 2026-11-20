@@ -98,7 +98,8 @@ export class AomiAccountPackages {
     });
   }
 
-  /** Switch a package on or off; an agent-listed package refuses off (409). */
+  /** Switch a package on or off. 409: an agent-listed package refuses off
+   * (`agent_listed`), an unavailable one refuses on (`not_listed_by_agent`). */
   setChoice(packageId: number, enabled: boolean): Promise<AomiPackage> {
     return this.request(`${packagePath(packageId)}/choice`, {
       method: "PUT",

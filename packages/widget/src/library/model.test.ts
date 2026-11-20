@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { AomiApiError } from "@aomi-labs/client";
 import {
   chainItem,
+  explainMutationError,
   groupPackages,
   markNoticeSeen,
   matches,
@@ -21,6 +23,17 @@ import {
 afterEach(() => localStorage.clear());
 
 describe("library model", () => {
+  it("names each 409 refusal of a package switch", () => {
+    const refused = (code: string) =>
+      explainMutationError(new AomiApiError(409, code, code), "Aomi");
+    expect(refused("agent_listed")).toBe(
+      "Aomi uses this package, so it stays on.",
+    );
+    expect(refused("not_listed_by_agent")).toBe(
+      "Aomi doesn’t include this package, so it can’t be turned on here.",
+    );
+  });
+
   it("groups agent-listed, private, verified, then the rest, one row per package", () => {
     const verifiedAndListed = { ...AGENT_LISTED, verified: true };
     const groups = groupPackages([
