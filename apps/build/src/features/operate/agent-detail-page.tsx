@@ -90,7 +90,9 @@ export function AgentDetailPage({ agentId }: { agentId: number }) {
 
   const view = liveAgentDetailView(payload);
   const agent = payload.detail.agent.name;
-  const projectValue = String(payload.detail.project.id);
+  const projectValue = payload.detail.project
+    ? String(payload.detail.project.id)
+    : null;
   return (
     <AgentDetailView
       agent={view.agent}

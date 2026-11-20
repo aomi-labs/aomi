@@ -47,6 +47,7 @@ const payload = {
     agent: {
       agentId: 77,
       name: "goal-digger",
+      slug: "aomi/goal-digger",
       releaseTag: "agents-1586-goal-digger-abc123",
       sdkVersion: "3.0.3",
       active: true,
@@ -201,5 +202,26 @@ describe("AgentDetailPage", () => {
       screen.getByRole("button", { name: "Back to observability" }),
     );
     expect(push).toHaveBeenCalledWith("/operate/observability?project=1586");
+  });
+
+  it("shows a project-less agent and drills down without a project", async () => {
+    operateAgentDetailFetch.mockResolvedValue({
+      ...payload,
+      detail: { ...payload.detail, project: null, platform: null },
+    });
+    render(<AgentDetailPage agentId={77} />);
+
+    expect(
+      await screen.findByRole("heading", { name: "goal-digger" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Rejected transfer")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Back to observability" }),
+    );
+    expect(push).toHaveBeenCalledWith("/operate/observability");
+    fireEvent.click(screen.getByText("get_price"));
+    expect(push).toHaveBeenCalledWith(
+      "/operate/logs?agent=goal-digger&tool=get_price",
+    );
   });
 });

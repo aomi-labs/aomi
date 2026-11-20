@@ -11,6 +11,7 @@
 // and the button ramp (accent commit + accent repair in flow, solid red pill
 // for the destructive commit).
 
+import type { OperableAgent } from "@aomi-labs/deploy";
 import { cn } from "@aomi-labs/widget";
 import { Check, ChevronDown, KeyRound } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -82,15 +83,9 @@ export function withUsage(key: ModelKey): ModelKey {
   return { ...key, usage };
 }
 
-export type KeySource = {
-  id: number;
-  repositoryLink?: string | null;
-  githubAccount?: string | null;
-  agents?: { id: number; name: string }[];
-};
-
 export type ProvidersPayload = {
-  projects?: KeySource[];
+  /** The agents a key can fund. */
+  agents?: OperableAgent[];
   keys?: ModelKey[];
 };
 
@@ -133,17 +128,14 @@ function sumUsage(
   return total;
 }
 
-type AgentOption = { agentId: number; name: string; projectLabel: string };
+type AgentOption = { agentId: number; name: string; slug: string };
 
-function agentOptions(projects: KeySource[]): AgentOption[] {
-  return projects.flatMap((source) =>
-    (source.agents ?? []).map((agent) => ({
-      agentId: agent.id,
-      name: agent.name,
-      projectLabel:
-        source.repositoryLink || source.githubAccount || `Source ${source.id}`,
-    })),
-  );
+function agentOptions(agents: OperableAgent[]): AgentOption[] {
+  return agents.map((agent) => ({
+    agentId: agent.id,
+    name: agent.label,
+    slug: agent.slug,
+  }));
 }
 
 const COMMIT_BTN =
@@ -332,8 +324,8 @@ function ProjectsTable({
       <table className="w-full min-w-[640px] table-fixed text-[13px]">
         <thead className="border-border border-b">
           <tr>
-            <th className={TH}>Project</th>
-            <th className={TH}>Source</th>
+            <th className={TH}>Agent</th>
+            <th className={TH}>ID</th>
             <th className={TH}>Funded by</th>
             <th className={cn(TH, "text-right")}>Tokens</th>
             <th className={cn(TH, "text-right")}>Cost</th>
@@ -365,7 +357,7 @@ function ProjectsTable({
                   </label>
                 </td>
                 <td className="text-aomi-muted truncate px-3 py-2 text-xs">
-                  {option.projectLabel}
+                  {option.slug}
                 </td>
                 <td className="px-3 py-2 text-xs">
                   <span className="text-aomi-muted">
@@ -805,8 +797,8 @@ export function ProvidersView() {
   const reload = providers.refetch;
 
   const options = useMemo(
-    () => agentOptions(payload?.projects ?? []),
-    [payload?.projects],
+    () => agentOptions(payload?.agents ?? []),
+    [payload?.agents],
   );
   const keysByProvider = useMemo(() => {
     const map = new Map<string, ModelKey[]>();

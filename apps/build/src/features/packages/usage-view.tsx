@@ -31,18 +31,20 @@ export function fromDate(period: Period) {
 export type UsageDay = { agent?: string; creditsUsed?: number };
 export type Usage = {
   daily?: UsageDay[];
-  /** The statement is the backend's example until it has real entries. */
-  example?: true;
-  statement?: { revenue?: { subject?: string; events?: number }[] };
+  /** `available` is false when the statement could not be read. */
+  statement?: {
+    available: boolean;
+    revenue: { subject: string; events: number }[];
+  };
 };
 
-/** Tool calls billed in a usage read; the example statement counts none. */
+/** Tool calls billed in a usage read; null when the statement could not be read. */
 export const toolCalls = (usage: Usage) =>
-  usage.example
-    ? 0
-    : (usage.statement?.revenue ?? [])
+  usage.statement?.available
+    ? usage.statement.revenue
         .filter((row) => row.subject === "tool_invocation")
-        .reduce((sum, row) => sum + (row.events ?? 0), 0);
+        .reduce((sum, row) => sum + row.events, 0)
+    : null;
 
 /** Model credits per agent name over a period, from the Usage read. */
 export function useUsage(from: string) {

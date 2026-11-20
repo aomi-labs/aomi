@@ -1,4 +1,8 @@
-import type { Channel, ChannelAgent } from "@aomi-labs/deploy";
+import type {
+  Channel,
+  ChannelAgent,
+  UserChannelsResult,
+} from "@aomi-labs/deploy";
 // Telegram bot channels for the Integrations page: provider rail, the
 // how-it-works explainer, an inline add flow, and one card per registered
 // channel with in-place agent editing.
@@ -24,23 +28,7 @@ import { API_PATHS } from "@/lib/api-paths";
 import { operateFetch } from "./client";
 import { readJsonResponse } from "@/lib/request-retry";
 
-type ChannelProjectAgent = {
-  id: number;
-  name: string;
-  isActive: boolean;
-};
-
-type ChannelProject = {
-  id: number;
-  repositoryLink?: string | null;
-  githubAccount?: string | null;
-  agents?: ChannelProjectAgent[];
-};
-
-type ChannelsPayload = {
-  projects?: ChannelProject[];
-  channels?: Channel[];
-};
+type ChannelsPayload = Partial<UserChannelsResult>;
 
 /** The BFF's `/operate/channels/:id/webhook` result: Telegram's registered
  *  webhook compared with Aomi's, plus Telegram's own delivery stats. */
@@ -55,7 +43,7 @@ type WebhookCheck = {
 type AgentOption = {
   agentId: number;
   name: string;
-  projectLabel: string;
+  slug: string;
 };
 
 /** Channel-level command config as typed. Only fields that differ from the
@@ -113,11 +101,6 @@ function commandList(value: string): string[] {
     .filter(Boolean);
 }
 
-function projectLabel(project: ChannelProject) {
-  return (
-    project.repositoryLink || project.githubAccount || `Project ${project.id}`
-  );
-}
 
 function displayChannelName(channel: Channel): string {
   if (channel.label?.trim()) return channel.label;
@@ -204,7 +187,7 @@ function AgentTable({
           <tr>
             <th className={cn(TH, "w-11")} aria-label="Selected" />
             <th className={TH}>Agent</th>
-            <th className={TH}>Project</th>
+            <th className={TH}>ID</th>
           </tr>
         </thead>
         <tbody className="divide-border divide-y">
@@ -227,7 +210,7 @@ function AgentTable({
                     checked={agentId === agent.agentId}
                     disabled={disabled}
                     onChange={() => onChange(agent.agentId)}
-                    aria-label={`Select ${agent.name} (${agent.projectLabel})`}
+                    aria-label={`Select ${agent.name} (${agent.slug})`}
                   />
                   <RadioGlyph checked={agentId === agent.agentId} />
                 </label>
@@ -236,7 +219,7 @@ function AgentTable({
                 {agent.name}
               </td>
               <td className="text-aomi-muted truncate px-3 py-2.5 font-mono text-xs">
-                {agent.projectLabel}
+                {agent.slug}
               </td>
             </tr>
           ))}
@@ -481,9 +464,9 @@ function ChannelCard({
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
 
-  // The channel's agent when it is gone from the builder's projects. It renders
-  // as a row without a radio: saving it would 403 at the BFF ownership check,
-  // so save stays blocked until another agent is picked.
+  // The channel's agent when it is no longer one of the builder's agents. It
+  // renders as a row without a radio: the manager would refuse saving it, so
+  // save stays blocked until another agent is picked.
   const ghost = options.some((option) => option.agentId === channel.agent.id)
     ? null
     : channel.agent;
@@ -931,21 +914,17 @@ export function ChannelsView() {
     Record<string, string>
   >({});
 
-  const projects = useMemo(() => payload?.projects ?? [], [payload?.projects]);
+  const agents = useMemo(() => payload?.agents ?? [], [payload?.agents]);
   const channels = useMemo(() => payload?.channels ?? [], [payload?.channels]);
 
   const options = useMemo<AgentOption[]>(
     () =>
-      projects.flatMap((project) =>
-        (project.agents ?? [])
-          .filter((agent) => agent.isActive)
-          .map((agent) => ({
-            agentId: agent.id,
-            name: agent.name,
-            projectLabel: projectLabel(project),
-          })),
-      ),
-    [projects],
+      agents.map((agent) => ({
+        agentId: agent.id,
+        name: agent.label,
+        slug: agent.slug,
+      })),
+    [agents],
   );
 
   const handleRegister = useCallback(
@@ -974,12 +953,12 @@ export function ChannelsView() {
       if (!json.channel) throw new Error("Failed to register channel");
       const created = json.channel;
       queryClient.setQueryData<ChannelsPayload>(queryKey, (current) => ({
-        projects: current?.projects ?? projects,
+        agents: current?.agents ?? agents,
         channels: [created, ...(current?.channels ?? [])],
       }));
       setAdding(false);
     },
-    [queryClient, queryKey, projects],
+    [queryClient, queryKey, agents],
   );
 
   const handleSaveAgent = useCallback(
@@ -1013,14 +992,14 @@ export function ChannelsView() {
           : rest;
       });
       queryClient.setQueryData<ChannelsPayload>(queryKey, (current) => ({
-        projects: current?.projects ?? projects,
+        agents: current?.agents ?? agents,
         channels: (current?.channels ?? []).map((b) =>
           b.id === updated.id ? updated : b,
         ),
       }));
       setEditingId(null);
     },
-    [queryClient, queryKey, projects],
+    [queryClient, queryKey, agents],
   );
 
   const handleRemove = useCallback(

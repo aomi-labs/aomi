@@ -22,6 +22,7 @@ vi.mock("@aomi-labs/widget/checkout", () => ({
 vi.mock("@/features/operate/client", () => ({
   operateFetch: vi.fn(async () => ({
     statement: {
+      available: true,
       charges: [],
       range: { fromDate: "2026-10-01", toDate: "2026-10-31" },
     },

@@ -55,11 +55,12 @@ export function SettingsBillingPanel() {
   }, [credits, queryClient]);
   useEffect(() => {
     void operateFetch<{
-      example?: boolean;
-      statement?: Pick<OperateStatementResult, "charges" | "range">;
+      statement: Pick<OperateStatementResult, "available" | "charges" | "range">;
     }>("usage")
-      .then((result) =>
-        setStatement(result.example ? null : (result.statement ?? null)),
+      .then(({ statement }) =>
+        statement.available
+          ? setStatement(statement)
+          : setStatementError("Your statement could not be read."),
       )
       .catch((e: Error) => setStatementError(e.message));
   }, []);

@@ -52,12 +52,14 @@ function mockSession(partial: {
   };
 }
 
-const PROJECTS = [
+const AGENTS = [
   {
-    id: 1,
-    repositoryLink: "ceciliaz030/local-8",
-    agents: [{ id: 11, name: "playground-example", isActive: true }],
+    id: 11,
+    slug: "ceciliaz030/playground-example",
+    label: "playground-example",
+    projectId: 1,
   },
+  { id: 12, slug: "ceciliaz030/solo", label: "solo", projectId: null },
 ];
 
 const CHANNEL = {
@@ -103,7 +105,7 @@ describe("ChannelsView", () => {
   it("renders registered channels as cards with masked tokens", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({
-      projects: PROJECTS,
+      agents: AGENTS,
       channels: [{ ...CHANNEL, label: "Trading assistant" }],
     });
     render(<ChannelsView />);
@@ -122,7 +124,7 @@ describe("ChannelsView", () => {
     );
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({
-      projects: PROJECTS,
+      agents: AGENTS,
       channels: [CHANNEL],
     });
     const fetchSpy = vi
@@ -146,7 +148,7 @@ describe("ChannelsView", () => {
 
   it("requires a token and an agent before registering", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
-    mockedOperateFetch.mockResolvedValue({ projects: PROJECTS, channels: [] });
+    mockedOperateFetch.mockResolvedValue({ agents: AGENTS, channels: [] });
     render(<ChannelsView />);
 
     fireEvent.click(
@@ -166,10 +168,27 @@ describe("ChannelsView", () => {
     expect(register).toBeEnabled();
   });
 
+  it("offers a project-less agent in the agent picker", async () => {
+    mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
+    mockedOperateFetch.mockResolvedValue({ agents: AGENTS, channels: [] });
+    render(<ChannelsView />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /add channel/i }),
+    );
+    expect(screen.getByText("ceciliaz030/solo")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("radio", { name: "Select solo (ceciliaz030/solo)" }),
+    );
+    expect(
+      screen.getByRole("radio", { name: "Select solo (ceciliaz030/solo)" }),
+    ).toBeChecked();
+  });
+
   it("edit mode saves thread mode changes through PATCH", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({
-      projects: PROJECTS,
+      agents: AGENTS,
       channels: [CHANNEL],
     });
     const fetchSpy = vi
@@ -206,7 +225,7 @@ describe("ChannelsView", () => {
   it("selects the channel’s agent", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({
-      projects: PROJECTS,
+      agents: AGENTS,
       channels: [CHANNEL],
     });
     render(<ChannelsView />);
@@ -229,7 +248,7 @@ describe("ChannelsView", () => {
       commands: ["b", "p"],
     };
     mockedOperateFetch.mockResolvedValue({
-      projects: PROJECTS,
+      agents: AGENTS,
       channels: [configured],
     });
     const fetchSpy = vi
@@ -266,7 +285,7 @@ describe("ChannelsView", () => {
   it("re-seeds the card when the server's channel changes, so a stale draft is never sent back", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({
-      projects: PROJECTS,
+      agents: AGENTS,
       channels: [CHANNEL],
     });
     // The save response is what the server now holds: another admin (or the
@@ -325,7 +344,7 @@ describe("ChannelsView", () => {
       commands: ["b", "p"],
     };
     mockedOperateFetch.mockResolvedValue({
-      projects: PROJECTS,
+      agents: AGENTS,
       channels: [configured],
     });
     const fetchSpy = vi
@@ -364,7 +383,7 @@ describe("ChannelsView", () => {
   it("disables save when commands are set without an endpoint", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({
-      projects: PROJECTS,
+      agents: AGENTS,
       channels: [CHANNEL],
     });
     render(<ChannelsView />);
@@ -388,7 +407,7 @@ describe("ChannelsView", () => {
   it("reveals the command secret through the Build server route", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({
-      projects: PROJECTS,
+      agents: AGENTS,
       channels: [CHANNEL],
     });
     const fetchSpy = vi
@@ -414,7 +433,7 @@ describe("ChannelsView", () => {
   it("checks the webhook through the Build server route and reports a repair", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({
-      projects: PROJECTS,
+      agents: AGENTS,
       channels: [CHANNEL],
     });
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -446,7 +465,7 @@ describe("ChannelsView", () => {
   it("shows a failed webhook check without a status line", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({
-      projects: PROJECTS,
+      agents: AGENTS,
       channels: [CHANNEL],
     });
     const fetchSpy = vi
@@ -472,7 +491,7 @@ describe("ChannelsView", () => {
   it("keeps a saved channel and shows the manager's webhook warning", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({
-      projects: PROJECTS,
+      agents: AGENTS,
       channels: [CHANNEL],
     });
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -500,7 +519,7 @@ describe("ChannelsView", () => {
   it("keeps the save warning through a failed check and drops it after a good one", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({
-      projects: PROJECTS,
+      agents: AGENTS,
       channels: [CHANNEL],
     });
     const fetchSpy = vi
@@ -554,7 +573,7 @@ describe("ChannelsView", () => {
   it("read mode shows the effective Mini App URL, endpoint and commands", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({
-      projects: PROJECTS,
+      agents: AGENTS,
       channels: [
         CHANNEL,
         {
@@ -577,7 +596,7 @@ describe("ChannelsView", () => {
 
   it("registers a channel sending only the filled command fields", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
-    mockedOperateFetch.mockResolvedValue({ projects: PROJECTS, channels: [] });
+    mockedOperateFetch.mockResolvedValue({ agents: AGENTS, channels: [] });
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(Response.json({ channel: CHANNEL }, { status: 201 }));
@@ -614,7 +633,7 @@ describe("ChannelsView", () => {
   it("cancelling edit restores the draft", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({
-      projects: PROJECTS,
+      agents: AGENTS,
       channels: [CHANNEL],
     });
     render(<ChannelsView />);
@@ -632,7 +651,7 @@ describe("ChannelsView", () => {
 
   it("blocks saving when the channel's agent is no longer owned", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
-    mockedOperateFetch.mockResolvedValue({ projects: [], channels: [CHANNEL] });
+    mockedOperateFetch.mockResolvedValue({ agents: [], channels: [CHANNEL] });
     render(<ChannelsView />);
     fireEvent.click(
       await screen.findByRole("button", { name: /change agent/i }),

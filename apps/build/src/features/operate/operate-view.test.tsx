@@ -224,14 +224,13 @@ describe("OperateView transactions", () => {
   it("links an owned agent card to its live detail by stable ids", async () => {
     operateFetch.mockResolvedValue({
       projects: [],
-      example: true,
       monitoring: { status: "unconfigured", windowSeconds: 300 },
       agents: [
         {
           agentId: 2_937_099,
           agent: "playground-example",
-          exampleFixture: "goal-digger",
-          project: { id: 1586 },
+          slug: "alice/playground-example",
+          projectId: null,
           status: "healthy",
           metrics: { chats24h: 47 },
         },
@@ -247,6 +246,8 @@ describe("OperateView transactions", () => {
         name: "Open playground-example observability details",
       }),
     ).toHaveAttribute("href", "/operate/observability/2937099");
+    // A builder without projects gets no project picker.
+    expect(screen.queryByText("Project")).not.toBeInTheDocument();
   });
 
   it("falls back to the legacy live tiles when trend data is absent", async () => {
@@ -523,7 +524,9 @@ describe("OperateView transactions", () => {
   it("honors ?project= when loading operate data", async () => {
     searchParams.current = new URLSearchParams("project=42");
     operateFetch.mockResolvedValue({
-      projects: [{ id: 42, repositoryLink: "a/b", agents: [] }],
+      projects: [
+        { project: { id: 42, repositoryLink: "a/b" }, platform: "community" },
+      ],
       logs: [],
     });
 
@@ -534,6 +537,33 @@ describe("OperateView transactions", () => {
         projectId: 42,
       });
     });
+    expect(await screen.findByText("Project")).toBeInTheDocument();
+    expect(screen.getByText("a/b")).toBeInTheDocument();
+  });
+
+  it("shows a project-less agent's logs and transactions beside project rows", async () => {
+    operateFetch.mockResolvedValue({
+      projects: [
+        { project: { id: 42, repositoryLink: "a/b" }, platform: "community" },
+      ],
+      logs: [
+        {
+          occurredAt: 1_784_500_000,
+          eventType: "usage",
+          id: "log-solo",
+          agent: "solo",
+          agentId: 78,
+          summary: "Usage openai/gpt-5-nano",
+          details: {},
+          projectId: null,
+          platform: null,
+        },
+      ],
+    });
+
+    render(<OperateView kind="logs" />);
+
+    expect(await screen.findByText("Usage openai/gpt-5-nano")).toBeInTheDocument();
   });
 
   it("ignores stale ?platform= on Project-scoped operate reads", async () => {
@@ -541,7 +571,12 @@ describe("OperateView transactions", () => {
       "project=1620&platform=somm.finance",
     );
     operateFetch.mockResolvedValue({
-      projects: [{ id: 1620, repositoryLink: "aomi/somm-agent", agents: [] }],
+      projects: [
+        {
+          project: { id: 1620, repositoryLink: "aomi/somm-agent" },
+          platform: "somm.finance",
+        },
+      ],
       logs: [],
     });
 

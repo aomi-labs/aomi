@@ -132,8 +132,12 @@ export function OverviewView() {
             />
             <Stat
               label="Tool calls, 7 days"
-              value={toolCalls(usage.data).toLocaleString("en-US")}
-              hint="Billed tool calls across your agents"
+              value={toolCalls(usage.data)?.toLocaleString("en-US") ?? "—"}
+              hint={
+                toolCalls(usage.data) === null
+                  ? "Your statement could not be read"
+                  : "Billed tool calls across your agents"
+              }
             />
           </>
         ) : null}

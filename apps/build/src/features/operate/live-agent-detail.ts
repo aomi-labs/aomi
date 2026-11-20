@@ -240,7 +240,7 @@ export function liveAgentDetailView(
         detail.agent.status === "inactive"
           ? detail.agent.status
           : "inactive",
-      repo: detail.project.repositoryLink || "—",
+      repo: detail.project?.repositoryLink || "—",
     },
     card: {
       requestsPerMinute: health?.requestsPerMinute ?? null,

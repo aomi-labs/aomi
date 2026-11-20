@@ -1,5 +1,4 @@
-import type { Project } from "@aomi-labs/deploy";
-import { StatusPill } from "@aomi-labs/widget/host-composition";
+import type { UserProjectRef } from "@aomi-labs/deploy";
 import { UrlLink as Link } from "@/components/url-link";
 import {
   useLocation,
@@ -41,12 +40,9 @@ import { Select } from "@/components/select";
 // kind-indexed rows below.
 export type ViewKind = Exclude<OperateKind, "channels" | "usage">;
 
-type Projectish = Project & { agents?: unknown[] };
-
 type OperatePayload = {
-  /** True when the Build server filled gaps with example fixture data (BE not live yet). */
-  example?: boolean;
-  projects?: Projectish[];
+  /** The real projects among the agents shown; empty when the builder has none. */
+  projects?: UserProjectRef[];
   transactions?: Array<Record<string, any>>;
   daily?: Array<Record<string, any>>;
   breakdown?: Array<Record<string, any>>;
@@ -85,7 +81,7 @@ const meta: Record<ViewKind, { title: string; summary?: string }> = {
   },
 };
 
-function projectLabel(project: Projectish) {
+function projectLabel({ project }: UserProjectRef) {
   return project.repositoryLink || `Project ${project.id}`;
 }
 
@@ -495,7 +491,7 @@ function Rows({
               ) : null}
             </>
           );
-          const key = `${agent.project?.id}-${agent.agentId}`;
+          const key = String(agent.agentId);
           const className =
             "border-border bg-surface rounded-control border px-3 py-3";
           return detailHref ? (
@@ -735,29 +731,22 @@ export function OperateView({ kind }: { kind: ViewKind }) {
     <div className={pageFrame}>
       <PageHeader
         title={meta[kind].title}
-        badges={
-          payload?.example ? (
-            <StatusPill>
-              <span title="Live data for this view isn't connected yet — showing example data.">
-                Example data
-              </span>
-            </StatusPill>
-          ) : null
-        }
         summary={meta[kind].summary ? <p>{meta[kind].summary}</p> : null}
         actions={
-          <Select
-            label="Project"
-            value={projectId == null ? "" : String(projectId)}
-            onChange={(value) => setSourceId(value ? Number(value) : null)}
-            options={[
-              { value: "", label: "All" },
-              ...projects.map((source) => ({
-                value: String(source.id),
-                label: projectLabel(source),
-              })),
-            ]}
-          />
+          projects.length ? (
+            <Select
+              label="Project"
+              value={projectId == null ? "" : String(projectId)}
+              onChange={(value) => setSourceId(value ? Number(value) : null)}
+              options={[
+                { value: "", label: "All" },
+                ...projects.map((ref) => ({
+                  value: String(ref.project.id),
+                  label: projectLabel(ref),
+                })),
+              ]}
+            />
+          ) : null
         }
       />
       {loading ? (
