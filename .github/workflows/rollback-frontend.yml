@@ -3,10 +3,6 @@ name: Rollback Frontend Production
 on:
   workflow_dispatch:
     inputs:
-      build_deployment:
-        description: Ledgered Build deployment URL or ID
-        required: true
-        type: string
       base_deployment:
         description: Ledgered Base deployment URL or ID
         required: true
@@ -43,7 +39,6 @@ jobs:
       - name: Restore each ledgered production deployment
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          BUILD: ${{ inputs.build_deployment }}
           BASE: ${{ inputs.base_deployment }}
           LANDING: ${{ inputs.landing_deployment }}
         run: |
@@ -51,7 +46,6 @@ jobs:
           test -n "$VERCEL_TOKEN" || { echo "production VERCEL_TOKEN is required" >&2; exit 1; }
           failures=()
           declare -A deployments=(
-            [build]="$BUILD"
             [base]="$BASE"
             [landing]="$LANDING"
           )
@@ -61,7 +55,7 @@ jobs:
             echo "| Surface | Deployment | Result |"
             echo "|---|---|---|"
           } >> "$GITHUB_STEP_SUMMARY"
-          for surface in build base landing; do
+          for surface in base landing; do
             deployment="${deployments[$surface]}"
             if vercel rollback "$deployment" --yes --token="$VERCEL_TOKEN"; then
               echo "| $surface | \`$deployment\` | restored |" >> "$GITHUB_STEP_SUMMARY"
