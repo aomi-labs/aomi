@@ -92,7 +92,7 @@ export function friendlyTransactionLabel(label: string, kind?: string): string {
     .replace(/^approve\s+li\.fi\s+swap\s+spender\s+for\s+exact\s+/i, "Approve ")
     .replace(/^li\.fi\s+same-chain\s+swap\s+quote\s+\S+\s*:\s*/i, "Swap ")
     .replace(/^li\.fi\s+same-chain\s+swap\s+/i, "Swap ")
-    .replace(/\s+/g, " ")
+    .replace(/[^\S\n]+/g, " ")
     .trim();
 
   if (normalizedKind.includes("approve") && !/^approve\b/i.test(clean)) {
@@ -106,15 +106,23 @@ export function friendlyTransactionLabel(label: string, kind?: string): string {
 }
 
 /**
- * A card title of at most four words; the card puts the full label on hover.
- * A decoded call, e.g. `pool.supply(asset: 0x8335…, amount: 1000000)`, keeps
- * its function: `pool.supply(…)`.
+ * A card's title and details: a label is `<short title>\n<details>`. An older
+ * one-line label has no details, so its title keeps at most four words, and a
+ * decoded call, e.g. `pool.supply(asset: 0x8335…, amount: 1000000)`, keeps its
+ * function: `pool.supply(…)`. The card puts the full label on hover.
  */
-export function transactionTitle(label: string): string {
+export function transactionTitle(label: string): {
+  title: string;
+  details?: string;
+} {
+  const [title, ...details] = label.split(/\s*\n\s*/u);
+  if (details.length) return { title, details: details.join(" ") };
   const call = /^[\w$.-]+\((?!\))/u.exec(label);
-  if (call) return `${call[0]}…)`;
+  if (call) return { title: `${call[0]}…)` };
   const words = label.split(/\s+/u);
-  return words.length > 4 ? `${words.slice(0, 4).join(" ")}…` : label;
+  return {
+    title: words.length > 4 ? `${words.slice(0, 4).join(" ")}…` : label,
+  };
 }
 
 export function assetChangePresentation(

@@ -146,6 +146,7 @@ export function TransactionCard({
 }) {
   const reduceMotion = useReducedMotion();
   const label = friendlyTransactionLabel(tx.label, tx.kind);
+  const { title, details } = transactionTitle(label);
   const Icon =
     tx.kind === "message"
       ? PenLine
@@ -244,10 +245,15 @@ export function TransactionCard({
         <div className="flex items-center gap-2">
           <Icon className="text-aomi-muted size-4 shrink-0" />
           <span
-            className="type-control min-w-0 flex-1 truncate font-medium"
+            className="type-control flex min-w-0 flex-1 items-baseline gap-1.5"
             title={label}
           >
-            {transactionTitle(label)}
+            <span className="max-w-full shrink-0 truncate font-medium">
+              {title}
+            </span>
+            {details ? (
+              <span className="text-aomi-muted truncate">{details}</span>
+            ) : null}
           </span>
           {network && (
             <StatusPill className="max-w-[128px] font-normal">

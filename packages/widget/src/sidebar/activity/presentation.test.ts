@@ -30,19 +30,30 @@ describe("reviewErrorTitle", () => {
 });
 
 describe("transactionTitle", () => {
-  it("keeps a title to four words and a decoded call to its function", () => {
-    expect(transactionTitle("Swap 5 USDC to ETH")).toBe("Swap 5 USDC to…");
-    expect(transactionTitle("Approve USDC")).toBe("Approve USDC");
+  it("keeps an old one-line title to four words and a decoded call to its function", () => {
+    const title = (label: string) => transactionTitle(label).title;
+    expect(title("Swap 5 USDC to ETH")).toBe("Swap 5 USDC to…");
+    expect(title("Approve USDC")).toBe("Approve USDC");
     expect(
-      transactionTitle(
+      title(
         "pool.supply(asset: 0x8335…, amount: 1000000, onBehalfOf: wallet, referralCode: 0)",
       ),
     ).toBe("pool.supply(…)");
     expect(
-      transactionTitle(
-        "swap-router.multicall(data: [<896 bytes>]) with 0.1 native",
-      ),
+      title("swap-router.multicall(data: [<896 bytes>]) with 0.1 native"),
     ).toBe("swap-router.multicall(…)");
-    expect(transactionTitle("vault.harvest()")).toBe("vault.harvest()");
+    expect(title("vault.harvest()")).toBe("vault.harvest()");
+    expect(transactionTitle("Approve USDC").details).toBeUndefined();
+  });
+
+  it("splits a two-line label into title and details", () => {
+    expect(
+      transactionTitle(
+        "Aave supply\npool.supply(asset: usdc, amount: 1000000); integers in base units",
+      ),
+    ).toEqual({
+      title: "Aave supply",
+      details: "pool.supply(asset: usdc, amount: 1000000); integers in base units",
+    });
   });
 });
