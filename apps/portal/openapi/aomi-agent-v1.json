@@ -10262,8 +10262,8 @@
         "description": "Better Auth OAuth 2.1 authorization-code/device grants. Access tokens are exact-resource bound; the Portal BFF verifies them and delegates a downscoped internal bearer.",
         "flows": {
           "authorizationCode": {
-            "authorizationUrl": "http://localhost:3000/api/auth/oauth2/authorize",
-            "tokenUrl": "http://localhost:3000/api/auth/oauth2/token",
+            "authorizationUrl": "https://aomi.chat/api/auth/oauth2/authorize",
+            "tokenUrl": "https://aomi.chat/api/auth/oauth2/token",
             "scopes": {
               "agent:read": "Read owned Agent turns and sessions",
               "agent:write": "Start, continue, interrupt, update, or delete Agent sessions",
@@ -10281,20 +10281,20 @@
             }
           }
         },
-        "x-device-authorization-url": "http://localhost:3000/api/auth/device/code",
+        "x-device-authorization-url": "https://aomi.chat/api/auth/device/code",
         "x-aomi-resources": {
-          "agent": "http://localhost:3000/v1/agent",
-          "pipeline": "http://localhost:3000/v1/pipeline",
-          "agentGatewayMcp": "http://localhost:3000/v1/agent/mcp",
-          "agentMcp": "http://localhost:3000/v1/agents/{agent}/mcp",
-          "pipelineMcp": "http://localhost:3000/v1/pipeline/mcp",
-          "account": "http://localhost:3000/v1/account"
+          "agent": "https://aomi.chat/v1/agent",
+          "pipeline": "https://aomi.chat/v1/pipeline",
+          "agentGatewayMcp": "https://aomi.chat/v1/agent/mcp",
+          "agentMcp": "https://aomi.chat/v1/agents/{agent}/mcp",
+          "pipelineMcp": "https://aomi.chat/v1/pipeline/mcp",
+          "account": "https://aomi.chat/v1/account"
         }
       },
       "paymentOAuth": {
         "flows": {
           "authorizationCode": {
-            "authorizationUrl": "http://localhost:3000/api/auth/oauth2/authorize",
+            "authorizationUrl": "https://aomi.chat/api/auth/oauth2/authorize",
             "scopes": {
               "account:credits:fund": "Fund personal credits",
               "account:credits:read": "Read personal credits",
@@ -10302,7 +10302,7 @@
               "builder:credits:fund": "Fund builder credits",
               "builder:credits:read": "Read builder credits"
             },
-            "tokenUrl": "http://localhost:3000/api/auth/oauth2/token"
+            "tokenUrl": "https://aomi.chat/api/auth/oauth2/token"
           }
         },
         "type": "oauth2"
