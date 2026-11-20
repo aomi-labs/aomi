@@ -18,6 +18,29 @@ let failure = "";
 let fileTree = [];
 let stages: { id: string; label: string; kind: string; status: string }[] = [];
 
+function failedStage(statePath: string): string | undefined {
+  try {
+    const db = new Database(statePath, { readonly: true });
+    try {
+      const node = db.query(`SELECT node_id FROM _smithers_nodes
+        WHERE run_id = ? AND state = 'failed' ORDER BY updated_at_ms DESC LIMIT 1`)
+        .get(runId!) as { node_id: string } | null;
+      // Return only fixed labels. Child-process errors can contain input or credentials.
+      switch (node?.node_id.slice(app.length + 1)) {
+        case "binaries": return "toolchain setup";
+        case "codegen": return "OpenAPI discovery or code generation";
+        case "curate": return "tool curation";
+        case "validate":
+        case "fix": return "application validation";
+        case "smoke": return "smoke testing";
+        case "result": return "artifact packaging";
+      }
+    } finally { db.close(); }
+  } catch {
+    // The CLI can fail before creating its SQLite state.
+  }
+}
+
 async function execute(prompt: string, builder: string) {
   const existing = await Bun.file(join(sdkRoot, "apps", app, "openapi.yaml")).exists();
   const plan = { app, sdkRoot, userStory: prompt, builder, autoApprove: true,
@@ -29,8 +52,12 @@ async function execute(prompt: string, builder: string) {
     Buffer.from(JSON.stringify(plan)).toString("base64"), "--run-id", runId!, "--state-root", "/tmp/run-state"], {
     env: childEnv, stdout: "inherit", stderr: "inherit",
   });
-  if (await child.exited !== 0) throw new Error("Smithers execution failed");
-  const db = new Database(join("/tmp/run-state", app, "smithers.sqlite"), { readonly: true });
+  const statePath = join("/tmp/run-state", app, "smithers.sqlite");
+  if (await child.exited !== 0) {
+    const stage = failedStage(statePath);
+    throw new Error(stage ? `Build failed during ${stage}` : "Smithers execution failed");
+  }
+  const db = new Database(statePath, { readonly: true });
   try {
     const result = db.query("SELECT status, summary, file_tree_json, crate_tar_b64 FROM result WHERE run_id = ? ORDER BY iteration DESC LIMIT 1")
       .get(runId!) as { status: string; summary: string; file_tree_json: string; crate_tar_b64: string } | null;
