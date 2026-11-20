@@ -124,6 +124,10 @@ jobs to be explicitly skipped, so a selector failure or unexpected skip cannot
 produce a green required check. Keep path-selection cases in
 `tests/contracts/ci-path-selection.test.mjs` whenever ownership changes.
 
+Main CI runs the widget package contracts as a reusable job for selected
+changes, including package release notes and API reports. A package tag can
+publish only if that job succeeded on the exact tagged commit's main CI run.
+
 ## Production browser contracts
 
 Run `pnpm run test:browser:contracts` with
