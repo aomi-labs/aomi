@@ -26,9 +26,10 @@ function binary(): string {
  * returns its JSON answer. A refusal throws as `code: message`.
  */
 export function core<T>(args: string[]): T {
+  const executable = binary();
   let stdout: string;
   try {
-    stdout = execFileSync(binary(), args, {
+    stdout = execFileSync(executable, args, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "inherit"],
     });

@@ -1,0 +1,13 @@
+{
+  "name": "@aomi-labs/build-core-win32-x64",
+  "version": "2.0.1",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "bin/aomi-build-core.exe"
+  ]
+}

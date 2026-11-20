@@ -992,6 +992,16 @@ importers:
         specifier: 8.3.4
         version: 8.3.4(@types/node@25.6.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1)
 
+  packages/build-core-darwin-arm64: {}
+
+  packages/build-core-darwin-x64: {}
+
+  packages/build-core-linux-arm64: {}
+
+  packages/build-core-linux-x64: {}
+
+  packages/build-core-win32-x64: {}
+
   packages/cli:
     dependencies:
       '@aomi-labs/client':
@@ -1028,6 +1038,22 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.3
+    optionalDependencies:
+      '@aomi-labs/build-core-darwin-arm64':
+        specifier: workspace:2.0.1
+        version: link:../build-core-darwin-arm64
+      '@aomi-labs/build-core-darwin-x64':
+        specifier: workspace:2.0.1
+        version: link:../build-core-darwin-x64
+      '@aomi-labs/build-core-linux-arm64':
+        specifier: workspace:2.0.1
+        version: link:../build-core-linux-arm64
+      '@aomi-labs/build-core-linux-x64':
+        specifier: workspace:2.0.1
+        version: link:../build-core-linux-x64
+      '@aomi-labs/build-core-win32-x64':
+        specifier: workspace:2.0.1
+        version: link:../build-core-win32-x64
 
   packages/client:
     dependencies:

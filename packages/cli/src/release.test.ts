@@ -1,6 +1,10 @@
 // @vitest-environment node
+import { execFile } from "node:child_process";
+import { createServer } from "node:http";
+import { promisify } from "node:util";
 import {
   chmodSync,
+  copyFileSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -230,6 +234,83 @@ describe("aomi publish", () => {
     );
     expect(stdout).not.toContain(KEY);
   });
+
+  it.runIf(BUILT_CORE)(
+    "publishes text through the built CLI and its platform dependency",
+    async () => {
+      const platform = `@aomi-labs/build-core-${process.platform}-${process.arch}`;
+      const modules = join(root, "node_modules");
+      const bin = join(modules, platform, "bin");
+      mkdirSync(bin, { recursive: true });
+      copyFileSync(
+        BUILT_CORE!,
+        join(
+          bin,
+          process.platform === "win32"
+            ? "aomi-build-core.exe"
+            : "aomi-build-core",
+        ),
+      );
+      write(
+        "packages/price/aomi.toml",
+        '[package]\nname = "price"\ndescription = "Prices"\ncontract = 1\nskills = [{ id = "quote", path = "skills/quote.md", description = "Quotes" }]',
+      );
+      const uploads: Buffer[] = [];
+      const server = createServer(async (req, res) => {
+        if (
+          req.method !== "POST" ||
+          req.url !== "/api/build/packages/price/releases"
+        ) {
+          res.writeHead(404).end();
+          return;
+        }
+        const body = [];
+        for await (const chunk of req) body.push(chunk);
+        uploads.push(Buffer.concat(body));
+        res.writeHead(201, { "content-type": "application/json" }).end(
+          JSON.stringify({
+            package: "alice/price",
+            release: release(1),
+            live: null,
+            verified: false,
+          }),
+        );
+      });
+      await new Promise<void>((resolve) =>
+        server.listen(0, "127.0.0.1", resolve),
+      );
+      try {
+        const { port } = server.address() as import("node:net").AddressInfo;
+        const { stdout } = await promisify(execFile)(
+          process.execPath,
+          [
+            resolve(import.meta.dirname, "../dist/bin.js"),
+            "publish",
+            "--root",
+            root,
+            "--package",
+            "price",
+          ],
+          {
+            env: {
+              ...process.env,
+              AOMI_BUILD_CORE: "",
+              NODE_PATH: modules,
+              AOMI_BUILD_URL: `http://127.0.0.1:${port}`,
+            },
+          },
+        );
+        expect(stdout).toContain("package alice/price  release 1");
+        expect(uploads).toHaveLength(1);
+        expect(Object.keys(untar(uploads[0]!)).sort()).toEqual([
+          "aomi.toml",
+          "skills/quote.md",
+        ]);
+      } finally {
+        server.close();
+      }
+    },
+  );
 
   it("text_only_package_publishes_without_wasm", async () => {
     answers["POST /api/build/packages/price/releases"] = Response.json(

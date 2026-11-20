@@ -81,9 +81,12 @@ Credential and key values come from stdin or a hidden prompt, never argv.
 
 ## Publish packages
 
-`aomi publish` builds each package folder the root `aomi.toml` lists with
-`cargo build --release --target wasm32-wasip2`, uploads its `aomi.toml`,
-component and listed files, then publishes the root's agents. It needs a
+`aomi publish` builds packages that have a `src/` directory with
+`cargo build --release --target wasm32-wasip2`. Text-only packages ship their
+manifest and listed files. The CLI uses the platform's optional
+`@aomi-labs/build-core-<platform>-<arch>` binary to pack and check each upload,
+then publishes the root's agents. For a local build, `AOMI_BUILD_CORE` can point
+to the executable. Publishing needs a
 builder API key in `AOMI_BUILDER_KEY` (or `--key-file`) holding
 `package:publish` and `agent:publish`, plus `package:promote` and
 `agent:promote` for `--promote`, `promote`, `rollback` and `codes`. A refusal

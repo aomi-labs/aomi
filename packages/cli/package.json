@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/cli",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Aomi terminal client",
   "type": "module",
   "bin": {
@@ -29,5 +29,12 @@
     "@aomi-labs/internal": "workspace:*",
     "tsup": "^8.5.1",
     "typescript": "^5"
+  },
+  "optionalDependencies": {
+    "@aomi-labs/build-core-darwin-arm64": "workspace:2.0.1",
+    "@aomi-labs/build-core-darwin-x64": "workspace:2.0.1",
+    "@aomi-labs/build-core-linux-arm64": "workspace:2.0.1",
+    "@aomi-labs/build-core-linux-x64": "workspace:2.0.1",
+    "@aomi-labs/build-core-win32-x64": "workspace:2.0.1"
   }
 }

@@ -53,6 +53,7 @@ examples/*/dist/
 
 # generated package build output
 packages/*/dist/
+packages/build-core-*/bin/
 
 # typescript
 *.tsbuildinfo

@@ -1,0 +1,18 @@
+{
+  "name": "@aomi-labs/build-core-darwin-arm64",
+  "version": "2.0.1",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "bin/aomi-build-core"
+  ],
+  "publishConfig": {
+    "executableFiles": [
+      "bin/aomi-build-core"
+    ]
+  }
+}
