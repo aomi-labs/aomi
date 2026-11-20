@@ -14,7 +14,6 @@ import { AomiAccountProfile } from '@aomi-labs/client';
 import type { AomiConnectionKind } from '@aomi-labs/client';
 import type { AomiConnectionWalletsUpdate } from '@aomi-labs/client';
 import type { AomiLane } from '@aomi-labs/client';
-import type { AomiPackage } from '@aomi-labs/client';
 import { AomiRuleChange } from '@aomi-labs/client';
 import { AomiWalletRules } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';
@@ -30,12 +29,14 @@ import { EvmWallet } from '@aomi-labs/client';
 import { FC } from 'react';
 import { GetAccountBearer } from '@aomi-labs/client';
 import { JSX } from 'react/jsx-runtime';
+import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { ProviderCredential } from '@aomi-labs/client';
 import * as React_2 from 'react';
 import { ReactNode } from 'react';
 import { ReactPortal } from 'react';
 import type { RuntimeAccount } from '@aomi-labs/react';
 import { SponsorshipPaymasterServiceContext } from '@aomi-labs/client';
+import type { SVGProps } from 'react';
 import { SvmCluster } from '@aomi-labs/client';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import type { Transport } from 'viem';
@@ -397,6 +398,22 @@ export type ConsentWalletsState = {
 };
 
 // @public (undocumented)
+export const ControlMenuCheck: FC<{
+    selected: boolean;
+}>;
+
+// @public (undocumented)
+export const controlMenuContentClass = "border-aomi-border bg-aomi-raised rounded-card shadow-popover w-[248px] overflow-hidden border p-2";
+
+// @public (undocumented)
+export const controlMenuItemClass = "aria-selected:bg-aomi-surface-2 aria-selected:text-aomi-fg flex min-h-9 w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px]";
+
+// @public (undocumented)
+export const ControlSelectChevron: FC<{
+    className?: string;
+}>;
+
+// @public (undocumented)
 export function createWidgetX402Client(wallet: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain">, terms?: Parameters<typeof createEvmPaymentClient>[1]): ReturnType<typeof createEvmPaymentClient> | undefined;
 
 // @public
@@ -423,6 +440,9 @@ export type DualWalletBarProps = {
     accountMenu?: WalletAccountMenuOptions;
 };
 
+// @public (undocumented)
+export function EthereumIcon(props: SVGProps<SVGSVGElement>): JSX.Element;
+
 // @public
 export function FootnoteLink(input: {
     children: ReactNode;
@@ -437,6 +457,9 @@ export function formatWalletProvider(provider?: SessionProvider | AuthProviderId
 
 // @public @deprecated (undocumented)
 export function getBackendUrl(): string;
+
+// @public
+export function getChainIcon(chainId: number): FC<SVGProps<SVGSVGElement>> | undefined;
 
 // @public
 export function HeaderControls(input: {
@@ -506,14 +529,32 @@ export function OutcomeTable(input: {
     }[];
 }): JSX.Element;
 
-// @public (undocumented)
-export function PackageIcon(input: PackageIconProps): JSX.Element;
+// @public
+export function PackageMark(input: {
+    iconUrl?: string | null;
+    className?: string;
+}): JSX.Element;
 
 // @public (undocumented)
 export function PackagesModal(input: PackagesModalProps): JSX.Element;
 
+// @public
+export function PackageTile(input: {
+    iconUrl?: string | null;
+    size?: "row" | "detail";
+}): JSX.Element;
+
 // @public (undocumented)
 export function parseRpcOverrides(raw: string): Record<number, string>;
+
+// @public (undocumented)
+export function Popover(input: React_2.ComponentProps<typeof PopoverPrimitive.Root>): JSX.Element;
+
+// @public (undocumented)
+export function PopoverContent(input: React_2.ComponentProps<typeof PopoverPrimitive.Content>): JSX.Element;
+
+// @public (undocumented)
+export function PopoverTrigger(input: React_2.ComponentProps<typeof PopoverPrimitive.Trigger>): JSX.Element;
 
 // @public
 export function ProductSwitcher(input: {
@@ -634,6 +675,9 @@ export const sidebarRowClass = "hover:bg-aomi-hover/60 focus-visible:bg-aomi-hov
 
 // @public
 export function signOutAndDisconnect(adapter: AomiWalletKit): Promise<void>;
+
+// @public (undocumented)
+export function SolanaIcon(props: SVGProps<SVGSVGElement>): JSX.Element;
 
 // @public (undocumented)
 export function StatementSection(input: {

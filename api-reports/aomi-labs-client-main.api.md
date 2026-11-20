@@ -1556,10 +1556,12 @@ export type AomiOptions = (AomiManagedAuthOptions | (AomiConnectionOptions & {
 // @public
 export interface AomiPackage extends AomiPublicPackage {
     agent_listed: boolean;
+    available: boolean;
     choice: boolean | null;
     enabled: boolean;
     // (undocumented)
     envelope: AomiPackageEnvelope;
+    guards: string[];
     // (undocumented)
     listed: boolean;
     live: {
@@ -1572,6 +1574,10 @@ export interface AomiPackage extends AomiPublicPackage {
     reason: AomiPackageReason;
     // (undocumented)
     slots: AomiPackageSlot[];
+    tools: {
+        name: string;
+        description: string;
+    }[];
 }
 
 // @public
@@ -1716,12 +1722,10 @@ export type AomiProviderBinding = {
 
 // @public
 export interface AomiPublicPackage {
+    chains: string[];
     // (undocumented)
     description: string;
-    // (undocumented)
     display_name: string;
-    // (undocumented)
-    families: AomiPackageFamily[];
     // (undocumented)
     icon_url: string | null;
     id: string;
@@ -1730,6 +1734,7 @@ export interface AomiPublicPackage {
         id: string;
         description: string;
     }[];
+    tags: string[];
     // (undocumented)
     tool_count: number;
     verified: boolean;
