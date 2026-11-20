@@ -1,6 +1,6 @@
 import { AomiApiError } from "@aomi-labs/client";
 import { describe, expect, it } from "vitest";
-import { reviewErrorTitle } from "./presentation";
+import { reviewErrorTitle, transactionTitle } from "./presentation";
 
 describe("reviewErrorTitle", () => {
   it("keeps the network's reason for a refused send, not its logs", () => {
@@ -26,5 +26,23 @@ describe("reviewErrorTitle", () => {
       ),
     ).toMatch(/would fail now, so nothing was sent/);
     expect(reviewErrorTitle("nope")).toBe("Action response failed");
+  });
+});
+
+describe("transactionTitle", () => {
+  it("keeps a title to four words and a decoded call to its function", () => {
+    expect(transactionTitle("Swap 5 USDC to ETH")).toBe("Swap 5 USDC to…");
+    expect(transactionTitle("Approve USDC")).toBe("Approve USDC");
+    expect(
+      transactionTitle(
+        "pool.supply(asset: 0x8335…, amount: 1000000, onBehalfOf: wallet, referralCode: 0)",
+      ),
+    ).toBe("pool.supply(…)");
+    expect(
+      transactionTitle(
+        "swap-router.multicall(data: [<896 bytes>]) with 0.1 native",
+      ),
+    ).toBe("swap-router.multicall(…)");
+    expect(transactionTitle("vault.harvest()")).toBe("vault.harvest()");
   });
 });

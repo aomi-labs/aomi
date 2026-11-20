@@ -20,6 +20,7 @@ import type { ActivityTransaction } from "./model";
 import {
   focusRing,
   friendlyTransactionLabel,
+  transactionTitle,
   solanaNetworkName,
   transactionSemantic,
 } from "./presentation";
@@ -246,7 +247,7 @@ export function TransactionCard({
             className="type-control min-w-0 flex-1 truncate font-medium"
             title={label}
           >
-            {label}
+            {transactionTitle(label)}
           </span>
           {network && (
             <StatusPill className="max-w-[128px] font-normal">

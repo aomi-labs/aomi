@@ -105,6 +105,18 @@ export function friendlyTransactionLabel(label: string, kind?: string): string {
   return clean;
 }
 
+/**
+ * A card title of at most four words; the card puts the full label on hover.
+ * A decoded call, e.g. `pool.supply(asset: 0x8335…, amount: 1000000)`, keeps
+ * its function: `pool.supply(…)`.
+ */
+export function transactionTitle(label: string): string {
+  const call = /^[\w$.-]+\((?!\))/u.exec(label);
+  if (call) return `${call[0]}…)`;
+  const words = label.split(/\s+/u);
+  return words.length > 4 ? `${words.slice(0, 4).join(" ")}…` : label;
+}
+
 export function assetChangePresentation(
   change: BalanceChange,
   symbol: string,

@@ -828,9 +828,10 @@ describe("WalletReview", () => {
     expect(
       screen.getAllByTestId("activity-transaction")[0],
     ).not.toHaveTextContent("lifi_q_abc123");
+    // Five words: the card shows four and keeps the full label on hover.
     expect(
-      screen.getAllByText("Swap 0.00758 USDC to ETH")[0],
-    ).toBeInTheDocument();
+      screen.getAllByTitle("Swap 0.00758 USDC to ETH")[0],
+    ).toHaveTextContent("Swap 0.00758 USDC to…");
   });
 
   it("shows exact, unlimited, and revoked token permissions explicitly", () => {
