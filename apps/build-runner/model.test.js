@@ -21,8 +21,21 @@ test("the Worker attaches the provider key only to its fixed inference endpoint"
   const result = await modelRequest(request("/v1/messages"), { OPENROUTER_API_KEY: "provider-fixture" }, run, (url, init) => {
     assert.equal(url, "https://openrouter.ai/api/v1/messages");
     assert.equal(init.headers.get("authorization"), "Bearer provider-fixture");
-    assert.equal(init.redirect, "error");
+    assert.equal(init.redirect, "manual");
     return new Response("stream");
   });
   assert.equal(await result.text(), "stream");
+});
+
+test("the Worker refuses a provider redirect without forwarding its location", async () => {
+  let calls = 0;
+  const result = await modelRequest(request("/v1/messages"), { OPENROUTER_API_KEY: "provider-fixture" }, run, (url, init) => {
+    calls += 1;
+    assert.equal(url, "https://openrouter.ai/api/v1/messages");
+    assert.equal(init.redirect, "manual");
+    return Response.redirect("https://example.com/redirected", 307);
+  });
+  assert.equal(calls, 1);
+  assert.equal(result.status, 502);
+  assert.equal(result.headers.get("location"), null);
 });
