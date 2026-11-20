@@ -23,10 +23,6 @@ export default {
 };
 
 export class BuildRun extends Container {
-  static outboundByHost = {
-    "model.internal": (request, env, ctx) =>
-      env.RUNS.get(env.RUNS.idFromString(ctx.containerId)).model(request),
-  };
   async model(request) {
     return modelRequest(request, this.env, await this.ctx.storage.get("run"));
   }
@@ -127,3 +123,9 @@ export class BuildRun extends Container {
     }
   }
 }
+
+// Assign through the Container setter so ContainerProxy can find the handler.
+BuildRun.outboundByHost = {
+  "model.internal": (request, env, ctx) =>
+    env.RUNS.get(env.RUNS.idFromString(ctx.containerId)).model(request),
+};

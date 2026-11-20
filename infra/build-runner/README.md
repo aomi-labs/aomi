@@ -3,6 +3,8 @@
 The Cloudflare runner reports the last failed Smithers step when its run
 database records one. It returns a fixed stage label and keeps child-process
 output out of the Build status response.
+The runner registers its model egress handler through the Container library's
+`outboundByHost` setter so the proxy routes requests back to the owning run.
 
 The golden image `/build` sandbox runs boot from. One Vercel Sandbox per build run; the BFF
 dispatches `aomi-smither run-plan` inside it; all run state lands in the
