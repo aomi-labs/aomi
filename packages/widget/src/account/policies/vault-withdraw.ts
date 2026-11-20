@@ -13,6 +13,9 @@ type Hex = `0x${string}`;
 // Delegation Framework v1.3.0, the same addresses on every chain below
 // (`delegation.rs`, checked on Base and Ethereum mainnet).
 export const DELEGATION_MANAGER = "0xdb9b1e94b5b69df7e401ddbede43491141047db3";
+/** MetaMask's factory, and its `deploy(bytes,bytes32)`: how a vault is created. */
+export const SIMPLE_FACTORY = "0x69aa2f9fe1572f1b640e1bbc512f5c3a734fc77c";
+export const FACTORY_DEPLOY_SELECTOR = "0x4af63f02";
 export const TIMESTAMP_ENFORCER = "0x1046bb45c8d673d4ea75321280db34899413c069";
 export const LIMITED_CALLS_ENFORCER =
   "0x04658b29f6b82ed55274221a06fc97d318e25416";

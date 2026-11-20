@@ -1413,7 +1413,10 @@ describe("Settings › Policies", () => {
                 return Response.json({ action: sendAction });
               confirms += 1;
               return Response.json({
-                rules: confirms < 3 ? still : without([kept({ state: "off", note: null })]),
+                rules:
+                  confirms < 3
+                    ? still
+                    : without([kept({ state: "off", note: null })]),
               });
             };
             await renderPolicies();
@@ -1464,6 +1467,14 @@ describe("Settings › Policies", () => {
           [{ network: "eip155:10" }, NETWORK_REFUSED],
           [{ to: "vitalik.eth" }, /action.to must be a 20-byte/],
           [{ to: OTHER }, /different delegation manager/],
+          // The factory only for this owner's own vault.
+          [
+            {
+              to: "0x69Aa2f9fe1572F1B640E1bbc512f5c3a734fc77c",
+              data: `0x4af63f02${"00".repeat(64)}`,
+            },
+            /different delegation manager/,
+          ],
           [{ value: "0xde0b6b3a7640000" }, /Aomi asked to send funds/],
         ] as const)("refuses a send with %o", async (bad, message) => {
           kit.identity.address = ADMIN;
@@ -1475,6 +1486,26 @@ describe("Settings › Policies", () => {
           expect(kit.sendTransaction).not.toHaveBeenCalled();
           expect(kit.switchChain).not.toHaveBeenCalled();
           expect(writes()).toHaveLength(1);
+        });
+
+        it("sends the factory call that deploys the owner's own vault before the revocation", async () => {
+          Object.assign(kit.identity, { address: ADMIN, chainId: 8453 });
+          rules = toSend();
+          const deploy = {
+            ...sendAction,
+            to: "0x69Aa2f9fe1572F1B640E1bbc512f5c3a734fc77c",
+            data: `0x4af63f02${"00".repeat(40)}${ADMIN.slice(2).toLowerCase()}${"00".repeat(20)}`,
+          };
+          sendTo(deploy);
+          await renderPolicies();
+          await send();
+          await waitFor(() =>
+            expect(kit.sendTransaction).toHaveBeenCalledOnce(),
+          );
+          expect(kit.sendTransaction.mock.calls[0]![0]).toMatchObject({
+            to: deploy.to,
+            data: deploy.data,
+          });
         });
 
         it("refuses to send for a Solana signer, or from a wallet that cannot send", async () => {
