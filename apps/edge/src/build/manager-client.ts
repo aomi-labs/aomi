@@ -26,16 +26,19 @@ export function sdkBackendUrl(ctx: BuildContext): string {
 /**
  * A five-minute bearer naming the builder itself, limited to `capabilities`,
  * which the manager enforces per route. `source` is how the builder signed in.
+ * A key bound to a publisher carries that publisher as its resource.
  */
 export function builderBearer(
   ctx: BuildContext,
   builderId: string,
   capabilities: readonly string[],
+  publisher: string | null,
   source: "api_key" | "session" | "cli_session",
 ) {
   // The manager reads a scope only with its resource, so a key without
   // capabilities carries neither and reaches the `builder:read` routes alone.
   const scope = capabilities.join(" ");
+  const resource = `${ctx.buildOrigin}/api/build${publisher ? `/publishers/${publisher}` : ""}`;
   return edgeService(ctx.env).mint({
     role: "user",
     subject: builderId,
@@ -44,7 +47,7 @@ export function builderBearer(
     delegated: {
       auth_source: source,
       principal_class: "builder",
-      ...(scope ? { scope, resource: `${ctx.buildOrigin}/api/build` } : {}),
+      ...(scope ? { scope, resource } : {}),
     },
   });
 }
@@ -55,7 +58,7 @@ export function builderBearer(
  * caller is the builder itself, limited to the key's capabilities.
  */
 function mintBearer(ctx: BuildContext, key: Caller["key"]) {
-  if (key) return builderBearer(ctx, key.builderId, key.capabilities, "api_key");
+  if (key) return builderBearer(ctx, key.builderId, key.capabilities, key.publisher, "api_key");
   return edgeService(ctx.env).mint({
     role: "service",
     subject: EDGE_SERVICE_NAME,

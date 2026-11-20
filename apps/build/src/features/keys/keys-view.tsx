@@ -16,6 +16,8 @@ import {
   LoadingPanel,
 } from "@/features/deploy/components/deployments/ui/state-panels";
 import { createKey, fetchKeys, revokeKey } from "@/features/packages/client";
+import { usePublisher } from "@/features/packages/hooks";
+import { Select } from "@/components/select";
 import { AccessKeys } from "@/features/keys/access-keys";
 import { PageHeader, pageFrame } from "@/components/control-plane/page";
 import { Card, Cell, INPUT, Mono, Row, formatTime } from "@/features/packages/ui";
@@ -31,11 +33,24 @@ const CAPABILITIES = [
 
 const KEYS = ["build", "keys"] as const;
 
+const KINDS = [
+  { value: "release", label: "Publish and promote" },
+  { value: "observe", label: "Observe agents" },
+] as const;
+type Kind = (typeof KINDS)[number]["value"];
+
 function NewKey() {
   const queries = useQueryClient();
+  const publisher = usePublisher().data?.publisher;
   const [label, setLabel] = useState("");
+  const [kind, setKind] = useState<Kind>("release");
   const create = useMutation({
-    mutationFn: () => createKey({ label, capabilities: [...CAPABILITIES] }),
+    mutationFn: () =>
+      createKey(
+        kind === "observe"
+          ? { label, capabilities: ["publisher:observe"], publisher }
+          : { label, capabilities: [...CAPABILITIES] },
+      ),
     onSuccess: () => queries.invalidateQueries({ queryKey: KEYS }),
   });
   if (create.data)
@@ -64,9 +79,26 @@ function NewKey() {
         value={label}
         onChange={(event) => setLabel(event.target.value)}
       />
-      <button type="submit" className={aomiButton({ size: "sm" })} disabled={create.isPending}>
+      <Select
+        label="Allows"
+        value={kind}
+        onChange={setKind}
+        options={[...KINDS]}
+      />
+      <button
+        type="submit"
+        className={aomiButton({ size: "sm" })}
+        disabled={create.isPending || (kind === "observe" && !publisher)}
+      >
         New builder key
       </button>
+      {kind === "observe" ? (
+        <span className="type-meta text-aomi-muted basis-full">
+          Reads the health, logs, usage, transactions and statements of{" "}
+          {publisher ? `${publisher}'s agents` : "your publisher's agents"}.
+          It can&apos;t change anything.
+        </span>
+      ) : null}
       {create.error ? (
         <span role="alert" className="text-aomi-danger type-meta">
           {create.error.message}
@@ -191,7 +223,9 @@ export function KeysView() {
                     key={capability}
                     className="border-aomi-border bg-aomi-surface inline-flex h-6 items-center rounded-full border px-2 text-[12px]"
                   >
-                    {capability}
+                    {capability === "publisher:observe" && key.publisher
+                      ? `${capability} · ${key.publisher}`
+                      : capability}
                   </span>
                 ))}
               </span>

@@ -152,6 +152,8 @@ export type BuilderKey = {
   prefix: string;
   label: string | null;
   capabilities: string[];
+  /** The publisher a `publisher:observe` key reads. */
+  publisher: string | null;
   createdAt: number;
   lastUsedAt: number | null;
   revokedAt: number | null;
@@ -160,7 +162,11 @@ export type BuilderKey = {
 export const fetchKeys = () => json<{ keys: BuilderKey[] }>(paths.keys, "Keys");
 
 /** The created key, whose `key` is shown once and never again. */
-export const createKey = (input: { label: string; capabilities: string[] }) =>
+export const createKey = (input: {
+  label: string;
+  capabilities: string[];
+  publisher?: string;
+}) =>
   json<BuilderKey & { key: string }>(
     paths.keys,
     "Create key",

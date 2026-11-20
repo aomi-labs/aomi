@@ -56,8 +56,8 @@ function forward(capability: Capability | null, cliScope: GitHubCliScope): Handl
     const body = read ? undefined : await bounded(request);
     const { accessToken } = await minted(() =>
       caller.key
-        ? builderBearer(ctx, caller.key.builderId, caller.key.capabilities, "api_key")
-        : builderBearer(ctx, caller.session.githubUserId, RELEASE_CAPABILITIES, caller.cli ? "cli_session" : "session"),
+        ? builderBearer(ctx, caller.key.builderId, caller.key.capabilities, caller.key.publisher, "api_key")
+        : builderBearer(ctx, caller.session.githubUserId, RELEASE_CAPABILITIES, null, caller.cli ? "cli_session" : "session"),
     );
     const url = new URL(request.url);
     const path = url.pathname.replace(/^\/api\/build\//, "/api/");

@@ -21,7 +21,7 @@ describePostgres("PostgreSQL builder API keys", () => {
     pool = (await import("@aomi-labs/account")).getPool();
     keys = (await import("./api-keys")).postgresKeys(() => pool);
     await pool.query(`create schema "${schemaName}"`);
-    // product-mono's supabase/migrations/20261112010000_api_keys.sql.
+    // product-mono's supabase/migrations/20261112010000_api_keys.sql and its `publisher` column.
     await pool.query(
       `CREATE TABLE api_keys (
          id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -30,10 +30,12 @@ describePostgres("PostgreSQL builder API keys", () => {
          principal_kind text NOT NULL CHECK (principal_kind IN ('account','builder')),
          principal_id text NOT NULL,
          capabilities text[] NOT NULL,
+         publisher text,
          label text,
          created_at bigint NOT NULL DEFAULT (EXTRACT(epoch FROM now()))::bigint,
          last_used_at bigint,
-         revoked_at bigint
+         revoked_at bigint,
+         CHECK (NOT 'publisher:observe' = ANY (capabilities) OR publisher IS NOT NULL)
        )`,
     );
   });
@@ -53,16 +55,22 @@ describePostgres("PostgreSQL builder API keys", () => {
     prefix: "aomi_key_abcdefg",
     builderId,
     capabilities,
+    publisher: null,
     label: null,
   });
 
   it("creates a builder key and finds it by hash", async () => {
-    const created = await keys.create({ ...row("hash-a", "4242", ["project:deploy", "project:observe"]), label: "ci" });
+    const created = await keys.create({
+      ...row("hash-a", "4242", ["project:deploy", "publisher:observe"]),
+      publisher: "alice",
+      label: "ci",
+    });
     expect(created).toEqual({
       id: expect.any(Number),
       prefix: "aomi_key_abcdefg",
       label: "ci",
-      capabilities: ["project:deploy", "project:observe"],
+      capabilities: ["project:deploy", "publisher:observe"],
+      publisher: "alice",
       createdAt: expect.any(Number),
       lastUsedAt: null,
       revokedAt: null,
@@ -71,7 +79,8 @@ describePostgres("PostgreSQL builder API keys", () => {
     expect(await keys.find("hash-a")).toEqual({
       id: created.id,
       builderId: "4242",
-      capabilities: ["project:deploy", "project:observe"],
+      capabilities: ["project:deploy", "publisher:observe"],
+      publisher: "alice",
     });
     expect(await keys.find("hash-unknown")).toBeNull();
 

@@ -49,8 +49,8 @@ const upstream: FetchLike = async (request) => {
 
 async function keyStore(): Promise<ApiKeyStore> {
   const grants = new Map([
-    [await sha256Hex(PUBLISH_KEY), { id: 1, builderId: ALICE, capabilities: ["package:publish"] }],
-    [await sha256Hex(OBSERVE_KEY), { id: 2, builderId: ALICE, capabilities: ["project:observe"] }],
+    [await sha256Hex(PUBLISH_KEY), { id: 1, builderId: ALICE, capabilities: ["package:publish"], publisher: null }],
+    [await sha256Hex(OBSERVE_KEY), { id: 2, builderId: ALICE, capabilities: ["publisher:observe"], publisher: "alice" }],
   ]);
   return {
     create: () => Promise.reject(new Error("unused")),
@@ -182,7 +182,12 @@ describe("release routes", () => {
     ]);
     for (const call of seen) {
       expect(call.headers.get("authorization")).not.toContain(OBSERVE_KEY);
-      expect(await claims(call)).toMatchObject({ sub: ALICE, scope: "project:observe", auth_source: "api_key" });
+      expect(await claims(call)).toMatchObject({
+        sub: ALICE,
+        scope: "publisher:observe",
+        resource: `${BUILD}/api/build/publishers/alice`,
+        auth_source: "api_key",
+      });
     }
   });
 

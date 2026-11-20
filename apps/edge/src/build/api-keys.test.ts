@@ -54,12 +54,13 @@ function memoryKeys() {
     ...key
   }: Stored): ApiKey => key;
   const store: ApiKeyStore = {
-    async create({ hash, prefix, builderId, capabilities, label }) {
+    async create({ hash, prefix, builderId, capabilities, publisher, label }) {
       const row: Stored = {
         id: rows.length + 1,
         prefix,
         label,
         capabilities,
+        publisher,
         createdAt: clock++,
         lastUsedAt: null,
         revokedAt: null,
@@ -88,6 +89,7 @@ function memoryKeys() {
             id: row.id,
             builderId: row.builderId,
             capabilities: row.capabilities,
+            publisher: row.publisher,
           }
         : null;
     },
@@ -150,11 +152,11 @@ async function portalWrite(
 async function createKey(
   githubUserId: string,
   capabilities: string[],
-  label?: string,
+  extra: { label?: string; publisher?: string } = {},
 ) {
   const response = await portalWrite(githubUserId, "POST", {
     capabilities,
-    label,
+    ...extra,
   });
   expect(response.status).toBe(201);
   return (await response.json()) as ApiKey & { key: string };
@@ -185,15 +187,16 @@ describe("builder API key management", () => {
   it("returns the key once and stores only its hash", async () => {
     const created = await createKey(
       ALICE,
-      ["project:deploy", "project:observe", "project:deploy"],
-      " ci ",
+      ["project:deploy", "project:activate", "project:deploy"],
+      { label: " ci " },
     );
     expect(created.key).toMatch(/^aomi_key_[A-Za-z0-9_-]{43}$/);
     expect(created).toMatchObject({
       id: 1,
       prefix: created.key.slice(0, 16),
       label: "ci",
-      capabilities: ["project:deploy", "project:observe"],
+      capabilities: ["project:deploy", "project:activate"],
+      publisher: null,
       lastUsedAt: null,
       revokedAt: null,
     });
@@ -205,7 +208,8 @@ describe("builder API key management", () => {
       id: 1,
       prefix: created.prefix,
       label: "ci",
-      capabilities: ["project:deploy", "project:observe"],
+      capabilities: ["project:deploy", "project:activate"],
+      publisher: null,
       createdAt: created.createdAt,
       lastUsedAt: null,
       revokedAt: null,
@@ -225,9 +229,10 @@ describe("builder API key management", () => {
     expect((await listKeys(ALICE))[0].revokedAt).toEqual(expect.any(Number));
   });
 
-  it("validates capabilities against the three names", async () => {
+  it("validates capabilities against the key capabilities", async () => {
     for (const capabilities of [
       ["project:delete"],
+      ["project:observe"],
       ["builder:read"],
       "project:deploy",
       undefined,
@@ -236,6 +241,25 @@ describe("builder API key management", () => {
         400,
       );
     expect(keys.rows).toEqual([]);
+  });
+
+  it("binds publisher:observe to exactly one publisher", async () => {
+    for (const body of [
+      { capabilities: ["publisher:observe"] },
+      { capabilities: ["publisher:observe"], publisher: "Alice" },
+      { capabilities: ["project:deploy"], publisher: "alice" },
+    ])
+      expect((await portalWrite(ALICE, "POST", body)).status).toBe(400);
+    expect(keys.rows).toEqual([]);
+
+    const created = await createKey(ALICE, ["publisher:observe"], {
+      publisher: "alice",
+    });
+    expect(created).toMatchObject({
+      capabilities: ["publisher:observe"],
+      publisher: "alice",
+    });
+    expect((await listKeys(ALICE))[0].publisher).toBe("alice");
   });
 
   it("takes the portal session only", async () => {
@@ -309,7 +333,7 @@ describe("builder API key callers", () => {
   it("calls the manager as the key's builder, never as the edge service", async () => {
     const { key } = await createKey(ALICE, [
       "project:deploy",
-      "project:observe",
+      "project:activate",
     ]);
     // A key for Alice beside Bob's cookie is still Alice.
     const response = await build(
@@ -332,13 +356,34 @@ describe("builder API key callers", () => {
     expect(payload).toMatchObject({
       sub: ALICE,
       role: "user",
-      scope: "project:deploy project:observe",
+      scope: "project:deploy project:activate",
       resource: `${BUILD}/api/build`,
       auth_source: "api_key",
       principal_class: "builder",
     });
     expect(payload.exp! - payload.iat!).toBe(5 * 60);
     expect(keys.rows[0].lastUsedAt).toEqual(expect.any(Number));
+  });
+
+  it("names a publisher:observe key's publisher as the bearer's resource", async () => {
+    const { key } = await createKey(ALICE, ["publisher:observe"], {
+      publisher: "alice",
+    });
+    expect(
+      (await build("/api/build/operate/observability", withKey(key))).status,
+    ).toBe(200);
+    const [call] = seen;
+    expect(call.url.pathname).toBe(
+      "/api/integrations/github-app/user/observability",
+    );
+    expect(
+      decodeJwt(call.authorization!.replace(/^Bearer /, "")),
+    ).toMatchObject({
+      sub: ALICE,
+      scope: "publisher:observe",
+      resource: `${BUILD}/api/build/publishers/alice`,
+      auth_source: "api_key",
+    });
   });
 
   it("sends a key without capabilities as an unscoped builder bearer", async () => {
@@ -369,7 +414,6 @@ describe("builder API key callers", () => {
     const { key } = await createKey(ALICE, [
       "project:deploy",
       "project:activate",
-      "project:observe",
     ]);
     // The cookie would open each of these; the key closes them.
     const signedIn = withKey(key, {

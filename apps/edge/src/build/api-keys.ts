@@ -3,7 +3,8 @@
  * and a script sends as `Authorization: Bearer aomi_key_…`. The edge owns the
  * `api_keys` table (its migration ships in product-mono) and stores only the
  * key's SHA-256. A key names its builder and some of `KEY_CAPABILITIES`; the
- * manager enforces them on the builder bearer the edge mints for the call.
+ * manager enforces them on the builder bearer the edge mints for the call. A
+ * `publisher:observe` key also names the one publisher whose agents it reads.
  *
  * Managing keys takes the portal's GitHub session cookie. A CLI bearer or a
  * key cannot create, list or revoke keys.
@@ -32,11 +33,13 @@ export const RELEASE_CAPABILITIES = [
   "agent:promote",
   "package:secrets",
 ] as const;
+/** Reads one publisher's operate data: health, logs, usage, transactions and statements. */
+const OBSERVE = "publisher:observe";
 /** The capabilities a key can hold; the manager's route labels. */
 export const KEY_CAPABILITIES = [
   "project:deploy",
   "project:activate",
-  "project:observe",
+  OBSERVE,
   ...RELEASE_CAPABILITIES,
 ] as const;
 /** The characters of a key kept in the clear so its owner can tell keys apart. */
@@ -57,16 +60,24 @@ export type ApiKey = {
   prefix: string;
   label: string | null;
   capabilities: string[];
+  publisher: string | null;
   createdAt: number;
   lastUsedAt: number | null;
   revokedAt: number | null;
 };
 
-/** What a presented key proves: its builder (a GitHub user id) and capabilities. */
-export type KeyGrant = { id: number; builderId: string; capabilities: string[] };
+/** What a presented key proves: its builder (a GitHub user id), capabilities and publisher. */
+export type KeyGrant = { id: number; builderId: string; capabilities: string[]; publisher: string | null };
 
 export interface ApiKeyStore {
-  create(row: { hash: string; prefix: string; builderId: string; capabilities: string[]; label: string | null }): Promise<ApiKey>;
+  create(row: {
+    hash: string;
+    prefix: string;
+    builderId: string;
+    capabilities: string[];
+    publisher: string | null;
+    label: string | null;
+  }): Promise<ApiKey>;
   list(builderId: string): Promise<ApiKey[]>;
   /** Revoke a key `builderId` owns; false when there is no such key. */
   revoke(builderId: string, id: number): Promise<boolean>;
@@ -85,12 +96,13 @@ type KeyRow = {
   key_prefix: string;
   label: string | null;
   capabilities: string[];
+  publisher: string | null;
   created_at: string;
   last_used_at: string | null;
   revoked_at: string | null;
 };
 
-const COLUMNS = "id, key_prefix, label, capabilities, created_at, last_used_at, revoked_at";
+const COLUMNS = "id, key_prefix, label, capabilities, publisher, created_at, last_used_at, revoked_at";
 const NOW = "(extract(epoch from now()))::bigint";
 const seconds = (value: string | null) => (value === null ? null : Number(value));
 
@@ -100,6 +112,7 @@ function apiKey(row: KeyRow): ApiKey {
     prefix: row.key_prefix,
     label: row.label,
     capabilities: row.capabilities,
+    publisher: row.publisher,
     createdAt: Number(row.created_at),
     lastUsedAt: seconds(row.last_used_at),
     revokedAt: seconds(row.revoked_at),
@@ -109,12 +122,12 @@ function apiKey(row: KeyRow): ApiKey {
 /** The `api_keys` table, builder rows only. */
 export function postgresKeys(db: () => Database = getPool): ApiKeyStore {
   return {
-    async create({ hash, prefix, builderId, capabilities, label }) {
+    async create({ hash, prefix, builderId, capabilities, publisher, label }) {
       const { rows } = await db().query<KeyRow>(
-        `insert into api_keys (key_hash, key_prefix, principal_kind, principal_id, capabilities, label)
-         values ($1, $2, 'builder', $3, $4::text[], $5)
+        `insert into api_keys (key_hash, key_prefix, principal_kind, principal_id, capabilities, publisher, label)
+         values ($1, $2, 'builder', $3, $4::text[], $5, $6)
          returning ${COLUMNS}`,
-        [hash, prefix, builderId, capabilities, label],
+        [hash, prefix, builderId, capabilities, publisher, label],
       );
       return apiKey(rows[0]);
     },
@@ -137,13 +150,20 @@ export function postgresKeys(db: () => Database = getPool): ApiKeyStore {
       return rows.length > 0;
     },
     async find(hash) {
-      const { rows } = await db().query<{ id: string; principal_id: string; capabilities: string[] }>(
-        `select id, principal_id, capabilities from api_keys
+      const { rows } = await db().query<{
+        id: string;
+        principal_id: string;
+        capabilities: string[];
+        publisher: string | null;
+      }>(
+        `select id, principal_id, capabilities, publisher from api_keys
          where key_hash = $1 and principal_kind = 'builder' and revoked_at is null`,
         [hash],
       );
       const [row] = rows;
-      return row ? { id: Number(row.id), builderId: row.principal_id, capabilities: row.capabilities } : null;
+      return row
+        ? { id: Number(row.id), builderId: row.principal_id, capabilities: row.capabilities, publisher: row.publisher }
+        : null;
     },
     async touch(id) {
       await db().query(`update api_keys set last_used_at = ${NOW} where id = $1`, [id]);
@@ -170,10 +190,19 @@ async function portalBuilder(request: Request, ctx: BuildContext, write: boolean
   return caller.session.githubUserId;
 }
 
-const createInput = z.object({
-  label: z.string().trim().max(100).optional(),
-  capabilities: z.array(z.enum(KEY_CAPABILITIES)).transform((names) => [...new Set(names)]),
-});
+const createInput = z
+  .object({
+    label: z.string().trim().max(100).optional(),
+    capabilities: z.array(z.enum(KEY_CAPABILITIES)).transform((names) => [...new Set(names)]),
+    publisher: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9-]{0,62}$/)
+      .optional(),
+  })
+  .refine(
+    (input) => input.capabilities.includes(OBSERVE) === (input.publisher !== undefined),
+    `a publisher is required with ${OBSERVE} and refused without it`,
+  );
 
 async function create(request: Request, ctx: BuildContext): Promise<Response> {
   const builderId = await portalBuilder(request, ctx, true);
@@ -184,6 +213,7 @@ async function create(request: Request, ctx: BuildContext): Promise<Response> {
     prefix: key.slice(0, DISPLAY_PREFIX_LENGTH),
     builderId,
     capabilities: input.capabilities,
+    publisher: input.publisher ?? null,
     label: input.label || null,
   });
   // The only time the key itself leaves the edge.

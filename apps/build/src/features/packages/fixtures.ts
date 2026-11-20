@@ -208,6 +208,7 @@ export const keysFixture: { keys: BuilderKey[] } = {
         "agent:publish",
         "agent:promote",
       ],
+      publisher: null,
       createdAt: 1761800000,
       lastUsedAt: 1761850000,
       revokedAt: null,
