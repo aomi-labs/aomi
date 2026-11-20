@@ -284,8 +284,16 @@ export function liveAgentDetailView(
       toolsSummary: toolsSummaryLabel(realTools),
       fees24h: "receipt fees shown per transaction",
       lifecycle: [
-        ...(detail.archive ? [["Archived binary size", detail.archive.binaryBytes == null
-          ? "Unavailable" : `${detail.archive.binaryBytes.toLocaleString()} bytes` ] as [string, string]] : []),
+        ...(detail.archive
+          ? [
+              [
+                "Archived binary size",
+                detail.archive.binaryBytes == null
+                  ? "Unavailable"
+                  : `${detail.archive.binaryBytes.toLocaleString()} bytes`,
+              ] as [string, string],
+            ]
+          : []),
         ["Cold start", durationLabel(detail.lifecycle.coldStartMs)],
         ["Loaded instances", numberLabel(detail.lifecycle.loads24h)],
         ["Evictions", numberLabel(detail.lifecycle.evictions24h)],
@@ -295,7 +303,9 @@ export function liveAgentDetailView(
         tag: deploy.tag,
         when: relativeTime(deploy.at),
         current: false,
-        note: deploy.sdkVersion ? `Archived · SDK ${deploy.sdkVersion}` : "Archived",
+        note: deploy.sdkVersion
+          ? `Archived · SDK ${deploy.sdkVersion}`
+          : "Archived",
       })),
     },
     transactions,
