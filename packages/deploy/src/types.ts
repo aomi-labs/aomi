@@ -226,50 +226,26 @@ export interface OwnedOperateProjectInput {
   projectId: number;
 }
 
-/** Account-wide observability batch: the manager reports every owned project
- *  under its own bound platform. */
-export interface GetUserObservabilityInput {
+/** Account-wide operate reads (`/user/observability|payments|transactions|statement|usage|logs`):
+ *  one result over the agents the builder's publisher owns, narrowed to one project or one agent. */
+export interface UserOperateInput {
   githubUserId: string;
-  /** Optional project narrowing for an observability deep link. */
   projectId?: number;
+  agentId?: number;
 }
 
-/** Account-wide operate batch reads (`/user/transactions|statement|usage|logs`).
- *  The manager reads every owned project under its own bound platform —
- *  partner-bound projects included. */
-export interface UserOperateBatchInput {
-  githubUserId: string;
-}
-
-export interface GetUserStatementsInput extends UserOperateBatchInput {
+export interface GetUserStatementsInput extends UserOperateInput {
   fromDate?: string;
   toDate?: string;
 }
 
-export interface ListUserTransactionsInput extends UserOperateBatchInput {
+export interface ListUserTransactionsInput extends UserOperateInput {
   cursor?: OperateTransactionCursor | string | null;
   limit?: number;
   status?: string;
 }
 
-export interface ListUserLogsInput extends UserOperateBatchInput {
-  cursor?: OperateLogCursor | string | null;
-  limit?: number;
-  type?: "deployment" | "usage" | "transaction" | string;
-}
-
-export interface ListUserProjectTransactionsInput extends OwnedOperateProjectInput {
-  cursor?: OperateTransactionCursor | string | null;
-  limit?: number;
-  status?: string;
-}
-
-export interface GetUserProjectUsageInput extends OwnedOperateProjectInput {
-  fromDate?: string;
-  toDate?: string;
-}
-
-export interface ListUserProjectLogsInput extends OwnedOperateProjectInput {
+export interface ListUserLogsInput extends UserOperateInput {
   cursor?: OperateLogCursor | string | null;
   limit?: number;
   type?: "deployment" | "usage" | "transaction" | string;

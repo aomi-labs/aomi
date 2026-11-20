@@ -1,20 +1,7 @@
 // Example Operate payloads assembled from the per-agent fixtures, in the exact
-// wire shape the BFF returns. Two consumers:
-//
-//   - dev-operate-preview: serves these for every tab (pure design harness).
-//   - bff/operate/routes.ts: serves them ONLY where the manager has no data
-//     yet (billing statement, 24h trend metrics), so the new designs are
-//     visible in production before backend parity lands. Real backend data
-//     always wins per field; payloads filled this way carry `example: true`
-//     and the page shows an "Example data" badge.
-//
-// Delete the BFF fallback branches (and nothing else) once the manager ships
-// `/user/projects/:id/statement` and the 24h trend fields on observability.
+// wire shape the BFF returns, for the dev-operate-preview design harness.
 
 import { FIXTURES } from "./";
-
-/** Placeholder project for accounts that have no agent projects yet. */
-export const EXAMPLE_PROJECT = { id: 0, repositoryLink: "example/agents" };
 
 export const EXAMPLE_RANGE = { fromDate: "2026-07-01", toDate: "2026-07-15" };
 

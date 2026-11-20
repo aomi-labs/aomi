@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vitest";
-import {
-  EXAMPLE_PROJECT,
-  exampleAgentCards,
-  exampleStatement,
-  withExampleTrends,
-} from "./wire";
+import { exampleAgentCards, exampleStatement, withExampleTrends } from "./wire";
+
+const PROJECT = { id: 0, repositoryLink: "example/agents" };
 
 describe("exampleStatement", () => {
-  const statement = exampleStatement(EXAMPLE_PROJECT);
+  const statement = exampleStatement(PROJECT);
 
   it("folds the summary from entries like the manager's assemble_statement", () => {
     expect(statement.summary.grossRevenue).toBeCloseTo(183.25, 2);
@@ -30,7 +27,7 @@ describe("exampleStatement", () => {
       ...statement.charges,
       ...statement.entries,
     ]) {
-      expect(row.project).toBe(EXAMPLE_PROJECT);
+      expect(row.project).toBe(PROJECT);
       expect(row.agent).toBeTruthy();
     }
   });
@@ -81,12 +78,12 @@ describe("withExampleTrends", () => {
 
 describe("exampleAgentCards", () => {
   it("builds one complete card per fixture agent", () => {
-    const cards = exampleAgentCards(EXAMPLE_PROJECT);
+    const cards = exampleAgentCards(PROJECT);
     expect(cards.length).toBeGreaterThanOrEqual(3);
     for (const card of cards) {
       expect(card.agent).toBeTruthy();
       expect(card.exampleFixture).toBe(card.agent);
-      expect(card.project).toBe(EXAMPLE_PROJECT);
+      expect(card.project).toBe(PROJECT);
       expect(card.metrics.chats24h).not.toBeNull();
       expect(card.metrics.trendWindowSeconds).toBe(86_400);
     }

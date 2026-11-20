@@ -17,15 +17,8 @@ describe("manager operate observability", () => {
   beforeEach(() => {
     fetchMock = vi.fn(async () =>
       Response.json({
-        source: {
-          id: 42,
-          installation_id: 123,
-          repository_id: 987,
-          repository_link: "https://github.com/alice/demo.git",
-          github_account: "alice",
-        },
-        platform: "community",
         scope: "owned_agents",
+        projects: [],
         monitoring: {
           provider: "grafana_prometheus",
           status: "ok",
@@ -35,6 +28,8 @@ describe("manager operate observability", () => {
           {
             agent_id: 77,
             agent: "demo",
+            slug: "alice/demo",
+            project_id: null,
             active: true,
             loaded: true,
             release_tag: "agents-123-demo-abc1234def56",
@@ -88,14 +83,6 @@ describe("manager operate observability", () => {
             description: "Shared DB pressure.",
           },
         ],
-        payments: {
-          available: true,
-          scope: "recipient_bucket",
-          summary: {},
-          resources: [],
-          buckets: [],
-          events: [],
-        },
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -104,16 +91,21 @@ describe("manager operate observability", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("maps snake_case Grafana metrics into agent observability fields", async () => {
-    const result = await client().getUserProjectObservability({
+    const result = await client().getUserObservability({
       githubUserId: "4738254",
-      platform: "community",
-      projectId: 42,
+      agentId: 77,
     });
 
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock.mock.calls[0][0]).toBe(
-      "https://staging-api.example.com/api/integrations/github-app/user/projects/42/observability?github_user_id=4738254",
+      "https://staging-api.example.com/api/integrations/github-app/user/observability?github_user_id=4738254&agent_id=77",
     );
+    expect(result.projects).toEqual([]);
+    expect(result.agents[0]).toMatchObject({
+      agentId: 77,
+      slug: "alice/demo",
+      projectId: null,
+    });
     expect(result.monitoring).toEqual({
       provider: "grafana_prometheus",
       status: "ok",
@@ -159,50 +151,46 @@ describe("manager operate observability", () => {
     });
   });
 
-  it("reads a source-filtered account snapshot without a payment ledger", async () => {
+  it("narrows the account read to one project", async () => {
     fetchMock.mockResolvedValueOnce(
       Response.json({
-        results: [
-          {
-            source: { id: 42, installation_id: 123 },
-            platform: "community",
-            scope: "owned_agents",
-            agents: [],
-            dashboard_links: [],
-            platform_metrics: [],
-          },
+        scope: "owned_agents",
+        projects: [
+          { project: { id: 42, installation_id: 123 }, platform: "community" },
         ],
+        agents: [],
+        dashboard_links: [],
+        platform_metrics: [],
       }),
     );
 
     const result = await client().getUserObservability({
       githubUserId: "4738254",
-      platform: "community",
       projectId: 42,
     });
 
     expect(fetchMock.mock.calls[0][0]).toBe(
       "https://staging-api.example.com/api/integrations/github-app/user/observability?github_user_id=4738254&project_id=42",
     );
-    expect(result[0]).not.toHaveProperty("payments");
+    expect(result.projects[0]).toMatchObject({
+      project: { id: 42 },
+      platform: "community",
+    });
+    expect(result).not.toHaveProperty("payments");
   });
 
   it("maps the separate account payment ledger", async () => {
     fetchMock.mockResolvedValueOnce(
       Response.json({
-        results: [
-          {
-            source: { id: 42, installation_id: 123 },
-            payments: {
-              available: true,
-              scope: "recipient_bucket",
-              summary: { priced_calls: 1 },
-              resources: [],
-              buckets: [],
-              events: [],
-            },
-          },
-        ],
+        scope: "owned_agents",
+        payments: {
+          available: true,
+          scope: "recipient_bucket",
+          summary: { priced_calls: 1 },
+          resources: [],
+          buckets: [],
+          events: [],
+        },
       }),
     );
 
@@ -214,7 +202,7 @@ describe("manager operate observability", () => {
     expect(fetchMock.mock.calls[0][0]).toBe(
       "https://staging-api.example.com/api/integrations/github-app/user/payments?github_user_id=4738254&project_id=42",
     );
-    expect(result[0].payments.summary.pricedCalls).toBe(1);
+    expect(result.summary.pricedCalls).toBe(1);
   });
 
   it("maps the 24h trend contract when the manager emits it", async () => {
@@ -255,10 +243,8 @@ describe("manager operate observability", () => {
       ),
     );
 
-    const result = await client().getUserProjectObservability({
+    const result = await client().getUserObservability({
       githubUserId: "4738254",
-      platform: "community",
-      projectId: 42,
     });
     expect(result.agents[0].metrics).toMatchObject({
       trendWindowSeconds: 86400,
@@ -281,11 +267,7 @@ describe("manager operate logs", () => {
   it("normalizes safe builder model-key attribution on usage events", async () => {
     const fetchMock = vi.fn(async () =>
       Response.json({
-        source: {
-          id: 42,
-          repository_link: "https://github.com/alice/demo",
-        },
-        platform: "community",
+        projects: [],
         logs: [
           {
             occurred_at: 1_784_500_000,
@@ -305,6 +287,8 @@ describe("manager operate logs", () => {
               },
             },
             kind: "event",
+            project_id: null,
+            platform: null,
           },
         ],
         next_cursor: null,
@@ -312,13 +296,17 @@ describe("manager operate logs", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await client().listUserProjectLogs({
+    const result = await client().listUserLogs({
       githubUserId: "4738254",
-      platform: "community",
-      projectId: 42,
+      agentId: 77,
+      limit: 4,
     });
 
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://staging-api.example.com/api/integrations/github-app/user/logs?github_user_id=4738254&agent_id=77&limit=4",
+    );
     expect(result.logs[0]).toMatchObject({
+      projectId: null,
       eventType: "usage",
       summary: "Usage openai/gpt-5-nano",
       modelKey: {
@@ -375,12 +363,13 @@ describe("manager Builder agent", () => {
   it("reads and normalizes the owned agent detail aggregate", async () => {
     const fetchMock = vi.fn(async () =>
       Response.json({
-        source: { id: 42, repository_link: "https://github.com/alice/demo" },
-        platform: "community",
+        project: null,
+        platform: null,
         window_seconds: 86400,
         agent: {
           agent_id: 77,
           name: "demo",
+          slug: "alice/demo",
           release_tag: "agents-42-demo-abc1234",
           sdk_version: "3.0.3",
           active: true,
@@ -439,8 +428,15 @@ describe("manager Builder agent", () => {
       "https://staging-api.example.com/api/integrations/github-app/builder/agents/77/detail?github_user_id=4738254&window=7d",
     );
     expect(result).toMatchObject({
+      project: null,
+      platform: null,
       windowSeconds: 86400,
-      agent: { agentId: 77, name: "demo", status: "healthy" },
+      agent: {
+        agentId: 77,
+        name: "demo",
+        slug: "alice/demo",
+        status: "healthy",
+      },
       funnel: { chats24h: 12, txConfirmed24h: 2 },
       activeUsers24h: 5,
       credits: { credits24h: 8.5, creditsPerTurn24h: 0.71 },
@@ -471,14 +467,8 @@ describe("manager operate statement", () => {
   beforeEach(() => {
     fetchMock = vi.fn(async () =>
       Response.json({
-        source: {
-          id: 42,
-          installation_id: 123,
-          repository_id: 987,
-          repository_link: "https://github.com/alice/demo.git",
-          github_account: "alice",
-        },
-        platform: "community",
+        scope: "owned_agents",
+        projects: [],
         range: { from_date: "2026-07-01", to_date: "2026-07-15" },
         available: true,
         summary: {
@@ -581,17 +571,15 @@ describe("manager operate statement", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("maps the statement wire (subjects, entries, USD floats) to camelCase", async () => {
-    const result = await client().getUserProjectStatement({
+    const result = await client().getUserStatements({
       githubUserId: "4738254",
-      platform: "community",
-      projectId: 42,
       fromDate: "2026-07-01",
       toDate: "2026-07-15",
     });
 
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock.mock.calls[0][0]).toBe(
-      "https://staging-api.example.com/api/integrations/github-app/user/projects/42/statement?github_user_id=4738254&from_date=2026-07-01&to_date=2026-07-15",
+      "https://staging-api.example.com/api/integrations/github-app/user/statement?github_user_id=4738254&from_date=2026-07-01&to_date=2026-07-15",
     );
     expect(result.range).toEqual({
       fromDate: "2026-07-01",
@@ -660,16 +648,11 @@ describe("manager operate statement", () => {
     });
   });
 
-  it("degrades to an unavailable zeroed statement when the table is missing", async () => {
+  it("reads an unavailable ledger as an unavailable zeroed statement", async () => {
     fetchMock.mockResolvedValueOnce(
       Response.json({
-        source: {
-          id: 42,
-          installation_id: 123,
-          repository_id: 987,
-          repository_link: "x",
-        },
-        platform: "community",
+        scope: "owned_agents",
+        projects: [],
         range: { from_date: "2026-07-01", to_date: "2026-07-15" },
         available: false,
         summary: {
@@ -684,14 +667,71 @@ describe("manager operate statement", () => {
       }),
     );
 
-    const result = await client().getUserProjectStatement({
+    const result = await client().getUserStatements({
       githubUserId: "4738254",
-      platform: "community",
-      projectId: 42,
     });
     expect(result.available).toBe(false);
     expect(result.summary.net).toBe(0);
     expect(result.revenue).toEqual([]);
+  });
+});
+
+describe("manager operate usage", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("reads one account result with project-less daily rows", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        scope: "owned_agents",
+        projects: [],
+        range: { from_date: "2026-07-01", to_date: "2026-07-15", max_days: 90 },
+        daily: [
+          {
+            period_utc_day: "2026-07-02",
+            agent: "demo",
+            agent_id: 77,
+            project_id: null,
+            input_tokens: 10,
+            output_tokens: 5,
+            credits_used: 2,
+          },
+        ],
+        breakdown: [
+          {
+            provider: "openai",
+            model: "gpt-5-nano",
+            payment_method: "credits",
+            input_tokens: 10,
+            output_tokens: 5,
+            credits_used: 2,
+            events: 1,
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await client().getUserUsage({
+      githubUserId: "4738254",
+      agentId: 77,
+    });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://staging-api.example.com/api/integrations/github-app/user/usage?github_user_id=4738254&agent_id=77",
+    );
+    expect(result.daily[0]).toEqual({
+      periodUtcDay: "2026-07-02",
+      agent: "demo",
+      agentId: 77,
+      projectId: null,
+      inputTokens: 10,
+      outputTokens: 5,
+      creditsUsed: 2,
+    });
+    expect(result.breakdown[0]).toMatchObject({
+      model: "gpt-5-nano",
+      events: 1,
+    });
   });
 });
 

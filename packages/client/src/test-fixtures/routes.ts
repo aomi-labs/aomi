@@ -11,7 +11,7 @@ export const AOMI_AUTH_CLASSES = [
   "admin",
   "builder",
   "builder:read",
-  "project:observe",
+  "publisher:observe",
   "package:publish",
   "package:promote",
   "package:secrets",

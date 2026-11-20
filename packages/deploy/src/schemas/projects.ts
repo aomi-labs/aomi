@@ -176,8 +176,8 @@ export const UserProjectAgentsResult = wire({
 export type UserProjectAgentsResult = z.output<typeof UserProjectAgentsResult>;
 
 export const BuilderAgent = wire({
-  project: Project,
-  platform: text(),
+  project: maybe(Project),
+  platform: maybeText,
   agent: PlatformAgent,
 });
 export type BuilderAgent = z.output<typeof BuilderAgent>;

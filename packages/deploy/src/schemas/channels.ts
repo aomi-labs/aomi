@@ -43,6 +43,22 @@ export const Channel = wire({
 });
 export type Channel = z.output<typeof Channel>;
 
+/** An agent the builder's publisher owns, offered by the channel and model-key pickers. */
+export const OperableAgent = wire({
+  id: num(),
+  /** `publisher/name`. */
+  slug: text(),
+  label: text(),
+  projectId: maybeNum,
+});
+export type OperableAgent = z.output<typeof OperableAgent>;
+
+export const UserChannelsResult = wire({
+  channels: list(Channel),
+  agents: list(OperableAgent),
+});
+export type UserChannelsResult = z.output<typeof UserChannelsResult>;
+
 /** A registration save, plus the warning when the webhook could not be re-asserted after it. */
 export type UpdateUserChannelResult = Channel & { webhookWarning?: string };
 
@@ -99,3 +115,9 @@ export const BuilderModelKey = wire({
   usageByAgent: list(wire({ agentId: num(), ...usage })),
 });
 export type BuilderModelKey = z.output<typeof BuilderModelKey>;
+
+export const BuilderModelKeysResult = wire({
+  keys: list(BuilderModelKey),
+  agents: list(OperableAgent),
+});
+export type BuilderModelKeysResult = z.output<typeof BuilderModelKeysResult>;

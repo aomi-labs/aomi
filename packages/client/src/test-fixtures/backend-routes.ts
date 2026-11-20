@@ -201,12 +201,12 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/integrations/github-app/builder/agents/:agent_id/detail",
-    auth: ["service", "project:observe"],
+    auth: ["service", "publisher:observe"],
   },
   {
     method: "GET",
     path: "/api/integrations/github-app/builder/agents/:agent_id/tools/:tool/trace",
-    auth: ["service", "project:observe"],
+    auth: ["service", "publisher:observe"],
   },
   {
     method: "GET",
@@ -246,7 +246,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/integrations/github-app/user/logs",
-    auth: ["service", "project:observe"],
+    auth: ["service", "publisher:observe"],
   },
   {
     method: "GET",
@@ -256,12 +256,12 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/integrations/github-app/user/observability",
-    auth: ["service", "project:observe"],
+    auth: ["service", "publisher:observe"],
   },
   {
     method: "GET",
     path: "/api/integrations/github-app/user/payments",
-    auth: ["service"],
+    auth: ["service", "publisher:observe"],
   },
   {
     method: "GET",
@@ -285,43 +285,18 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/logs",
-    auth: ["service", "project:observe"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/observability",
-    auth: ["service", "project:observe"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/statement",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/transactions",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/usage",
-    auth: ["service", "project:observe"],
-  },
-  {
-    method: "GET",
     path: "/api/integrations/github-app/user/statement",
-    auth: ["service"],
+    auth: ["service", "publisher:observe"],
   },
   {
     method: "GET",
     path: "/api/integrations/github-app/user/transactions",
-    auth: ["service"],
+    auth: ["service", "publisher:observe"],
   },
   {
     method: "GET",
     path: "/api/integrations/github-app/user/usage",
-    auth: ["service", "project:observe"],
+    auth: ["service", "publisher:observe"],
   },
   {
     method: "GET",

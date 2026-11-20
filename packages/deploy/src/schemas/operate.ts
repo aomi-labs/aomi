@@ -1,7 +1,7 @@
 /**
  * The Operate surface: transactions, usage, statements, partner payments, logs, observability
- * and an agent's detail. Each one-project read has an account-wide batch twin whose rows also
- * name their project.
+ * and an agent's detail. Each read is one result over the agents the builder's publisher owns,
+ * narrowed by project or agent; rows name their project, which may be none.
  */
 import { z } from "zod";
 
@@ -21,7 +21,7 @@ import {
   wire,
 } from "./wire";
 
-/** A row tagged with the project and platform it came from, as the batch reads send it. */
+/** A row tagged with the project and platform it came from; both null for a project-less agent. */
 const tagged = { projectId: maybeNum, platform: maybeText };
 
 // ── Transactions ──────────────────────────────────────────────────────────
@@ -81,21 +81,16 @@ export type OperateTransactionCursor = NonNullable<
   z.output<typeof OperateTransactionCursor>
 >;
 
-export const OperateTransactionsResult = wire({
-  project: Project,
-  platform: text(),
-  transactions: list(OperateTransaction),
-  nextCursor: OperateTransactionCursor,
-});
-export type OperateTransactionsResult = z.output<
-  typeof OperateTransactionsResult
->;
-
-/** One owned project and the platform it resolves under, from a batch read. */
+/** A real project among the agents in scope and the platform it resolves under. */
 export const UserProjectRef = wire({ project: Project, platform: text() });
 export type UserProjectRef = z.output<typeof UserProjectRef>;
 
-/** Account-wide transactions: one merged newest-first page with one cursor. */
+const scope = {
+  scope: text("owned_agents"),
+  projects: list(UserProjectRef),
+};
+
+/** Transactions: one newest-first page with one cursor. */
 export const UserTransactionsResult = wire({
   projects: list(UserProjectRef),
   transactions: list(wire({ ...transaction, ...tagged })),
@@ -113,11 +108,16 @@ const tokens = {
 };
 
 export const OperateUsageResult = wire({
-  project: Project,
-  platform: text(),
+  ...scope,
   range: wire({ fromDate: text(), toDate: text(), maxDays: num(90) }),
   daily: list(
-    wire({ periodUtcDay: text(), agent: text(), agentId: num(0), ...tokens }),
+    wire({
+      periodUtcDay: text(),
+      agent: text(),
+      agentId: num(0),
+      projectId: maybeNum,
+      ...tokens,
+    }),
   ),
   breakdown: list(
     wire({
@@ -201,10 +201,9 @@ const money = {
  * `outcome`) a positive one. Amounts are raw USD floats; the UI formats them.
  */
 export const OperateStatementResult = wire({
-  project: Project,
-  platform: text(),
+  ...scope,
   range: wire({ fromDate: text(), toDate: text() }),
-  /** False before the statement table exists; the UI falls back to the meter. */
+  /** False when the ledger could not be read; true with no entries is an empty statement. */
   available: flag,
   summary: wire({
     grossRevenue: num(0),
@@ -275,15 +274,7 @@ export const OperateLogCursor = maybe(
 );
 export type OperateLogCursor = NonNullable<z.output<typeof OperateLogCursor>>;
 
-export const OperateLogsResult = wire({
-  project: Project,
-  platform: text(),
-  logs: list(OperateLogEntry),
-  nextCursor: OperateLogCursor,
-});
-export type OperateLogsResult = z.output<typeof OperateLogsResult>;
-
-/** Account-wide logs: one merged newest-first page; shared partner settlements carry a null `projectId`. */
+/** Logs: one newest-first page; project-less agents and shared partner settlements carry a null `projectId`. */
 export const UserLogsResult = wire({
   projects: list(UserProjectRef),
   logs: list(wire({ ...log, ...tagged }, logAliases)),
@@ -324,6 +315,9 @@ export type OperateAgentMetrics = z.output<typeof OperateAgentMetrics>;
 export const OperateAgentHealth = wire({
   agentId: num(0),
   agent: text(),
+  /** `publisher/name`. */
+  slug: text(),
+  projectId: maybeNum,
   active: flag,
   loaded: flag,
   releaseTag: maybeText,
@@ -334,10 +328,8 @@ export const OperateAgentHealth = wire({
 });
 export type OperateAgentHealth = z.output<typeof OperateAgentHealth>;
 
-const observability = {
-  project: Project,
-  platform: text(),
-  scope: text("owned_agents"),
+export const OperateObservabilityResult = wire({
+  ...scope,
   monitoring: maybe(
     wire({ provider: text(), status: text(), windowSeconds: num(0) }),
   ),
@@ -354,28 +346,9 @@ const observability = {
         .transform((value) => (typeof value === "string" ? value : undefined)),
     }),
   ),
-};
-
-export const OperateObservabilityResult = wire({
-  ...observability,
-  payments: OperatePartnerPayments,
 });
 export type OperateObservabilityResult = z.output<
   typeof OperateObservabilityResult
->;
-
-/** An account-wide snapshot: the same read without the payment ledger. */
-export const OperateObservabilitySnapshot = wire(observability);
-export type OperateObservabilitySnapshot = z.output<
-  typeof OperateObservabilitySnapshot
->;
-
-export const OperatePaymentProjectResult = wire({
-  project: Project,
-  payments: OperatePartnerPayments,
-});
-export type OperatePaymentProjectResult = z.output<
-  typeof OperatePaymentProjectResult
 >;
 
 // ── One agent's detail ──────────────────────────────────────────────────────
@@ -389,12 +362,14 @@ const sparseSeries = maybeList(
 );
 
 export const OperateAgentDetailResult = wire({
-  project: Project,
-  platform: text(),
+  project: maybe(Project),
+  platform: maybeText,
   windowSeconds: num(0),
   agent: wire({
     agentId: num(0),
     name: text(),
+    /** `publisher/name`. */
+    slug: text(),
     releaseTag: maybeText,
     sdkVersion: maybeText,
     active: flag,

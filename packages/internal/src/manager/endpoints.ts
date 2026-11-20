@@ -17,14 +17,10 @@ import type {
   DeleteUserChannelInput,
   ExchangeGitHubCodeInput,
   GetBuilderAgentInput,
-  GetUserObservabilityInput,
   GetUserProjectInput,
-  GetUserProjectUsageInput,
   GetUserStatementsInput,
   ListUserLogsInput,
-  ListUserProjectLogsInput,
   ListUserProjectsInput,
-  ListUserProjectTransactionsInput,
   ListUserTransactionsInput,
   OperateLogCursor,
   OperateTransactionCursor,
@@ -34,6 +30,7 @@ import type {
   SetModelKeyGrantsInput,
   UpdateUserChannelInput,
   UpdateUserChannelResult,
+  UserOperateInput,
 } from "@aomi-labs/deploy";
 import {
   Channel as ChannelSchema,
@@ -41,17 +38,16 @@ import {
   BuilderAgentKey as BuilderAgentKeySchema,
   BuilderAgent,
   BuilderModelKey,
+  BuilderModelKeysResult,
   ClaimGitHubProjectResult as ClaimGitHubProjectResultSchema,
   GitHubAppInstallationsResult,
   GitHubIdentity,
   OperateAgentDetailResult,
-  OperateLogsResult,
   OperateObservabilityResult,
-  OperateObservabilitySnapshot,
-  OperatePaymentProjectResult,
+  OperatePartnerPayments,
   OperateStatementResult,
-  OperateTransactionsResult,
   OperateUsageResult,
+  UserChannelsResult,
   UserLogsResult,
   UserProject,
   UserProjectAgentsResult,
@@ -86,9 +82,14 @@ type Row<O> = Omit<ManagerRequest<O>, "path">;
 
 const GITHUB_APP = "/api/integrations/github-app";
 
-/** The account-wide `/user/*` routes, narrowed to one project when the input names it. */
+/** The account-wide `/user/*` routes, narrowed to one project or one agent when the input names it. */
 function user<O>(
-  input: { githubUserId: string; projectId?: number; visibilityGrant?: string },
+  input: {
+    githubUserId: string;
+    projectId?: number;
+    agentId?: number;
+    visibilityGrant?: string;
+  },
   suffix: string,
   row: Row<O>,
 ): ManagerRequest<O> {
@@ -101,6 +102,10 @@ function user<O>(
         input.projectId === undefined
           ? undefined
           : positive(input.projectId, "projectId"),
+      agent_id:
+        input.agentId === undefined
+          ? undefined
+          : positive(input.agentId, "agentId"),
       ...row.query,
     },
     headers: { ...grant(input.visibilityGrant), ...row.headers },
@@ -330,7 +335,7 @@ export const ENDPOINTS = {
   listUserChannels: (input: BuilderChannelsInput) =>
     user(input, "channels", {
       op: "list_user_bots",
-      read: read(list(ChannelSchema), "channels"),
+      read: read(UserChannelsResult),
     }),
   createUserChannel: (input: CreateUserChannelInput) =>
     user(input, "channels", {
@@ -377,7 +382,7 @@ export const ENDPOINTS = {
   listBuilderModelKeys: (input: BuilderModelKeysInput) =>
     keys(input, "", {
       op: "list_builder_model_keys",
-      read: read(list(BuilderModelKey), "keys"),
+      read: read(BuilderModelKeysResult),
     }),
   saveBuilderModelKey: (input: SaveBuilderModelKeyInput) =>
     keys(input, input.keyId === undefined ? "" : segment(input.keyId), {
@@ -403,52 +408,15 @@ export const ENDPOINTS = {
       body: { agent_ids: input.agentIds, model_ids: input.modelIds },
       read: read(BuilderModelKey, "key"),
     }),
-  listUserProjectTransactions: (input: ListUserProjectTransactionsInput) =>
-    project(input, "transactions", {
-      op: "list_user_project_transactions",
-      query: {
-        limit: limit(input.limit),
-        status: trimmed(input.status),
-        cursor: cursor(input.cursor),
-      },
-      read: read(OperateTransactionsResult),
-    }),
-  getUserProjectUsage: (input: GetUserProjectUsageInput) =>
-    project(input, "usage", {
-      op: "get_user_project_usage",
-      query: dates(input),
-      read: read(OperateUsageResult),
-    }),
-  getUserProjectStatement: (input: GetUserProjectUsageInput) =>
-    project(input, "statement", {
-      op: "get_user_project_statement",
-      query: dates(input),
-      read: read(OperateStatementResult),
-    }),
-  listUserProjectLogs: (input: ListUserProjectLogsInput) =>
-    project(input, "logs", {
-      op: "list_user_project_logs",
-      query: {
-        limit: limit(input.limit),
-        type: trimmed(input.type),
-        cursor: cursor(input.cursor),
-      },
-      read: read(OperateLogsResult),
-    }),
-  getUserProjectObservability: (input: OwnedOperateProjectInput) =>
-    project(input, "observability", {
-      op: "get_user_project_observability",
-      read: read(OperateObservabilityResult),
-    }),
-  getUserObservability: (input: GetUserObservabilityInput) =>
+  getUserObservability: (input: UserOperateInput) =>
     user(input, "observability", {
       op: "get_user_observability",
-      read: read(list(OperateObservabilitySnapshot), "results"),
+      read: read(OperateObservabilityResult),
     }),
-  getUserPayments: (input: GetUserObservabilityInput) =>
+  getUserPayments: (input: UserOperateInput) =>
     user(input, "payments", {
       op: "get_user_payments",
-      read: read(list(OperatePaymentProjectResult), "results"),
+      read: read(OperatePartnerPayments, "payments"),
     }),
   listUserTransactions: (input: ListUserTransactionsInput) =>
     user(input, "transactions", {
@@ -464,13 +432,13 @@ export const ENDPOINTS = {
     user(input, "statement", {
       op: "get_user_statement",
       query: dates(input),
-      read: read(list(OperateStatementResult), "results"),
+      read: read(OperateStatementResult),
     }),
   getUserUsage: (input: GetUserStatementsInput) =>
     user(input, "usage", {
       op: "get_user_usage",
       query: dates(input),
-      read: read(list(OperateUsageResult), "results"),
+      read: read(OperateUsageResult),
     }),
   listUserLogs: (input: ListUserLogsInput) =>
     user(input, "logs", {

@@ -50,13 +50,23 @@ describe("manager channels", () => {
                 },
               },
             ],
+            agents: [
+              {
+                id: 7,
+                slug: "publisher/world",
+                label: "world",
+                project_id: null,
+              },
+            ],
           }),
           { status: 200 },
         ),
     );
     vi.stubGlobal("fetch", fetchImpl);
 
-    const channels = await client().listUserChannels({ githubUserId: "gh-1" });
+    const { channels, agents } = await client().listUserChannels({
+      githubUserId: "gh-1",
+    });
 
     expect(channels[0]).toMatchObject({
       platformUsername: "mybot",
@@ -73,6 +83,9 @@ describe("manager channels", () => {
       displayName: "world",
       platform: null,
     });
+    expect(agents).toEqual([
+      { id: 7, slug: "publisher/world", label: "world", projectId: null },
+    ]);
     expect(fetchImpl.mock.calls[0][0]).toContain(
       "/api/integrations/github-app/user/channels?",
     );

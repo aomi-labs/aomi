@@ -1,48 +1,34 @@
 /**
  * Build's operate family over the manager client: channels, model keys,
- * transactions, usage, logs, observability, payments and the package detail.
+ * transactions, usage, logs, observability, payments and the agent detail.
  *
- * A view is either one project (`projectId`, proven the caller's, read through
- * the per-project endpoints under the project's own platform) or the whole
- * account (the manager's batch endpoints, narrowed to the selected platform's
- * projects). The project list is started beside a view's own reads, never
- * ahead of them.
+ * Every read is one manager result over the agents the caller's publisher
+ * owns, narrowed by the manager to one project (`projectId`) or one agent
+ * (`agentId`). Its `projects` are the real projects among those agents.
  */
 import type {
   OperateLogCursor,
   OperatePartnerPayments,
-  OperatePaymentProjectResult,
-  OperateStatementResult,
   OperateTransactionCursor,
-  OperateUsageResult,
-  UserProject,
 } from "@aomi-labs/deploy";
-import {
-  EXAMPLE_PROJECT,
-  exampleStatement,
-} from "@aomi-labs/internal/operate-fixtures/wire";
 import {
   caipChainId,
   caipChainLabel,
-  creditsToUsd,
 } from "@aomi-labs/internal/operate-format";
 import { z } from "zod";
 
 import { EdgeError } from "../kernel/errors";
 import { cursor, id, numeric, text } from "../kernel/route";
-import { endpoint, notFound, type BuildRoute, type Call } from "./endpoint";
-import { reportFailure } from "./failures";
-import { platformSlug } from "./endpoint";
+import { endpoint, platformSlug, type BuildRoute, type Call } from "./endpoint";
 
 const ops = (name: string) => `/api/build/operate/${name}`;
 const CHANNEL = (action: string) =>
   new RegExp(`^/api/build/operate/channels/(?<channelId>[^/]+)/${action}$`);
 
 const scoped = z.object({
-  platform: platformSlug.optional(),
   projectId: id.optional(),
+  agentId: id.optional(),
 });
-type Scoped = z.output<typeof scoped>;
 
 /** A page size: the fallback when absent or invalid, capped at `max`. */
 const pageSize = (fallback: number, max: number) =>
@@ -50,201 +36,18 @@ const pageSize = (fallback: number, max: number) =>
     .transform((value) => Math.min(value, max))
     .catch(fallback);
 
-type View = {
-  githubUserId: string;
-  platform: string;
-  /** Set for a one-project view. */
-  projectId?: number;
-  /** Starts the view's project list; call it beside the view's own reads. */
-  projects: () => Promise<UserProject[]>;
-};
-
-function listProjects(
-  { client, session, visibilityGrant }: Call<unknown>,
-  platform?: string,
-) {
-  return client.listUserProjects({
+function scope({ input, session }: Call<z.output<typeof scoped>>) {
+  return {
     githubUserId: session.githubUserId,
-    platform,
-    visibilityGrant: visibilityGrant ?? undefined,
-  });
-}
-
-/**
- * The projects a view covers. `account` lists every project the caller owns
- * (channels and model keys pick from all of them); otherwise the selected
- * platform's, the exact list behind `/projects`.
- */
-async function view(call: Call<Scoped>, account = false): Promise<View> {
-  const { input, session, ctx } = call;
-  const githubUserId = session.githubUserId;
-  if (input.projectId === undefined) {
-    const selected = input.platform ?? ctx.config.defaultPlatform;
-    return {
-      githubUserId,
-      platform: selected,
-      projects: () => listProjects(call, account ? undefined : selected),
-    };
-  }
-  const project = (await listProjects(call)).find(
-    (candidate) => candidate.id === input.projectId,
-  );
-  if (!project) throw notFound("project not found for this user");
-  return {
-    githubUserId,
-    platform: project.platformName,
-    projectId: project.id,
-    projects: async () => [project],
+    projectId: input.projectId,
+    agentId: input.agentId,
   };
 }
-
-/** Rows on the view's projects; rows with no project (account-level partner settlements) are on every view. */
-function onProjects<T extends { project?: { id: number } | null }>(
-  rows: T[],
-  projects: UserProject[],
-): T[] {
-  const ids = new Set(projects.map((project) => project.id));
-  return rows.filter((row) => !row.project || ids.has(row.project.id));
-}
-
-/** Batch rows carry a project id; give them the project the batch describes. */
-function withProjects<
-  P extends { id: number },
-  T extends { projectId?: number | null; platform?: string | null },
->(
-  batch: { projects: Array<{ project: P }> },
-  rows: T[],
-  fallbackPlatform: string,
-) {
-  const byId = new Map(
-    batch.projects.map((ref) => [ref.project.id, ref.project]),
-  );
-  return rows.map(({ projectId, platform, ...row }) => ({
-    ...row,
-    project: (projectId != null ? byId.get(projectId) : undefined) ?? null,
-    platform: platform ?? fallbackPlatform,
-  }));
-}
-
-/** Tag each row of a per-project result with its project and platform. */
-function tagged<R>(result: { project: unknown; platform: string }, rows: R[]) {
-  return rows.map((row) => ({
-    ...row,
-    project: result.project as UserProject,
-    platform: result.platform,
-  }));
-}
-
-type Dates = { fromDate?: string; toDate?: string };
-
-/** The view's statements. A project without one (no statement entries on its
- *  backend yet) has none rather than failing the view. */
-function statements(
-  { client, request }: Call<unknown>,
-  scope: View,
-  dates: Dates = {},
-): Promise<OperateStatementResult[]> {
-  const { githubUserId, projectId } = scope;
-  if (projectId === undefined)
-    return client.getUserStatements({ githubUserId, ...dates });
-  return client
-    .getUserProjectStatement({ githubUserId, projectId, ...dates })
-    .then(
-      (one) => [one],
-      (error: unknown) => {
-        reportFailure(error, request, "operate.statement");
-        return [];
-      },
-    );
-}
-
-function mergedPartnerPayments(
-  rows: Array<{
-    project: OperatePaymentProjectResult["project"];
-    payments: OperatePartnerPayments;
-  }>,
-) {
-  const sum = (pick: (summary: OperatePartnerPayments["summary"]) => number) =>
-    rows.reduce((total, row) => total + pick(row.payments.summary), 0);
-  const eventById = new Map<
-    string,
-    OperatePartnerPayments["events"][number] & {
-      project: OperatePaymentProjectResult["project"];
-    }
-  >();
-  for (const row of rows) {
-    for (const event of row.payments.events) {
-      const key = `${event.kind}:${event.id}`;
-      const existing = eventById.get(key);
-      if (!existing) {
-        eventById.set(key, { ...event, project: row.project });
-      } else if (existing.agentId !== event.agentId) {
-        // A recipient-bucket settlement can clear fees for agents in several
-        // projects; it belongs to the beneficiary, not the first project merged.
-        existing.agent = null;
-        existing.agentId = null;
-      }
-    }
-  }
-  const events = [...eventById.values()].sort(
-    (a, b) => b.occurredAt - a.occurredAt || b.id.localeCompare(a.id),
-  );
-  const buckets = [
-    ...new Map(
-      rows.flatMap((row) =>
-        row.payments.buckets.map((bucket) => [bucket.id, bucket]),
-      ),
-    ).values(),
-  ];
-  const settlements = events.filter(
-    (event) => event.kind === "settlement_confirmed",
-  );
-  const outstandingCredits = buckets.reduce(
-    (total, bucket) => total + bucket.outstandingCredits,
-    0,
-  );
-  return {
-    available: rows.some((row) => row.payments.available),
-    scope: "recipient_bucket",
-    summary: {
-      accruedCredits: sum((summary) => summary.accruedCredits),
-      accruedUsd: sum((summary) => summary.accruedUsd),
-      settledCredits: settlements.reduce(
-        (total, event) => total + event.credits,
-        0,
-      ),
-      settledUsd: settlements.reduce((total, event) => total + event.usd, 0),
-      outstandingCredits,
-      outstandingUsd: creditsToUsd(outstandingCredits),
-      pricedCalls: sum((summary) => summary.pricedCalls),
-      settlements: settlements.length,
-    },
-    resources: rows.flatMap((row) =>
-      row.payments.resources.map((resource) => ({
-        ...resource,
-        project: row.project,
-      })),
-    ),
-    buckets,
-    events,
-  };
-}
-
-type MergedPayments = ReturnType<typeof mergedPartnerPayments>;
-
-const statementPayments = (rows: OperateStatementResult[]) =>
-  mergedPartnerPayments(
-    rows.map((row) => ({
-      project: row.project as UserProject,
-      payments: row.payments,
-    })),
-  );
 
 /** A confirmed partner settlement as a row of the transactions table. */
 function payoutRow(
-  event: MergedPayments["events"][number],
-  payments: MergedPayments,
-  platformName: string,
+  event: OperatePartnerPayments["events"][number],
+  payments: OperatePartnerPayments,
 ) {
   const provider =
     event.paymentMethod.toLowerCase() === "coinbase"
@@ -294,8 +97,8 @@ function payoutRow(
       recipient: event.recipient,
       scope: payments.scope,
     },
-    project: event.project,
-    platform: platformName,
+    projectId: null,
+    platform: null,
   };
 }
 
@@ -316,106 +119,58 @@ const transactions = endpoint(
     }),
     run: async (call) => {
       const { input, client } = call;
-      const scope = await view(call);
-      const { githubUserId, projectId } = scope;
-      const page = {
-        limit: input.limit,
-        status: input.status,
-        cursor: input.cursor as OperateTransactionCursor,
-      };
-      const [projects, rows, statementRows] = await Promise.all([
-        scope.projects(),
-        projectId === undefined
-          ? client
-              .listUserTransactions({ githubUserId, ...page })
-              .then((batch) => ({
-                rows: withProjects(batch, batch.transactions, scope.platform),
-                nextCursor: batch.nextCursor,
-              }))
-          : client
-              .listUserProjectTransactions({ githubUserId, projectId, ...page })
-              .then((result) => ({
-                rows: tagged(result, result.transactions),
-                nextCursor: result.nextCursor,
-              })),
+      const [page, statement] = await Promise.all([
+        client.listUserTransactions({
+          ...scope(call),
+          limit: input.limit,
+          status: input.status,
+          cursor: input.cursor as OperateTransactionCursor,
+        }),
         // Settlements have no cursor: the whole overlay rides on page one.
-        input.cursor === undefined ? statements(call, scope) : [],
+        input.cursor === undefined
+          ? client.getUserStatements(scope(call))
+          : null,
       ]);
-      const payments = statementPayments(onProjects(statementRows, projects));
       const payouts =
-        input.status && input.status !== "confirmed"
+        !statement || (input.status && input.status !== "confirmed")
           ? []
-          : payments.events
+          : statement.payments.events
               .filter((event) => event.kind === "settlement_confirmed")
-              .map((event) => payoutRow(event, payments, scope.platform));
-      const agentTransactions = onProjects(rows.rows, projects).map((row) => ({
-        ...row,
-        kind: "agent_transaction",
-      }));
+              .map((event) => payoutRow(event, statement.payments));
       return {
-        projects,
-        transactions: [...agentTransactions, ...payouts].sort(newestFirst),
-        nextCursor: rows.nextCursor ?? null,
+        projects: page.projects,
+        transactions: [
+          ...page.transactions.map((row) => ({
+            ...row,
+            kind: "agent_transaction",
+          })),
+          ...payouts,
+        ].sort(newestFirst),
+        nextCursor: page.nextCursor,
       };
     },
   },
 );
 
+/** Model usage and the builder's statement, which reads `available: false`
+ *  when the ledger could not be read and has no entries when it is empty. */
 const usage = endpoint("operate.usage", "GET", ops("usage"), {
   input: scoped.extend({
     fromDate: z.string().optional(),
     toDate: z.string().optional(),
   }),
   run: async (call) => {
-    const { input, client } = call;
-    const scope = await view(call);
-    const { githubUserId, projectId } = scope;
-    const dates = { fromDate: input.fromDate, toDate: input.toDate };
-    const [projects, usageRows, statementRows] = await Promise.all([
-      scope.projects(),
-      projectId === undefined
-        ? client.getUserUsage({ githubUserId, ...dates })
-        : client
-            .getUserProjectUsage({ githubUserId, projectId, ...dates })
-            .then((one): OperateUsageResult[] => [one]),
-      statements(call, scope, dates),
+    const dates = { fromDate: call.input.fromDate, toDate: call.input.toDate };
+    const [usage, statement] = await Promise.all([
+      call.client.getUserUsage({ ...scope(call), ...dates }),
+      call.client.getUserStatements({ ...scope(call), ...dates }),
     ]);
-    const results = onProjects(usageRows, projects);
-    // A backend without statement entries reports `available: false`; until
-    // it has them the example statement (flagged `example: true`) stands in.
-    const available = onProjects(statementRows, projects).filter(
-      (statement) => statement.available,
-    );
-    const sum = (pick: (statement: OperateStatementResult) => number) =>
-      available.reduce((total, statement) => total + pick(statement), 0);
-    const perProject = <R>(rows: (statement: OperateStatementResult) => R[]) =>
-      available.flatMap((statement) =>
-        rows(statement).map((row) => ({ ...row, project: statement.project })),
-      );
     return {
-      projects,
-      range: results[0]?.range ?? null,
-      daily: results.flatMap((result) => tagged(result, result.daily)),
-      breakdown: results.flatMap((result) => tagged(result, result.breakdown)),
-      example: available.length ? undefined : true,
-      statement: available.length
-        ? {
-            range: available[0].range,
-            summary: {
-              grossRevenue: sum((s) => s.summary.grossRevenue),
-              platformFees: sum((s) => s.summary.platformFees),
-              serviceCharges: sum((s) => s.summary.serviceCharges),
-              net: sum((s) => s.summary.net),
-            },
-            revenue: perProject((s) => s.revenue),
-            charges: perProject((s) => s.charges),
-            entries: perProject((s) => s.entries).sort(
-              (a, b) =>
-                b.day.localeCompare(a.day) || a.agent.localeCompare(b.agent),
-            ),
-            payments: statementPayments(available),
-          }
-        : exampleStatement(projects[0] ?? EXAMPLE_PROJECT),
+      projects: usage.projects,
+      range: usage.range,
+      daily: usage.daily,
+      breakdown: usage.breakdown,
+      statement,
     };
   },
 });
@@ -428,32 +183,16 @@ const logs = endpoint("operate.logs", "GET", ops("logs"), {
   }),
   run: async (call) => {
     const { input, client } = call;
-    const scope = await view(call);
-    const { githubUserId, projectId } = scope;
-    const page = {
+    const page = await client.listUserLogs({
+      ...scope(call),
       limit: input.limit,
       type: input.type,
       cursor: input.cursor as OperateLogCursor,
-    };
-    // The batch stream arrives merged, deduplicated and paginated by one cursor.
-    const [projects, rows] = await Promise.all([
-      scope.projects(),
-      projectId === undefined
-        ? client.listUserLogs({ githubUserId, ...page }).then((batch) => ({
-            rows: withProjects(batch, batch.logs, scope.platform),
-            nextCursor: batch.nextCursor,
-          }))
-        : client
-            .listUserProjectLogs({ githubUserId, projectId, ...page })
-            .then((result) => ({
-              rows: tagged(result, result.logs),
-              nextCursor: result.nextCursor,
-            })),
-    ]);
+    });
     return {
-      projects,
-      logs: onProjects(rows.rows, projects),
-      nextCursor: rows.nextCursor ?? null,
+      projects: page.projects,
+      logs: page.logs,
+      nextCursor: page.nextCursor,
     };
   },
 });
@@ -464,55 +203,16 @@ const observability = endpoint(
   ops("observability"),
   {
     input: scoped,
-    run: async (call) => {
-      const scope = await view(call);
-      // One account-wide read: the manager resolves each project under its own
-      // bound platform, and the selected platform's projects narrow it here.
-      const [projects, snapshots] = await Promise.all([
-        scope.projects(),
-        call.client.getUserObservability({
-          githubUserId: scope.githubUserId,
-          projectId: scope.projectId,
-        }),
-      ]);
-      const shown = onProjects(snapshots, projects);
-      const healthy = shown.filter(
-        (result) => result.monitoring?.status === "ok",
-      ).length;
-      return {
-        projects,
-        scope: "owned_agents",
-        monitoring: {
-          provider: "grafana_prometheus",
-          status: healthy
-            ? healthy < shown.length
-              ? "partial"
-              : "ok"
-            : (shown[0]?.monitoring?.status ?? "unconfigured"),
-          windowSeconds: shown[0]?.monitoring?.windowSeconds ?? 0,
-        },
-        agents: shown.flatMap((result) => tagged(result, result.agents)),
-        dashboardLinks: shown.flatMap((result) => result.dashboardLinks),
-        platformMetrics: shown[0]?.platformMetrics ?? [],
-      };
-    },
+    run: (call) => call.client.getUserObservability(scope(call)),
   },
 );
 
 /** The observability page's ledger card, read apart from its snapshot. */
 const payments = endpoint("operate.payments", "GET", ops("payments"), {
   input: scoped,
-  run: async (call) => {
-    const scope = await view(call);
-    const [projects, results] = await Promise.all([
-      scope.projects(),
-      call.client.getUserPayments({
-        githubUserId: scope.githubUserId,
-        projectId: scope.projectId,
-      }),
-    ]);
-    return { payments: mergedPartnerPayments(onProjects(results, projects)) };
-  },
+  run: async (call) => ({
+    payments: await call.client.getUserPayments(scope(call)),
+  }),
 });
 
 const agentDetail = endpoint(
@@ -527,12 +227,13 @@ const agentDetail = endpoint(
     run: async ({ input, client, session }) => {
       const { agentId, window } = input;
       const githubUserId = session.githubUserId;
-      // The agent names its project; the manager proves it the caller's.
-      const detail = await client.getBuilderAgentDetail({
-        githubUserId,
-        agentId,
-        window,
-      });
+      // The manager proves the agent the caller's publisher's.
+      const [detail, health, transactionPage, logPage] = await Promise.all([
+        client.getBuilderAgentDetail({ githubUserId, agentId, window }),
+        client.getUserObservability({ githubUserId, agentId }),
+        client.listUserTransactions({ githubUserId, agentId, limit: 4 }),
+        client.listUserLogs({ githubUserId, agentId, limit: 4 }),
+      ]);
       const seconds = {
         "1h": 3600,
         "24h": 86400,
@@ -544,22 +245,11 @@ const agentDetail = endpoint(
           503,
           "This time range is not available on the backend yet.",
         );
-      const project = { githubUserId, projectId: detail.project.id };
-      const [health, transactionPage, logPage] = await Promise.all([
-        client.getUserProjectObservability(project),
-        client.listUserProjectTransactions({ ...project, limit: 100 }),
-        client.listUserProjectLogs({ ...project, limit: 200 }),
-      ]);
-      const mine = <T extends { agentId?: number | null }>(rows: T[]) =>
-        rows.filter((row) => row.agentId === agentId).slice(0, 4);
       return {
         detail,
-        health:
-          health.agents.find(
-            (packageName) => packageName.agentId === agentId,
-          ) ?? null,
-        transactions: mine(transactionPage.transactions),
-        logs: mine(logPage.logs),
+        health: health.agents.find((row) => row.agentId === agentId) ?? null,
+        transactions: transactionPage.transactions,
+        logs: logPage.logs,
         deployments: [],
       };
     },
@@ -585,28 +275,9 @@ const channelBinding = z.object({
   commands: z.array(z.string()).optional(),
 });
 
-/** 403 unless every mapped package is in one of the caller's projects. */
-async function requireOwnedAgents(
-  call: Call<z.output<typeof channelBinding>>,
-): Promise<void> {
-  const { agentId } = call.input;
-  const owned = new Set(
-    (await listProjects(call)).flatMap((project) =>
-      (project.agents ?? []).map((packageName) => packageName.id),
-    ),
-  );
-  if (!owned.has(agentId))
-    throw new EdgeError(403, "selected agents are not owned by this user");
-}
-
 const channels = endpoint("operate.channels_read", "GET", ops("channels"), {
-  run: async (call) => {
-    const [projects, list] = await Promise.all([
-      listProjects(call),
-      call.client.listUserChannels({ githubUserId: call.session.githubUserId }),
-    ]);
-    return { projects, channels: list };
-  },
+  run: (call) =>
+    call.client.listUserChannels({ githubUserId: call.session.githubUserId }),
 });
 
 const channelsCreate = endpoint(
@@ -622,7 +293,6 @@ const channelsCreate = endpoint(
     }),
     status: 201,
     run: async (call) => {
-      await requireOwnedAgents(call);
       const channel = await call.client.createUserChannel({
         githubUserId: call.session.githubUserId,
         kind: "telegram",
@@ -644,7 +314,6 @@ const channelsUpdate = endpoint(
       threadMode: z.enum(["single", "multi"]).optional(),
     }),
     run: async (call) => {
-      await requireOwnedAgents(call);
       // The manager re-asserts the Telegram webhook after every save; a failure
       // there is a warning beside the saved channel, not a failed save.
       const { webhookWarning, ...channel } =
@@ -657,8 +326,8 @@ const channelsUpdate = endpoint(
   },
 );
 
-// The remaining channel routes need only the caller: the manager enforces channel
-// ownership by builder id. The command secret is never logged here.
+// The manager enforces channel and agent ownership. The command secret is never
+// logged here.
 const byChannel = z.object({ channelId: text });
 
 const channelsDelete = endpoint(
@@ -715,25 +384,25 @@ const channelsWebhook = endpoint(
 
 // ── model keys (the funder ladder's package rung, builder-owned) ───────────
 
-/** The builder's key inventory with grants, plus their projects for the
- *  "apply to projects" picker. Never key material. */
+/** Model keys are read and written under one platform, the default unless named. */
+const keyed = z.object({ platform: platformSlug.optional() });
+
+function keyScope({ input, session, ctx }: Call<z.output<typeof keyed>>) {
+  return {
+    githubUserId: session.githubUserId,
+    platform: input.platform ?? ctx.config.defaultPlatform,
+  };
+}
+
+/** The builder's key inventory with grants, plus the agents a key can fund.
+ *  Never key material. */
 const modelKeys = endpoint(
   "operate.model_keys_read",
   "GET",
   ops("model-keys"),
   {
-    input: scoped,
-    run: async (call) => {
-      const scope = await view(call, true);
-      const [projects, keys] = await Promise.all([
-        scope.projects(),
-        call.client.listBuilderModelKeys({
-          githubUserId: scope.githubUserId,
-          platform: scope.platform,
-        }),
-      ]);
-      return { projects, keys };
-    },
+    input: keyed,
+    run: (call) => call.client.listBuilderModelKeys(keyScope(call)),
   },
 );
 
@@ -744,7 +413,7 @@ const modelKeysSave = endpoint(
   ops("model-keys"),
   {
     auth: { write: true },
-    input: scoped.extend({
+    input: keyed.extend({
       provider: text,
       key: text,
       keyId: z.number().optional(),
@@ -752,12 +421,10 @@ const modelKeysSave = endpoint(
     }),
     status: 201,
     run: async (call) => {
-      const { githubUserId, platform: selected } = await view(call, true);
       const { provider, key, keyId, label } = call.input;
       return {
         key: await call.client.saveBuilderModelKey({
-          githubUserId,
-          platform: selected,
+          ...keyScope(call),
           keyId,
           provider,
           key,
@@ -775,18 +442,16 @@ const modelKeysGrants = endpoint(
   ops("model-keys"),
   {
     auth: { write: true },
-    input: scoped.extend({
+    input: keyed.extend({
       keyId: z.number(),
       agentIds: z.array(z.number()),
       modelIds: z.union([z.literal("*"), z.array(z.string()).min(1)]),
     }),
     run: async (call) => {
-      const { githubUserId, platform: selected } = await view(call, true);
       const { keyId, agentIds, modelIds } = call.input;
       return {
         key: await call.client.setModelKeyGrants({
-          githubUserId,
-          platform: selected,
+          ...keyScope(call),
           keyId,
           agentIds,
           modelIds,
@@ -802,12 +467,10 @@ const modelKeysDelete = endpoint(
   ops("model-keys"),
   {
     auth: { write: true },
-    input: scoped.extend({ keyId: id }),
+    input: keyed.extend({ keyId: id }),
     run: async (call) => {
-      const { githubUserId, platform: selected } = await view(call, true);
       await call.client.deleteBuilderModelKey({
-        githubUserId,
-        platform: selected,
+        ...keyScope(call),
         keyId: call.input.keyId,
       });
       return { ok: true };

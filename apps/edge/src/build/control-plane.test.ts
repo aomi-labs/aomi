@@ -76,7 +76,7 @@ const world: FetchLike = async (request) => {
         return Response.json({
           channel: { id: "channel-1", ...JSON.parse(body) },
         });
-      return Response.json({ channels: [] });
+      return Response.json({ channels: [], agents: [] });
     }
     if (url.pathname === "/api/platforms/server-tags")
       return Response.json({ server_tags: ["v1", "v2"], sdk_version: "1.2.3" });
@@ -190,47 +190,40 @@ describe("build control plane: launch and deployments", () => {
 });
 
 describe("build control plane: operate", () => {
-  it("scopes channels to the user's projects and refuses agents they do not own", async () => {
+  it("lists channels with the publisher's agents and leaves ownership to the manager", async () => {
     const cookie = await sessionCookie();
-    const list = await build("/api/build/operate/channels?projectId=7", {
+    const list = await build("/api/build/operate/channels", {
       headers: { cookie },
     });
     expect(list.status).toBe(200);
-    const body = await list.json();
-    expect(body.channels).toEqual([]);
-    expect(body.projects.map((project: { id: number }) => project.id)).toEqual([
-      7,
-    ]);
+    expect(await list.json()).toEqual({ channels: [], agents: [] });
 
-    const foreign = await build("/api/build/operate/channels", {
+    seen = [];
+    const created = await build("/api/build/operate/channels", {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({
-        agentIds: [12],
-        agentId: 12,
-        credential: "tg-token",
-      }),
+      body: JSON.stringify({ agentId: 12, credential: "tg-token" }),
       origin: BUILD,
     });
-    expect(foreign.status).toBe(403);
-    expect(await foreign.json()).toEqual({
-      error: "selected agents are not owned by this user",
-    });
+    expect(created.status).toBe(201);
+    expect(seen.map((call) => new URL(call.url).pathname)).toEqual([
+      "/api/integrations/github-app/user/channels",
+    ]);
   });
 
-  it("rejects an unknown project and a malformed platform before reaching the manager", async () => {
+  it("rejects a malformed project id or platform before reaching the manager", async () => {
     const cookie = await sessionCookie();
     seen = [];
+    const badProject = await build("/api/build/operate/logs?projectId=abc", {
+      headers: { cookie },
+    });
+    expect(badProject.status).toBe(400);
     const badPlatform = await build(
-      "/api/build/operate/usage?platform=Not%20Valid",
+      "/api/build/operate/model-keys?platform=Not%20Valid",
       { headers: { cookie } },
     );
     expect(badPlatform.status).toBe(400);
     expect(seen).toEqual([]);
-    const unknown = await build("/api/build/operate/logs?projectId=999", {
-      headers: { cookie },
-    });
-    expect(unknown.status).toBe(404);
   });
 
   it("still passes the build sandbox routes through to Vercel", async () => {
