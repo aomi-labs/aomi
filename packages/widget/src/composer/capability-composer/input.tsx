@@ -37,7 +37,6 @@ import { splitCapabilityText } from "@/thread/capability-message-text";
 
 const MENTION_GLYPH: Record<PickerItem["kind"], string> = {
   package: "▣",
-  skill: "✦",
   agent: "▦",
   chain: "◇",
   wallet: "◈",

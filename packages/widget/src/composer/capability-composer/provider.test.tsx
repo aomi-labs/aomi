@@ -134,9 +134,9 @@ function Composer() {
       <button
         onClick={() =>
           composer.addMention({
-            kind: "skill",
-            id: "across",
-            key: "skill:across",
+            kind: "package",
+            id: "aomi/across",
+            key: "package:aomi/across",
             label: "Across",
           })
         }
@@ -403,8 +403,8 @@ it("inserts a toolbar-picked agent at the current caret, not ahead of the draft"
   expect(screen.getByTestId("selections")).toHaveTextContent("Cambrian");
 });
 
-it("clears agent and skill mentions together after send", async () => {
-  fixture.text = "✦ Across hello";
+it("clears agent and package mentions together after send", async () => {
+  fixture.text = "▣ Across hello";
   const view = render(<Harness />);
   await act(async () => {
     fireEvent.click(screen.getByText("Choose Cambrian"));
@@ -445,14 +445,6 @@ it("tags a package from the Packages group and sends its id", async () => {
       searchText: "aomi/defillama Token prices and TVL",
       Icon: () => <span aria-hidden="true" />,
     },
-    {
-      kind: "skill",
-      id: "policy",
-      key: "skill:policy",
-      label: "Policy",
-      searchText: "policy",
-      Icon: () => <span aria-hidden="true" />,
-    },
   ];
   render(<Harness />);
   await act(async () => {
@@ -460,7 +452,6 @@ it("tags a package from the Packages group and sends its id", async () => {
   });
   const packages = screen.getByRole("region", { name: "Packages" });
   expect(packages).toHaveTextContent("DefiLlama");
-  expect(packages).toHaveTextContent("Policy");
   expect(screen.queryByRole("region", { name: "Skills" })).toBeNull();
   const option = screen.getByRole("option", { name: /DefiLlama/ });
   expect(option).toHaveTextContent("Package");
@@ -562,7 +553,6 @@ it("shows an edited message's tags as tags and sends only what is left", async (
 it("pre-tags a host-requested agent once, like a + picker choice", async () => {
   fixture.items = [
     {
-      agent: "aomi/cambrian",
       kind: "agent",
       id: "agent:2937773",
       key: "agent:agent:2937773",

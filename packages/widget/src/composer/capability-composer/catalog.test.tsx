@@ -43,10 +43,6 @@ vi.mock("./provider", () => ({
 vi.mock("@/wallet/network-preferences", () => ({
   useOptionalAomiWalletNetworkPreferences: () => null,
 }));
-vi.mock("@/composer/capabilities/skill-catalog", async (original) => ({
-  ...(await original<typeof import("@/composer/capabilities/skill-catalog")>()),
-  useSkillCatalog: () => ({ skills: [] }),
-}));
 vi.mock("@/wallet/context", () => ({
   useAomiWalletKit: () => ({ wallets: [] }),
 }));

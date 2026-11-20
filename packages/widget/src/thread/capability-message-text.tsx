@@ -1,7 +1,7 @@
 "use client";
 
 import { useMessage, type TextMessagePartComponent } from "@assistant-ui/react";
-import { AppWindowIcon, Globe2Icon, WandSparklesIcon } from "lucide-react";
+import { AppWindowIcon, Globe2Icon } from "lucide-react";
 import { useMemo, type FC } from "react";
 import { SUPPORTED_CHAINS, getChainInfo, useControl } from "@aomi-labs/react";
 
@@ -10,19 +10,17 @@ import { getAgentIcon } from "@/icons/agent-map";
 import { getChainIcon } from "@/icons/chain-map";
 import { getSkillIcon } from "@/icons/skills/skill-icons";
 import { SolanaIcon } from "@/icons/chain-icons";
-import {
-  skillLabel,
-  useSkillCatalog,
-} from "@/composer/capabilities/skill-catalog";
+import { skillLabel } from "@/composer/capabilities/skill-catalog";
 import { useOptionalAomiWalletNetworkPreferences } from "@/wallet/network-preferences";
 import { useAomiWalletKit } from "@/wallet/context";
 import {
+  packageIcon,
   usePackagePickerItems,
   walletPickerItems,
 } from "@/composer/capability-composer/catalog";
 
 type CapabilityHint = {
-  kind: "agent" | "package" | "skill" | "chain" | "wallet";
+  kind: "agent" | "package" | "chain" | "wallet";
   id: string;
 };
 
@@ -44,7 +42,6 @@ function capabilityHints(value: unknown): CapabilityHint[] {
     return (
       (candidate.kind === "agent" ||
         candidate.kind === "package" ||
-        candidate.kind === "skill" ||
         candidate.kind === "chain" ||
         candidate.kind === "wallet") &&
       typeof candidate.id === "string"
@@ -70,9 +67,13 @@ export function splitCapabilityText(
       !text.includes(capability.token),
   );
   text = [...missingAgents.map((agent) => agent.token), text].join(" ");
-  const byToken = new Map(
-    capabilities.map((capability) => [capability.token, capability]),
-  );
+  const byToken = new Map<string, RenderedCapability>();
+  for (const capability of capabilities) {
+    byToken.set(capability.token, capability);
+    // Messages saved before skills folded into packages wrote "✦ Name".
+    if (capability.kind === "package")
+      byToken.set(`✦ ${capability.label}`, capability);
+  }
   const tokens = [...byToken.keys()].sort(
     (left, right) => right.length - left.length,
   );
@@ -99,7 +100,6 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
   });
   const hints = useMemo(() => capabilityHints(rawHints), [rawHints]);
   const { state } = useControl();
-  const { skills } = useSkillCatalog();
   const packageItems = usePackagePickerItems();
   const networkPreferences = useOptionalAomiWalletNetworkPreferences();
   const { wallets } = useAomiWalletKit();
@@ -112,10 +112,6 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
         id: `agent:${agent.agent}`,
       })),
       ...packageItems.map(({ id }) => ({ kind: "package" as const, id })),
-      ...(skills ?? []).map((skill) => ({
-        kind: "skill" as const,
-        id: skill.id,
-      })),
       ...(networkPreferences?.supportedEvmChains ?? SUPPORTED_CHAINS).map(
         (chain) => ({ kind: "chain" as const, id: `eip155:${chain.id}` }),
       ),
@@ -154,28 +150,16 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
       }
 
       if (hint.kind === "package") {
+        // A package no longer in the catalog, or a saved skill mention, is
+        // named from its id.
         const item = packageItems.find((candidate) => candidate.id === hint.id);
-        if (!item) return [];
-        return [
-          {
-            ...hint,
-            label: item.label,
-            token: `▣ ${item.label}`,
-            Icon: item.Icon,
-          },
-        ];
-      }
-
-      if (hint.kind === "skill") {
-        const skill = skills?.find((candidate) => candidate.id === hint.id);
-        if (!skill) return [];
-        const label = skillLabel(skill);
+        const label = item?.label ?? skillLabel({ name: hint.id });
         return [
           {
             ...hint,
             label,
-            token: `✦ ${label}`,
-            Icon: getSkillIcon(skill.id) ?? WandSparklesIcon,
+            token: `▣ ${label}`,
+            Icon: item?.Icon ?? getSkillIcon(hint.id) ?? packageIcon(),
           },
         ];
       }
@@ -223,14 +207,7 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
         },
       ];
     });
-  }, [
-    hints,
-    networkPreferences,
-    packageItems,
-    skills,
-    state.agentCards,
-    wallets,
-  ]);
+  }, [hints, networkPreferences, packageItems, state.agentCards, wallets]);
   const segments = useMemo(
     () => splitCapabilityText(text, capabilities, hints),
     [capabilities, hints, text],

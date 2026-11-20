@@ -33,14 +33,9 @@ export function skillCatalogQuery(aomi: Aomi): DisplayQuery<SkillSummary[]> {
   };
 }
 
-export function useSkillCatalog() {
-  const query = useDisplayQuery(skillCatalogQuery(useAomi()));
-  return {
-    skills: query.data ?? (query.error ? [] : null),
-    error: query.error ? "Couldn’t load skills." : null,
-    retry: () => {
-      void query.refetch();
-    },
-    loading: query.isPending,
-  };
+const NONE: SkillSummary[] = [];
+
+/** The built-in skills, for attributing trace steps; empty until loaded. */
+export function useSkillCatalog(): SkillSummary[] {
+  return useDisplayQuery(skillCatalogQuery(useAomi())).data ?? NONE;
 }

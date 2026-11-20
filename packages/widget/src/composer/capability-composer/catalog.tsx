@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, type FC } from "react";
-import { AppWindowIcon, Globe2Icon, WandSparklesIcon } from "lucide-react";
+import { AppWindowIcon, Globe2Icon } from "lucide-react";
 import {
   isTestnetChain,
   packageMentions,
@@ -10,7 +10,6 @@ import {
 } from "@aomi-labs/client";
 import {
   SUPPORTED_CHAINS,
-  getChainInfo,
   useControl,
   useDisplayQuery,
   useOptionalAomiRuntime,
@@ -28,16 +27,10 @@ import { evmNetworkDescription } from "@/controls/network-metadata";
 import { getAgentIcon } from "@/icons/agent-map";
 import { PackageMark } from "@/icons/package-mark";
 import { getChainIcon } from "@/icons/chain-map";
-import { getSkillIcon } from "@/icons/skills/skill-icons";
 import { SolanaIcon } from "@/icons/chain-icons";
 import { useOptionalAomiWalletNetworkPreferences } from "@/wallet/network-preferences";
 import { useAomiWalletKit } from "@/wallet/context";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
-import {
-  conciseSkillDescription,
-  skillLabel,
-  useSkillCatalog,
-} from "@/composer/capabilities/skill-catalog";
 import { useCapabilityComposer } from "./provider";
 import { walletPickerIcon } from "./wallet-icon";
 import type { PickerItem } from "./model";
@@ -82,7 +75,9 @@ export function walletPickerItems(rows: readonly WalletRow[]): PickerItem[] {
  */
 const packageIcons = new Map<string, FC<{ className?: string }>>();
 
-function packageIcon(iconUrl?: string | null): FC<{ className?: string }> {
+export function packageIcon(
+  iconUrl?: string | null,
+): FC<{ className?: string }> {
   const key = iconUrl ?? "";
   let Icon = packageIcons.get(key);
   if (!Icon) {
@@ -172,23 +167,9 @@ export function useCapabilityCatalog(): PickerItem[] {
       ? resolveAutoModel(state.availableModels)
       : control.model;
   const networkPreferences = useOptionalAomiWalletNetworkPreferences();
-  const { skills } = useSkillCatalog();
   const packageItems = usePackagePickerItems();
   const { wallets } = useAomiWalletKit();
   const items = useMemo<PickerItem[]>(() => {
-    const skillItems: PickerItem[] = (skills ?? []).map((skill) => ({
-      key: `skill:${skill.id}`,
-      kind: "skill",
-      id: skill.id,
-      label: skillLabel(skill),
-      description: conciseSkillDescription(skill.description),
-      fullDescription: skill.description,
-      chainIds: skill.chainIds,
-      searchText: `${skill.name} ${skill.description} ${skill.tags.join(" ")} ${skill.chainIds
-        .map((chainId) => getChainInfo(chainId)?.name ?? chainId)
-        .join(" ")}`,
-      Icon: getSkillIcon(skill.id) ?? WandSparklesIcon,
-    }));
     const agentItems: PickerItem[] = allowAgentMentions
       ? state.agentCards.map((agent) => {
           const info = resolveAgentIdentity(agent);
@@ -252,7 +233,6 @@ export function useCapabilityCatalog(): PickerItem[] {
     return [
       ...agentItems,
       ...packageItems,
-      ...skillItems,
       ...chainItems,
       ...walletPickerItems(wallets),
     ];
@@ -260,7 +240,6 @@ export function useCapabilityCatalog(): PickerItem[] {
     allowAgentMentions,
     networkPreferences,
     packageItems,
-    skills,
     state.agentCards,
     model,
     wallets,

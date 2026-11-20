@@ -44,11 +44,10 @@ export function requestCapabilityMention(
   );
 }
 
-/** What a person calls each kind: Aomi's built-in skills are packages to them. */
+/** What a person calls each kind. */
 export const MENTION_NOUN: Record<CapabilityKind, string> = {
   agent: "Agent",
   package: "Package",
-  skill: "Package",
   chain: "Chain",
   wallet: "Wallet",
 };

@@ -8,14 +8,11 @@ import {
   appendCapabilityHints,
   capabilityHintPayload,
   CHAIN_NAMES,
-  conciseSkillDescription,
   isTestnetChain,
   mentionGroups,
   packageMentions,
   parsePackageCatalog,
-  parseSkillCatalog,
   shortAddress,
-  skillLabel,
   SUPPORTED_CHAIN_IDS,
   type Aomi,
   type AomiAccountWallet,
@@ -28,7 +25,7 @@ export async function mentionCatalog(
   aomi: Aomi,
   thread: string,
 ): Promise<MentionItem[]> {
-  const [packages, skills, wallets] = await Promise.all([
+  const [packages, wallets] = await Promise.all([
     // Signed in: the thread's packages that are on (`aomi/main`'s before the
     // thread is stored). A guest: the public catalog.
     aomi.auth.mode === "guest"
@@ -41,10 +38,6 @@ export async function mentionCatalog(
           .catch(() => aomi.account.packages.list())
           .then((catalog) => catalog.packages.filter((row) => row.enabled))
           .catch(() => [] as AomiPublicPackage[]),
-    aomi.raw
-      .getPublicCatalog("skills")
-      .then(parseSkillCatalog)
-      .catch(() => []),
     aomi.auth.mode === "guest"
       ? []
       : aomi.account.wallets.list().catch(() => [] as AomiAccountWallet[]),
@@ -52,15 +45,6 @@ export async function mentionCatalog(
   const chainName = (id: number) => CHAIN_NAMES[id] ?? String(id);
   return [
     ...packageMentions(packages),
-    ...skills.map(
-      (skill): MentionItem => ({
-        kind: "skill",
-        id: skill.id,
-        label: skillLabel(skill),
-        description: conciseSkillDescription(skill.description),
-        searchText: `${skill.name} ${skill.description} ${skill.tags.join(" ")} ${skill.chainIds.map(chainName).join(" ")}`,
-      }),
-    ),
     ...SUPPORTED_CHAIN_IDS.map(
       (id): MentionItem => ({
         kind: "chain",

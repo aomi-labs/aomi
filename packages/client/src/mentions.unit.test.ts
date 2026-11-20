@@ -163,25 +163,24 @@ describe("tagged packages", () => {
     expect(stripCapabilityHints(message)).toBe("▣ DefiLlama price of ETH");
   });
 
-  it("lists packages and Aomi's built-in skills in one Packages group", () => {
-    const item = (kind: "package" | "skill" | "chain", id: string) => ({
-      kind,
-      id,
-      label: id,
-      searchText: id,
-    });
-    const groups = mentionGroups(
-      [
-        item("package", "defillama"),
-        item("skill", "policy"),
-        item("chain", "eip155:1"),
-      ],
+  it("reads a saved skill mention as a package", () => {
+    const saved = [
+      "✦ Aave supply 5 USDC",
       "",
-    );
-    expect(groups.map((group) => [group.label, group.items.length])).toEqual([
-      ["Packages", 2],
-      ["Chains", 1],
+      "<AOMI_UI_CAPABILITY_HINTS>",
+      "These are capability preferences selected by the user in the Aomi UI.",
+      "Preferred skill ids: aave.",
+      "Use compatible preferred skills where they help solve the request.",
+      "</AOMI_UI_CAPABILITY_HINTS>",
+    ].join("\n");
+    expect(extractCapabilityHints(saved)).toEqual([
+      { kind: "package", id: "aave" },
     ]);
+    expect(
+      appendCapabilityHints("✦ Aave supply 5 USDC", {
+        capabilities: [{ kind: "skill", id: "aave" }],
+      }),
+    ).toContain("Preferred package ids: aave.");
   });
 });
 

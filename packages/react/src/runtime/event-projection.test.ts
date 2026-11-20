@@ -367,7 +367,7 @@ describe("projectAssistantMessages", () => {
       policy: "auto",
       resolvedMode: "direct",
       capabilities: [
-        { kind: "skill", id: "uniswap" },
+        { kind: "package", id: "aomi/uniswap" },
         { kind: "chain", id: "eip155:8453" },
       ],
     });
@@ -377,7 +377,7 @@ describe("projectAssistantMessages", () => {
       metadata: {
         custom: {
           aomiCapabilityHints: [
-            { kind: "skill", id: "uniswap" },
+            { kind: "package", id: "aomi/uniswap" },
             { kind: "chain", id: "eip155:8453" },
           ],
         },
@@ -398,7 +398,7 @@ describe("projectAssistantMessages", () => {
       metadata: {
         custom: {
           aomiCapabilityHints: [
-            { kind: "skill", id: "uniswap" },
+            { kind: "package", id: "aomi/uniswap" },
             { kind: "chain", id: "eip155:8453" },
           ],
         },

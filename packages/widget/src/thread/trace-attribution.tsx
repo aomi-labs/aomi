@@ -16,10 +16,10 @@ export function TraceAttributionProvider({
   children: ReactNode;
 }) {
   const { state } = useControl();
-  const { skills } = useSkillCatalog();
+  const skills = useSkillCatalog();
   const packages = usePackagePickerItems();
   const value = useMemo(
-    () => ({ agents: state.agentCards, skills: skills ?? [], packages }),
+    () => ({ agents: state.agentCards, skills, packages }),
     [state.agentCards, skills, packages],
   );
   return (

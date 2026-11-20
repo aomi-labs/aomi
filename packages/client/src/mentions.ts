@@ -7,7 +7,7 @@ import type { AomiPublicPackage } from "./types";
 const HINTS_START = "<AOMI_UI_CAPABILITY_HINTS>";
 const HINTS_END = "</AOMI_UI_CAPABILITY_HINTS>";
 
-export type CapabilityKind = "agent" | "package" | "skill" | "chain" | "wallet";
+export type CapabilityKind = "agent" | "package" | "chain" | "wallet";
 
 export type CapabilityHint = {
   kind: CapabilityKind;
@@ -26,12 +26,12 @@ const SAFE_ID = /^[a-zA-Z0-9][a-zA-Z0-9:._/-]{0,127}$/u;
 function parseHint(raw: unknown): CapabilityHint | null {
   if (!raw || typeof raw !== "object") return null;
   const candidate = raw as Record<string, unknown>;
-  const kind = candidate.kind;
+  // Messages saved before skills folded into packages still carry `skill`.
+  const kind = candidate.kind === "skill" ? "package" : candidate.kind;
   const id = candidate.id;
   if (
     (kind !== "agent" &&
       kind !== "package" &&
-      kind !== "skill" &&
       kind !== "chain" &&
       kind !== "wallet") ||
     typeof id !== "string" ||
@@ -103,7 +103,6 @@ export function appendCapabilityHints(text: string, raw: unknown): string {
       .map((hint) => hint.id);
   const agents = byKind("agent");
   const packages = byKind("package");
-  const skills = byKind("skill");
   const chains = byKind("chain");
   const lines = [
     HINTS_START,
@@ -149,12 +148,6 @@ export function appendCapabilityHints(text: string, raw: unknown): string {
       );
     }
   }
-  if (skills.length > 0) {
-    lines.push(`Preferred skill ids: ${skills.join(", ")}.`);
-    lines.push(
-      "Use compatible preferred skills where they help solve the request.",
-    );
-  }
   if (chains.length > 0) {
     lines.push(`Preferred execution chain ids: ${chains.join(", ")}.`);
   }
@@ -191,7 +184,8 @@ export function stripCapabilityHints(text: string): string {
 const HINT_LINES = [
   ["agent", "Preferred agent ids: "],
   ["package", "Preferred package ids: "],
-  ["skill", "Preferred skill ids: "],
+  // Messages saved before skills folded into packages.
+  ["package", "Preferred skill ids: "],
   ["chain", "Preferred execution chain ids: "],
   ["wallet", "Preferred wallet ids: "],
 ] as const satisfies readonly (readonly [CapabilityKind, string])[];
@@ -249,7 +243,6 @@ export const UNTAGGABLE_AGENTS: ReadonlySet<string> = new Set([
 const BARE_MENTION_LIMIT = 4;
 const TESTNET_QUERY =
   /test|sepolia|devnet|holesky|goerli|amoy|fuji|local|anvil/;
-/** Aomi's built-in skills are listed with the packages: to a person both are packages. */
 const MENTION_GROUPS = [
   { kind: "agent", label: "Agents" },
   { kind: "package", label: "Packages" },
@@ -279,11 +272,7 @@ export function mentionGroups<T extends MentionItem>(
     Boolean(needle) && item.label.toLowerCase().startsWith(needle);
   const groups = MENTION_GROUPS.map((group) => {
     const groupItems = matching
-      .filter(
-        (item) =>
-          item.kind === group.kind ||
-          (group.kind === "package" && item.kind === "skill"),
-      )
+      .filter((item) => item.kind === group.kind)
       .sort((a, b) => Number(named(b)) - Number(named(a)));
     return {
       ...group,
