@@ -5,6 +5,8 @@ recorded step and distinguishes signal termination from a regular exit. The
 status response uses fixed labels and excludes child-process output.
 The runner registers its model egress handler through the Container library's
 `outboundByHost` setter so the proxy routes requests back to the owning run.
+The proxy uses Workers' manual redirect mode and returns an error on provider
+redirects without following them or returning their destination.
 
 The golden image `/build` sandbox runs boot from. One Vercel Sandbox per build run; the BFF
 dispatches `aomi-smither run-plan` inside it; all run state lands in the
