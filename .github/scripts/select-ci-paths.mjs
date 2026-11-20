@@ -10,7 +10,6 @@ const OUTPUT_KEYS = [
   "portal",
   "build",
   "landing",
-  "journeys",
   "browser_contracts",
   "consumer_compat",
   "workflow_policy",
@@ -47,7 +46,6 @@ function selectSharedFrontend(selection) {
     selection,
     "packages",
     "consumer_compat",
-    "journeys",
     "browser_contracts",
     "preview",
   );
@@ -114,7 +112,7 @@ function classifyPath(selection, path) {
 
   if (path.startsWith("apps/portal/")) {
     selectApps(selection, "portal");
-    select(selection, "journeys", "browser_contracts", "preview");
+    select(selection, "browser_contracts", "preview");
     return selection;
   }
 
@@ -142,7 +140,7 @@ function classifyPath(selection, path) {
   }
 
   if (path.startsWith("examples/embed-vite/")) {
-    select(selection, "consumer_compat", "journeys", "browser_contracts");
+    select(selection, "consumer_compat", "browser_contracts");
     return selection;
   }
 
@@ -178,7 +176,7 @@ function classifyPath(selection, path) {
     path === "tests/e2e/portal-env.ts" ||
     /^tests\/e2e\/(journeys|performance|pom|fake-backend)\//.test(path)
   ) {
-    select(selection, "journeys", "browser_contracts");
+    select(selection, "browser_contracts");
     return selection;
   }
 
