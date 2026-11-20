@@ -67,7 +67,7 @@ sign-in.
 | `packages`                       | `list [--thread]`, `on <id> [--yes]`, `off <id>`, `reset <id>`, `connect <id> <slot>`, `disconnect <id> <slot>`                    |
 | `pipeline`                       | `ops`, `op`, `toolsets`, `skills`, `skill`, `invoke`, `build [--commit]`                                                           |
 | `publish`                        | Build and upload the root `aomi.toml`'s packages and agents. `--promote`, `--package`, `--agent`, `--no-build`, `--wasm name=path` |
-| `promote`, `rollback`            | `<package\|agent> <name> <number>`: make a release live; rollback names the release to go back to                                 |
+| `promote`, `rollback`            | `<package\|agent> <name> <number>`: make a release live; rollback names the release to go back to                                  |
 | `codes`                          | `create <package> [--agent <id>]`, `list <package>`, `revoke <package> <id>`: activation codes for a private package               |
 | `releases`                       | `<package\|agent> <name>`: every release, newest first                                                                             |
 | `model`, `chain`                 | `current`, `list`, `set`                                                                                                           |
