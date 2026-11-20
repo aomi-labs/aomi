@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Wallet,
   Fuel,
+  ShieldAlert,
   ShieldCheck,
   ShieldQuestion,
 } from "lucide-react";
@@ -298,6 +299,13 @@ export function TransactionReview({
         <p className="type-meta text-aomi-muted mt-3 flex items-center gap-1.5">
           <Wallet className="size-3.5 shrink-0" />
           Your wallet asks for {prompts} signatures, in order.
+        </p>
+      ) : null}
+      {/* Beside the approval: a passed simulation is never the only check shown. */}
+      {eligibility?.state === "eligible" && eligibility.reason ? (
+        <p className="type-meta text-aomi-warning mt-3 flex items-start gap-1.5">
+          <ShieldAlert className="mt-px size-3.5 shrink-0" />
+          <span>Limited coverage: {eligibility.reason}</span>
         </p>
       ) : null}
       <footer

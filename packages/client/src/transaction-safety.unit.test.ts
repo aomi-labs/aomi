@@ -53,7 +53,7 @@ describe("transaction safety client", () => {
     };
     expect(reviewEligibility(request)).toEqual({
       state: "eligible",
-      reason: undefined,
+      reason: "Only generic checks cover this request",
     });
     expect(safety.simulationStatus).toBe("failed");
     expect(safety.assessment.findings[0].severity).toBe("critical");
@@ -67,6 +67,47 @@ describe("transaction safety client", () => {
       }),
     ).toEqual({ state: "blocked", reason: "revoked_grant" });
   });
+  it("gives an eligible request's coverage limits as its reason", () => {
+    const request = (
+      assessment: Partial<TransactionSafetyProjection["assessment"]>,
+    ): ActionRequest => ({
+      type: "execute_evm",
+      transactions: [],
+      transactionSafety: {
+        ...safety,
+        assessment: { ...safety.assessment, ...assessment },
+      },
+    });
+    const limitation = (code: string, message: string) => ({
+      code,
+      message,
+      operationIds: ["0"],
+    });
+    expect(
+      reviewEligibility(
+        request({
+          coverage: "partial",
+          limitations: [
+            limitation("guard_not_vouched", "No package vouches for this guard"),
+            limitation("guard_not_vouched", "No package vouches for this guard"),
+            limitation("unsupported_operation", "No supported guard profile"),
+          ],
+        }),
+      ),
+    ).toEqual({
+      state: "eligible",
+      reason: "No package vouches for this guard · No supported guard profile",
+    });
+    expect(
+      reviewEligibility(
+        request({
+          coverage: "supported",
+          limitations: [limitation("unverified_counterparty", "Unverified")],
+        }),
+      ),
+    ).toEqual({ state: "eligible", reason: undefined });
+  });
+
   it("requires expected revision and preserves authoritative response", async () => {
     const policy = {
       mode: "strict",

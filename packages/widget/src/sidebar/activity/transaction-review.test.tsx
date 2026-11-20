@@ -94,4 +94,55 @@ describe("TransactionReview labels", () => {
     expect(screen.queryByRole("button", { name: "Submit all" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Working/ })).toBeNull();
   });
+
+  it("limited_coverage_reason_shown_beside_approve", () => {
+    const request = transactions(1);
+    show({
+      ...request,
+      transactionSafety: {
+        assessment: {
+          version: 1,
+          candidateDigest: "candidate",
+          assessmentDigest: "assessment",
+          registryVersion: "1",
+          state: "complete",
+          coverage: "generic",
+          supportedOperationCount: 0,
+          totalOperationCount: 1,
+          checks: [],
+          findings: [],
+          limitations: [
+            {
+              code: "unsupported_operation",
+              operationIds: ["0"],
+              message:
+                "This deployment and operation has no supported guard profile",
+            },
+          ],
+        },
+        decision: {
+          mode: "balanced",
+          policyRevision: 1,
+          assessmentDigest: "assessment",
+          eligibility: "eligible",
+          reasonCode: "simulation_passed",
+          bypassedFindingIds: [],
+          bypassedRequirements: [],
+        },
+        authority: { eligibility: "eligible", reasonCode: "authority_valid" },
+        simulationStatus: "passed",
+      },
+    });
+    expect(screen.getByText("Simulation passed")).toBeInTheDocument();
+    const reason = screen.getByText(
+      "Limited coverage: This deployment and operation has no supported guard profile",
+    );
+    expect(reason.closest("p")?.nextElementSibling?.tagName).toBe("FOOTER");
+    expect(
+      screen.getByRole("button", { name: "Send transaction" }),
+    ).toBeEnabled();
+    cleanup();
+    show(request);
+    expect(screen.queryByText(/Limited coverage/)).toBeNull();
+  });
 });

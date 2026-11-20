@@ -6,6 +6,7 @@ import type {
   MessageCommitReview,
   OnChainOutcome,
 } from "./commits";
+import type { TransactionSafetyAssessment } from "./transaction-safety";
 
 export type CommitPresentation = {
   phase:
@@ -57,14 +58,16 @@ export function isMessageCommit(view: CommitView): boolean {
 /** Consumes only eligibility facts already present in a review. The current
  * wire contract does not say whether simulation/guards were required when
  * `simulation` is absent; the client must leave that case to server admission
- * rather than invent an eligibility rule. An empty guard list is not a blocker. */
+ * rather than invent an eligibility rule. An empty guard list is not a blocker.
+ * `reason` says why a request isn't eligible, or what the checks leave out of
+ * an eligible one that guards cover only generically or in part. */
 export function reviewEligibility(
   request: ActionRequest | undefined,
 ):
   | { state: "eligible" | "blocked" | "unresolved"; reason?: string }
   | undefined {
   if (request?.transactionSafety) {
-    const { decision, authority } = request.transactionSafety;
+    const { assessment, decision, authority } = request.transactionSafety;
     const eligibility =
       authority.eligibility !== "eligible"
         ? authority.eligibility
@@ -73,7 +76,7 @@ export function reviewEligibility(
       state: eligibility === "waiting" ? "unresolved" : eligibility,
       reason:
         eligibility === "eligible"
-          ? undefined
+          ? coverageLimit(assessment)
           : authority.eligibility !== "eligible"
             ? authority.reasonCode
             : decision.reasonCode,
@@ -103,6 +106,21 @@ export function reviewEligibility(
       reason: "Execution eligibility is unresolved",
     };
   return { state: "eligible" };
+}
+
+/** What a guard assessment leaves unchecked; nothing when coverage is full. */
+function coverageLimit({
+  coverage,
+  limitations,
+}: TransactionSafetyAssessment): string | undefined {
+  if (coverage === "supported") return undefined;
+  const messages = [...new Set(limitations.map(({ message }) => message))];
+  return (
+    messages.join(" · ") ||
+    (coverage === "generic"
+      ? "Only generic checks cover this request"
+      : "Guards cover only part of this request")
+  );
 }
 
 /** One semantic projection for transcript, review, and activity surfaces.
