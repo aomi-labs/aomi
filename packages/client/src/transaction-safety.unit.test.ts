@@ -88,8 +88,14 @@ describe("transaction safety client", () => {
         request({
           coverage: "partial",
           limitations: [
-            limitation("guard_not_vouched", "No package vouches for this guard"),
-            limitation("guard_not_vouched", "No package vouches for this guard"),
+            limitation(
+              "guard_not_vouched",
+              "No package vouches for this guard",
+            ),
+            limitation(
+              "guard_not_vouched",
+              "No package vouches for this guard",
+            ),
             limitation("unsupported_operation", "No supported guard profile"),
           ],
         }),

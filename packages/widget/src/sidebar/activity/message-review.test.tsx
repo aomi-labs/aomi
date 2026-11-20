@@ -15,6 +15,7 @@ const WETH = "0x4200000000000000000000000000000000000006";
 const SPENDER = "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD";
 
 const eligible = {
+  assessment: { coverage: "supported", limitations: [] },
   decision: { eligibility: "eligible", reasonCode: "eligible" },
   authority: { eligibility: "eligible", reasonCode: "eligible" },
 } as never;

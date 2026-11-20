@@ -531,7 +531,6 @@ describe("packages modal", () => {
     const panel = within(details("Scheduling"));
     expect(panel.getByText("Not in this agent")).toBeTruthy();
     expect(panel.queryByRole("button", { name: /Turn/ })).toBeNull();
-
   });
 
   it("asks before a not verified package only, and calls optional keys optional", async () => {

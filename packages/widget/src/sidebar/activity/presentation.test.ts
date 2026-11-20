@@ -53,7 +53,8 @@ describe("transactionTitle", () => {
       ),
     ).toEqual({
       title: "Aave supply",
-      details: "pool.supply(asset: usdc, amount: 1000000); integers in base units",
+      details:
+        "pool.supply(asset: usdc, amount: 1000000); integers in base units",
     });
   });
 });
