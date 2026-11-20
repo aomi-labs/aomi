@@ -26,9 +26,9 @@ function agentChip(name: string, catalog?: TraceAttribution): ToolChip {
   );
   return {
     id: `agent:${name}`,
-    attribution: "toolset",
+    attribution: "agent",
     label: identity.displayName,
-    title: `Toolset: ${identity.displayName}`,
+    title: `Agent: ${identity.displayName}`,
     icon:
       matches.length === 1 && identity.brandId
         ? `toolset:${identity.brandId}`
@@ -48,7 +48,7 @@ export function skillChip(id: string, catalog?: TraceAttribution): ToolChip {
     skillId: id,
     label: agent ? `${agent.label} / ${label}` : label,
     ...(agent ? { labelParts: [agent.label, label] as const } : {}),
-    title: agent ? `${agent.title} / Skill: ${label}` : `Skill: ${label}`,
+    title: agent ? `${agent.title} / Package: ${label}` : `Package: ${label}`,
     icon: agent?.icon ?? `skill:${id}`,
   };
 }

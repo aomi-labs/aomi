@@ -628,7 +628,7 @@ describe("thread-wide activity", () => {
     const events: Event[] = [
       tool(1, "activate_package", { activated: ["aave", "common_erc20"] }),
       {
-        agent: "aomi/swap",
+        toolset: "aomi/swap",
         ...meta(2),
         type: "task_started",
         call_id: "call",
@@ -705,7 +705,7 @@ describe("thread-wide activity", () => {
     });
     const subagent = (sequence: number, turn: string, agent: string): Event =>
       ({
-        agent: "aomi/swap",
+        toolset: "aomi/swap",
         ...meta(sequence, turn),
         type: "task_started",
         call_id: agent,
@@ -872,7 +872,7 @@ describe("discarded staged transactions", () => {
           : ({
               ...meta(4, "turn-2"),
               type,
-              tool_call_id: "discard-1",
+              id: "discard-1",
               tool_name: "evm_discard_tx",
               result,
             } as Event);

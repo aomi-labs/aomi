@@ -64,8 +64,9 @@ function publishBodyLayout(body: HTMLElement, height: number) {
 }
 
 const run = (steps: TaskRunState["steps"]): TaskRunState => ({
-  agent: "aomi/main",
+  agentId: "task-agent:9f2c1a2b3c4d",
   callId: "call-1",
+  toolset: "default",
   label: "swap-worker",
   status: "running",
   startedAt: Date.now(),
@@ -599,7 +600,7 @@ describe("WorkingTrace", () => {
 
   it("follows nested subagent steps while the trace is pinned to latest", () => {
     const item = (state: TaskRunState) => ({
-      agent: "publisher/agent-state.agentId",
+      agentId: state.agentId,
       kind: "agent" as const,
       run: state,
       order: 0,
@@ -644,7 +645,7 @@ describe("WorkingTrace", () => {
 
   it("keeps the live inner window at the latest child step", () => {
     const item = (state: TaskRunState) => ({
-      agent: "publisher/agent-state.agentId",
+      agentId: state.agentId,
       kind: "agent" as const,
       run: state,
       order: 0,

@@ -11,8 +11,9 @@ vi.mock("./markdown-text", () => ({
 import { visibleAgentSteps, WorkingAgent } from "./working-agent";
 
 const makeRun = (over: Partial<TaskRunState> = {}): TaskRunState => ({
-  agent: "aomi/main",
+  agentId: "task-agent:9f2c1a2b3c4d",
   callId: "call-1",
+  toolset: "default",
   label: "swap-worker",
   status: "running",
   startedAt: Date.now(),

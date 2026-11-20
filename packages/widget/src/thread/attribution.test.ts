@@ -106,7 +106,7 @@ describe("trace attribution", () => {
       ).toMatchObject({
         label: "LI.FI",
         icon: PuzzleIcon,
-        title: "Skill: LI.FI",
+        title: "Package: LI.FI",
       });
       expect(step.failed).toBe(Boolean(result && "error" in result));
     }
@@ -153,7 +153,7 @@ describe("trace attribution", () => {
     expect(drawn(step.chips.at(-1))).toMatchObject({
       attribution: "skill",
       icon: PuzzleIcon,
-      title: "Skill: DefiLlama",
+      title: "Package: DefiLlama",
     });
   });
 

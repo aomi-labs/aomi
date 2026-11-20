@@ -562,7 +562,7 @@ describe("active transaction presentation", () => {
     runtime.pendingActions = [];
     runtime.events = [
       {
-        agent: "aomi/research",
+        toolset: "aomi/research",
         type: "task_started",
         event_id: "task-started",
         sequence: 1,
@@ -574,7 +574,7 @@ describe("active transaction presentation", () => {
         resumed: false,
       },
       {
-        agent: "aomi/research",
+        toolset: "aomi/research",
         type: "task_phase",
         event_id: "task-phase",
         sequence: 2,
@@ -642,7 +642,7 @@ describe("active transaction presentation", () => {
     runtime.pendingActions = [];
     runtime.events = [
       {
-        agent: "aomi/research",
+        toolset: "aomi/research",
         type: "task_started",
         event_id: "task-started",
         sequence: 1,

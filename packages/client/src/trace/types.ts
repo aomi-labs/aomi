@@ -72,7 +72,7 @@ export type ToolChip = {
   skillId?: string;
   /** The activated package this chip stands for. */
   packageId?: string;
-  attribution?: "toolset" | "skill";
+  attribution?: "agent" | "skill";
   icon?: TraceIcon;
   essential?: boolean;
 };
