@@ -380,9 +380,9 @@ export interface AomiPackageSignature {
   primary_types: string[];
 }
 
-/** What the live release may reach; `hash` identifies it. */
+/** What the live release may reach; `hash` identifies it (`null` for a host package). */
 export interface AomiPackageEnvelope {
-  hash: string;
+  hash: string | null;
   hosts: string[];
   /** Families it may ask the person to approve transactions on. */
   transactions: AomiPackageFamily[];
@@ -413,7 +413,8 @@ export interface AomiPublicPackage {
 /** One Library row: a package with a live release and this account's effective state. */
 export interface AomiPackage extends AomiPublicPackage {
   package_id: number;
-  live: { release: number; digest: string };
+  /** A host package has no release; its digest is the server build's. */
+  live: { release: number | null; digest: string };
   listed: boolean;
   /** The agent lists it: always on, the switch is disabled. */
   agent_listed: boolean;

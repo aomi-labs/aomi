@@ -471,7 +471,7 @@ describe("packages modal", () => {
     const panel = within(details("Jupiter"));
     expect(
       panel.getAllByRole("heading", { level: 3 }).map((h) => h.textContent),
-    ).toEqual(["Chains", "Wallet", "Skills", "Tools2", "Connects to"]);
+    ).toEqual(["Chains", "Wallet", "Instructions", "Tools2", "Connects to"]);
     expect(panel.getByText("Solana")).toBeTruthy();
     expect(panel.getByText("Prepares Solana transactions")).toBeTruthy();
     expect(panel.getByText("svm/jupiter")).toBeTruthy();
@@ -492,6 +492,25 @@ describe("packages modal", () => {
     ).toBeTruthy();
     expect(aave.queryByText("Tools")).toBeNull();
     expect(aave.queryByText("Connects to")).toBeNull();
+  });
+
+  it("host_row_has_no_release_line", async () => {
+    installBackend([
+      {
+        ...VERIFIED,
+        id: "aomi/scheduling",
+        display_name: "Scheduling",
+        live: { release: null, digest: "sha256:1a2b3c4d5e6f" },
+        envelope: { hash: null, hosts: [], transactions: [], signatures: [] },
+        slots: [],
+        guards: [],
+      },
+    ]);
+    await renderModal();
+    fireEvent.click(screen.getByLabelText("Open Scheduling details"));
+    const panel = within(details("Scheduling"));
+    expect(panel.queryByText(/Release/)).toBeNull();
+    expect(panel.queryByText(/1a2b/)).toBeNull();
   });
 
   it("asks before a not verified package only, and calls optional keys optional", async () => {
@@ -560,7 +579,7 @@ describe("packages modal", () => {
     expect(screen.queryByText("On")).toBeNull();
 
     const panel = within(details("Jupiter"));
-    expect(panel.getByText("Skills")).toBeTruthy();
+    expect(panel.getByText("Instructions")).toBeTruthy();
     expect(panel.getByText("Solana")).toBeTruthy();
     expect(panel.getByText("Tools")).toBeTruthy();
     expect(panel.queryByText("Wallet")).toBeNull();

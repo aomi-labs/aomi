@@ -326,7 +326,7 @@ export function LibraryDetailPanel({
           {account ? <WalletSection row={account} /> : null}
 
           {row.skills.length > 0 ? (
-            <Section title="Skills" count={row.skills.length}>
+            <Section title="Instructions" count={row.skills.length}>
               {row.skills.map((skill) => (
                 <div key={skill.id} className="flex gap-2.5">
                   <span className="bg-aomi-surface-2 text-aomi-muted flex size-7 shrink-0 items-center justify-center rounded-[8px]">
@@ -367,7 +367,7 @@ export function LibraryDetailPanel({
             </Section>
           ) : null}
 
-          {account ? (
+          {account?.live.release != null ? (
             <p className="type-meta text-aomi-muted mt-auto">
               Release {account.live.release} ·{" "}
               <span className="font-mono text-[11.5px]">
