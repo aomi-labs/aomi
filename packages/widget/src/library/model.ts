@@ -1,9 +1,8 @@
-import {
-  CHAIN_NAMES,
-  type AomiPackage,
-  type AomiPackageFamily,
-  type AomiPackageSlot,
-  type AomiPublicPackage,
+import type {
+  AomiPackage,
+  AomiPackageFamily,
+  AomiPackageSlot,
+  AomiPublicPackage,
 } from "@aomi-labs/client";
 import type { ComponentType } from "react";
 import {
@@ -14,11 +13,23 @@ import {
   PenLine,
   Send,
   ShieldCheck,
+  Tag,
   ToggleRight,
   type LucideIcon,
 } from "lucide-react";
-import { EthereumIcon, SolanaIcon } from "@/icons/chain-icons";
-import { getChainIcon } from "@/icons/chain-map";
+import {
+  ArbitrumIcon,
+  ArcIcon,
+  BaseIcon,
+  EthereumIcon,
+  MegaETHIcon,
+  MonadIcon,
+  OptimismIcon,
+  PolygonIcon,
+  RobinhoodIcon,
+  SepoliaIcon,
+  SolanaIcon,
+} from "@/icons/chain-icons";
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -43,15 +54,6 @@ export const NAV_ITEMS: { id: LibraryView; label: string; icon: LucideIcon }[] =
     { id: "not_verified", label: "Not verified", icon: Box },
     { id: "connect", label: "To connect", icon: KeyRound },
   ];
-
-export const FAMILIES: {
-  id: AomiPackageFamily;
-  label: string;
-  icon: IconComponent;
-}[] = [
-  { id: "evm", label: "EVM", icon: EthereumIcon },
-  { id: "svm", label: "Solana", icon: SolanaIcon },
-];
 
 export const GROUP_TITLES: Record<LibraryGroup, (agent: string) => string> = {
   agent: (agent) => `Used by ${agent}`,
@@ -135,12 +137,14 @@ export function matches(
   row: AomiPublicPackage,
   filter: {
     view: LibraryView;
-    family: AomiPackageFamily | null;
+    chain: string | null;
+    tag: string | null;
     query: string;
   },
 ): boolean {
   const needle = filter.query.trim().toLowerCase();
-  if (filter.family && !row.families.includes(filter.family)) return false;
+  if (filter.chain && !row.chains.includes(filter.chain)) return false;
+  if (filter.tag && !row.tags.includes(filter.tag)) return false;
   if (needle)
     return [
       row.display_name,
@@ -156,49 +160,84 @@ export function publisher(row: AomiPublicPackage): string {
   return row.id.split("/")[0] ?? row.id;
 }
 
-/** Chain names the client's chain list lacks, for signature domains. */
-const MORE_CHAIN_NAMES: Record<number, string> = {
-  56: "BNB Chain",
-  100: "Gnosis",
-  43114: "Avalanche",
+export interface FilterItem {
+  id: string;
+  label: string;
+  icon: IconComponent;
+}
+
+/** The chain names the backend resolves, in the order the Library lists them. */
+const CHAINS: Record<string, { label: string; icon?: IconComponent }> = {
+  ethereum: { label: "Ethereum", icon: EthereumIcon },
+  base: { label: "Base", icon: BaseIcon },
+  arbitrum: { label: "Arbitrum", icon: ArbitrumIcon },
+  optimism: { label: "Optimism", icon: OptimismIcon },
+  polygon: { label: "Polygon", icon: PolygonIcon },
+  megaeth: { label: "MegaETH", icon: MegaETHIcon },
+  robinhood: { label: "Robinhood Chain", icon: RobinhoodIcon },
+  monad: { label: "Monad", icon: MonadIcon },
+  arc: { label: "Arc", icon: ArcIcon },
+  solana: { label: "Solana", icon: SolanaIcon },
+  sepolia: { label: "Sepolia", icon: SepoliaIcon },
+  "robinhood-testnet": { label: "Robinhood Testnet", icon: RobinhoodIcon },
+  "monad-testnet": { label: "Monad Testnet", icon: MonadIcon },
+  "arc-testnet": { label: "Arc Testnet", icon: ArcIcon },
+  "unifi-testnet": { label: "Unifi Testnet" },
 };
 
-export function chainName(id: number): string {
-  return CHAIN_NAMES[id] ?? MORE_CHAIN_NAMES[id] ?? `Chain ${id}`;
-}
+const TAGS: Record<string, string> = {
+  lending: "Lending",
+  dex: "DEX",
+  bridge: "Bridge",
+  staking: "Staking",
+  perps: "Perps",
+  prediction: "Prediction",
+  payments: "Payments",
+  yield: "Yield",
+  rwa: "RWA",
+  nft: "NFT",
+  data: "Data",
+  social: "Social",
+  wallet: "Wallet",
+};
 
-export interface ChainPill {
-  key: string;
+/** A chain name as the Library shows it; a name it does not know is shown as sent. */
+export function chainItem(name: string): {
+  id: string;
   label: string;
   icon?: IconComponent;
+} {
+  const chain = CHAINS[name];
+  return { id: name, label: chain?.label ?? name, icon: chain?.icon };
 }
 
-/**
- * Where a package works: its families, with EVM spelled out as the chains its
- * signature domains name (account rows only).
- */
-export function chainPills(row: AomiPublicPackage): ChainPill[] {
-  const ids = isAccountRow(row)
-    ? [
-        ...new Set(
-          row.envelope.signatures
-            .filter((signature) => signature.kind.startsWith("evm"))
-            .flatMap((signature) => signature.domains)
-            .map((domain) => domain.chain_id)
-            .filter((id) => Number.isSafeInteger(id)),
-        ),
-      ]
-    : [];
-  return FAMILIES.filter((family) => row.families.includes(family.id)).flatMap(
-    (family): ChainPill[] =>
-      family.id === "evm" && ids.length
-        ? ids.map((id) => ({
-            key: `evm:${id}`,
-            label: chainName(id),
-            icon: getChainIcon(id),
-          }))
-        : [{ key: family.id, label: family.label, icon: family.icon }],
+/** `ids` known to `order` first, in its order, then the rest by name. */
+function ordered(ids: Iterable<string>, order: Record<string, unknown>) {
+  const known = Object.keys(order);
+  const rank = (id: string) =>
+    known.includes(id) ? known.indexOf(id) : known.length;
+  return [...new Set(ids)].sort(
+    (a, b) => rank(a) - rank(b) || a.localeCompare(b),
   );
+}
+
+/** The network filter: every chain some row works on. */
+export function networkItems(rows: readonly AomiPublicPackage[]): FilterItem[] {
+  return ordered(
+    rows.flatMap((row) => row.chains),
+    CHAINS,
+  ).map((name) => {
+    const chain = chainItem(name);
+    return { ...chain, icon: chain.icon ?? Package };
+  });
+}
+
+/** The tag filter: every tag some row carries. */
+export function tagItems(rows: readonly AomiPublicPackage[]): FilterItem[] {
+  return ordered(
+    rows.flatMap((row) => row.tags),
+    TAGS,
+  ).map((id) => ({ id, label: TAGS[id] ?? id, icon: Tag }));
 }
 
 const FAMILY_WORDS: Record<AomiPackageFamily, string> = {

@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  chainPills,
+  chainItem,
   groupPackages,
   markNoticeSeen,
   matches,
+  networkItems,
   noticeSeen,
   shortDigest,
+  tagItems,
   walletLines,
 } from "./model";
 import {
@@ -38,19 +40,40 @@ describe("library model", () => {
     ]);
   });
 
-  it("filters by section, family and search", () => {
+  it("filters by section, network, tag and search", () => {
     const rows = [AGENT_LISTED, VERIFIED, NOT_VERIFIED, NEEDS_KEY];
     const ids = (filter: Parameters<typeof matches>[1]) =>
       rows.filter((row) => matches(row, filter)).map((row) => row.package_id);
-    const base = { family: null, query: "" };
+    const base = { chain: null, tag: null, query: "" };
     expect(ids({ ...base, view: "on" })).toEqual([9001, 9003, 9020]);
     expect(ids({ ...base, view: "not_verified" })).toEqual([9010]);
     expect(ids({ ...base, view: "connect" })).toEqual([9020]);
-    expect(ids({ ...base, view: "all", family: "svm" })).toEqual([9003]);
+    expect(ids({ ...base, view: "all", chain: "solana" })).toEqual([9003]);
+    expect(ids({ ...base, view: "all", chain: "base" })).toEqual([9001]);
+    expect(ids({ ...base, view: "all", tag: "lending" })).toEqual([9001]);
+    expect(
+      ids({ ...base, view: "all", chain: "solana", tag: "lending" }),
+    ).toEqual([]);
     // Search looks across every section, including package skills.
-    expect(ids({ view: "connect", family: null, query: "JUPITER" })).toEqual([
-      9003,
+    expect(ids({ ...base, view: "connect", query: "JUPITER" })).toEqual([9003]);
+  });
+
+  it("lists the networks and tags the rows carry, in the Library's order", () => {
+    const rows = [VERIFIED, AGENT_LISTED, NOT_VERIFIED, NEEDS_KEY];
+    expect(networkItems(rows).map((item) => item.label)).toEqual([
+      "Ethereum",
+      "Base",
+      "Arbitrum",
+      "Polygon",
+      "Robinhood Chain",
+      "Solana",
     ]);
+    expect(tagItems(rows).map((item) => item.label)).toEqual([
+      "Lending",
+      "DEX",
+      "Prediction",
+    ]);
+    expect(networkItems([]).length + tagItems([]).length).toBe(0);
   });
 
   it("says what the package asks of the wallet in plain words", () => {
@@ -87,42 +110,18 @@ describe("library model", () => {
     expect(walletLines(quiet)).toEqual([]);
   });
 
-  it("names chains from signature domains, else the family", () => {
-    const labels = (row: Parameters<typeof chainPills>[0]) =>
-      chainPills(row).map((pill) => pill.label);
-    expect(labels(NOT_VERIFIED)).toEqual(["Base"]);
-    expect(labels(VERIFIED)).toEqual(["Solana"]);
-    const zerox = packageRow({
-      families: ["evm"],
-      envelope: {
-        ...VERIFIED.envelope,
-        signatures: [
-          {
-            kind: "evm-typed-data",
-            domains: [1, 56, 8453, 1].map((chain_id) => ({
-              chain_id,
-              verifying_contract: "0x22",
-            })),
-            primary_types: ["PermitTransferFrom"],
-          },
-        ],
-      },
+  it("names the chains the backend resolved, guessing nothing", () => {
+    expect(AGENT_LISTED.chains.map((name) => chainItem(name).label)).toEqual([
+      "Ethereum",
+      "Base",
+      "Arbitrum",
+    ]);
+    expect(chainItem("solana").icon).toBeDefined();
+    expect(chainItem("unifi-testnet")).toEqual({
+      id: "unifi-testnet",
+      label: "Unifi Testnet",
     });
-    expect(labels(zerox)).toEqual(["Ethereum", "BNB Chain", "Base"]);
-    expect(chainPills(zerox)[1]!.icon).toBeUndefined();
-    // A guest's public row has families only.
-    expect(
-      labels({
-        id: "aomi/zerox",
-        display_name: "0x",
-        description: "",
-        icon_url: null,
-        families: ["evm"],
-        tool_count: 0,
-        skills: [],
-        verified: true,
-      }),
-    ).toEqual(["EVM"]);
+    expect(chainItem("newchain").label).toBe("newchain");
   });
 
   it("shortens a release digest", () => {

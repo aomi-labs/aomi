@@ -16,7 +16,8 @@ const PACKAGE_FIELDS = [
   "display_name",
   "description",
   "icon_url",
-  "families",
+  "chains",
+  "tags",
   "tool_count",
   "verified",
 ];

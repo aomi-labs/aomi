@@ -382,7 +382,8 @@ describe("aomi packages", () => {
     display_name: name,
     description: "",
     icon_url: null,
-    families: ["evm"],
+    chains: ["ethereum", "base"],
+    tags: [],
     tool_count: 1,
     skills: [],
     live: { release: 1, digest: "d" },
@@ -446,9 +447,9 @@ describe("aomi packages", () => {
     const { code, stdout } = await cli("packages", "--private-key", KEY);
     expect(code).toBe(0);
     expect(stdout.split("\n")).toEqual([
-      "acme/swap  on (on by default)  verified  evm  needs API_KEY",
-      "acme/core  on (the agent lists it)  verified  evm",
-      "acme/lend  off (off by default)  verified  evm",
+      "acme/swap  on (on by default)  verified  ethereum+base  needs API_KEY",
+      "acme/core  on (the agent lists it)  verified  ethereum+base",
+      "acme/lend  off (off by default)  verified  ethereum+base",
       "",
     ]);
   });

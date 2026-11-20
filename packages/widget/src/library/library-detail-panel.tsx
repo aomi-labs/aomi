@@ -15,7 +15,7 @@ import { SectionHeader } from "@/ui/aomi/section-header";
 import { PackageTile } from "@/icons/package-mark";
 import { Publisher } from "./catalog-row";
 import {
-  chainPills,
+  chainItem,
   isAccountRow,
   needsConnect,
   personSlots,
@@ -233,7 +233,7 @@ export function LibraryDetailPanel({
 }) {
   const account = isAccountRow(row) ? row : null;
   const keys = account ? personSlots(account) : [];
-  const chains = chainPills(row);
+  const chains = row.chains.map(chainItem);
   const hosts = account?.envelope.hosts ?? [];
   const publisherKey = account?.slots.some((slot) => slot.owner === "builder");
   const [scrolled, setScrolled] = useState(false);
@@ -310,9 +310,9 @@ export function LibraryDetailPanel({
               count={chains.length > 1 ? chains.length : undefined}
             >
               <ul className="flex flex-wrap gap-1.5">
-                {chains.map(({ key, label, icon: Icon }) => (
+                {chains.map(({ id, label, icon: Icon }) => (
                   <li
-                    key={key}
+                    key={id}
                     className="border-aomi-border type-meta inline-flex h-[26px] items-center gap-1.5 rounded-full border px-2.5"
                   >
                     {Icon ? <Icon className="size-3.5 shrink-0" /> : null}

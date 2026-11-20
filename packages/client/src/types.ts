@@ -400,7 +400,10 @@ export interface AomiPublicPackage {
   display_name: string;
   description: string;
   icon_url: string | null;
-  families: AomiPackageFamily[];
+  /** Declared chains this backend serves, as chain names (`base`, `solana`); empty for a chain-neutral package. */
+  chains: string[];
+  /** Words from the fixed tag list, e.g. `lending`. */
+  tags: string[];
   tool_count: number;
   skills: { id: string; description: string }[];
   /** The live envelope is within the approved one. */

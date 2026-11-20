@@ -55,7 +55,7 @@ export async function list(flags: Flags & { thread?: string }): Promise<void> {
   for (const row of packages) {
     const missing = row.slots.filter((slot) => slot.status === "missing");
     out(
-      `${row.id}  ${row.enabled ? "on" : "off"} (${REASONS[row.reason]})  ${row.verified ? "verified" : "unverified"}  ${row.families.join("+") || "-"}${missing.length ? `  needs ${missing.map((slot) => slot.name).join(", ")}` : ""}`,
+      `${row.id}  ${row.enabled ? "on" : "off"} (${REASONS[row.reason]})  ${row.verified ? "verified" : "unverified"}  ${row.chains.join("+") || "-"}${missing.length ? `  needs ${missing.map((slot) => slot.name).join(", ")}` : ""}`,
     );
   }
 }

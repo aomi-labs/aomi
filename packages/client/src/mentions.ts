@@ -2,7 +2,7 @@
 // model hint a send carries. The widget and the CLI share all of it.
 
 import { isAgentSlug } from "./agent-card";
-import type { AomiPackageFamily, AomiPublicPackage } from "./types";
+import type { AomiPublicPackage } from "./types";
 
 const HINTS_START = "<AOMI_UI_CAPABILITY_HINTS>";
 const HINTS_END = "</AOMI_UI_CAPABILITY_HINTS>";
@@ -456,10 +456,8 @@ function parsePublicPackage(value: unknown): AomiPublicPackage | null {
     display_name: row.display_name,
     description: typeof row.description === "string" ? row.description : "",
     icon_url: typeof row.icon_url === "string" ? row.icon_url : null,
-    families: strings(row.families).filter(
-      (family): family is AomiPackageFamily =>
-        family === "evm" || family === "svm",
-    ),
+    chains: strings(row.chains),
+    tags: strings(row.tags),
     tool_count: typeof row.tool_count === "number" ? row.tool_count : 0,
     skills: Array.isArray(row.skills)
       ? row.skills.flatMap((skill) =>

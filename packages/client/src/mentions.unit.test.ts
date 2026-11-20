@@ -194,7 +194,8 @@ describe("packageMentions", () => {
         description:
           "Token prices and TVL from DefiLlama. Use it for market data.",
         icon_url: "/api/packages/aomi%2Fdefillama/icon",
-        families: ["evm", "cosmos"],
+        chains: ["ethereum", 1, "base"],
+        tags: ["data"],
         tool_count: 5,
         skills: [{ id: "llama-yields", description: "Find pool yields" }],
         verified: true,
@@ -211,7 +212,8 @@ describe("packageMentions", () => {
       description:
         "Token prices and TVL from DefiLlama. Use it for market data.",
       icon_url: "/api/packages/aomi%2Fdefillama/icon",
-      families: ["evm"],
+      chains: ["ethereum", "base"],
+      tags: ["data"],
       tool_count: 5,
       skills: [{ id: "llama-yields", description: "Find pool yields" }],
       verified: true,

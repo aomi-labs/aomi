@@ -1,10 +1,6 @@
 "use client";
 
-import type {
-  AomiPackage,
-  AomiPackageFamily,
-  AomiPublicPackage,
-} from "@aomi-labs/client";
+import type { AomiPackage, AomiPublicPackage } from "@aomi-labs/client";
 import { useOptionalAomiRuntime } from "@aomi-labs/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Library, Plus } from "lucide-react";
@@ -25,7 +21,6 @@ import { PackageNotice } from "./package-notice";
 import { AddWithCodeSheet, ConnectSheet } from "./package-sheets";
 import { usePackageCatalog } from "./use-package-catalog";
 import {
-  FAMILIES,
   GUEST_VIEWS,
   GROUP_TITLES,
   NAV_ITEMS,
@@ -35,8 +30,11 @@ import {
   inView,
   markNoticeSeen,
   matches,
+  networkItems,
   noticeSeen,
   personSlots,
+  tagItems,
+  type FilterItem,
   type LibraryView,
   type LoadFailure,
 } from "./model";
@@ -65,7 +63,8 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   } = usePackageCatalog(accountUserId, threadId);
   const wallet = useAomiWalletKit();
   const [view, setView] = useState<LibraryView>("all");
-  const [family, setFamily] = useState<AomiPackageFamily | null>(null);
+  const [chain, setChain] = useState<string | null>(null);
+  const [tag, setTag] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
@@ -81,12 +80,14 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   const signedIn = accountUserId != null;
   const rows = useMemo(() => loaded ?? [], [loaded]);
   const groups = useMemo(() => {
-    const shown = rows.filter((row) => matches(row, { view, family, query }));
+    const shown = rows.filter((row) =>
+      matches(row, { view, chain, tag, query }),
+    );
     // "To connect" is one list; a search looks across every group.
     return view === "connect" && !query.trim() && shown.length
       ? [{ group: "connect" as const, rows: shown }]
       : groupPackages(shown);
-  }, [rows, view, family, query]);
+  }, [rows, view, chain, tag, query]);
   // The detail panel shows the chosen package, else the first one listed. It
   // reads every row, so a package that leaves the view after a change stays.
   const selected =
@@ -139,7 +140,8 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       const row = await aomi.account.packages.activate(code);
       await refetch();
       setView("all");
-      setFamily(null);
+      setChain(null);
+      setTag(null);
       setQuery("");
       setCodeOpen(false);
       open(row);
@@ -179,7 +181,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
 
   useEffect(() => {
     if (listRef.current) listRef.current.scrollTop = 0;
-  }, [view, family, query]);
+  }, [view, chain, tag, query]);
 
   const loading = loaded === null && !failure;
   const count = (predicate: (row: AomiPublicPackage) => boolean) =>
@@ -222,29 +224,22 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
             />
           ))}
         </ModalNav>
-        <div className="border-aomi-border mt-2 md:mt-5 md:border-t md:pt-4">
-          <span className="type-meta text-aomi-muted hidden px-2.5 font-medium md:block">
-            Networks
-          </span>
-          <ModalNav label="Library ecosystems" className="mt-2">
-            {FAMILIES.map((item) => (
-              <ModalNavItem
-                key={item.id}
-                label={item.label}
-                icon={item.icon}
-                active={family === item.id}
-                onClick={() =>
-                  pick(() =>
-                    setFamily((current) =>
-                      current === item.id ? null : item.id,
-                    ),
-                  )
-                }
-                count={count((row) => row.families.includes(item.id))}
-              />
-            ))}
-          </ModalNav>
-        </div>
+        <FilterNav
+          title="Networks"
+          label="Library networks"
+          items={networkItems(rows)}
+          active={chain}
+          onPick={(id) => pick(() => setChain(id))}
+          count={(id) => count((row) => row.chains.includes(id))}
+        />
+        <FilterNav
+          title="Tags"
+          label="Library tags"
+          items={tagItems(rows)}
+          active={tag}
+          onPick={(id) => pick(() => setTag(id))}
+          count={(id) => count((row) => row.tags.includes(id))}
+        />
       </ModalSidebar>
 
       <main
@@ -403,6 +398,44 @@ const FAILURE_COPY: Record<
 };
 
 /** An ended session asks to sign in again; only a real failure retries. */
+/** One sidebar filter; picking the active item again clears it. Empty lists are hidden. */
+function FilterNav({
+  title,
+  label,
+  items,
+  active,
+  onPick,
+  count,
+}: {
+  title: string;
+  label: string;
+  items: FilterItem[];
+  active: string | null;
+  onPick: (id: string | null) => void;
+  count: (id: string) => number | "loading" | undefined;
+}) {
+  if (!items.length) return null;
+  return (
+    <div className="border-aomi-border mt-2 md:mt-5 md:border-t md:pt-4">
+      <span className="type-meta text-aomi-muted hidden px-2.5 font-medium md:block">
+        {title}
+      </span>
+      <ModalNav label={label} className="mt-2">
+        {items.map((item) => (
+          <ModalNavItem
+            key={item.id}
+            label={item.label}
+            icon={item.icon}
+            active={active === item.id}
+            onClick={() => onPick(active === item.id ? null : item.id)}
+            count={count(item.id)}
+          />
+        ))}
+      </ModalNav>
+    </div>
+  );
+}
+
 function LoadFailureNotice({
   failure,
   onSignIn,

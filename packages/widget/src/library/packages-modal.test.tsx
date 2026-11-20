@@ -80,7 +80,8 @@ function installBackend(initial: AomiPackage[]) {
               display_name: row.display_name,
               description: row.description,
               icon_url: row.icon_url,
-              families: row.families,
+              chains: row.chains,
+              tags: row.tags,
               tool_count: row.tool_count,
               skills: row.skills,
               verified: row.verified,
@@ -370,6 +371,58 @@ describe("packages modal", () => {
       target: { value: "solana" },
     });
     expect(details("Jupiter")).toBeTruthy();
+  });
+
+  it("shows the resolved chains in the detail and filters by network and tag, rows without a VM pill", async () => {
+    installBackend([NOT_VERIFIED, VERIFIED, AGENT_LISTED, NEEDS_KEY]);
+    await renderModal();
+    fireEvent.click(screen.getByLabelText("Open Aave details"));
+    const chains = within(details("Aave"))
+      .getByRole("heading", { name: /^Chains/ })
+      .closest("section")!;
+    expect(
+      within(chains)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual(["Ethereum", "Base", "Arbitrum"]);
+    for (const row of screen.getAllByRole("article")) {
+      expect(
+        within(row).queryByText(/^(EVM|Solana|Ethereum|Base)$/),
+      ).toBeNull();
+    }
+
+    const shown = () =>
+      screen
+        .getAllByRole("article")
+        .map((row) => within(row).getAllByText(/./)[0]!.textContent);
+    const networks = screen.getByRole("navigation", {
+      name: "Library networks",
+    });
+    expect(
+      within(networks)
+        .getAllByRole("button")
+        .map((item) => item.textContent),
+    ).toEqual([
+      "Ethereum1",
+      "Base1",
+      "Arbitrum1",
+      "Polygon1",
+      "Robinhood Chain1",
+      "Solana1",
+    ]);
+    fireEvent.click(within(networks).getByRole("button", { name: /Solana/ }));
+    expect(shown()).toEqual(["Jupiter"]);
+    fireEvent.click(within(networks).getByRole("button", { name: /Solana/ }));
+    expect(screen.getAllByRole("article")).toHaveLength(4);
+
+    const tags = screen.getByRole("navigation", { name: "Library tags" });
+    expect(
+      within(tags)
+        .getAllByRole("button")
+        .map((item) => item.textContent),
+    ).toEqual(["Lending1", "DEX1", "Prediction1"]);
+    fireEvent.click(within(tags).getByRole("button", { name: /Prediction/ }));
+    expect(shown()).toEqual(["Polymarket"]);
   });
 
   it("lists every package, with no Show more", async () => {
