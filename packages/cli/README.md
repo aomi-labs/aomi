@@ -67,7 +67,8 @@ sign-in.
 | `packages`                       | `list [--thread]`, `on <id> [--yes]`, `off <id>`, `reset <id>`, `connect <id> <slot>`, `disconnect <id> <slot>`                    |
 | `pipeline`                       | `ops`, `op`, `toolsets`, `skills`, `skill`, `invoke`, `build [--commit]`                                                           |
 | `publish`                        | Build and upload the root `aomi.toml`'s packages and agents. `--promote`, `--package`, `--agent`, `--no-build`, `--wasm name=path` |
-| `promote`, `rollback`            | `<package\|agent> <name> [<number>]`: make a release live; rollback defaults to the one before live                                |
+| `promote`, `rollback`            | `<package\|agent> <name> <number>`: make a release live; rollback names the release to go back to                                 |
+| `codes`                          | `create <package> [--agent <id>]`, `list <package>`, `revoke <package> <id>`: activation codes for a private package               |
 | `releases`                       | `<package\|agent> <name>`: every release, newest first                                                                             |
 | `model`, `chain`                 | `current`, `list`, `set`                                                                                                           |
 | `keys`                           | Your own provider keys: `list`, `set <provider>`, `remove`                                                                         |
@@ -85,8 +86,9 @@ Credential and key values come from stdin or a hidden prompt, never argv.
 component and listed files, then publishes the root's agents. It needs a
 builder API key in `AOMI_BUILDER_KEY` (or `--key-file`) holding
 `package:publish` and `agent:publish`, plus `package:promote` and
-`agent:promote` for `--promote`, `promote` and `rollback`. A refusal prints
-`code: message` and exits 1. A builder repository can run it from CI with the
+`agent:promote` for `--promote`, `promote`, `rollback` and `codes`. A refusal
+prints `code: message` and exits 1. If a `--promote` run fails part way, it
+lists the pointers that already moved and how to put each back. A builder repository can run it from CI with the
 reusable workflow `aomi-labs/aomi/.github/workflows/publish-packages.yml`.
 
 ## The chat screen

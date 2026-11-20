@@ -205,10 +205,50 @@ describe("aomi publish", () => {
     expect(stderr).toBe("error: manifest_invalid: contract must be 1\n");
     expect(sent).toHaveLength(1);
   });
+
+  it("partial_publish_reports_moved_pointers", async () => {
+    answers["POST /api/build/packages/price/releases"] = Response.json(
+      { package: "alice/price", release: release(3), live: 2, verified: false },
+      { status: 201 },
+    );
+    answers["POST /api/build/packages/price/promote"] = Response.json({
+      package: "alice/price",
+      live: 3,
+    });
+    answers["POST /api/build/agents/hoodit/configs"] = Response.json(
+      { code: "agent_invalid", message: "agent hoodit: unknown tool" },
+      { status: 422 },
+    );
+    const { code, stderr } = await cli(
+      "publish",
+      "--root",
+      root,
+      "--promote",
+      "--no-build",
+      "--wasm",
+      `price=${join(root, "price.wasm")}`,
+    );
+    expect(code).toBe(1);
+    expect(stderr).toBe(
+      [
+        "error: agent_invalid: agent hoodit: unknown tool",
+        "These pointers moved before the failure:",
+        "  package alice/price  live 3 (was 2)  undo: aomi rollback package price 2",
+        "",
+      ].join("\n"),
+    );
+  });
 });
 
 describe("aomi rollback", () => {
-  it("promotes the release before the live one and sends the live it read", async () => {
+  it("rollback_requires_target: names no default and sends nothing", async () => {
+    const { code, stderr } = await cli("rollback", "package", "price");
+    expect(code).not.toBe(0);
+    expect(stderr).not.toBe("");
+    expect(sent).toHaveLength(0);
+  });
+
+  it("promotes the named release and sends the live it read", async () => {
     answers["GET /api/build/packages/price/releases"] = Response.json({
       package: "alice/price",
       live: 4,
@@ -218,7 +258,7 @@ describe("aomi rollback", () => {
       package: "alice/price",
       live: 2,
     });
-    const { code, stdout } = await cli("rollback", "package", "price");
+    const { code, stdout } = await cli("rollback", "package", "price", "2");
     expect(code).toBe(0);
     expect(JSON.parse(new TextDecoder().decode(sent[1]!.body))).toEqual({
       release: 2,
@@ -237,12 +277,104 @@ describe("aomi rollback", () => {
       { code: "live_changed", message: "live is 3", live: 3 },
       { status: 409 },
     );
-    const { code, stderr } = await cli("rollback", "agent", "hoodit");
+    const { code, stderr } = await cli("rollback", "agent", "hoodit", "1");
     expect(code).toBe(1);
     expect(JSON.parse(new TextDecoder().decode(sent[1]!.body))).toEqual({
       config: 1,
       expected_live: 2,
     });
     expect(stderr).toBe("error: live_changed: live is 3\n");
+  });
+});
+
+describe("aomi codes", () => {
+  it("creates a code, prints it once, lists and revokes", async () => {
+    answers["POST /api/build/packages/price/codes"] = Response.json(
+      {
+        id: 7,
+        package: "alice/price",
+        code: "1f3a9c2e-00000000-11111111-22222222",
+        agent: null,
+        created_at: "2026-11-20T00:00:00Z",
+      },
+      { status: 201 },
+    );
+    answers["GET /api/build/packages/price/codes"] = Response.json({
+      package: "alice/price",
+      codes: [
+        {
+          id: 7,
+          agent: null,
+          created_at: "2026-11-20T00:00:00Z",
+          revoked_at: null,
+          grants: [
+            {
+              id: 8,
+              account: "a",
+              agent: null,
+              created_at: "x",
+              revoked_at: null,
+            },
+            {
+              id: 9,
+              account: "b",
+              agent: null,
+              created_at: "x",
+              revoked_at: "y",
+            },
+          ],
+        },
+      ],
+    });
+    answers["DELETE /api/build/packages/price/codes/7"] = Response.json({
+      package: "alice/price",
+      code: 7,
+      revoked: 2,
+    });
+
+    const created = await cli("codes", "create", "price");
+    expect(created.code).toBe(0);
+    expect(created.stdout.split("\n")[0]).toBe(
+      "1f3a9c2e-00000000-11111111-22222222",
+    );
+    expect(created.stdout).toContain("for people with the code");
+    const listed = await cli("codes", "list", "price");
+    expect(listed.stdout).toBe(
+      "   7  2026-11-20T00:00:00Z  people  1 holding  active\n",
+    );
+    expect(listed.stdout).not.toContain("1f3a9c2e");
+    const revoked = await cli("codes", "revoke", "price", "7");
+    expect(revoked.stdout).toBe("code 7 revoked\n");
+    expect(sent.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      `POST ${BUILD}/api/build/packages/price/codes`,
+      `GET ${BUILD}/api/build/packages/price/codes`,
+      `DELETE ${BUILD}/api/build/packages/price/codes/7`,
+    ]);
+    expect(JSON.parse(new TextDecoder().decode(sent[0]!.body))).toEqual({});
+  });
+
+  it("sends the agent a code is for", async () => {
+    answers["POST /api/build/packages/price/codes"] = Response.json(
+      {
+        id: 3,
+        package: "alice/price",
+        code: "c",
+        agent: "alice/hoodit",
+        created_at: "now",
+      },
+      { status: 201 },
+    );
+    const { code, stdout } = await cli(
+      "codes",
+      "create",
+      "price",
+      "--agent",
+      "alice/hoodit",
+    );
+    expect(code).toBe(0);
+    expect(stdout).toContain("for alice/hoodit");
+    expect(JSON.parse(new TextDecoder().decode(sent[0]!.body))).toEqual({
+      agent: "alice/hoodit",
+    });
   });
 });

@@ -152,6 +152,30 @@ export type Package = {
   slots: SecretSlot[];
 };
 
+/** A person's or an agent's grant of a private package, made with an activation code. */
+export type CodeGrant = {
+  id: number;
+  /** The account that redeemed the code; null for an agent's grant. */
+  account: string | null;
+  /** The agent (`publisher/name`) the code was issued for; null for an account's grant. */
+  agent: string | null;
+  created_at: string;
+  revoked_at: string | null;
+};
+
+/** An activation code of a private package, as its owner lists it; the code itself is never shown again. */
+export type ActivationCode = {
+  id: number;
+  /** The agent the code was issued for; null for a code people redeem in the Library. */
+  agent: string | null;
+  created_at: string;
+  revoked_at: string | null;
+  grants: CodeGrant[];
+};
+
+/** A new code: the plain code, shown once. */
+export type IssuedCode = { id: number; package: string; code: string; agent: string | null; created_at: string };
+
 const PATHS = { package: ["packages", "releases"], agent: ["agents", "configs"] } as const;
 
 function named(value: string, field = "name"): string {
@@ -163,6 +187,13 @@ function named(value: string, field = "name"): string {
 function path(kind: ReleaseKind, name: string, leaf: "list" | "promote"): string {
   const [root, list] = PATHS[kind];
   return `/api/${root}/${named(name)}/${leaf === "list" ? list : "promote"}`;
+}
+
+const codesPath = (name: string): string => `/api/packages/${named(name)}/codes`;
+
+function id(value: number, field: string): number {
+  if (!Number.isSafeInteger(value) || value <= 0) throw new DeployError("INVALID_REQUEST", `${field} must be a positive integer`);
+  return value;
 }
 
 const secretPath = (input: { name: string; slot: string }): string =>
@@ -258,6 +289,37 @@ export const RELEASE_ENDPOINTS = {
       live: raw.live ?? null,
       releases: raw.releases ?? raw.configs ?? [],
     }),
+  }),
+
+  /** Issue an activation code for people (no agent) or for one agent. The answer holds the only copy of the code. */
+  issueCode: (input: { name: string; agent?: string }): ManagerRequest<IssuedCode> => ({
+    op: "issue_code",
+    method: "POST",
+    path: codesPath(input.name),
+    body: input.agent ? { agent: input.agent } : {},
+    read: (raw) => raw as IssuedCode,
+  }),
+
+  listCodes: (input: { name: string }): ManagerRequest<{ package: string; codes: ActivationCode[] }> => ({
+    op: "list_codes",
+    path: codesPath(input.name),
+    read: (raw) => ({ package: String(raw.package ?? ""), codes: raw.codes ?? [] }),
+  }),
+
+  /** Revoke a code: nobody can redeem it again, and everyone who did loses the package. */
+  revokeCode: (input: { name: string; code: number }): ManagerRequest<{ revoked: number }> => ({
+    op: "revoke_code",
+    method: "DELETE",
+    path: `${codesPath(input.name)}/${id(input.code, "code")}`,
+    read: (raw) => ({ revoked: Number(raw.revoked ?? 0) }),
+  }),
+
+  /** Remove one person's or agent's grant; the code keeps working for everyone else. */
+  removeGrant: (input: { name: string; grant: number }): ManagerRequest<{ revoked: boolean }> => ({
+    op: "remove_grant",
+    method: "DELETE",
+    path: `/api/packages/${named(input.name)}/grants/${id(input.grant, "grant")}`,
+    read: (raw) => ({ revoked: raw.revoked === true }),
   }),
 
   promoteRelease: (input: PromoteReleaseInput): ManagerRequest<Promoted> => ({

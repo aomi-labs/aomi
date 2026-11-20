@@ -2,7 +2,9 @@
  * The release API at the edge: package releases and agent configs, published,
  * listed and promoted by a builder API key, a CLI bearer or the GitHub session
  * cookie, plus the builder's read models (its publisher's agents and packages,
- * one agent, one package) and a package's builder secret values. `/api/build/<path>` is the manager's `/api/<path>`, proxied with the
+ * one agent, one package), a package's builder secret values and the
+ * activation codes of a private package (issued, revoked and a grant removed
+ * under `package:promote`). `/api/build/<path>` is the manager's `/api/<path>`, proxied with the
  * raw body (a tar or JSON, at most 10 MB) and a builder bearer in place of the
  * caller's credential. A key needs the route's capability; a session holds
  * them all. The manager parses, checks and stores everything.
@@ -81,6 +83,7 @@ function route(
 const PACKAGE_RELEASES = /^\/api\/build\/packages\/[^/]+\/releases$/;
 const AGENT_CONFIGS = /^\/api\/build\/agents\/[^/]+\/configs$/;
 const PACKAGE_SECRET = /^\/api\/build\/packages\/[^/]+\/secrets\/[^/]+$/;
+const PACKAGE_CODES = /^\/api\/build\/packages\/[^/]+\/codes$/;
 
 export const RELEASE_ROUTES: readonly BuildRoute[] = [
   route("publisher.me", "GET", /^\/api\/build\/publishers\/me$/, null, "deployment:read"),
@@ -91,6 +94,10 @@ export const RELEASE_ROUTES: readonly BuildRoute[] = [
   route("package.publish", "POST", PACKAGE_RELEASES, "package:publish", "deploy"),
   route("package.releases", "GET", PACKAGE_RELEASES, null, "deployment:read"),
   route("package.promote", "POST", /^\/api\/build\/packages\/[^/]+\/promote$/, "package:promote", "activate"),
+  route("package.codes", "GET", PACKAGE_CODES, null, "deployment:read"),
+  route("package.code.issue", "POST", PACKAGE_CODES, "package:promote", "activate"),
+  route("package.code.revoke", "DELETE", /^\/api\/build\/packages\/[^/]+\/codes\/\d+$/, "package:promote", "activate"),
+  route("package.grant.remove", "DELETE", /^\/api\/build\/packages\/[^/]+\/grants\/\d+$/, "package:promote", "activate"),
   route("agent.publish", "POST", AGENT_CONFIGS, "agent:publish", "deploy"),
   route("agent.configs", "GET", AGENT_CONFIGS, null, "deployment:read"),
   route("agent.promote", "POST", /^\/api\/build\/agents\/[^/]+\/promote$/, "agent:promote", "activate"),

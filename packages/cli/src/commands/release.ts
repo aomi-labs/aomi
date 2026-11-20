@@ -8,7 +8,7 @@ import {
   type ReleaseKind,
 } from "@aomi-labs/internal/manager";
 import { parse } from "toml";
-import { CliError, json, out, usage } from "../context";
+import { CliError, json, messageOf, out, usage } from "../context";
 
 /** How a release command reaches Build, and as whom. */
 type BuilderFlags = { keyFile?: string; buildUrl?: string; json?: boolean };
@@ -169,7 +169,9 @@ type PublishFlags = BuilderFlags & {
 /**
  * `aomi publish`: build and upload each package of the root `aomi.toml`, then
  * publish its agents; `--promote` makes each new release live. Without
- * `--package` or `--agent` it publishes everything the root lists.
+ * `--package` or `--agent` it publishes everything the root lists. Each
+ * promote moves one pointer, so a failure part way names the pointers that
+ * already moved.
  */
 export async function publish(flags: PublishFlags): Promise<void> {
   const root = resolve(flags.root ?? ".");
@@ -200,6 +202,7 @@ export async function publish(flags: PublishFlags): Promise<void> {
 
   const client = builder(flags);
   const results: Published[] = [];
+  const moved: string[] = [];
   const goLive = async (kind: ReleaseKind, name: string, result: Published) => {
     if (!flags.promote || result.live === result.release.number) return;
     const { live } = await refused(
@@ -210,105 +213,99 @@ export async function publish(flags: PublishFlags): Promise<void> {
         expectedLive: result.live,
       }),
     );
+    moved.push(
+      `${kind} ${result.id}  live ${live} (was ${result.live ?? "-"})${result.live === null ? "" : `  undo: aomi rollback ${kind} ${name} ${result.live}`}`,
+    );
     result.live = live;
   };
 
-  for (const entry of packages) {
-    if (!everything && !flags.package?.includes(entry.name)) continue;
-    const built =
-      wasm.get(entry.name) ??
-      (flags.build === false ? undefined : cargoBuild(entry.dir));
-    if (!built) throw usage(`--no-build needs --wasm ${entry.name}=<path>`);
-    const { icon, guards, skills = [] } = entry.config;
-    const listed = [
-      icon,
-      ...(skills as { path: string }[]).map((skill) => skill.path),
-      guards,
-    ].filter((path): path is string => typeof path === "string");
-    const members: [string, Uint8Array][] = [
-      ["aomi.toml", readFileSync(join(entry.dir, "aomi.toml"))],
-      ["package.wasm", readFileSync(built)],
-      ...listed.map((path): [string, Uint8Array] => {
-        const member = inside(entry.dir, path);
-        return [member, readFileSync(join(entry.dir, member))];
-      }),
-    ];
-    const result = await refused(
-      client.publishPackage({
-        name: entry.name,
-        bundle: tar(members),
-        sourceRepo: process.env.GITHUB_REPOSITORY,
-        sourceCommit: process.env.GITHUB_SHA,
-      }),
-    );
-    await goLive("package", entry.name, result);
-    results.push(result);
-    if (!flags.json) print("package", result);
-  }
+  try {
+    for (const entry of packages) {
+      if (!everything && !flags.package?.includes(entry.name)) continue;
+      const built =
+        wasm.get(entry.name) ??
+        (flags.build === false ? undefined : cargoBuild(entry.dir));
+      if (!built) throw usage(`--no-build needs --wasm ${entry.name}=<path>`);
+      const { icon, guards, skills = [] } = entry.config;
+      const listed = [
+        icon,
+        ...(skills as { path: string }[]).map((skill) => skill.path),
+        guards,
+      ].filter((path): path is string => typeof path === "string");
+      const members: [string, Uint8Array][] = [
+        ["aomi.toml", readFileSync(join(entry.dir, "aomi.toml"))],
+        ["package.wasm", readFileSync(built)],
+        ...listed.map((path): [string, Uint8Array] => {
+          const member = inside(entry.dir, path);
+          return [member, readFileSync(join(entry.dir, member))];
+        }),
+      ];
+      const result = await refused(
+        client.publishPackage({
+          name: entry.name,
+          bundle: tar(members),
+          sourceRepo: process.env.GITHUB_REPOSITORY,
+          sourceCommit: process.env.GITHUB_SHA,
+        }),
+      );
+      await goLive("package", entry.name, result);
+      results.push(result);
+      if (!flags.json) print("package", result);
+    }
 
-  for (const agent of agents) {
-    if (!everything && !flags.agent?.includes(agent.name)) continue;
-    const files = agent.voice
-      ? {
-          [agent.voice]: readFileSync(
-            join(root, inside(root, agent.voice)),
-            "utf8",
-          ),
-        }
-      : {};
-    const result = await refused(
-      client.publishAgent({ name: agent.name, root: rootText, files }),
+    for (const agent of agents) {
+      if (!everything && !flags.agent?.includes(agent.name)) continue;
+      const files = agent.voice
+        ? {
+            [agent.voice]: readFileSync(
+              join(root, inside(root, agent.voice)),
+              "utf8",
+            ),
+          }
+        : {};
+      const result = await refused(
+        client.publishAgent({ name: agent.name, root: rootText, files }),
+      );
+      await goLive("agent", agent.name, result);
+      results.push(result);
+      if (!flags.json) print("agent", result);
+    }
+  } catch (error) {
+    if (!moved.length) throw error;
+    throw new CliError(
+      [
+        messageOf(error),
+        "These pointers moved before the failure:",
+        ...moved.map((line) => `  ${line}`),
+      ].join("\n"),
     );
-    await goLive("agent", agent.name, result);
-    results.push(result);
-    if (!flags.json) print("agent", result);
   }
   if (flags.json) for (const result of results) json(result);
 }
 
-/** `aomi promote <package|agent> <name> <number>`: make a release live. */
+/**
+ * `aomi promote <package|agent> <name> <number>`: make a release live, and
+ * `aomi rollback`, which takes the same explicit number: the release before
+ * the live one may never have been live.
+ */
 export async function promote(
   flags: BuilderFlags,
   kind: string,
   name: string,
   number: string,
 ): Promise<void> {
-  await move(flags, kindOf(kind), name, numberOf(number));
-}
-
-/** `aomi rollback <package|agent> <name> [<number>]`: by default, the release before the live one. */
-export async function rollback(
-  flags: BuilderFlags,
-  kind: string,
-  name: string,
-  number?: string,
-): Promise<void> {
-  await move(flags, kindOf(kind), name, number ? numberOf(number) : undefined);
-}
-
-async function move(
-  flags: BuilderFlags,
-  kind: ReleaseKind,
-  name: string,
-  number?: number,
-): Promise<void> {
   const client = builder(flags);
-  const { live, releases } = await refused(client.listReleases({ kind, name }));
-  const target =
-    number ??
-    Math.max(
-      ...releases
-        .map((release) => release.number)
-        .filter((candidate) => live !== null && candidate < live),
-    );
-  if (!Number.isSafeInteger(target))
-    throw usage(
-      live === null
-        ? `${name} has no live release`
-        : `${name} has no release before ${live}`,
-    );
+  const releaseKind = kindOf(kind);
+  const { live } = await refused(
+    client.listReleases({ kind: releaseKind, name }),
+  );
   const result = await refused(
-    client.promoteRelease({ kind, name, number: target, expectedLive: live }),
+    client.promoteRelease({
+      kind: releaseKind,
+      name,
+      number: numberOf(number),
+      expectedLive: live,
+    }),
   );
   if (flags.json) return json(result);
   out(`${kind} ${result.id}  live ${result.live} (was ${live ?? "-"})`);
@@ -328,4 +325,51 @@ export async function releases(
     out(
       `${String(release.number).padStart(4)}  ${release.digest}  ${release.created_at}${release.number === list.live ? "  live" : ""}`,
     );
+}
+
+/**
+ * `aomi codes create <package> [--agent <publisher/name>]`: a new activation
+ * code for a private package. People add the package with it in the Library;
+ * with `--agent`, that agent gets the package at once. The code is printed
+ * once and never again.
+ */
+export async function createCode(
+  flags: BuilderFlags & { agent?: string },
+  name: string,
+): Promise<void> {
+  const issued = await refused(
+    builder(flags).issueCode({ name, agent: flags.agent }),
+  );
+  if (flags.json) return json(issued);
+  out(issued.code);
+  out(
+    `code ${issued.id}  ${issued.package}  for ${issued.agent ?? "people with the code"}  (not shown again)`,
+  );
+}
+
+/** `aomi codes list <package>`: newest first, with how many hold each. */
+export async function listCodes(
+  flags: BuilderFlags,
+  name: string,
+): Promise<void> {
+  const list = await refused(builder(flags).listCodes({ name }));
+  if (flags.json) return json(list);
+  for (const code of list.codes) {
+    const holding = code.grants.filter((grant) => !grant.revoked_at).length;
+    out(
+      `${String(code.id).padStart(4)}  ${code.created_at}  ${code.agent ?? "people"}  ${holding} holding  ${code.revoked_at ? "revoked" : "active"}`,
+    );
+  }
+}
+
+/** `aomi codes revoke <package> <id>`: nobody can redeem it again, and everyone who did loses the package. */
+export async function revokeCode(
+  flags: BuilderFlags,
+  name: string,
+  id: string,
+): Promise<void> {
+  const code = numberOf(id);
+  const result = await refused(builder(flags).revokeCode({ name, code }));
+  if (flags.json) return json(result);
+  out(`code ${code} revoked`);
 }

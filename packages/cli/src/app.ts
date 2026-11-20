@@ -168,6 +168,7 @@ const BRIEFS = {
   promote: "Make a release live",
   rollback: "Make an earlier release live",
   releases: "A package's or agent's releases",
+  codes: "Activation codes for a private package",
   model: "Pick the model",
   chain: "Pick the chain",
   keys: "Your own provider keys",
@@ -607,9 +608,9 @@ const root = routes("the Aomi agent in your terminal", {
     [
       arg("package or agent", "kind"),
       arg("Name", "name"),
-      arg("Release (default: the one before live)", "number", true),
+      arg("Release to go back to (see releases)", "number"),
     ],
-    release.rollback,
+    release.promote,
   ),
   releases: command(
     BRIEFS.releases,
@@ -617,6 +618,31 @@ const root = routes("the Aomi agent in your terminal", {
     [arg("package or agent", "kind"), arg("Name", "name")],
     release.releases,
   ),
+  codes: routes(BRIEFS.codes, {
+    create: command(
+      "Make a code (shown once)",
+      {
+        ...builder,
+        agent: text("Give the package to this agent too", {
+          placeholder: "publisher/name",
+        }),
+      },
+      [arg("Package", "package")],
+      release.createCode,
+    ),
+    list: command(
+      "Codes and who holds them",
+      builder,
+      [arg("Package", "package")],
+      release.listCodes,
+    ),
+    revoke: command(
+      "End a code for everyone who used it",
+      builder,
+      [arg("Package", "package"), arg("Code id", "id")],
+      release.revokeCode,
+    ),
+  }),
   model: routes(
     BRIEFS.model,
     {
@@ -726,7 +752,7 @@ const GROUPS: [string, (keyof typeof BRIEFS)[]][] = [
   ["ACCOUNT", ["login", "logout", "whoami", "account"]],
   ["WALLETS & TRADES", ["wallets", "rules", "tx", "guard"]],
   ["AGENTS", ["packages", "pipeline"]],
-  ["PACKAGES", ["publish", "promote", "rollback", "releases"]],
+  ["PACKAGES", ["publish", "promote", "rollback", "releases", "codes"]],
 ];
 const SETTINGS: (keyof typeof BRIEFS)[] = [
   "model",

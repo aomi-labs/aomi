@@ -192,6 +192,7 @@ PACKAGES
   promote    Make a release live
   rollback   Make an earlier release live
   releases   A package's or agent's releases
+  codes      Activation codes for a private package
 
 SETTINGS
   model  chain  keys  secret  config  completion

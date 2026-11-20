@@ -205,6 +205,21 @@ describe("release routes", () => {
     expect(new TextDecoder().decode(seen[0].body)).toBe(JSON.stringify({ value: "secret-value" }));
     expect(await claims(seen[0])).toMatchObject({ auth_source: "session" });
   });
+
+  it("holds activation code writes to package:promote and lists codes with any key", async () => {
+    const auth = { authorization: `Bearer ${PUBLISH_KEY}`, "content-type": "application/json" };
+    for (const [method, path] of [
+      ["POST", "/api/build/packages/trade/codes"],
+      ["DELETE", "/api/build/packages/trade/codes/4"],
+      ["DELETE", "/api/build/packages/trade/grants/9"],
+    ]) {
+      const refused = await build(path, { method, headers: auth, body: method === "POST" ? "{}" : undefined });
+      expect(refused.status, `${method} ${path}`).toBe(403);
+    }
+    expect(seen).toEqual([]);
+    await build("/api/build/packages/trade/codes", { headers: auth });
+    expect(seen.map((call) => call.url)).toEqual([`${MANAGER}/api/packages/trade/codes`]);
+  });
 });
 
 describe("package icons on Build", () => {
