@@ -42,10 +42,22 @@ function StatusNotice({ agent, name }: { agent: Agent; name: string }) {
     return (
       <Notice>
         Needs a rebuild: this agent was carried over from an earlier deployment
-        and its packages have no live release yet. Publish the packages and the
-        agent from your repo with{" "}
-        <code className="font-mono">aomi publish --agent {name}</code>, then
-        promote them.
+        and its packages have no live release yet. From your repo, publish and
+        promote the packages first, then the agent:
+        <ol className="mt-1.5 list-decimal pl-5">
+          <li>
+            <code className="font-mono">
+              aomi publish --promote --package &lt;package&gt;
+            </code>{" "}
+            for each package it lists
+          </li>
+          <li>
+            <code className="font-mono">
+              aomi publish --promote --agent {name}
+            </code>
+          </li>
+        </ol>
+        Promoting the agent turns it back on.
       </Notice>
     );
   if (status === "retired")

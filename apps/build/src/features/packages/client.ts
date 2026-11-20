@@ -3,8 +3,10 @@
 // here: Build changes only which release is live and a package's builder
 // secret values.
 import type {
+  ActivationCode,
   Agent,
   AgentConfigRelease,
+  IssuedCode,
   Package,
   PackageRelease,
   Publisher,
@@ -18,6 +20,7 @@ import { HttpRequestError, readJsonResponse } from "@/lib/request-retry";
 import { buildFetch } from "@/lib/session-expiry";
 
 export type {
+  ActivationCode,
   Agent,
   AgentConfigRelease,
   Package,
@@ -166,3 +169,44 @@ export const createKey = (input: { label: string; capabilities: string[] }) =>
 
 export const revokeKey = (id: number) =>
   json<{ ok: true }>(paths.keys, "Revoke key", send("DELETE", { id }));
+
+/** A manager call whose refusal reads as the manager's `message`. */
+async function managed<T>(
+  url: string,
+  label: string,
+  init?: RequestInit,
+): Promise<T> {
+  try {
+    return await json<T>(url, label, init);
+  } catch (error) {
+    if (!(error instanceof HttpRequestError)) throw error;
+    const message = (error.body as { message?: string } | undefined)?.message;
+    if (!message) throw error;
+    throw new HttpRequestError(message, { status: error.status });
+  }
+}
+
+export const fetchCodes = (name: string) =>
+  managed<{ codes: ActivationCode[] }>(paths.packageCodes(name), "Codes");
+
+/** A new code for people, or for one agent; its `code` is shown once and never again. */
+export const issueCode = (name: string, agent?: string) =>
+  managed<IssuedCode>(
+    paths.packageCodes(name),
+    "New access key",
+    send("POST", agent ? { agent } : {}),
+  );
+
+export const revokeCode = (name: string, id: number) =>
+  managed<{ revoked: number }>(
+    paths.packageCode(name, id),
+    "Revoke code",
+    send("DELETE"),
+  );
+
+export const removeGrant = (name: string, id: number) =>
+  managed<{ revoked: boolean }>(
+    paths.packageGrant(name, id),
+    "Remove access",
+    send("DELETE"),
+  );

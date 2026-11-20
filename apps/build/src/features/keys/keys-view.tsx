@@ -16,6 +16,7 @@ import {
   LoadingPanel,
 } from "@/features/deploy/components/deployments/ui/state-panels";
 import { createKey, fetchKeys, revokeKey } from "@/features/packages/client";
+import { AccessKeys } from "@/features/keys/access-keys";
 import { PageHeader, pageFrame } from "@/components/control-plane/page";
 import { Card, Cell, INPUT, Mono, Row, formatTime } from "@/features/packages/ui";
 
@@ -129,7 +130,7 @@ function ModelKeys() {
   );
 }
 
-/** Model keys, builder keys (CLI and CI), and why Build shows no codes for private packages. */
+/** Model keys, builder keys (CLI and CI), and access keys for private packages. */
 export function KeysView() {
   const queries = useQueryClient();
   const { data, error, isPending } = useQuery({
@@ -149,8 +150,8 @@ export function KeysView() {
         summary={
           <p>
             Model keys pay for the model. Builder keys are for the CLI and CI.
-            Access keys open private agents and packages. Secrets a
-            package&apos;s tools need are set on the package.
+            Access keys open private packages. Secrets a package&apos;s tools
+            need are set on the package.
           </p>
         }
       />
@@ -220,12 +221,7 @@ export function KeysView() {
         ))}
         <NewKey />
       </Card>
-      <Card title="Access keys">
-        <Row
-          label="Codes for private packages can't be made in Build yet"
-          hint="People who have a code add the package with Add with code in the Aomi Chat Library. Build can't list, create or revoke codes yet."
-        />
-      </Card>
+      <AccessKeys />
     </div>
   );
 }

@@ -36,6 +36,12 @@ export const API_PATHS = {
       `${BUILD_API}/packages/${encodeURIComponent(name)}/promote`,
     packageSecret: (name: string, slot: string) =>
       `${BUILD_API}/packages/${encodeURIComponent(name)}/secrets/${encodeURIComponent(slot)}`,
+    packageCodes: (name: string) =>
+      `${BUILD_API}/packages/${encodeURIComponent(name)}/codes`,
+    packageCode: (name: string, id: number) =>
+      `${BUILD_API}/packages/${encodeURIComponent(name)}/codes/${id}`,
+    packageGrant: (name: string, id: number) =>
+      `${BUILD_API}/packages/${encodeURIComponent(name)}/grants/${id}`,
     keys: `${BUILD_API}/keys`,
     operate: {
       channels: `${BUILD_API}/operate/channels`,

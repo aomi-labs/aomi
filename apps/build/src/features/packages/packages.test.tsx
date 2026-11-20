@@ -82,7 +82,13 @@ it("tells the builder an agent carried over from an earlier deployment needs a r
   expect(
     await screen.findByText(/Needs a rebuild: this agent was carried over/),
   ).toBeInTheDocument();
-  expect(screen.getByText("aomi publish --agent dottie")).toBeInTheDocument();
+  // Packages first, then the agent: `--agent` alone publishes no package.
+  expect(
+    screen.getAllByRole("listitem").map((item) => item.textContent),
+  ).toEqual([
+    "aomi publish --promote --package <package> for each package it lists",
+    "aomi publish --promote --agent dottie",
+  ]);
   expect(
     screen.queryByRole("button", { name: /save/i }),
   ).not.toBeInTheDocument();
