@@ -1,10 +1,27 @@
 // @vitest-environment node
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { main } from "./app";
+import { core } from "./build-core";
+import { tarPackage } from "./commands/release";
+
+/** The real `aomi-build-core` and the official packages, when present. */
+const BUILT_CORE = process.env.AOMI_BUILD_CORE;
+const OFFICIAL =
+  process.env.AOMI_PACKAGES_DIR ??
+  resolve(import.meta.dirname, "../../../../packages/packages");
 
 const BUILD = "https://build.example";
 const KEY = "aomi_key_test";
@@ -21,8 +38,8 @@ let answers: Record<string, Response | (() => Response)>;
 let root: string;
 
 /** Each member's name and bytes, from a ustar archive. */
-function untar(archive: Uint8Array): Record<string, string> {
-  const members: Record<string, string> = {};
+function untar(archive: Uint8Array): Record<string, Buffer> {
+  const members: Record<string, Buffer> = {};
   const text = new TextDecoder();
   for (let offset = 0; archive[offset]; ) {
     const name = text
@@ -32,7 +49,7 @@ function untar(archive: Uint8Array): Record<string, string> {
       text.decode(archive.subarray(offset + 124, offset + 135)),
       8,
     );
-    members[name] = text.decode(
+    members[name] = Buffer.from(
       archive.subarray(offset + 512, offset + 512 + size),
     );
     offset += 512 + Math.ceil(size / 512) * 512;
@@ -132,9 +149,28 @@ describe("aomi publish", () => {
     write("packages/price/guards.json", "{}");
     write("packages/price/README.md", "not a member");
     write("price.wasm", "\0asm");
+    // A stand-in core: packs a fixed bundle and logs each call.
+    write(
+      "core.cjs",
+      [
+        "#!/usr/bin/env node",
+        'const fs = require("node:fs");',
+        "const args = process.argv.slice(2);",
+        'fs.appendFileSync(__dirname + "/core.log", JSON.stringify(args) + "\\n");',
+        'if (args[0] === "pack") fs.writeFileSync(args[args.indexOf("--out") + 1], "bundle");',
+        'process.stdout.write("{}\\n");',
+      ].join("\n"),
+    );
+    chmodSync(join(root, "core.cjs"), 0o755);
+    process.env.AOMI_BUILD_CORE = join(root, "core.cjs");
   });
 
-  it("uploads exactly the package members, then publishes the agent with its voice", async () => {
+  afterEach(() => {
+    if (BUILT_CORE) process.env.AOMI_BUILD_CORE = BUILT_CORE;
+    else delete process.env.AOMI_BUILD_CORE;
+  });
+
+  it("packs and checks with aomi-build-core, uploads that bundle, then publishes the agent with its voice", async () => {
     answers["POST /api/build/packages/price/releases"] = Response.json(
       { package: "alice/price", release: release(3), live: 2, verified: false },
       { status: 201 },
@@ -165,15 +201,24 @@ describe("aomi publish", () => {
       auth: `Bearer ${KEY}`,
       type: "application/x-tar",
     });
-    const members = untar(upload!.body);
-    expect(Object.keys(members).sort()).toEqual([
-      "aomi.toml",
-      "guards.json",
-      "icon.svg",
-      "package.wasm",
-      "skills/quote.md",
+    expect(new TextDecoder().decode(upload!.body)).toBe("bundle");
+    const calls = readFileSync(join(root, "core.log"), "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as string[]);
+    const bundle = calls[0]!.at(-1)!;
+    expect(calls).toEqual([
+      [
+        "pack",
+        join(root, "packages/price"),
+        "--wasm",
+        join(root, "price.wasm"),
+        "--out",
+        bundle,
+      ],
+      ["check", bundle],
     ]);
-    expect(members["package.wasm"]).toBe("\0asm");
+    expect(existsSync(bundle)).toBe(false);
     expect(agent!.path).toBe(`${BUILD}/api/build/agents/hoodit/configs`);
     expect(JSON.parse(new TextDecoder().decode(agent!.body))).toEqual({
       root: expect.stringContaining('name = "hoodit"'),
@@ -376,5 +421,73 @@ describe("aomi codes", () => {
     expect(JSON.parse(new TextDecoder().decode(sent[0]!.body))).toEqual({
       agent: "alice/hoodit",
     });
+  });
+});
+
+/**
+ * An official package copied out of the packages repo. Until the manifest
+ * fill (phase A) declares `chains`, the copy declares Ethereum, which publish
+ * needs for a package that stages transactions.
+ */
+function official(name: string, dir: string): string {
+  const copy = join(dir, name);
+  cpSync(join(OFFICIAL, name), copy, { recursive: true });
+  const manifest = join(copy, "aomi.toml");
+  const text = readFileSync(manifest, "utf8");
+  if (text.includes("transactions") && !/^chains\s*=/m.test(text))
+    writeFileSync(
+      manifest,
+      text.replace(/^contract = 1$/m, 'contract = 1\nchains = ["ethereum"]'),
+    );
+  return copy;
+}
+
+describe.runIf(BUILT_CORE && existsSync(OFFICIAL))("aomi-build-core", () => {
+  beforeEach(() => {
+    process.env.AOMI_BUILD_CORE = BUILT_CORE;
+  });
+
+  it("the TypeScript packer and aomi-build-core pack the same members on official packages", () => {
+    const component = join(root, "component.wasm");
+    writeFileSync(component, "\0asm stand-in");
+    // One with a component, one with guards, one text-only.
+    const cases: [string, string | undefined, string][] = [
+      ["defillama", component, "package.wasm"],
+      ["lido", component, "guards.json"],
+      ["kaito", undefined, "skills/kaito.md"],
+    ];
+    for (const [name, wasm, member] of cases) {
+      const folder = official(name, root);
+      const out = join(root, `${name}.tar`);
+      core(["pack", folder, ...(wasm ? ["--wasm", wasm] : []), "--out", out]);
+      const packed = untar(readFileSync(out));
+      const legacy = untar(tarPackage(folder, wasm));
+      expect(Object.keys(packed)).toContain(member);
+      expect(Object.keys(packed).includes("package.wasm")).toBe(!!wasm);
+      // The Manager re-packs an upload from its members alone.
+      expect(Object.keys(legacy).sort(), name).toEqual(Object.keys(packed));
+      for (const [path, bytes] of Object.entries(packed))
+        expect(legacy[path]!.equals(bytes), `${name} ${path}`).toBe(true);
+    }
+  });
+
+  it("publish refuses what aomi-build-core rejects, before any upload", async () => {
+    write(
+      "aomi.toml",
+      `[project]\npublisher = "aomi"\n\n[[packages]]\npath = "lido"\n`,
+    );
+    official("lido", root);
+    write("lido.wasm", "\0asm");
+    const { code, stderr } = await cli(
+      "publish",
+      "--root",
+      root,
+      "--no-build",
+      "--wasm",
+      `lido=${join(root, "lido.wasm")}`,
+    );
+    expect(code).toBe(1);
+    expect(stderr).toMatch(/^error: not_a_component: /);
+    expect(sent).toHaveLength(0);
   });
 });

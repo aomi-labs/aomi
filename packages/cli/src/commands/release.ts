@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { isAbsolute, join, normalize, resolve } from "node:path";
 import {
   ManagerClient,
@@ -8,6 +9,7 @@ import {
   type ReleaseKind,
 } from "@aomi-labs/internal/manager";
 import { parse } from "toml";
+import { core } from "../build-core";
 import { CliError, json, messageOf, out, usage } from "../context";
 
 /** How a release command reaches Build, and as whom. */
@@ -122,6 +124,34 @@ function tar(members: [string, Uint8Array][]): Uint8Array {
   return archive;
 }
 
+/**
+ * The TypeScript packer: the members `dir/aomi.toml` declares, in a plain
+ * tar. Publish packs with `aomi-build-core`; this stays only until
+ * `release.test.ts` shows both give the same release on official packages.
+ */
+export function tarPackage(dir: string, wasm?: string): Uint8Array {
+  const {
+    icon,
+    guards,
+    skills = [],
+  } = toml(join(dir, "aomi.toml")).package ?? {};
+  const listed = [
+    icon,
+    ...(skills as { path: string }[]).map((skill) => skill.path),
+    guards,
+  ].filter((path): path is string => typeof path === "string");
+  return tar([
+    ["aomi.toml", readFileSync(join(dir, "aomi.toml"))],
+    ...(wasm
+      ? [["package.wasm", readFileSync(wasm)] as [string, Uint8Array]]
+      : []),
+    ...listed.map((path): [string, Uint8Array] => {
+      const member = inside(dir, path);
+      return [member, readFileSync(join(dir, member))];
+    }),
+  ]);
+}
+
 /** `cargo build` the package's folder for wasm32-wasip2; its one `.wasm`. */
 function cargoBuild(dir: string): string {
   const output = execFileSync(
@@ -167,8 +197,9 @@ type PublishFlags = BuilderFlags & {
 };
 
 /**
- * `aomi publish`: build and upload each package of the root `aomi.toml`, then
- * publish its agents; `--promote` makes each new release live. Without
+ * `aomi publish`: build each package of the root `aomi.toml`, pack and check
+ * it with `aomi-build-core`, upload it, then publish the root's agents;
+ * `--promote` makes each new release live. Without
  * `--package` or `--agent` it publishes everything the root lists. Each
  * promote moves one pointer, so a failure part way names the pointers that
  * already moved.
@@ -189,7 +220,7 @@ export async function publish(flags: PublishFlags): Promise<void> {
     ({ path }) => {
       const dir = join(root, inside(root, path));
       const config = toml(join(dir, "aomi.toml")).package ?? {};
-      return { dir, name: String(config.name ?? ""), config };
+      return { dir, name: String(config.name ?? "") };
     },
   );
   const agents = (manifest.agents ?? []) as { name: string; voice?: string }[];
@@ -201,6 +232,7 @@ export async function publish(flags: PublishFlags): Promise<void> {
       throw usage(`${name} is not an agent of ${root}/aomi.toml`);
 
   const client = builder(flags);
+  const bundles = mkdtempSync(join(tmpdir(), "aomi-bundles-"));
   const results: Published[] = [];
   const moved: string[] = [];
   const goLive = async (kind: ReleaseKind, name: string, result: Published) => {
@@ -226,24 +258,14 @@ export async function publish(flags: PublishFlags): Promise<void> {
         wasm.get(entry.name) ??
         (flags.build === false ? undefined : cargoBuild(entry.dir));
       if (!built) throw usage(`--no-build needs --wasm ${entry.name}=<path>`);
-      const { icon, guards, skills = [] } = entry.config;
-      const listed = [
-        icon,
-        ...(skills as { path: string }[]).map((skill) => skill.path),
-        guards,
-      ].filter((path): path is string => typeof path === "string");
-      const members: [string, Uint8Array][] = [
-        ["aomi.toml", readFileSync(join(entry.dir, "aomi.toml"))],
-        ["package.wasm", readFileSync(built)],
-        ...listed.map((path): [string, Uint8Array] => {
-          const member = inside(entry.dir, path);
-          return [member, readFileSync(join(entry.dir, member))];
-        }),
-      ];
+      // The Manager's own pack and release check, run here before upload.
+      const bundle = join(bundles, `${entry.name}.tar`);
+      core(["pack", entry.dir, "--wasm", built, "--out", bundle]);
+      core(["check", bundle]);
       const result = await refused(
         client.publishPackage({
           name: entry.name,
-          bundle: tar(members),
+          bundle: readFileSync(bundle),
           sourceRepo: process.env.GITHUB_REPOSITORY,
           sourceCommit: process.env.GITHUB_SHA,
         }),
@@ -279,6 +301,8 @@ export async function publish(flags: PublishFlags): Promise<void> {
         ...moved.map((line) => `  ${line}`),
       ].join("\n"),
     );
+  } finally {
+    rmSync(bundles, { recursive: true, force: true });
   }
   if (flags.json) for (const result of results) json(result);
 }
