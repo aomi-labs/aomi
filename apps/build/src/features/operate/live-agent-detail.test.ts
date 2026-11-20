@@ -6,6 +6,7 @@ import {
 
 const livePayload = (): LiveAgentDetailPayload => ({
   detail: {
+    archive: null,
     project: {
       id: 1586,
       repositoryLink: "https://github.com/aomi/real-agent",
@@ -150,10 +151,21 @@ const livePayload = (): LiveAgentDetailPayload => ({
       result: '{"price": 1}',
     },
   ],
-  deployments: [],
 });
 
 describe("liveAgentDetailView", () => {
+  it("shows archived promotions and the recorded binary size", () => {
+    const payload = livePayload();
+    payload.detail.archive = {
+      binaryBytes: 4096, releaseTag: "v2", sdkVersion: "3.0",
+      deploys: [{ id: 10, tag: "v2", at: 42, sdkVersion: "3.0" }],
+    };
+    const { agent } = liveAgentDetailView(payload);
+    expect(agent.meta.sdkVersion).toBe("3.0");
+    expect(agent.detail.lifecycle).toContainEqual(["Archived binary size", "4,096 bytes"]);
+    expect(agent.detail.releases[0]).toMatchObject({ tag: "v2", note: "Archived · SDK 3.0" });
+  });
+
   it("keeps live aggregates and rows authoritative", () => {
     const view = liveAgentDetailView(livePayload());
 

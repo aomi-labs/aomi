@@ -584,7 +584,7 @@ export function AgentDetailView({
               {detail.releases.length ? (
                 detail.releases.map((release) => (
                   <div
-                    key={release.tag}
+                    key={release.id ?? release.tag}
                     className="flex items-center justify-between gap-2"
                   >
                     <span className="min-w-0 truncate font-mono text-xs">

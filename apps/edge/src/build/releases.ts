@@ -25,7 +25,7 @@ type Capability = (typeof RELEASE_CAPABILITIES)[number];
 
 const HEADERS = {
   request: new Set([...BACKEND_API_HEADERS.request, "x-aomi-source-repo", "x-aomi-source-commit"]),
-  response: BACKEND_API_HEADERS.response,
+  response: new Set([...BACKEND_API_HEADERS.response, "content-security-policy", "x-content-type-options"]),
 };
 
 /** The body, refused with 413 past the release limit whatever its declared length. */
@@ -88,6 +88,7 @@ const PACKAGE_CODES = /^\/api\/build\/packages\/[^/]+\/codes$/;
 export const RELEASE_ROUTES: readonly BuildRoute[] = [
   route("publisher.me", "GET", /^\/api\/build\/publishers\/me$/, null, "deployment:read"),
   route("agent.detail", "GET", /^\/api\/build\/agents\/[^/]+$/, null, "deployment:read"),
+  route("package.icon", "GET", /^\/api\/build\/publisher\/packages\/[^/]+\/icon$/, null, "deployment:read"),
   route("package.detail", "GET", /^\/api\/build\/packages\/[^/]+$/, null, "deployment:read"),
   route("package.secret.set", "PUT", PACKAGE_SECRET, "package:secrets", "deploy"),
   route("package.secret.delete", "DELETE", PACKAGE_SECRET, "package:secrets", "deploy"),

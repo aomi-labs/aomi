@@ -362,6 +362,12 @@ const sparseSeries = maybeList(
 );
 
 export const OperateAgentDetailResult = wire({
+  archive: maybe(wire({
+    releaseTag: maybeText,
+    sdkVersion: maybeText,
+    binaryBytes: maybeNum,
+    deploys: list(wire({ id: num(), tag: text(), at: seconds, sdkVersion: maybeText })),
+  })),
   project: maybe(Project),
   platform: maybeText,
   windowSeconds: num(0),

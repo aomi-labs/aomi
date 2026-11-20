@@ -122,7 +122,6 @@ const payload = {
     },
   ],
   logs: [],
-  deployments: [],
 };
 
 describe("AgentDetailPage", () => {

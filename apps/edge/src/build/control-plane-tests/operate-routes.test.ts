@@ -836,7 +836,6 @@ describe("operateAgentDetailRoute", () => {
       health: { agentId: 78, agent: "solo", projectId: null },
       transactions: [soloTx],
       logs: [],
-      deployments: [],
     });
     expect(client.getUserObservability).toHaveBeenCalledWith({
       githubUserId: "gh-1",

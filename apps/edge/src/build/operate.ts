@@ -250,7 +250,6 @@ const agentDetail = endpoint(
         health: health.agents.find((row) => row.agentId === agentId) ?? null,
         transactions: transactionPage.transactions,
         logs: logPage.logs,
-        deployments: [],
       };
     },
   },

@@ -228,6 +228,15 @@ describe("release routes", () => {
 });
 
 describe("package icons on Build", () => {
+  it("loads a private icon with the signed-in builder's bearer", async () => {
+    const session = await new GitHubSessionSigner(SECRET).issueSession({ githubUserId: ALICE, githubLogin: "alice" });
+    const path = "/api/build/publisher/packages/alice%2Fprice/icon";
+    expect((await build(path, {})).status).toBe(401);
+    await build(path, { headers: { cookie: `aomi_github=${session}` } });
+    expect(seen.map((call) => call.url)).toEqual([`${MANAGER}/api/publisher/packages/alice%2Fprice/icon`]);
+    expect(await claims(seen[0])).toMatchObject({ sub: ALICE });
+  });
+
   it("serves a package icon from the backend without the session", async () => {
     const response = await build("/api/packages/alice%2Fprice/icon", {
       headers: { cookie: "aomi_build_session=s", authorization: `Bearer ${PUBLISH_KEY}` },

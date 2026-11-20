@@ -114,6 +114,7 @@ export type AgentDetail = {
   fees24h: string;
   lifecycle: Array<[string, string]>;
   releases: Array<{
+    id?: number;
     tag: string;
     when: string;
     current: boolean;

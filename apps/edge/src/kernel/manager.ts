@@ -47,6 +47,7 @@ const MANAGER_ROUTE_PATTERNS: readonly RegExp[] = [
   /^\/api\/integrations\/github-app\/user\/model-keys\/[^\/]+$/,
   /^\/api\/integrations\/github-app\/user\/model-keys\/[^\/]+\/grants$/,
   /^\/api\/publishers\/me$/,
+  /^\/api\/publisher\/packages\/[^/]+\/icon$/,
   /^\/api\/packages\/[^\/]+$/,
   /^\/api\/packages\/[^\/]+\/releases$/,
   /^\/api\/packages\/[^\/]+\/promote$/,

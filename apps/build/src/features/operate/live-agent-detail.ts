@@ -3,7 +3,6 @@ import type {
   OperateAgentHealth,
   OperateLogEntry,
   OperateTransaction,
-  UserProjectLatestDeployment,
 } from "@aomi-labs/deploy";
 import type {
   AgentFixture,
@@ -18,7 +17,6 @@ export type LiveAgentDetailPayload = {
   health: OperateAgentHealth | null;
   transactions: OperateTransaction[];
   logs: OperateLogEntry[];
-  deployments: UserProjectLatestDeployment[];
 };
 
 export type LiveAgentDetailView = {
@@ -126,34 +124,6 @@ function toolsSummaryLabel(
   return `${calls ?? "—"} calls · ${errors ?? "—"} ${errors === 1 ? "error" : "errors"}`;
 }
 
-function releases(
-  payload: LiveAgentDetailPayload,
-): AgentFixture["detail"]["releases"] {
-  const currentTag = payload.detail.agent.releaseTag;
-  const seen = new Set<string>();
-  return payload.deployments.flatMap((deployment) =>
-    deployment.agents.flatMap((agent) => {
-      if (
-        agent.agentId !== payload.detail.agent.agentId &&
-        agent.name !== payload.detail.agent.name
-      ) {
-        return [];
-      }
-      const tag = agent.releaseTag;
-      if (!tag || seen.has(tag)) return [];
-      seen.add(tag);
-      return [
-        {
-          tag,
-          when: deployment.createdAt ? relativeTime(deployment.createdAt) : "—",
-          current: tag === currentTag,
-          note: deployment.ciStatus ?? deployment.state ?? "deployed",
-        },
-      ];
-    }),
-  );
-}
-
 export function liveAgentDetailView(
   payload: LiveAgentDetailPayload,
 ): LiveAgentDetailView {
@@ -217,7 +187,6 @@ export function liveAgentDetailView(
       : "—",
     bad: finite(tool.errorRate) && tool.errorRate >= 0.1,
   }));
-  const realReleases = releases(payload);
   const chatsHourly = detail.hourly.chats ?? [];
   const toolCallsHourly = detail.hourly.toolCalls ?? [];
   const creditsDaily = detail.credits.creditsDaily.length
@@ -232,8 +201,8 @@ export function liveAgentDetailView(
       name: detail.agent.name,
       agentId: detail.agent.agentId,
       families,
-      releaseTag: detail.agent.releaseTag,
-      sdkVersion: detail.agent.sdkVersion,
+      releaseTag: detail.archive?.releaseTag ?? detail.agent.releaseTag,
+      sdkVersion: detail.archive?.sdkVersion ?? detail.agent.sdkVersion,
       status:
         detail.agent.status === "healthy" ||
         detail.agent.status === "not_loaded" ||
@@ -315,11 +284,19 @@ export function liveAgentDetailView(
       toolsSummary: toolsSummaryLabel(realTools),
       fees24h: "receipt fees shown per transaction",
       lifecycle: [
+        ...(detail.archive ? [["Archived binary size", detail.archive.binaryBytes == null
+          ? "Unavailable" : `${detail.archive.binaryBytes.toLocaleString()} bytes` ] as [string, string]] : []),
         ["Cold start", durationLabel(detail.lifecycle.coldStartMs)],
         ["Loaded instances", numberLabel(detail.lifecycle.loads24h)],
         ["Evictions", numberLabel(detail.lifecycle.evictions24h)],
       ],
-      releases: realReleases,
+      releases: (detail.archive?.deploys ?? []).map((deploy) => ({
+        id: deploy.id,
+        tag: deploy.tag,
+        when: relativeTime(deploy.at),
+        current: false,
+        note: deploy.sdkVersion ? `Archived · SDK ${deploy.sdkVersion}` : "Archived",
+      })),
     },
     transactions,
     logs: payload.logs.map((row) => logRow(row, detail.agent.name)),
