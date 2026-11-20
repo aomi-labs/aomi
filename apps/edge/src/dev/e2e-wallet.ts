@@ -8,7 +8,10 @@ import {
   Transaction,
   VersionedTransaction,
 } from "@solana/web3.js";
-import type { WalletSolanaSignPayload, WalletTxPayload } from "@aomi-labs/client";
+import type {
+  WalletSolanaSignPayload,
+  WalletTxPayload,
+} from "@aomi-labs/client";
 import {
   createPublicClient,
   createWalletClient,
@@ -137,7 +140,9 @@ function signingSecret(): string | null {
 
 /** Only the dev entry serves these routes; the switch and the token still gate them there. */
 export function isE2EWalletEnabled(): boolean {
-  return process.env.AOMI_ENABLE_E2E_WALLET === "true" && signingSecret() !== null;
+  return (
+    process.env.AOMI_ENABLE_E2E_WALLET === "true" && signingSecret() !== null
+  );
 }
 
 function executorPrivateKey(): Hex | null {
@@ -706,16 +711,29 @@ export async function executeE2ESolanaTransaction({
     const signedTx = Buffer.from(serialized).toString("base64");
     if (!broadcast) return { ok: true, signature: "", signedTx };
 
-    const connection = new Connection(rpcUrl, "confirmed");
+    let timeout: AbortSignal | undefined;
+    const connection = new Connection(rpcUrl, {
+      commitment: "confirmed",
+      fetch: (url, options) => fetch(url, { ...options, signal: timeout }),
+    });
     const signature = await connection.sendRawTransaction(serialized);
-    const confirmation = await connection.confirmTransaction(
-      signature,
-      "confirmed",
-    );
-    if (confirmation.value.err) {
-      return reject("execution_failed", "Solana transaction was not confirmed");
+    timeout = AbortSignal.timeout(30_000);
+    while (!timeout.aborted) {
+      const { value: status } = await connection.getSignatureStatus(signature);
+      if (status?.err)
+        return reject("execution_failed", "Solana transaction failed");
+      if (
+        status?.confirmationStatus === "confirmed" ||
+        status?.confirmationStatus === "finalized"
+      ) {
+        return { ok: true, signature, signedTx };
+      }
+      await new Promise((resolve) => setTimeout(resolve, 400));
     }
-    return { ok: true, signature, signedTx };
+    return reject(
+      "execution_failed",
+      `Solana confirmation timed out for ${signature}`,
+    );
   } catch (error) {
     return reject(
       "execution_failed",

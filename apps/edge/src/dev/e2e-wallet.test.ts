@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import bs58 from "bs58";
 import nacl from "tweetnacl";
 import {
+  Connection,
   Keypair,
   SystemProgram,
   TransactionMessage,
@@ -105,7 +106,7 @@ describe("Solana E2E wallet boundary", () => {
     }
   });
 
-  it("signs an unsigned versioned transaction without broadcasting", async () => {
+  it("signs and confirms a local transfer over HTTP", async () => {
     const signer = Keypair.generate();
     enableSolanaWallet(signer);
     const message = new TransactionMessage({
@@ -121,7 +122,7 @@ describe("Solana E2E wallet boundary", () => {
     }).compileToV0Message();
     const unsigned = new VersionedTransaction(message);
 
-    const result = await executeE2ESolanaTransaction({
+    const request = {
       seed: {
         svmAddress: signer.publicKey.toBase58(),
         svmCluster: "solana:devnet",
@@ -132,7 +133,8 @@ describe("Solana E2E wallet boundary", () => {
         unsignedTx: Buffer.from(unsigned.serialize()).toString("base64"),
       },
       broadcast: false,
-    });
+    } satisfies Parameters<typeof executeE2ESolanaTransaction>[0];
+    const result = await executeE2ESolanaTransaction(request);
 
     expect(result.ok).toBe(true);
     if (result.ok && result.signedTx) {
@@ -141,6 +143,30 @@ describe("Solana E2E wallet boundary", () => {
       );
       expect(signed.signatures[0]?.some((byte) => byte !== 0)).toBe(true);
     }
+
+    vi.spyOn(Connection.prototype, "sendRawTransaction").mockResolvedValue(
+      "signature",
+    );
+    const status = vi
+      .spyOn(Connection.prototype, "getSignatureStatus")
+      .mockResolvedValueOnce({ context: { slot: 1 }, value: null })
+      .mockResolvedValueOnce({
+        context: { slot: 2 },
+        value: {
+          slot: 1,
+          confirmations: 1,
+          err: null,
+          confirmationStatus: "confirmed",
+        },
+      });
+    expect(
+      await executeE2ESolanaTransaction({ ...request, broadcast: true }),
+    ).toMatchObject({
+      ok: true,
+      signature: "signature",
+      signedTx: result.ok && result.signedTx,
+    });
+    expect(status.mock.calls).toEqual([["signature"], ["signature"]]);
   });
 
   it("refuses a non-loopback RPC", async () => {
