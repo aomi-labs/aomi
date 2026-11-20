@@ -100,23 +100,6 @@ export interface WatchDeploymentOptions {
   signal?: AbortSignal;
 }
 
-export interface ScaffoldInput {
-  platform: string;
-  installationId: number;
-  /** New repo name created in the installation's account from the template. */
-  repoName: string;
-  /** Template `owner/repo` to copy for the one-shot flow. */
-  templateRepo: string;
-  /**
-   * GitHub user the created project is owned by. Written onto the project row
-   * at insert so it appears on the developer's dashboard immediately. Supplied
-   * by the portal BFF from the signed-in GitHub session.
-   */
-  githubUserId: string;
-  /** Create the new repo private. Defaults to false. */
-  private?: boolean;
-}
-
 export interface ExchangeGitHubCodeInput {
   /** GitHub OAuth authorization code from the sign-in redirect. */
   code: string;
