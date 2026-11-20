@@ -27,7 +27,7 @@ ARGUMENTS
 
 exports[`help > prints ["pipeline","build"] --help 1`] = `
 "USAGE
-  aomi pipeline build [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [--toolset name] [--commit] <name> [<args>]
+  aomi pipeline build [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [--agent name] [--commit] <name> [<args>]
   aomi pipeline build --help
 
 Stage and simulate an operation
@@ -38,7 +38,7 @@ FLAGS
      [--solana-private-key]  Sign in with this Solana key (SIWS) and sign with it; env AOMI_SOLANA_PRIVATE_KEY
      [--cluster]             Solana cluster: mainnet, devnet or testnet
      [--chain]               Chain id
-     [--toolset]             Toolset (default: default)
+     [--agent]               Agent (default: the main agent)
      [--commit/--no-commit]  Also make the commit to sign
   -h  --help                 Print help information and exit
 
@@ -185,7 +185,7 @@ WALLETS & TRADES
 
 AGENTS
   packages   Turn packages on or off, connect keys
-  pipeline   Call toolset operations directly
+  pipeline   Call operations directly
 
 PACKAGES
   publish    Build and upload packages and agents

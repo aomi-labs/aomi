@@ -15,8 +15,7 @@ const projectFiles: readonly ProjectFile[] = [
     path: "src/lib.rs",
     label: "lib.rs",
     language: "rust",
-    purpose:
-      "Register the package role, tools, and Aomi transaction namespace.",
+    purpose: "Register the package and its tools.",
     source: [
       "mod tool;",
       "use tool::{ReadMarket, QuoteOrder};",

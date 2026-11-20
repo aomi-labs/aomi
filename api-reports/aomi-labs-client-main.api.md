@@ -1562,9 +1562,8 @@ export interface AomiPackage extends AomiPublicPackage {
     envelope: AomiPackageEnvelope;
     // (undocumented)
     listed: boolean;
-    // (undocumented)
     live: {
-        release: number;
+        release: number | null;
         digest: string;
     };
     // (undocumented)
@@ -1589,7 +1588,7 @@ export interface AomiPackageCatalog {
 // @public
 export interface AomiPackageEnvelope {
     // (undocumented)
-    hash: string;
+    hash: string | null;
     // (undocumented)
     hosts: string[];
     // (undocumented)
@@ -2318,7 +2317,7 @@ export function capabilityHintPayload(selections: readonly CapabilitySelection[]
 } | undefined;
 
 // @public (undocumented)
-export type CapabilityKind = "agent" | "package" | "skill" | "chain" | "wallet";
+export type CapabilityKind = "agent" | "package" | "chain" | "wallet";
 
 // @public
 export type CapabilitySelection = {

@@ -149,7 +149,7 @@ export function PolymarketPackageDemo() {
             <div>
               <p>PACKAGE SDK</p>
               <h2>polymarket-trader</h2>
-              <span>user-owned market API + Aomi transaction namespace</span>
+              <span>user-owned market API + Aomi transaction tools</span>
             </div>
           </div>
 

@@ -163,7 +163,7 @@ const BRIEFS = {
   tx: "Review, approve, sign, export",
   guard: "Spending limits for signing",
   packages: "Turn packages on or off, connect keys",
-  pipeline: "Call toolset operations directly",
+  pipeline: "Call operations directly",
   publish: "Build and upload packages and agents",
   promote: "Make a release live",
   rollback: "Make an earlier release live",
@@ -491,12 +491,14 @@ const root = routes("the Aomi agent in your terminal", {
     BRIEFS.pipeline,
     {
       ops: command(
-        "Operations of a toolset or skill",
+        "Operations of an agent or package",
         {
           ...json,
           ...conn,
-          toolset: text("Toolset (default: default)", { placeholder: "name" }),
-          skill: text("Skill", { placeholder: "name" }),
+          agent: text("Agent (default: the main agent)", {
+            placeholder: "name",
+          }),
+          package: text("Package", { placeholder: "name" }),
           filter: text("Names containing this", { placeholder: "text" }),
         },
         [],
@@ -506,44 +508,44 @@ const root = routes("the Aomi agent in your terminal", {
         "Describe one operation",
         {
           ...conn,
-          toolset: text("Toolset", { placeholder: "name" }),
-          skill: text("Skill", { placeholder: "name" }),
+          agent: text("Agent", { placeholder: "name" }),
+          package: text("Package", { placeholder: "name" }),
         },
         [arg("Operation", "name")],
         pipeline.operation,
       ),
-      toolsets: command(
-        "Toolsets with operations",
+      agents: command(
+        "Agents with operations",
         {
           ...json,
           ...conn,
           filter: text("Names containing this", { placeholder: "text" }),
         },
         [],
-        pipeline.toolsets,
+        pipeline.agents,
       ),
-      skills: command(
-        "Skills",
+      packages: command(
+        "Packages with operations",
         {
           ...json,
           ...conn,
           filter: text("Names containing this", { placeholder: "text" }),
         },
         [],
-        pipeline.skills,
+        pipeline.packages,
       ),
-      skill: command(
-        "One skill",
-        { ...json, ...conn, instructions: yes("Print its SKILL.md") },
-        [arg("Skill", "name")],
-        pipeline.skill,
+      package: command(
+        "One package",
+        { ...json, ...conn, instructions: yes("Print its instructions") },
+        [arg("Package", "name")],
+        pipeline.describePackage,
       ),
       invoke: command(
         "Run a read operation",
         {
           ...conn,
-          toolset: text("Toolset", { placeholder: "name" }),
-          skill: text("Skill", { placeholder: "name" }),
+          agent: text("Agent", { placeholder: "name" }),
+          package: text("Package", { placeholder: "name" }),
           idempotencyKey: text("Reuse when retrying", { placeholder: "key" }),
         },
         [
@@ -557,7 +559,9 @@ const root = routes("the Aomi agent in your terminal", {
         {
           ...json,
           ...signing,
-          toolset: text("Toolset (default: default)", { placeholder: "name" }),
+          agent: text("Agent (default: the main agent)", {
+            placeholder: "name",
+          }),
           commit: yes("Also make the commit to sign"),
           chainFamily: text("evm or svm when it can't be told", {
             hidden: true,

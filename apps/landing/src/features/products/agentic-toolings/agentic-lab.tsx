@@ -103,7 +103,7 @@ const surfaceMatrix = [
     sub: "/v1/pipeline/mcp",
     api: "Pipeline API · catalog + tools",
     runs: "Aomi server",
-    state: "Stateless · Toolset passed per call",
+    state: "Stateless · Agent passed per call",
     signing: "Hand-off → portal or CLI",
     trace: [
       "aomi_list_toolsets",

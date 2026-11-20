@@ -133,8 +133,8 @@ export function NewView() {
       <div className="bg-aomi-surface-2 rounded-control flex items-center gap-2.5 px-3 py-2.5 text-[13px]">
         <Info className="text-aomi-muted size-4 shrink-0" aria-hidden />
         <span className="min-w-0">
-          Have an app built on an older SDK? It is already listed under
-          Packages. Upgrade it there.
+          Built with an older SDK? It is already listed under Packages. Upgrade
+          it there.
         </span>
         <Link href="/packages" className="ml-auto shrink-0 font-medium">
           Go to Packages

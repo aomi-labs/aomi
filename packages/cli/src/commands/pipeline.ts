@@ -5,8 +5,8 @@ import { commitEvent, commitHint } from "./chat";
 
 type Flags = ConnectFlags & {
   json?: boolean;
-  toolset?: string;
-  skill?: string;
+  agent?: string;
+  package?: string;
   filter?: string;
 };
 
@@ -20,10 +20,10 @@ function printDirectory(flags: Flags, directory: PipelineDirectory) {
 }
 
 function scope(aomi: Awaited<ReturnType<typeof connect>>, flags: Flags) {
-  if (flags.toolset && flags.skill) throw usage("Choose --toolset or --skill");
-  return flags.skill
-    ? aomi.pipeline.skill(flags.skill)
-    : aomi.pipeline.toolset(flags.toolset ?? "default");
+  if (flags.agent && flags.package) throw usage("Choose --agent or --package");
+  return flags.package
+    ? aomi.pipeline.skill(flags.package)
+    : aomi.pipeline.toolset(flags.agent ?? "default");
 }
 
 /** A JSON object, a file, @file, or - for stdin. */
@@ -51,17 +51,17 @@ export async function operation(flags: Flags, name: string): Promise<void> {
   json(await scope(aomi, flags).operation(name));
 }
 
-export async function toolsets(flags: Flags): Promise<void> {
+export async function agents(flags: Flags): Promise<void> {
   const aomi = await connect(flags);
   printDirectory(flags, await aomi.pipeline.raw.toolsets.list());
 }
 
-export async function skills(flags: Flags): Promise<void> {
+export async function packages(flags: Flags): Promise<void> {
   const aomi = await connect(flags);
   printDirectory(flags, await aomi.pipeline.skills.list());
 }
 
-export async function skill(
+export async function describePackage(
   flags: Flags & { instructions?: boolean },
   name: string,
 ): Promise<void> {
@@ -93,7 +93,7 @@ export async function build(
 ): Promise<void> {
   const aomi = await connect(flags);
   const built = await aomi.pipeline.build(name, await readArgs(args), {
-    toolset: flags.toolset,
+    toolset: flags.agent,
     chainFamily: flags.chainFamily,
   });
   if (flags.json) json({ type: "build", ...built.raw.toJSON() });

@@ -94,7 +94,7 @@ npx skills add aomi-labs/skills
 
 **Tool design rules that always apply:**
 
-- Prefer the smallest sufficient toolset that makes the primary user workflow work end-to-end.
+- Prefer the smallest set of tools that makes the primary user workflow work end-to-end.
 - Prefer 3–8 tools with clear intent boundaries (`search_*`, `get_*`, `build_*`, `submit_*`).
 - Prefer typed args over raw JSON blobs.
 - Build against an actual product surface (REST, GraphQL, JSON-RPC, gRPC) over docs-only helpers when one exists.
@@ -108,7 +108,7 @@ npx skills add aomi-labs/skills
 
 ## Key concepts (one paragraph each)
 
-**Agents, packages and toolsets.** An agent has a canonical `publisher/name` slug and a configuration naming its packages. Packages are WASI components exposing tools. The main agent uses built-in toolsets such as `default` and `svm`. Choose a chat target with `--agent aomi/main`; list Pipeline toolsets with `aomi pipeline toolsets`.
+**Agents and packages.** An agent has a canonical `publisher/name` slug and a configuration naming its packages. Packages are WASI components exposing tools. Choose a chat target with `--agent aomi/main`; list the agents and packages with Pipeline operations with `aomi pipeline agents` and `aomi pipeline packages`.
 
 **Sessions.** Conversation history persists on the Aomi backend; tx state and pointers live locally under `~/.aomi/`. Use `--new-session` on the first command of a fresh task. Resume with `aomi session resume <id>`. Read https://aomi.dev/docs/reference/sessions.md.
 

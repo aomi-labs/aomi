@@ -71,7 +71,7 @@ export type ToolChip = {
     id?: string;
     title?: string;
     skillId?: string;
-    attribution?: "toolset" | "skill";
+    attribution?: "agent" | "skill";
     icon?: TraceIcon;
     essential?: boolean;
 };

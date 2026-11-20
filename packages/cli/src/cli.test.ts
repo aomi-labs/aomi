@@ -191,6 +191,23 @@ describe("help", () => {
     expect(stdout).toMatchSnapshot();
   });
 
+  it.each([
+    [[]],
+    [["pipeline"]],
+    [["pipeline", "ops"]],
+    [["pipeline", "package"]],
+    [["packages"]],
+    [["publish"]],
+    [["promote"]],
+    [["rollback"]],
+  ])("%j --help names no retired word", async (route) => {
+    const { code, stdout } = await cli(...route, "--help");
+    expect(code).toBe(0);
+    expect(stdout).not.toMatch(
+      /\b(?:toolsets?|plugins?|namespaces?|apps?|skills?)\b/i,
+    );
+  });
+
   it("shows hidden flags under --help-all only", async () => {
     expect((await cli("chat", "--help")).stdout).not.toContain("--backend-url");
     expect((await cli("chat", "--help-all")).stdout).toContain("--backend-url");
