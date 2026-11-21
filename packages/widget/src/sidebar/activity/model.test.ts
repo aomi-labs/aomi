@@ -623,6 +623,31 @@ describe("message commits", () => {
   });
 });
 
+describe("commits staged outside the chat", () => {
+  it("lists a Pipeline-staged commit under its review's title", () => {
+    const request = {
+      type: "execute_evm" as const,
+      requestId: "evm:7",
+      transactions: [{ ...tx, label: "Aave supply\npool.supply(…)" }],
+    } as unknown as Action["request"];
+    const commit = durableCommit(7, 0, {
+      batch: null,
+      stage_id: "evm:7",
+      review: { version: 1, revision: 1, digest: "d", request, legs: [] },
+    });
+    const events = [{ ...meta(1), type: "message", sender: "user" } as Event];
+    const { transactions, history } = selectActivity(events, [], [commit]);
+    expect([...transactions, ...history]).toMatchObject([
+      {
+        id: "commit:commit-7",
+        label: "Aave supply\npool.supply(…)",
+        chainId: 8453,
+        commit,
+      },
+    ]);
+  });
+});
+
 describe("thread-wide activity", () => {
   it("retains packages and subagents after a new user turn", () => {
     const events: Event[] = [

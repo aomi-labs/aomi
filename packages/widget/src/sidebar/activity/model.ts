@@ -134,6 +134,35 @@ function toolRecord(
   return unwrapped ? { name, result: unwrapped } : undefined;
 }
 
+/** A card's fields for transaction `index` of a wallet request. */
+function requestCard(request: Action["request"], index: number) {
+  const raw = (request.type === "sign"
+    ? request
+    : request.transactions[index]) as unknown as RecordValue;
+  return {
+    family:
+      request.type === "execute_svm" ||
+      (request.type === "sign" && request.chainFamily === "svm")
+        ? ("svm" as const)
+        : ("evm" as const),
+    label:
+      request.type === "execute_svm"
+        ? svmTransactionLabel(request.transactions[index])
+        : (string(raw.label) ??
+          string(raw.description) ??
+          (request.type === "sign"
+            ? "Sign wallet request"
+            : `Transaction ${index + 1}`)),
+    kind:
+      request.type === "sign"
+        ? "signature"
+        : (string(raw.kind) ?? "transaction"),
+    chainId: number(raw.chain_id) ?? number(raw.chainId),
+    cluster: string(raw.cluster),
+    raw,
+  };
+}
+
 function sameInstruction(raw: RecordValue, ix: RecordValue): boolean {
   return (
     Boolean(raw.program_id) &&
@@ -430,33 +459,11 @@ export function selectActivity(
         }
         continue;
       }
-      const raw = (request.type === "sign"
-        ? request
-        : request.transactions[index]) as unknown as RecordValue;
       transactions.push({
         id: `${action.id}:${index}`,
         sequence: actionOrder.get(action.id) ?? action.sequence,
         turnId: action.turn_id,
-        family:
-          request.type === "execute_svm" ||
-          (request.type === "sign" && request.chainFamily === "svm")
-            ? "svm"
-            : "evm",
-        label:
-          request.type === "execute_svm"
-            ? svmTransactionLabel(request.transactions[index])
-            : (string(raw.label) ??
-              string(raw.description) ??
-              (request.type === "sign"
-                ? "Sign wallet request"
-                : `Transaction ${index + 1}`)),
-        kind:
-          request.type === "sign"
-            ? "signature"
-            : (string(raw.kind) ?? "transaction"),
-        chainId: number(raw.chain_id) ?? number(raw.chainId),
-        cluster: string(raw.cluster),
-        raw,
+        ...requestCard(request, index),
         stage: "committed",
         action,
         actionIndex: index,
@@ -500,25 +507,42 @@ export function selectActivity(
       }
     }
   }
-  // A message signature stages nothing: its commit is its own row.
+  // A commit no row claims is its own row, from its review: a message
+  // signature, which stages nothing, or work staged outside this chat's
+  // tools (Pipeline).
   for (const commit of commits) {
-    const review = commit.review?.request;
-    if (!isMessageReview(review)) continue;
+    const claimed = transactions.some(
+      (tx) => tx.commit?.commit_id === commit.commit_id,
+    );
+    if (!commit.review || claimed) continue;
     const origin = commitOrigins.get(commit.commit_id);
-    transactions.push({
+    const row = {
       id: `commit:${commit.commit_id}`,
       sequence: origin?.sequence,
       turnId: origin?.turnId ?? null,
       family: commit.chain_family,
-      label: review.description || "Sign message",
-      kind: "message",
-      // Only a chain the message names; the commit's own is the wallet's.
-      ...(commit.chain_family === "svm"
-        ? { cluster: commit.chain_ref }
-        : { chainId: messageChainId([commit as unknown as RecordValue]) }),
-      raw: {},
-      stage: "committed",
+      stage: "committed" as const,
       commit,
+    };
+    const review = commit.review.request;
+    if (isMessageReview(review)) {
+      transactions.push({
+        ...row,
+        label: review.description || "Sign message",
+        kind: "message",
+        // Only a chain the message names; the commit's own is the wallet's.
+        ...(commit.chain_family === "svm"
+          ? { cluster: commit.chain_ref }
+          : { chainId: messageChainId([commit as unknown as RecordValue]) }),
+        raw: {},
+      });
+      continue;
+    }
+    // A batch member's own leg, else its place in the one request.
+    const leg = commit.batch && commit.review.legs[commit.batch.index];
+    transactions.push({
+      ...row,
+      ...requestCard(leg || review, leg ? 0 : (commit.batch?.index ?? 0)),
     });
   }
   return {
