@@ -215,8 +215,8 @@ function AccountSummaryCard({
       {billing ? (
         <>
           <Divider />
-          <div className="[&>*]:border-aomi-border grid grid-cols-2 sm:grid-cols-3">
-            <div className="col-span-2 flex items-center gap-3.5 border-b px-4 py-4 sm:col-span-1 sm:border-b-0 sm:border-r sm:px-5">
+          <div className="[&>*]:border-aomi-border grid grid-cols-2">
+            <div className="row-span-2 flex min-w-0 flex-col items-start justify-center gap-3.5 border-r px-4 py-4 @[30rem]:flex-row @[30rem]:items-center @[30rem]:justify-start @[30rem]:px-5">
               {billing.allowanceUsd > 0 ? (
                 <AllowanceRing left={billing.allowanceLeft} size={44} />
               ) : null}
@@ -241,14 +241,14 @@ function AccountSummaryCard({
                 }
               />
             </div>
-            <div className="border-r px-4 py-4 sm:px-5">
+            <div className="border-b px-4 py-3 @[30rem]:px-5">
               <Stat
                 label="Added balance"
                 value={formatDollars(billing.balanceUsd)}
                 detail="Never expires"
               />
             </div>
-            <div className="px-4 py-4 sm:px-5">
+            <div className="px-4 py-3 @[30rem]:px-5">
               <Stat
                 label={
                   month
@@ -305,7 +305,7 @@ function Stat({
       <span className="text-[16px] font-semibold tabular-nums leading-6 tracking-[-0.01em]">
         {value}
       </span>
-      <span className="type-meta text-aomi-muted truncate">{detail}</span>
+      <span className="type-meta text-aomi-muted">{detail}</span>
     </div>
   );
 }
