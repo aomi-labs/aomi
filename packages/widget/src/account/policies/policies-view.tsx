@@ -203,6 +203,7 @@ export function WalletPolicyCard({
             saving={saving}
             deploy={deploy(policy)}
             onRemove={() => onRemove(policy)}
+            holdable={policy.chains.some((chain) => providers[chain.network])}
           />
         ))}
         {wallet.policies.length === 0 && !adding ? (
@@ -292,14 +293,22 @@ export function PolicyRow({
   saving = false,
   deploy,
   onRemove,
+  holdable = true,
 }: {
   policy: Policy;
   saving?: boolean;
   deploy?: PolicyDeploy;
   /** Left out where the row is only there to be signed (the chat panel). */
   onRemove?: () => void;
+  /** False when no provider here can hold a policy on any of its chains. */
+  holdable?: boolean;
 }) {
   const { enforcement } = policy;
+  const note =
+    enforcement.note ??
+    (enforcement.name === null && !holdable && !policy.ended && !policy.blocked
+      ? NO_PROVIDER
+      : null);
   const where = policyToPhrase(policy.to);
   return (
     <div
@@ -401,9 +410,7 @@ export function PolicyRow({
           <StatusPill tone="warning">Total not enforced</StatusPill>
         )}
       </div>
-      {enforcement.note ? (
-        <p className="type-meta text-aomi-muted">{enforcement.note}</p>
-      ) : null}
+      {note ? <p className="type-meta text-aomi-muted">{note}</p> : null}
       {enforcement.deploy && deploy?.hint ? (
         <p className="type-meta text-aomi-muted">{deploy.hint}</p>
       ) : null}
@@ -413,6 +420,10 @@ export function PolicyRow({
     </div>
   );
 }
+
+/** Why a row says None when nothing here could hold it on chain. */
+export const NO_PROVIDER =
+  "On-chain enforcement isn’t available on this network yet. Aomi still checks every trade against this policy.";
 
 /**
  * A removed policy the chain still holds; its one action takes it off (or

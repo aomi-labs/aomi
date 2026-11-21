@@ -11,6 +11,7 @@ import type { AomiPolicySet } from "@aomi-labs/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AccountOverviewFixture } from "@/test/account-overview-fixture";
 import { PoliciesSettings } from "./policies-settings";
+import { NO_PROVIDER } from "./policies-view";
 import type { VaultReader } from "./vault-chain";
 import type { VaultHolding } from "./vault-model";
 import { encodeFunctionData, parseAbi } from "viem";
@@ -421,6 +422,7 @@ describe("Settings › Policies", () => {
       `Active period: Always on, since ${day(FROM)}`,
       "Onchain Enforcement:None",
       "Total not enforced",
+      NO_PROVIDER,
     );
     expect(within(row!).getByRole("img", { name: "Base" })).toBeInTheDocument();
     lacks(card, /a day|used/);
@@ -925,6 +927,8 @@ describe("Settings › Policies", () => {
       rules = withSol({ enforcement: [provider(want.entry)] });
       await renderPolicies();
       has(rows()[0], ...want.has, want.entry.note);
+      // A provider is there, so its own note says why, not the no-provider line.
+      lacks(rows()[0], NO_PROVIDER);
       if (want.disabled) expect(button("Sign to deploy")).toBeDisabled();
       else noButton("Sign to deploy");
     });
