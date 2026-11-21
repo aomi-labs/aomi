@@ -131,14 +131,25 @@ type PublishFlags = BuilderFlags & {
   wasm?: string[];
 };
 
+/** Where a release stopped. */
+type Phase = "manifest" | "build" | "pack" | "check" | "upload" | "promote";
+type Failure = {
+  kind: ReleaseKind;
+  name: string;
+  phase: Phase;
+  message: string;
+};
+const line = ({ name, message }: Failure) => `${name}: ${message}`;
+
 /**
  * `aomi publish`: build each package of the root `aomi.toml`, pack and check
  * it with `aomi-build-core`, upload it, then publish the root's agents;
  * `--promote` makes each new release live. Without `--package` or `--agent`
- * it publishes everything the root lists. Each result prints as it
- * publishes; one that fails is reported after the rest publish. Each
- * promote moves one pointer, so a failure names the pointers that already
- * moved.
+ * it publishes everything the root lists. Each upload prints as it lands,
+ * even when its promotion is refused; one that fails is reported after the
+ * rest publish, with `--json` as `{failed: [{kind, name, phase, message}]}`.
+ * Each promote moves one pointer, so a failure names the pointers that
+ * already moved.
  */
 export async function publish(flags: PublishFlags): Promise<void> {
   const root = resolve(flags.root ?? ".");
@@ -166,15 +177,18 @@ export async function publish(flags: PublishFlags): Promise<void> {
     },
   );
   const agents = (manifest.agents ?? []) as { name: string; voice?: string }[];
-  const unnamed = packages.flatMap((entry) =>
-    entry.failure ? [`${entry.path}: ${entry.failure}`] : [],
+  const unnamed: Failure[] = packages.flatMap(({ path, failure }) =>
+    failure
+      ? [{ kind: "package", name: path, phase: "manifest", message: failure }]
+      : [],
   );
   for (const name of flags.package ?? [])
     if (!packages.some((entry) => entry.name === name))
       throw usage(
-        [`${name} is not a package of ${root}/aomi.toml`, ...unnamed].join(
-          "\n",
-        ),
+        [
+          `${name} is not a package of ${root}/aomi.toml`,
+          ...unnamed.map(line),
+        ].join("\n"),
       );
   for (const name of flags.agent ?? [])
     if (!agents.some((agent) => agent.name === name))
@@ -183,29 +197,45 @@ export async function publish(flags: PublishFlags): Promise<void> {
   const client = builder(flags);
   const failed = everything ? unnamed : [];
   const moved: string[] = [];
-  const done = async (kind: ReleaseKind, name: string, result: Published) => {
-    if (flags.promote && result.live !== result.release.number) {
-      const { live } = await refused(
-        client.promoteRelease({
-          kind,
-          name,
-          number: result.release.number,
-          expectedLive: result.live,
-        }),
-      );
-      moved.push(
-        `${kind} ${result.id}  live ${live} (was ${result.live ?? "-"})${result.live === null ? "" : `  undo: aomi rollback ${kind} ${name} ${result.live}`}`,
-      );
-      result.live = live;
+  /** Run `upload` and promote its release; the upload reports either way. */
+  const release = async (
+    kind: ReleaseKind,
+    name: string,
+    upload: (at: (phase: Phase) => void) => Promise<Published>,
+  ) => {
+    let phase: Phase = "upload";
+    try {
+      const result = await upload((next) => (phase = next));
+      phase = "promote";
+      try {
+        if (flags.promote && result.live !== result.release.number) {
+          const { live } = await refused(
+            client.promoteRelease({
+              kind,
+              name,
+              number: result.release.number,
+              expectedLive: result.live,
+            }),
+          );
+          moved.push(
+            `${kind} ${result.id}  live ${live} (was ${result.live ?? "-"})${result.live === null ? "" : `  undo: aomi rollback ${kind} ${name} ${result.live}`}`,
+          );
+          result.live = live;
+        }
+      } finally {
+        if (flags.json) json(result);
+        else print(kind, result);
+      }
+    } catch (error) {
+      failed.push({ kind, name, phase, message: messageOf(error) });
     }
-    if (flags.json) json(result);
-    else print(kind, result);
   };
   const bundles = mkdtempSync(join(tmpdir(), "aomi-bundles-"));
   try {
     for (const { name, dir } of packages) {
       if (!name || (!everything && !flags.package?.includes(name))) continue;
-      try {
+      await release("package", name, async (at) => {
+        at("build");
         // A package with no `src/` is text-only: it ships no component.
         const source = existsSync(join(dir, "src"));
         if (source && flags.build === false && !wasm.has(name))
@@ -214,9 +244,12 @@ export async function publish(flags: PublishFlags): Promise<void> {
         // The Manager's own pack and release check, run here before upload.
         const bundle = join(bundles, `${name}.tar`);
         const component = built ? ["--wasm", built] : [];
+        at("pack");
         core(["pack", dir, ...component, "--out", bundle]);
+        at("check");
         core(["check", bundle]);
-        const result = await refused(
+        at("upload");
+        return refused(
           client.publishPackage({
             name,
             bundle: readFileSync(bundle),
@@ -224,15 +257,12 @@ export async function publish(flags: PublishFlags): Promise<void> {
             sourceCommit: process.env.GITHUB_SHA,
           }),
         );
-        await done("package", name, result);
-      } catch (error) {
-        failed.push(`${name}: ${messageOf(error)}`);
-      }
+      });
     }
 
     for (const agent of agents) {
       if (!everything && !flags.agent?.includes(agent.name)) continue;
-      try {
+      await release("agent", agent.name, async () => {
         const files = agent.voice
           ? {
               [agent.voice]: readFileSync(
@@ -241,15 +271,15 @@ export async function publish(flags: PublishFlags): Promise<void> {
               ),
             }
           : {};
-        const result = await refused(
+        return refused(
           client.publishAgent({ name: agent.name, root: rootText, files }),
         );
-        await done("agent", agent.name, result);
-      } catch (error) {
-        failed.push(`${agent.name}: ${messageOf(error)}`);
-      }
+      });
     }
-    if (failed.length) throw new CliError(failed.join("\n"));
+    if (failed.length) {
+      if (flags.json) json({ failed });
+      throw new CliError(failed.map(line).join("\n"));
+    }
   } catch (error) {
     if (!moved.length) throw error;
     throw new CliError(

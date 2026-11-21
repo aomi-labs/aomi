@@ -75,6 +75,13 @@ async function cli(...argv: string[]) {
   return { code, stdout, stderr };
 }
 
+/** Each line of `--json` output, parsed. */
+const lines = (stdout: string) =>
+  stdout
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+
 const write = (path: string, text: string) => {
   mkdirSync(join(root, path, ".."), { recursive: true });
   writeFileSync(join(root, path), text);
@@ -405,7 +412,30 @@ describe("aomi publish", () => {
       "--json",
     );
     expect(code).toBe(1);
-    expect(JSON.parse(stdout)).toMatchObject({ package: "alice/price" });
+    const [published, failures] = lines(stdout);
+    expect(published).toMatchObject({ package: "alice/price" });
+    expect(failures).toEqual({
+      failed: [
+        {
+          kind: "package",
+          name: "broken",
+          phase: "pack",
+          message: "bundle_invalid: skills/x.md: missing",
+        },
+        {
+          kind: "package",
+          name: "coded",
+          phase: "build",
+          message: "--no-build needs --wasm coded=<path>",
+        },
+        {
+          kind: "agent",
+          name: "hoodit",
+          phase: "upload",
+          message: "agent_invalid: agent hoodit: unknown tool",
+        },
+      ],
+    });
     expect(stderr).toBe(
       [
         "error: broken: bundle_invalid: skills/x.md: missing",
@@ -483,6 +513,97 @@ describe("aomi publish", () => {
     expect(stderr).toBe("error: price: manifest_invalid: contract must be 1\n");
     expect(sent).toHaveLength(1);
   });
+
+  it("reports an upload whose promotion is refused, and the promotion as failed", async () => {
+    answers["POST /api/build/packages/price/releases"] = Response.json(
+      { package: "alice/price", release: release(3), live: 2, verified: false },
+      { status: 201 },
+    );
+    answers["POST /api/build/packages/price/promote"] = Response.json(
+      { code: "live_changed", message: "live is 4, not 2" },
+      { status: 409 },
+    );
+    const flags = [
+      "publish",
+      "--root",
+      root,
+      "--package",
+      "price",
+      "--promote",
+      "--no-build",
+      "--wasm",
+      `price=${join(root, "price.wasm")}`,
+    ];
+    const text = await cli(...flags);
+    expect(text.code).toBe(1);
+    expect(text.stdout).toBe(
+      "package alice/price  release 3  sha256:3  live 2\n",
+    );
+    expect(text.stderr).toBe("error: price: live_changed: live is 4, not 2\n");
+
+    const { stdout } = await cli(...flags, "--json");
+    const [published, failures] = lines(stdout);
+    expect(published).toMatchObject({ release: { number: 3 }, live: 2 });
+    expect(failures).toEqual({
+      failed: [
+        {
+          kind: "package",
+          name: "price",
+          phase: "promote",
+          message: "live_changed: live is 4, not 2",
+        },
+      ],
+    });
+  });
+
+  it.runIf(BUILT_CORE)(
+    "names a package by [package] name alone, so a manifest pack refuses fails alone",
+    async () => {
+      process.env.AOMI_BUILD_CORE = BUILT_CORE;
+      write(
+        "aomi.toml",
+        ["price", "nodesc"]
+          .map((name) => `[[packages]]\npath = "packages/${name}"\n`)
+          .join("\n"),
+      );
+      const manifest = (name: string, description: string) =>
+        `[package]\nname = "${name}"\n${description}contract = 1\nskills = [{ id = "quote", path = "skills/quote.md", description = "Quotes" }]\n`;
+      write(
+        "packages/price/aomi.toml",
+        manifest("price", 'description = "Prices"\n'),
+      );
+      write("packages/nodesc/aomi.toml", manifest("nodesc", ""));
+      write("packages/nodesc/skills/quote.md", "# Quote");
+      answers["POST /api/build/packages/price/releases"] = Response.json(
+        { package: "alice/price", release: release(1), live: null },
+        { status: 201 },
+      );
+      const { code, stdout } = await cli(
+        "publish",
+        "--root",
+        root,
+        "--package",
+        "price",
+        "--package",
+        "nodesc",
+        "--json",
+      );
+      expect(code).toBe(1);
+      const [published, failures] = lines(stdout);
+      expect(published).toMatchObject({ package: "alice/price" });
+      expect(failures.failed).toEqual([
+        expect.objectContaining({
+          kind: "package",
+          name: "nodesc",
+          phase: "pack",
+          message: expect.stringMatching(/^manifest_invalid: .*description/),
+        }),
+      ]);
+      expect(sent.map((request) => request.path)).toEqual([
+        `${BUILD}/api/build/packages/price/releases`,
+      ]);
+    },
+  );
 
   it("partial_publish_reports_moved_pointers", async () => {
     answers["POST /api/build/packages/price/releases"] = Response.json(
