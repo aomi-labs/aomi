@@ -87,71 +87,6 @@ function inside(dir: string, path: string): string {
   return clean;
 }
 
-/** A plain ustar archive of `members`, in order. */
-function tar(members: [string, Uint8Array][]): Uint8Array {
-  const blocks: Uint8Array[] = [];
-  const encoder = new TextEncoder();
-  for (const [name, data] of members) {
-    const header = new Uint8Array(512);
-    const put = (offset: number, text: string) =>
-      header.set(encoder.encode(text), offset);
-    if (encoder.encode(name).length > 100)
-      throw usage(`${name}: paths are at most 100 bytes`);
-    put(0, name);
-    put(100, "0000644\0");
-    put(108, "0000000\0");
-    put(116, "0000000\0");
-    put(124, `${data.length.toString(8).padStart(11, "0")}\0`);
-    put(136, "00000000000\0");
-    put(148, "        ");
-    put(156, "0");
-    put(257, "ustar\u000000");
-    const sum = header.reduce((total, byte) => total + byte, 0);
-    put(148, `${sum.toString(8).padStart(6, "0")}\0 `);
-    blocks.push(
-      header,
-      data,
-      new Uint8Array((512 - (data.length % 512)) % 512),
-    );
-  }
-  blocks.push(new Uint8Array(1024));
-  const archive = new Uint8Array(blocks.reduce((n, b) => n + b.length, 0));
-  let offset = 0;
-  for (const block of blocks) {
-    archive.set(block, offset);
-    offset += block.length;
-  }
-  return archive;
-}
-
-/**
- * The TypeScript packer: the members `dir/aomi.toml` declares, in a plain
- * tar. Publish packs with `aomi-build-core`; this stays only until
- * `release.test.ts` shows both give the same release on official packages.
- */
-export function tarPackage(dir: string, wasm?: string): Uint8Array {
-  const {
-    icon,
-    guards,
-    skills = [],
-  } = toml(join(dir, "aomi.toml")).package ?? {};
-  const listed = [
-    icon,
-    ...(skills as { path: string }[]).map((skill) => skill.path),
-    guards,
-  ].filter((path): path is string => typeof path === "string");
-  return tar([
-    ["aomi.toml", readFileSync(join(dir, "aomi.toml"))],
-    ...(wasm
-      ? [["package.wasm", readFileSync(wasm)] as [string, Uint8Array]]
-      : []),
-    ...listed.map((path): [string, Uint8Array] => {
-      const member = inside(dir, path);
-      return [member, readFileSync(join(dir, member))];
-    }),
-  ]);
-}
-
 /** `cargo build` the package's folder for wasm32-wasip2; its one `.wasm`. */
 function cargoBuild(dir: string): string {
   const output = execFileSync(
@@ -199,10 +134,11 @@ type PublishFlags = BuilderFlags & {
 /**
  * `aomi publish`: build each package of the root `aomi.toml`, pack and check
  * it with `aomi-build-core`, upload it, then publish the root's agents;
- * `--promote` makes each new release live. Without
- * `--package` or `--agent` it publishes everything the root lists. Each
- * promote moves one pointer, so a failure part way names the pointers that
- * already moved. A package that fails is reported after the rest publish.
+ * `--promote` makes each new release live. Without `--package` or `--agent`
+ * it publishes everything the root lists. Each result prints as it
+ * publishes; one that fails is reported after the rest publish. Each
+ * promote moves one pointer, so a failure names the pointers that already
+ * moved.
  */
 export async function publish(flags: PublishFlags): Promise<void> {
   const root = resolve(flags.root ?? ".");
@@ -216,56 +152,39 @@ export async function publish(flags: PublishFlags): Promise<void> {
       return [entry.slice(0, at), resolve(entry.slice(at + 1))];
     }),
   );
-  const moved: string[] = [];
-  const bundles = mkdtempSync(join(tmpdir(), "aomi-bundles-"));
-  try {
-    // `aomi-build-core` reads each package's manifest, as publish does: a
-    // first pack names the package, or says why it does not pack.
-    const packages = ((manifest.packages ?? []) as { path: string }[]).map(
-      ({ path }, index) => {
-        const dir = join(root, inside(root, path));
-        const bundle = join(bundles, `${index}.tar`);
-        try {
-          const packed = core<{ package: string }>([
-            "pack",
-            dir,
-            "--out",
-            bundle,
-          ]);
-          return { path, dir, bundle, name: packed.package };
-        } catch (error) {
-          return { path, dir, bundle, failure: messageOf(error) };
-        }
-      },
-    );
-    const agents = (manifest.agents ?? []) as {
-      name: string;
-      voice?: string;
-    }[];
-    const unpacked = packages.flatMap((entry) =>
-      entry.failure ? [`${entry.path}: ${entry.failure}`] : [],
-    );
-    for (const name of flags.package ?? [])
-      if (!packages.some((entry) => entry.name === name))
-        throw usage(
-          [`${name} is not a package of ${root}/aomi.toml`, ...unpacked].join(
-            "\n",
-          ),
-        );
-    for (const name of flags.agent ?? [])
-      if (!agents.some((agent) => agent.name === name))
-        throw usage(`${name} is not an agent of ${root}/aomi.toml`);
+  // Each package's name, as `aomi-build-core` reads its manifest.
+  const listed = (manifest.packages ?? []) as { path: string }[];
+  const packages = (everything || flags.package?.length ? listed : []).map(
+    ({ path }) => {
+      const dir = join(root, inside(root, path));
+      try {
+        const { package: name } = core<{ package: string }>(["manifest", dir]);
+        return { path, dir, name };
+      } catch (error) {
+        return { path, dir, failure: messageOf(error) };
+      }
+    },
+  );
+  const agents = (manifest.agents ?? []) as { name: string; voice?: string }[];
+  const unnamed = packages.flatMap((entry) =>
+    entry.failure ? [`${entry.path}: ${entry.failure}`] : [],
+  );
+  for (const name of flags.package ?? [])
+    if (!packages.some((entry) => entry.name === name))
+      throw usage(
+        [`${name} is not a package of ${root}/aomi.toml`, ...unnamed].join(
+          "\n",
+        ),
+      );
+  for (const name of flags.agent ?? [])
+    if (!agents.some((agent) => agent.name === name))
+      throw usage(`${name} is not an agent of ${root}/aomi.toml`);
 
-    const client = builder(flags);
-    const results: Published[] = [];
-    // One package's failure leaves the others to publish.
-    const failed = everything ? unpacked : [];
-    const goLive = async (
-      kind: ReleaseKind,
-      name: string,
-      result: Published,
-    ) => {
-      if (!flags.promote || result.live === result.release.number) return;
+  const client = builder(flags);
+  const failed = everything ? unnamed : [];
+  const moved: string[] = [];
+  const done = async (kind: ReleaseKind, name: string, result: Published) => {
+    if (flags.promote && result.live !== result.release.number) {
       const { live } = await refused(
         client.promoteRelease({
           kind,
@@ -278,18 +197,24 @@ export async function publish(flags: PublishFlags): Promise<void> {
         `${kind} ${result.id}  live ${live} (was ${result.live ?? "-"})${result.live === null ? "" : `  undo: aomi rollback ${kind} ${name} ${result.live}`}`,
       );
       result.live = live;
-    };
-
-    for (const { name, dir, bundle } of packages) {
+    }
+    if (flags.json) json(result);
+    else print(kind, result);
+  };
+  const bundles = mkdtempSync(join(tmpdir(), "aomi-bundles-"));
+  try {
+    for (const { name, dir } of packages) {
       if (!name || (!everything && !flags.package?.includes(name))) continue;
-      // A package with no `src/` is text-only: it ships no component.
-      const source = existsSync(join(dir, "src"));
-      if (source && flags.build === false && !wasm.has(name))
-        throw usage(`--no-build needs --wasm ${name}=<path>`);
       try {
+        // A package with no `src/` is text-only: it ships no component.
+        const source = existsSync(join(dir, "src"));
+        if (source && flags.build === false && !wasm.has(name))
+          throw usage(`--no-build needs --wasm ${name}=<path>`);
         const built = wasm.get(name) ?? (source ? cargoBuild(dir) : undefined);
         // The Manager's own pack and release check, run here before upload.
-        if (built) core(["pack", dir, "--wasm", built, "--out", bundle]);
+        const bundle = join(bundles, `${name}.tar`);
+        const component = built ? ["--wasm", built] : [];
+        core(["pack", dir, ...component, "--out", bundle]);
         core(["check", bundle]);
         const result = await refused(
           client.publishPackage({
@@ -299,9 +224,7 @@ export async function publish(flags: PublishFlags): Promise<void> {
             sourceCommit: process.env.GITHUB_SHA,
           }),
         );
-        await goLive("package", name, result);
-        results.push(result);
-        if (!flags.json) print("package", result);
+        await done("package", name, result);
       } catch (error) {
         failed.push(`${name}: ${messageOf(error)}`);
       }
@@ -309,22 +232,23 @@ export async function publish(flags: PublishFlags): Promise<void> {
 
     for (const agent of agents) {
       if (!everything && !flags.agent?.includes(agent.name)) continue;
-      const files = agent.voice
-        ? {
-            [agent.voice]: readFileSync(
-              join(root, inside(root, agent.voice)),
-              "utf8",
-            ),
-          }
-        : {};
-      const result = await refused(
-        client.publishAgent({ name: agent.name, root: rootText, files }),
-      );
-      await goLive("agent", agent.name, result);
-      results.push(result);
-      if (!flags.json) print("agent", result);
+      try {
+        const files = agent.voice
+          ? {
+              [agent.voice]: readFileSync(
+                join(root, inside(root, agent.voice)),
+                "utf8",
+              ),
+            }
+          : {};
+        const result = await refused(
+          client.publishAgent({ name: agent.name, root: rootText, files }),
+        );
+        await done("agent", agent.name, result);
+      } catch (error) {
+        failed.push(`${agent.name}: ${messageOf(error)}`);
+      }
     }
-    if (flags.json) for (const result of results) json(result);
     if (failed.length) throw new CliError(failed.join("\n"));
   } catch (error) {
     if (!moved.length) throw error;

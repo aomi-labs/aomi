@@ -17,9 +17,9 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { parse } from "toml";
 import { main } from "./app";
 import { core } from "./build-core";
-import { tarPackage } from "./commands/release";
 
 /** The real `aomi-build-core` and the official packages, when present. */
 const BUILT_CORE = process.env.AOMI_BUILD_CORE;
@@ -153,8 +153,9 @@ describe("aomi publish", () => {
     write("packages/price/guards.json", "{}");
     write("packages/price/README.md", "not a member");
     write("price.wasm", "\0asm");
-    // A stand-in core: logs each call, packs a fixed bundle named after
-    // its folder, and refuses a folder called `bad`.
+    // A stand-in core: logs each call, names a package after its folder,
+    // packs a fixed bundle, refuses the manifest of a folder called `bad`
+    // and the pack of one called `broken`.
     write(
       "core.cjs",
       [
@@ -162,13 +163,16 @@ describe("aomi publish", () => {
         'const fs = require("node:fs");',
         'const { basename } = require("node:path");',
         "const args = process.argv.slice(2);",
+        "const name = basename(args[1]);",
         'fs.appendFileSync(__dirname + "/core.log", JSON.stringify(args) + "\\n");',
-        'if (args[0] === "pack" && basename(args[1]) === "bad") {',
-        '  process.stdout.write(JSON.stringify({ error: { code: "manifest_invalid", message: "aomi.toml: bad" } }));',
+        "const refuse = (code, message) => {",
+        "  process.stdout.write(JSON.stringify({ error: { code, message } }));",
         "  process.exit(1);",
-        "}",
+        "};",
+        'if (args[0] === "manifest" && name === "bad") refuse("manifest_invalid", "aomi.toml: bad");',
+        'if (args[0] === "pack" && name === "broken") refuse("bundle_invalid", "skills/x.md: missing");',
         'if (args[0] === "pack") fs.writeFileSync(args[args.indexOf("--out") + 1], "bundle");',
-        'process.stdout.write(JSON.stringify(args[0] === "pack" ? { package: basename(args[1]) } : {}) + "\\n");',
+        'process.stdout.write(JSON.stringify(args[0] === "manifest" ? { package: name } : {}) + "\\n");',
       ].join("\n"),
     );
     chmodSync(join(root, "core.cjs"), 0o755);
@@ -216,9 +220,9 @@ describe("aomi publish", () => {
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line) as string[]);
-    const bundle = calls[0]!.at(-1)!;
+    const bundle = calls[1]!.at(-1)!;
     expect(calls).toEqual([
-      ["pack", join(root, "packages/price"), "--out", bundle],
+      ["manifest", join(root, "packages/price")],
       [
         "pack",
         join(root, "packages/price"),
@@ -339,7 +343,7 @@ describe("aomi publish", () => {
     );
     expect(stderr).toBe("");
     expect(code).toBe(0);
-    const [pack] = readFileSync(join(root, "core.log"), "utf8")
+    const [, pack] = readFileSync(join(root, "core.log"), "utf8")
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line) as string[]);
@@ -361,9 +365,76 @@ describe("aomi publish", () => {
       "price",
       "--no-build",
     );
-    expect(built.code).toBe(2);
-    expect(built.stderr).toContain("--no-build needs --wasm price=<path>");
+    expect(built.code).toBe(1);
+    expect(built.stderr).toBe(
+      "error: price: --no-build needs --wasm price=<path>\n",
+    );
     expect(sent).toHaveLength(1);
+  });
+
+  it("publishes each selected package that packs, prints each success as it goes, and reports the rest", async () => {
+    write(
+      "aomi.toml",
+      ["price", "broken", "coded"]
+        .map((name) => `[[packages]]\npath = "packages/${name}"\n`)
+        .concat('[[agents]]\nname = "hoodit"\n')
+        .join("\n"),
+    );
+    write("packages/coded/src/lib.rs", "");
+    answers["POST /api/build/packages/price/releases"] = Response.json(
+      { package: "alice/price", release: release(1), live: null },
+      { status: 201 },
+    );
+    answers["POST /api/build/agents/hoodit/configs"] = Response.json(
+      { code: "agent_invalid", message: "agent hoodit: unknown tool" },
+      { status: 422 },
+    );
+    const { code, stdout, stderr } = await cli(
+      "publish",
+      "--root",
+      root,
+      "--package",
+      "price",
+      "--package",
+      "broken",
+      "--package",
+      "coded",
+      "--agent",
+      "hoodit",
+      "--no-build",
+      "--json",
+    );
+    expect(code).toBe(1);
+    expect(JSON.parse(stdout)).toMatchObject({ package: "alice/price" });
+    expect(stderr).toBe(
+      [
+        "error: broken: bundle_invalid: skills/x.md: missing",
+        "coded: --no-build needs --wasm coded=<path>",
+        "hoodit: agent_invalid: agent hoodit: unknown tool",
+        "",
+      ].join("\n"),
+    );
+    expect(sent.map((request) => request.path)).toEqual([
+      `${BUILD}/api/build/packages/price/releases`,
+      `${BUILD}/api/build/agents/hoodit/configs`,
+    ]);
+    // Each package packs once; an agent-only publish reads no package.
+    const packs = readFileSync(join(root, "core.log"), "utf8")
+      .split("\n")
+      .filter((line) => line.startsWith('["pack"'));
+    expect(packs).toHaveLength(2);
+    rmSync(join(root, "core.log"));
+    answers["POST /api/build/agents/hoodit/configs"] = Response.json(
+      {
+        agent: "alice/hoodit",
+        config: { number: 1, digest: "sha256:c", created_at: "now" },
+        live: null,
+      },
+      { status: 201 },
+    );
+    const agent = await cli("publish", "--root", root, "--agent", "hoodit");
+    expect(agent.code).toBe(0);
+    expect(existsSync(join(root, "core.log"))).toBe(false);
   });
 
   it("leaves manifests to aomi-build-core and publishes the others when one does not pack", async () => {
@@ -438,7 +509,7 @@ describe("aomi publish", () => {
     expect(code).toBe(1);
     expect(stderr).toBe(
       [
-        "error: agent_invalid: agent hoodit: unknown tool",
+        "error: hoodit: agent_invalid: agent hoodit: unknown tool",
         "These pointers moved before the failure:",
         "  package alice/price  live 3 (was 2)  undo: aomi rollback package price 2",
         "",
@@ -585,6 +656,65 @@ describe("aomi codes", () => {
     });
   });
 });
+
+/** A plain ustar archive of `members`, in order. */
+function tar(members: [string, Uint8Array][]): Uint8Array {
+  const blocks: Uint8Array[] = [];
+  const encoder = new TextEncoder();
+  for (const [name, data] of members) {
+    const header = new Uint8Array(512);
+    const put = (offset: number, text: string) =>
+      header.set(encoder.encode(text), offset);
+    put(0, name);
+    put(100, "0000644\0");
+    put(108, "0000000\0");
+    put(116, "0000000\0");
+    put(124, `${data.length.toString(8).padStart(11, "0")}\0`);
+    put(136, "00000000000\0");
+    put(148, "        ");
+    put(156, "0");
+    put(257, "ustar\u000000");
+    const sum = header.reduce((total, byte) => total + byte, 0);
+    put(148, `${sum.toString(8).padStart(6, "0")}\0 `);
+    blocks.push(
+      header,
+      data,
+      new Uint8Array((512 - (data.length % 512)) % 512),
+    );
+  }
+  blocks.push(new Uint8Array(1024));
+  const archive = new Uint8Array(blocks.reduce((n, b) => n + b.length, 0));
+  let offset = 0;
+  for (const block of blocks) {
+    archive.set(block, offset);
+    offset += block.length;
+  }
+  return archive;
+}
+
+/**
+ * The legacy TypeScript packer, kept as an oracle: the members
+ * `dir/aomi.toml` declares, in a plain tar.
+ */
+function tarPackage(dir: string, wasm?: string): Uint8Array {
+  const manifest = parse(readFileSync(join(dir, "aomi.toml"), "utf8"));
+  const { icon, guards, skills = [] } = manifest.package ?? {};
+  const listed = [
+    icon,
+    ...(skills as { path: string }[]).map((skill) => skill.path),
+    guards,
+  ].filter((path): path is string => typeof path === "string");
+  return tar([
+    ["aomi.toml", readFileSync(join(dir, "aomi.toml"))],
+    ...(wasm
+      ? [["package.wasm", readFileSync(wasm)] as [string, Uint8Array]]
+      : []),
+    ...listed.map((path): [string, Uint8Array] => [
+      path,
+      readFileSync(join(dir, path)),
+    ]),
+  ]);
+}
 
 /**
  * An official package copied out of the packages repo. Until the manifest
