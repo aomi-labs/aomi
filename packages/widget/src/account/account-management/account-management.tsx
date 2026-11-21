@@ -148,7 +148,7 @@ export function AccountManagement({
               <button
                 type="button"
                 onClick={onAddWallet}
-                className={aomiButton({ variant: "secondary", size: "sm" })}
+                className={aomiButton({ variant: "primary", size: "sm" })}
               >
                 <Plus />
                 Add a wallet

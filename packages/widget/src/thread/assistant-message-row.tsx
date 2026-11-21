@@ -62,17 +62,15 @@ export function AssistantMessageRow({
     >
       {showMark && (
         <>
-          <AomiMark
-            size={26}
-            className="text-aomi-fg mt-0.5 hidden shrink-0 md:block"
-            aria-hidden
-          />
+          <span className="text-aomi-fg mt-px hidden h-8 w-[26px] shrink-0 items-center justify-center md:flex">
+            <AomiMark size={23.4} />
+          </span>
           <span
-            className="pointer-events-none absolute left-0 top-0.5 motion-reduce:transition-none md:hidden"
+            className="pointer-events-none absolute left-0 top-px flex h-8 w-[26px] items-center justify-center motion-reduce:transition-none md:hidden"
             style={{ opacity: offset / 40 }}
             aria-hidden
           >
-            <AomiMark size={26} />
+            <AomiMark size={23.4} />
           </span>
         </>
       )}

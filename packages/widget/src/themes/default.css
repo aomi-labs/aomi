@@ -29,6 +29,14 @@
   display: inline-block;
 }
 
+@utility aomi-action-fill {
+  background-color: var(--action-bg);
+  @media (hover: hover) {
+    &:hover { background-color: color-mix(in srgb, var(--action-bg) 92%, black); }
+  }
+  &:active { background-color: color-mix(in srgb, var(--action-bg) 84%, black); }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -234,6 +242,9 @@
      ---------------------------------------------------------------------- */
 
   /* surfaces — cool (zinc) ramp */
+  --aomi-action-primary: #416cac;
+  --aomi-action-danger-bg: #fae5e7;
+  --aomi-action-danger-fg: #aa2036;
   --aomi-bg: #ffffff; /* cool-0 */
   --aomi-surface: #fafafa; /* cool-50 */
   --aomi-surface-2: #f4f4f5; /* cool-100 */
@@ -336,6 +347,8 @@
      round close button all vanished. Each step below clears the one under it,
      and `border` clears all of them — on dark it carries the structure that
      fills carry on light. */
+  --aomi-action-danger-bg: #49262c;
+  --aomi-action-danger-fg: #ffb2bc;
   --aomi-bg: #09090b; /* cool-950 */
   --aomi-surface: #18181b; /* cool-900 · recessed, mirrors light's #fafafa */
   --aomi-raised: #202024; /* panels lift off bg, and leave room for fills */

@@ -268,7 +268,7 @@ function AccountSummaryCard({
               Your allowance is used first, then your added balance.
             </span>
             <div className="flex gap-2">
-              <AomiButton size="sm" onClick={() => setCheckoutOpen(true)}>
+              <AomiButton variant="primary" size="sm" onClick={() => setCheckoutOpen(true)}>
                 Add funds
               </AomiButton>
               <AomiButton size="sm" onClick={onViewBilling}>

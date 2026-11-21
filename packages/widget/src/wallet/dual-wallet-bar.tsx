@@ -1,5 +1,6 @@
 "use client";
 
+import { aomiButton } from "@/ui/aomi/button";
 import { cn } from "@/lib/cn";
 import { Fragment, useEffect, useState, type FC } from "react";
 import { LoadingLine } from "@/ui/aomi/loading-pane";
@@ -259,11 +260,8 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
   };
 
   const chipClassName = cn(
-    "inline-flex w-full items-center justify-between gap-2.5 whitespace-nowrap text-left transition-colors",
-    "border-aomi-border bg-aomi-raised text-aomi-fg hover:border-aomi-muted/60 shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
-    "focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-    // One chip shape for every state so signing in does not resize it.
-    "@container rounded-[12px] border p-2",
+    aomiButton({ variant: "secondary", size: null }),
+    "@container w-full justify-between gap-2.5 p-2 text-left",
     className,
   );
 

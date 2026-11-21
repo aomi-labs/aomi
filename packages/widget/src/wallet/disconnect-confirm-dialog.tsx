@@ -1,5 +1,6 @@
 "use client";
 
+import { AomiButton } from "@/ui/aomi/button";
 import { formatWalletAddress } from "./identity";
 
 export function DisconnectConfirmDialog({
@@ -53,26 +54,23 @@ export function DisconnectConfirmDialog({
           {description}
         </p>
         <div className="mt-5 flex justify-end gap-2.5">
-          <button
+          <AomiButton
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="border-aomi-border text-aomi-muted hover:text-aomi-fg h-9 rounded-full border px-3.5 text-[13px] font-medium transition-colors disabled:opacity-50"
+            className="h-9"
           >
             Cancel
-          </button>
-          <button
+          </AomiButton>
+          <AomiButton
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className={`${
-              signingOut
-                ? "bg-aomi-danger text-aomi-on-danger"
-                : "bg-aomi-fg text-aomi-bg"
-            } h-9 rounded-full px-3.5 text-[13px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-50`}
+            variant="secondary"
+            className="h-9"
           >
             {busy ? busyLabel : actionLabel}
-          </button>
+          </AomiButton>
         </div>
       </div>
     </div>

@@ -200,7 +200,7 @@ export function AccountMenu({
               onClose();
               onSignIn();
             }}
-            className="bg-aomi-fg text-aomi-bg mx-0.5 mb-1 flex h-9 w-[calc(100%-4px)] items-center justify-center rounded-lg px-2.5 text-[13px] font-medium transition-opacity hover:opacity-90"
+            className={cn(aomiButton({ variant: "primary" }), "mx-0.5 mb-1 h-9 w-[calc(100%-4px)]")}
           >
             Sign in
           </button>
