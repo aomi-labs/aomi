@@ -29,6 +29,15 @@
   display: inline-block;
 }
 
+/* Icon-only controls use the same interaction colors in toolbars and help hints. */
+@utility aomi-icon-trigger {
+  @apply inline-flex shrink-0 items-center justify-center rounded-full text-aomi-fg transition-colors focus-visible:outline-2 focus-visible:outline-aomi-ring;
+  &:enabled:is(:hover, :focus-visible, [data-state="instant-open"], [data-state="delayed-open"]) {
+    background-color: var(--aomi-accent-subtle);
+    color: var(--aomi-accent-strong);
+  }
+}
+
 /* Dropdowns share one surface across Radix portals and inline pickers. */
 @utility aomi-menu-panel {
   @apply rounded-[16px] border border-aomi-border bg-aomi-raised text-aomi-fg shadow-popover;

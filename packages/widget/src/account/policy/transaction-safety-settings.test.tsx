@@ -62,6 +62,16 @@ describe("default transaction safety", () => {
     expect(screen.queryByRole("button", { name: /Save/ })).toBeNull();
   });
 
+  it("opens the policy help on tap and dismisses it with Escape", async () => {
+    renderSettings();
+    const help = await screen.findByRole("button", { name: /^About / });
+    fireEvent.pointerDown(help, { pointerType: "touch" });
+    fireEvent.click(help);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Each new chat");
+    fireEvent.keyDown(help, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+  });
+
   it("saves on change through the account endpoint with the loaded revision", async () => {
     let settle!: (policy: TransactionSafetyPolicy) => void;
     state.request.mockImplementation((_path: string, options?: RequestInit) =>

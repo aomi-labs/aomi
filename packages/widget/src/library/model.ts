@@ -1,18 +1,18 @@
 import { useMemo } from "react";
 import {
-  AppWindow,
-  CandlestickChart,
-  CircleCheck,
-  Code2,
-  Compass,
-  FlaskConical,
-  Landmark,
-  Repeat2,
-  Sprout,
-  WandSparkles,
-  WalletCards,
-  type LucideIcon,
-} from "lucide-react";
+  ArrowsLeftRightIcon,
+  BankIcon,
+  ChartLineUpIcon,
+  CheckCircleIcon,
+  CodeIcon,
+  CompassIcon,
+  FlaskIcon,
+  MagicWandIcon,
+  PlantIcon,
+  SquaresFourIcon,
+  WalletIcon,
+} from "@/icons/ui-icons";
+import type { Icon } from "@phosphor-icons/react";
 import {
   conciseSkillDescription,
   skillLabel,
@@ -37,26 +37,26 @@ export type LibraryCategory =
   | "wallets"
   | "developer";
 
-export const NAV_ITEMS: { id: LibraryView; label: string; icon: LucideIcon }[] =
+export const NAV_ITEMS: { id: LibraryView; label: string; icon: Icon }[] =
   [
-    { id: "discover", label: "Discover", icon: Compass },
-    { id: "installed", label: "Installed", icon: CircleCheck },
-    { id: "apps", label: "Apps", icon: AppWindow },
-    { id: "skills", label: "Skills", icon: WandSparkles },
+    { id: "discover", label: "Discover", icon: CompassIcon },
+    { id: "installed", label: "Installed", icon: CheckCircleIcon },
+    { id: "apps", label: "Apps", icon: SquaresFourIcon },
+    { id: "skills", label: "Skills", icon: MagicWandIcon },
   ];
 
 export const CATEGORIES: {
   id: LibraryCategory;
   label: string;
-  icon: LucideIcon;
+  icon: Icon;
 }[] = [
-  { id: "lending", label: "Lending", icon: Landmark },
-  { id: "cross-chain", label: "Swap & bridge", icon: Repeat2 },
-  { id: "staking", label: "Staking", icon: Sprout },
-  { id: "trading", label: "Trading", icon: CandlestickChart },
-  { id: "research", label: "Research", icon: FlaskConical },
-  { id: "wallets", label: "Tokens & wallets", icon: WalletCards },
-  { id: "developer", label: "Developer", icon: Code2 },
+  { id: "lending", label: "Lending", icon: BankIcon },
+  { id: "cross-chain", label: "Swap & bridge", icon: ArrowsLeftRightIcon },
+  { id: "staking", label: "Staking", icon: PlantIcon },
+  { id: "trading", label: "Trading", icon: ChartLineUpIcon },
+  { id: "research", label: "Research", icon: FlaskIcon },
+  { id: "wallets", label: "Tokens & wallets", icon: WalletIcon },
+  { id: "developer", label: "Developer", icon: CodeIcon },
 ];
 
 const FEATURED = [

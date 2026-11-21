@@ -12,7 +12,7 @@ import {
   type SVGProps,
 } from "react";
 import type { Chain } from "viem";
-import { ChevronDown, Sparkles } from "lucide-react";
+import { CaretDownIcon, SparkleIcon } from "@/icons/ui-icons";
 import { Button } from "@/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { getChainIcon } from "@/icons/chain-map";
@@ -165,7 +165,7 @@ export const NetworkSelect: FC<NetworkSelectProps> = ({
             ))}
           </span>
           <span className="truncate">All networks</span>
-          <ChevronDown
+          <CaretDownIcon
             aria-hidden="true"
             className="size-3 shrink-0 opacity-60"
           />
@@ -183,7 +183,7 @@ export const NetworkSelect: FC<NetworkSelectProps> = ({
       >
         <div className="px-4 pb-3 pt-4">
           <p className="text-aomi-fg flex items-center gap-1.5 text-[13px] font-medium">
-            <Sparkles className="text-aomi-accent size-3.5" />
+            <SparkleIcon className="text-aomi-accent size-3.5" />
             Every network, no switching
           </p>
           <p className="text-aomi-muted mt-1 text-[11.5px] leading-[1.45]">

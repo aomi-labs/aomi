@@ -50,6 +50,8 @@ Widget and Portal action buttons use `AomiButton`. For links and slotted trigger
 
 Dropdowns use the shared `PopoverContent` surface or `aomi-menu-panel` for inline pickers. Use `aomi-menu-row` for neutral hover and `aomi-wallet-choice` for default-wallet triggers and choices. Wallet choices show a blue selection check and a keyboard focus outline.
 
+Widget interface icons use Phosphor Regular from `@/icons/ui-icons`. To add a glyph, find its name in the [Phosphor catalog](https://phosphoricons.com/) and re-export its individual React icon module in that file. Use the catalog for UI symbols and the existing brand maps for wallet, chain, and provider identities. Icon-only actions use `aomi-icon-trigger` with an accessible name and the shared tooltip. Explanatory question marks use `HelpHint`, which supports tap, hover, and keyboard focus.
+
 Widget navigation tabs and single-choice filter rows use `NavigationTab` from `@/ui/aomi/navigation-tab` with a 4px gap between items. It shares hover and selected colors with sidebar threads.
 
 Widget segmented controls use `Segmented` from `@/ui/aomi/segmented`. Pass the group label, options, value, and change handler. The component owns sizing, selection styling, and keyboard navigation.
