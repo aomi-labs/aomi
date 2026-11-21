@@ -242,15 +242,15 @@ function Meter({ daily, breakdown }: { daily: Row[]; breakdown: Row[] }) {
         covers payment setup in Chat.
       </p>
       <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
-        <div className="border-border overflow-x-auto rounded-2xl border">
+        <div className="overflow-x-auto">
           <table className="divide-border min-w-full divide-y text-sm">
             <thead className="build-table-band text-left text-sm">
               <tr>
-                <th className="build-row-padding">Day</th>
-                <th className="build-row-padding">App</th>
-                <th className="build-row-padding">Input</th>
-                <th className="build-row-padding">Output</th>
-                <th className="build-row-padding">Credits</th>
+                <th className={TH}>Day</th>
+                <th className={TH}>App</th>
+                <th className={TH}>Input</th>
+                <th className={TH}>Output</th>
+                <th className={TH}>Credits</th>
               </tr>
             </thead>
             <tbody className="divide-border bg-surface divide-y">

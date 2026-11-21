@@ -1,3 +1,4 @@
+import { TH } from "./table";
 import type { Project } from "@aomi-labs/deploy";
 import type { Icon as InterfaceIcon } from "@phosphor-icons/react";
 import {
@@ -532,19 +533,19 @@ function Rows({
       </div>
 
       {platformMetrics.length ? (
-        <div className="border-border overflow-hidden rounded-md border">
+        <div className="overflow-x-auto">
           <table className="divide-border min-w-full divide-y text-sm">
-            <thead className="bg-surface-subtle text-dim text-left text-xs uppercase">
+            <thead className="build-table-band">
               <tr>
-                <th className="px-3 py-2">Platform metric</th>
-                <th className="px-3 py-2">Value</th>
-                <th className="px-3 py-2">Scope</th>
+                <th className={TH}>Platform metric</th>
+                <th className={TH}>Value</th>
+                <th className={TH}>Scope</th>
               </tr>
             </thead>
             <tbody className="divide-border bg-surface divide-y">
               {platformMetrics.map((metric, index) => (
                 <tr key={`${metric.label}-${index}`}>
-                  <td className="px-3 py-2">
+                  <td className="px-4 py-2">
                     <div>{metric.label}</div>
                     {metric.description ? (
                       <div className="text-dim text-xs">
@@ -552,10 +553,10 @@ function Rows({
                       </div>
                     ) : null}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-4 py-2">
                     {unitLabel(metric.value, String(metric.unit ?? ""))}
                   </td>
-                  <td className="text-dim px-3 py-2">{metric.scope}</td>
+                  <td className="text-dim px-4 py-2">{metric.scope}</td>
                 </tr>
               ))}
             </tbody>

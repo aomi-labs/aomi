@@ -7,6 +7,7 @@ import { Suspense, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { GitHubSessionProvider } from "@/components/control-plane/github-session-context";
 import { OperateView, type ViewKind } from "@/features/operate/operate-view";
+import { UsageRows } from "@/features/operate/usage-rows";
 import { AppDetailView } from "@/features/operate/app-detail-view";
 import {
   ALL_LOGS,
@@ -183,7 +184,7 @@ const OBSERVABILITY = {
       scope: "owned_applications",
     },
   ],
-  platformMetrics: [],
+  platformMetrics: [{ label: "Request latency", value: 184, unit: "ms", scope: "Platform" }],
   apps: [
     {
       applicationId: 2_936_606,
@@ -479,18 +480,28 @@ export default function DevOperatePreview() {
         onClickCapture={(event) => {
           if (kind !== "observability") return;
           const card = (event.target as HTMLElement).closest(
-            "div.rounded-md.border",
+            "a[aria-label], div.rounded-md.border",
           );
           const name = APP_NAMES.find((appName) =>
             card?.textContent?.includes(appName),
           );
-          if (name) setDetailApp(name);
+          if (name) {
+            event.preventDefault();
+            event.stopPropagation();
+            setDetailApp(name);
+          }
         }}
       >
         <Suspense fallback={null}>
           <OperateView key={kind} kind={kind} />
         </Suspense>
       </div>
+      {kind === "usage" && (
+        <section className="operate-surface mx-auto max-w-7xl px-4 pb-8 sm:px-6 lg:px-8">
+          <h2 className="build-section-title mb-4">Daily usage</h2>
+          <UsageRows payload={{ daily: [{ periodUtcDay: "2026-07-15", application: "goal-digger", inputTokens: 6500, outputTokens: 850, creditsUsed: 0.12 }], breakdown: USAGE.breakdown }} />
+        </section>
+      )}
     </GitHubSessionProvider>
   );
 }

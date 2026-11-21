@@ -2,6 +2,7 @@
 // design harness. Product data is rendered as received; empty series are an
 // honest no-data state rather than substituted example values.
 
+import { TH } from "./table";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import type { AppFixture, TxRecord } from "@/features/operate/fixtures";
 
@@ -180,21 +181,23 @@ function Tile({
 }
 
 function Panel({
+  table,
   title,
   right,
   children,
 }: {
   title: string;
+  table?: boolean;
   right?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-border bg-surface rounded-md border">
+    <div className={table ? "bg-surface" : "border-border bg-surface rounded-md border"}>
       <div className="border-border flex items-center justify-between border-b px-3 py-2">
         <span className="text-dim text-xs font-medium uppercase">{title}</span>
         {right}
       </div>
-      <div className="px-3 py-3">{children}</div>
+      <div className={table ? undefined : "px-3 py-3"}>{children}</div>
     </div>
   );
 }
@@ -456,6 +459,7 @@ export function AppDetailView({
 
       {/* Tools table → click a row to open its trace in Logs */}
       <Panel
+        table
         title={`Tools · ${window}`}
         right={
           <span className="text-dim text-xs">
@@ -465,14 +469,14 @@ export function AppDetailView({
       >
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="text-dim text-left text-xs uppercase">
+            <thead className="build-table-band">
               <tr>
-                <th className="py-1.5 pr-3">Tool</th>
-                <th className="py-1.5 pr-3">Calls</th>
-                <th className="py-1.5 pr-3">Errors</th>
-                <th className="py-1.5 pr-3">Error rate</th>
-                <th className="py-1.5 pr-3">P95</th>
-                <th className="py-1.5">Last error</th>
+                <th className={TH}>Tool</th>
+                <th className={TH}>Calls</th>
+                <th className={TH}>Errors</th>
+                <th className={TH}>Error rate</th>
+                <th className={TH}>P95</th>
+                <th className={TH}>Last error</th>
               </tr>
             </thead>
             <tbody className="divide-border divide-y">
@@ -483,16 +487,16 @@ export function AppDetailView({
                     onClick={() => onOpenTrace(row.tool)}
                     className="hover:bg-surface-subtle cursor-pointer"
                   >
-                    <td className="py-2 pr-3 font-mono text-xs">{row.tool}</td>
-                    <td className="py-2 pr-3">{row.calls ?? "—"}</td>
-                    <td className="py-2 pr-3">{row.errors ?? "—"}</td>
+                    <td className="py-2 px-4 font-mono text-xs">{row.tool}</td>
+                    <td className="py-2 px-4">{row.calls ?? "—"}</td>
+                    <td className="py-2 px-4">{row.errors ?? "—"}</td>
                     <td
-                      className={`py-2 pr-3 font-medium ${row.bad ? "text-red-500" : ""}`}
+                      className={`py-2 px-4 font-medium ${row.bad ? "text-red-500" : ""}`}
                     >
                       {row.errorRate}
                     </td>
-                    <td className="py-2 pr-3">{row.p95}</td>
-                    <td className="text-dim py-2 text-xs">{row.last}</td>
+                    <td className="py-2 px-4">{row.p95}</td>
+                    <td className="text-dim px-4 py-2 text-xs">{row.last}</td>
                   </tr>
                 ))
               ) : (
@@ -510,6 +514,7 @@ export function AppDetailView({
       {/* Transactions + right column */}
       <div className="grid gap-2 lg:grid-cols-[1fr_340px]">
         <Panel
+          table
           title="Recent transactions"
           right={
             <span className="text-dim text-xs">
@@ -520,14 +525,14 @@ export function AppDetailView({
           {recentTx.length ? (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="text-dim text-left text-xs uppercase">
+                <thead className="build-table-band">
                   <tr>
-                    <th className="py-1.5 pr-3">Time</th>
-                    <th className="py-1.5 pr-3">Action</th>
-                    <th className="py-1.5 pr-3">Chain</th>
-                    <th className="py-1.5 pr-3">Status</th>
-                    <th className="py-1.5 pr-3">Fee</th>
-                    <th className="py-1.5">Platform fee</th>
+                    <th className={TH}>Time</th>
+                    <th className={TH}>Action</th>
+                    <th className={TH}>Chain</th>
+                    <th className={TH}>Status</th>
+                    <th className={TH}>Fee</th>
+                    <th className={TH}>Platform fee</th>
                   </tr>
                 </thead>
                 <tbody className="divide-border divide-y">
@@ -537,24 +542,24 @@ export function AppDetailView({
                       onClick={() => onOpenTx(tx.id)}
                       className="hover:bg-surface-subtle cursor-pointer"
                     >
-                      <td className="text-dim py-2 pr-3 text-xs">
+                      <td className="text-dim py-2 px-4 text-xs">
                         {clockOf(tx)}
                       </td>
-                      <td className="max-w-64 truncate py-2 pr-3">
+                      <td className="max-w-64 truncate py-2 px-4">
                         {tx.description}
                       </td>
-                      <td className="py-2 pr-3">{tx.chain}</td>
-                      <td className="py-2 pr-3">
+                      <td className="py-2 px-4">{tx.chain}</td>
+                      <td className="py-2 px-4">
                         <span
                           className={`rounded-full border px-2 py-0.5 text-xs ${STATUS_CHIP[tx.status]}`}
                         >
                           {tx.status}
                         </span>
                       </td>
-                      <td className="py-2 pr-3 font-mono text-xs">
+                      <td className="py-2 px-4 font-mono text-xs">
                         {tx.txFee ?? "—"}
                       </td>
-                      <td className="py-2 font-mono text-xs">
+                      <td className="px-4 py-2 font-mono text-xs">
                         {tx.platformFee ?? "—"}
                       </td>
                     </tr>
