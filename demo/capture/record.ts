@@ -143,32 +143,42 @@ async function typePrompt(
 ): Promise<void> {
   const page = composer.page();
   const norm = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const chips = composer.locator("[data-capability-key]");
   for (const part of prompt.split(/(@[A-Za-z0-9_]+)/)) {
     if (!part) continue;
     await composer.pressSequentially(part, { delay: TYPING_DELAY_MS });
     if (!part.startsWith("@")) continue;
     const token = part.slice(1);
-    const want = norm(mentions[token] ?? token);
+    const want = mentions[token] ?? token;
     const options = page.locator('[role="listbox"] [role="option"]');
-    const opened = await options
+    // Pick the option by its label, never by position or the first fuzzy hit:
+    // "@stocks" otherwise picks Swap and "@robinhood" the Robinhood chain.
+    const escaped = want.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const option = options.filter({
+      has: page.locator("span.block").filter({
+        hasText: new RegExp(`^\\s*${escaped}\\s*$`, "i"),
+      }),
+    });
+    const found = await option
       .first()
       .waitFor({ timeout: 4_000 })
       .then(() => true)
       .catch(() => false);
-    if (!opened) continue;
-    await page.waitForTimeout(250);
-    // Click the option whose label matches, never just the first fuzzy hit:
-    // "@stocks" otherwise picks Swap and "@robinhood" the Robinhood chain.
-    const labels = await options.evaluateAll((nodes) =>
-      nodes.map((n) => n.querySelector("span.block")?.textContent ?? ""),
-    );
-    const index = labels.findIndex((label) => norm(label) === want);
-    if (index >= 0) {
-      await options.nth(index).click();
-    } else {
-      throw new Error(
-        `@${token}: no picker option labelled "${mentions[token] ?? token}" (saw ${labels.join(", ")})`,
+    if (!found) {
+      const labels = await options.evaluateAll((nodes) =>
+        nodes.map((n) => n.querySelector("span.block")?.textContent ?? ""),
       );
+      throw new Error(
+        `@${token}: no picker option labelled "${want}" (saw ${labels.join(", ") || "no picker"})`,
+      );
+    }
+    const before = await chips.count();
+    await option.first().click();
+    const chip = chips.nth(before);
+    await chip.waitFor({ timeout: 2_000 });
+    const label = (await chip.textContent()) ?? "";
+    if (!norm(label).includes(norm(want))) {
+      throw new Error(`@${token}: inserted "${label.trim()}", expected "${want}"`);
     }
   }
 }
@@ -342,9 +352,11 @@ async function runScenario(
       await composer.click();
       await typePrompt(composer, prompt, scenario.mentions);
       // Take 7 lost its first keystroke to hydration ("~~S~~take half…"), and a
-      // typo'd prompt is on camera forever. Verify; retype once if mangled.
-      const typed = await composer.inputValue().catch(() => null);
-      if (typed !== null && typed !== prompt) {
+      // typo'd prompt is on camera forever. The composer is contenteditable and
+      // shows mentions as chips, so check the opening words; retype once.
+      const opening = prompt.split("@")[0].trim();
+      const typed = (await composer.innerText()).replace(/\s+/g, " ").trim();
+      if (!typed.startsWith(opening)) {
         await composer.fill("");
         await typePrompt(composer, prompt, scenario.mentions);
       }
