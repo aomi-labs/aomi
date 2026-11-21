@@ -1,12 +1,12 @@
 import type { Project } from "@aomi-labs/deploy";
+import type { Icon as InterfaceIcon } from "@phosphor-icons/react";
 import {
-  Activity,
-  Gauge,
-  ListFilter,
-  ScrollText,
-  WalletCards,
-  type LucideIcon,
-} from "lucide-react";
+  FunnelSimpleIcon,
+  GaugeIcon,
+  PulseIcon,
+  ScrollIcon,
+  WalletIcon,
+} from "@/components/control-plane/icons";
 import { UrlLink as Link } from "@/components/url-link";
 import {
   useLocation,
@@ -79,11 +79,11 @@ type PaymentState = {
 };
 
 const meta = {
-  transactions: { title: "Transactions", icon: WalletCards },
-  usage: { title: "Usage", icon: Gauge },
-  logs: { title: "Logs", icon: ScrollText },
-  observability: { title: "Observability", icon: Activity },
-} satisfies Record<ViewKind, { title: string; icon: LucideIcon }>;
+  transactions: { title: "Transactions", icon: WalletIcon },
+  usage: { title: "Usage", icon: GaugeIcon },
+  logs: { title: "Logs", icon: ScrollIcon },
+  observability: { title: "Observability", icon: PulseIcon },
+} satisfies Record<ViewKind, { title: string; icon: InterfaceIcon }>;
 
 function projectLabel(project: Projectish) {
   return project.repositoryLink || `Project ${project.id}`;
@@ -747,11 +747,11 @@ export function OperateView({ kind }: { kind: ViewKind }) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-[var(--aomi-section-gap)] px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Icon className="text-dim size-5" />
-          <h1 className="font-display text-xl font-normal tracking-tight">
+          <h1 className="build-page-title">
             {meta[kind].title}
           </h1>
           {payload?.example ? (
@@ -764,7 +764,7 @@ export function OperateView({ kind }: { kind: ViewKind }) {
           ) : null}
         </div>
         <label className="text-dim flex items-center gap-2 text-sm">
-          <ListFilter className="size-4" />
+          <FunnelSimpleIcon className="size-4" />
           <select
             value={projectId ?? ""}
             onChange={(event) =>
@@ -772,7 +772,8 @@ export function OperateView({ kind }: { kind: ViewKind }) {
                 event.target.value ? Number(event.target.value) : null,
               )
             }
-            className="border-border bg-surface text-foreground h-9 rounded-md border px-2"
+            aria-label="Filter by project"
+            className="bg-[var(--aomi-g1)] hover:bg-accent-hover text-foreground h-9 max-w-full rounded-[8px] px-3 text-sm"
           >
             <option value="">All projects</option>
             {projects.map((source) => (

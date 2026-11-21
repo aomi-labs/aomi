@@ -58,17 +58,17 @@ function SummaryTiles({
     },
   ];
   return (
-    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {tiles.map((tile) => (
         <div
           key={tile.label}
-          className="border-border bg-surface rounded-md border px-3 py-2.5"
+          className="border-border bg-surface build-row-padding space-y-[var(--aomi-caption-gap)] rounded-2xl border"
         >
-          <div className="text-dim text-xs">{tile.label}</div>
-          <div className={`text-lg font-semibold ${tile.valueClass}`}>
+          <div className="build-caption">{tile.label}</div>
+          <div className={`build-page-title tabular-nums ${tile.valueClass}`}>
             {tile.value}
           </div>
-          <div className="text-dim text-xs">{tile.sub}</div>
+          <div className="build-caption">{tile.sub}</div>
         </div>
       ))}
     </div>
@@ -80,7 +80,7 @@ function ConfiguredPrices({ resources }: { resources: Row[] }) {
     <Card title="Configured prices">
       <div className="overflow-x-auto">
         <table className="divide-border min-w-full divide-y text-sm">
-          <thead className="bg-surface-subtle">
+          <thead className="build-table-band">
             <tr>
               <th className={TH}>Tool</th>
               <th className={TH}>Price</th>
@@ -92,10 +92,10 @@ function ConfiguredPrices({ resources }: { resources: Row[] }) {
             {resources.map((resource, index) => (
               <tr key={`${resource.applicationId}-${resource.tool}-${index}`}>
                 <td className={TD}>
-                  <div className="font-mono text-xs">{resource.tool}</div>
-                  <div className="text-dim text-xs">{resource.application}</div>
+                  <div className="tabular-nums text-sm">{resource.tool}</div>
+                  <div className="build-caption">{resource.application}</div>
                 </td>
-                <td className={`${TD} whitespace-nowrap font-mono text-xs`}>
+                <td className={`${TD} whitespace-nowrap tabular-nums text-sm`}>
                   {Number(resource.flatCredits ?? 0).toFixed(2)} credits
                   <div className="text-dim">
                     {usdLabel(resource.flatUsd)} / success
@@ -103,12 +103,12 @@ function ConfiguredPrices({ resources }: { resources: Row[] }) {
                 </td>
                 <td className={TD}>
                   <div
-                    className="font-mono text-xs"
+                    className="tabular-nums text-sm"
                     title={resource.recipient ?? ""}
                   >
                     {truncateAddress(resource.recipient)}
                   </div>
-                  <div className="text-dim text-xs">
+                  <div className="build-caption">
                     {caipChainLabel(resource.chain)}
                   </div>
                 </td>
@@ -129,7 +129,7 @@ function PaymentActivity({ events }: { events: Row[] }) {
     <Card title="Payment activity">
       <div className="overflow-x-auto">
         <table className="divide-border min-w-full divide-y text-sm">
-          <thead className="bg-surface-subtle">
+          <thead className="build-table-band">
             <tr>
               <th className={TH}>Time</th>
               <th className={TH}>Event</th>
@@ -145,17 +145,17 @@ function PaymentActivity({ events }: { events: Row[] }) {
                 </td>
                 <td className={TD}>
                   <div className="text-xs">{eventLabel(event)}</div>
-                  <div className="text-dim text-xs">
+                  <div className="build-caption">
                     {event.application ?? truncateAddress(event.recipient)}
                   </div>
                 </td>
-                <td className={`${TD} whitespace-nowrap font-mono text-xs`}>
+                <td className={`${TD} whitespace-nowrap tabular-nums text-sm`}>
                   {usdLabel(event.usd)}
                   <div className="text-dim">
                     {Number(event.credits ?? 0).toFixed(2)} credits
                   </div>
                 </td>
-                <td className={`${TD} font-mono text-xs`}>
+                <td className={`${TD} tabular-nums text-sm`}>
                   <Receipt event={event} />
                 </td>
               </tr>
@@ -214,7 +214,7 @@ export function PartnerPayments({
             Partner payments
           </div>
           {period ? (
-            <div className="text-dim text-xs">Statement · {period}</div>
+            <div className="build-caption">Statement · {period}</div>
           ) : null}
         </div>
         <p className="text-dim mt-1 text-xs leading-5">

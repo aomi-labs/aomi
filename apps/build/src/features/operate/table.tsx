@@ -1,8 +1,8 @@
 // Table primitives shared by the Operate surfaces: a titled card shell plus the
 // header/cell class pair every Operate table uses.
 
-export const TH = "px-3 py-2 text-left text-xs uppercase text-dim font-medium";
-export const TD = "px-3 py-2";
+export const TH = "build-row-padding text-left text-[length:var(--aomi-caption)] font-medium";
+export const TD = "build-row-padding";
 
 export function Card({
   title,
@@ -14,12 +14,12 @@ export function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-border bg-surface rounded-md border">
-      <div className="border-border flex items-center justify-between border-b px-3 py-2">
-        <span className="text-dim text-xs font-medium uppercase">{title}</span>
+    <section className="min-w-0">
+      <div className="mb-[var(--aomi-heading-gap)] flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="build-section-title">{title}</h2>
         {right}
       </div>
-      {children}
-    </div>
+      <div className="border-border bg-surface overflow-hidden rounded-2xl border">{children}</div>
+    </section>
   );
 }

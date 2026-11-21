@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "./aomi-design-tokens.css";
+@import "@aomi-labs/widget/design-tokens.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -13,7 +14,7 @@
   --composer: var(--aomi-chat-composer-bg);
   --composer-border: var(--aomi-border-strong);
 
-  --border: var(--aomi-border);
+  --border: var(--aomi-g1);
   --border-hover: var(--aomi-border-strong);
   --border-active: var(--aomi-accent-interactive);
 
@@ -23,9 +24,9 @@
   --link: var(--aomi-info-500);
 
   --text-primary: var(--aomi-text);
-  --text-subtle: var(--aomi-text-muted);
-  --text-dim: var(--aomi-text-subtle);
-  --text-muted: var(--aomi-text-muted);
+  --text-subtle: var(--aomi-g3);
+  --text-dim: var(--aomi-g3);
+  --text-muted: var(--aomi-g3);
   --text-hint: var(--aomi-text-subtle);
 
   --foreground: var(--aomi-text);
@@ -42,9 +43,9 @@
   --accent: var(--aomi-accent-subtle);
   /* Hover for rows/cards on plain surfaces; rail items sitting on the
      cool-100 sidebar use --aomi-state-hover directly for a fuller step. */
-  --accent-hover: var(--aomi-primary-subtle);
-  --accent-selected: var(--aomi-accent-selected);
-  --accent-selected-foreground: var(--aomi-accent-selected-text);
+  --accent-hover: var(--aomi-g2);
+  --accent-selected: var(--aomi-b2);
+  --accent-selected-foreground: var(--aomi-control-ink);
   --accent-foreground: var(--aomi-text);
   --destructive: var(--aomi-danger-500);
   --destructive-foreground: var(--aomi-cool-0);
@@ -390,29 +391,24 @@
 
 /* Nav link */
 .nav-link {
-  @apply flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] transition-all duration-150;
+  @apply flex h-9 items-center gap-2.5 rounded-[8px] px-2.5 text-sm transition-colors;
+  color: var(--aomi-control-ink);
 }
-.nav-link[data-active="false"] {
-  color: var(--aomi-text-secondary);
+.nav-link[data-active="false"]:hover { background: var(--accent-hover); }
+.nav-link[data-active="true"] { background: var(--accent-selected); font-weight: 500; }
+
+@utility build-page-title {
+  font: 600 var(--aomi-level-1)/1.3 var(--aomi-font-sans);
+  letter-spacing: -.02em;
 }
-.nav-link[data-active="false"]:hover {
-  background: var(--aomi-state-hover);
-  color: var(--text-primary);
+@utility build-section-title {
+  font-size: var(--aomi-level-2);
+  line-height: 1.4;
+  font-weight: 600;
 }
-.nav-link[data-active="false"] .nav-icon {
-  color: var(--text-subtle);
-}
-.nav-link[data-active="false"]:hover .nav-icon {
-  color: var(--text-primary);
-}
-.nav-link[data-active="true"] {
-  background: var(--accent-selected);
-  color: var(--accent-selected-foreground);
-  font-weight: 500;
-}
-.nav-link[data-active="true"] .nav-icon {
-  color: var(--accent-selected-foreground);
-}
+@utility build-caption { font-size: var(--aomi-caption); color: var(--aomi-g3); }
+@utility build-table-band { background: var(--aomi-b3); color: white; }
+@utility build-row-padding { padding: var(--aomi-row-padding); }
 
 /* Markdown thread (agent responses) */
 .md-thread {
