@@ -152,7 +152,7 @@ export function ModalNav({
     <nav
       aria-label={label}
       className={cn(
-        "aomi-modal-nav flex gap-1.5 overflow-x-auto px-4 md:block md:space-y-0.5 md:px-0",
+        "aomi-modal-nav flex gap-1.5 overflow-x-auto px-4 md:block md:space-y-1 md:px-0",
         className,
       )}
     >

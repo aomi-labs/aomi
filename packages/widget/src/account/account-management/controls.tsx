@@ -211,7 +211,7 @@ export function ActionsMenu({
         aria-label={label}
         align="end"
         sideOffset={5}
-        className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-card shadow-popover z-[90] w-max min-w-48 max-w-[calc(100vw-2rem)] border p-1"
+        className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-card shadow-popover z-[90] space-y-1 w-max min-w-48 max-w-[calc(100vw-2rem)] border p-1"
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key))

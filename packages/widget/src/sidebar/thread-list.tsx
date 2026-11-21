@@ -51,7 +51,7 @@ export const ThreadList: FC = () => {
   return (
     <ThreadListPrimitive.Root
       data-testid={testIds.threadList}
-      className="aui-root aui-thread-list-root flex w-full flex-1 list-none flex-col items-stretch gap-0.5 px-2"
+      className="aui-root aui-thread-list-root flex w-full flex-1 list-none flex-col items-stretch gap-1 px-2"
     >
       <ThreadListNew />
       <ThreadListItems />
@@ -402,7 +402,7 @@ const ThreadListItemMenu: FC<{
         side="bottom"
         sideOffset={6}
         alignOffset={0}
-        className="aui-thread-list-item-menu-content border-aomi-overlay-border bg-aomi-raised w-44 rounded-xl border p-1.5"
+        className="aui-thread-list-item-menu-content border-aomi-overlay-border bg-aomi-raised space-y-1 w-44 rounded-xl border p-1.5"
         onClick={(event) => event.stopPropagation()}
         onPointerEnter={onContentPointerEnter}
         onPointerLeave={onContentPointerLeave}

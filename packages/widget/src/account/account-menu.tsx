@@ -73,7 +73,7 @@ function MenuRow({
     <button
       type="button"
       onClick={onClick}
-      className="text-aomi-fg aomi-nav-row flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-left text-[13px] transition-colors"
+      className="text-aomi-fg aomi-nav-row mb-1 flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-left text-[13px] transition-colors"
     >
       <span>{label}</span>
       {trailing ? (

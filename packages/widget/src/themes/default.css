@@ -12,7 +12,10 @@
 /* Shared pointer, keyboard, and selection treatment for navigation rows. */
 @utility aomi-nav-row {
   &:hover,
-  &:focus-visible,
+  &:focus-visible {
+    background-color: var(--aomi-hover);
+  }
+
   &[data-active],
   &[aria-pressed="true"],
   &[aria-checked="true"] {
