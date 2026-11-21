@@ -40,7 +40,10 @@
       "types": "./dist/providers/privy.d.ts",
       "import": "./dist/providers/privy.js"
     },
-    "./design-tokens.css": "./design-tokens.css",
+    "./design-tokens.css": {
+      "types": "./dist/styles.d.ts",
+      "default": "./design-tokens.css"
+    },
     "./styles.css": {
       "types": "./dist/styles.d.ts",
       "default": "./dist/styles.css"
