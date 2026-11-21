@@ -22,7 +22,7 @@ import {
   usd,
 } from "./usage-shared";
 import { shortAddress } from "@aomi-labs/client";
-import { FilterChip } from "@/account/connections/wallet-view";
+import { NavigationTab } from "@/ui/aomi/navigation-tab";
 
 type View = "byApp" | "itemized";
 type Subject = "all" | "model" | "tool" | "onchain";
@@ -192,18 +192,18 @@ export function StatementView() {
             </div>
 
             {view === "itemized" && (
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div role="group" aria-label="Statement subject" className="flex flex-wrap items-center gap-1">
                 <span className="text-aomi-muted mr-1 text-[11px] uppercase tracking-wide">
                   Subject
                 </span>
                 {SUBJECTS.map((s) => (
-                  <FilterChip
+                  <NavigationTab
                     key={s.id}
                     active={subject === s.id}
                     onClick={() => setSubject(s.id)}
                   >
                     {s.label}
-                  </FilterChip>
+                  </NavigationTab>
                 ))}
               </div>
             )}

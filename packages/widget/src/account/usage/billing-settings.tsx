@@ -3,7 +3,7 @@
 import { useCallback, useState, type ReactNode } from "react";
 import Link from "@/ui/link";
 import { ChevronRight, Plus } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { NavigationTab } from "@/ui/aomi/navigation-tab";
 import { AomiButton } from "@/ui/aomi/button";
 import { AllowanceRing } from "@/ui/aomi/allowance-ring";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
@@ -60,23 +60,12 @@ export function BillingSettings({
       <div
         role="group"
         aria-label="Billing view"
-        className="border-aomi-border bg-aomi-surface flex h-8 w-max items-center rounded-lg border p-[3px]"
+        className="flex flex-wrap items-center gap-1"
       >
         {VIEWS.map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            aria-pressed={view === id}
-            onClick={() => setView(id)}
-            className={cn(
-              "rounded-md px-3.5 py-1 text-[12px] leading-none transition-colors",
-              view === id
-                ? "bg-aomi-surface-2 text-aomi-fg font-medium"
-                : "text-aomi-muted hover:text-aomi-fg",
-            )}
-          >
+          <NavigationTab key={id} active={view === id} onClick={() => setView(id)}>
             {label}
-          </button>
+          </NavigationTab>
         ))}
       </div>
 

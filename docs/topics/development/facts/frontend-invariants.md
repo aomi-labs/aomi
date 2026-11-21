@@ -50,6 +50,8 @@ Widget and Portal action buttons use `AomiButton`. For links and slotted trigger
 
 Dropdowns use the shared `PopoverContent` surface or `aomi-menu-panel` for inline pickers. Use `aomi-menu-row` for neutral hover and `aomi-wallet-choice` for default-wallet triggers and choices. Wallet choices show a blue selection check and a keyboard focus outline.
 
+Widget navigation tabs and single-choice filter rows use `NavigationTab` from `@/ui/aomi/navigation-tab` with a 4px gap between items. It shares hover and selected colors with sidebar threads.
+
 Widget segmented controls use `Segmented` from `@/ui/aomi/segmented`. Pass the group label, options, value, and change handler. The component owns sizing, selection styling, and keyboard navigation.
 
 `@aomi-labs/widget/host-composition` is the intentional contract for

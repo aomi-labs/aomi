@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/cn";
+import { NavigationTab } from "@/ui/aomi/navigation-tab";
 import { useState, type ReactNode } from "react";
 import {
   BadgeCheck,
@@ -264,33 +265,6 @@ export function usePage<T>(items: readonly T[], pageSize: number) {
   };
 }
 
-/** A filter chip, as on the usage statement. */
-export function FilterChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn(
-        "rounded-full border px-3 py-[5px] text-xs transition-colors",
-        active
-          ? "bg-aomi-surface-2 text-aomi-fg border-transparent font-medium"
-          : "border-aomi-border text-aomi-muted hover:text-aomi-fg",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
 const addressLine = (row: WalletViewRow) =>
   row.addresses.map((entry) => shortAddress(entry.address)).join(" · ") +
   (row.addresses.length === 1
@@ -377,8 +351,8 @@ export function WalletView({
         </label>
       ) : null}
       {kinds.length > 1 ? (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <FilterChip
+        <div role="group" aria-label="Wallet filters" className="flex flex-wrap items-center gap-1">
+          <NavigationTab
             active={kind === "all"}
             onClick={() => {
               setKind("all");
@@ -386,9 +360,9 @@ export function WalletView({
             }}
           >
             All
-          </FilterChip>
+          </NavigationTab>
           {kinds.map((entry) => (
-            <FilterChip
+            <NavigationTab
               key={entry}
               active={kind === entry}
               onClick={() => {
@@ -397,7 +371,7 @@ export function WalletView({
               }}
             >
               {KINDS[entry]}
-            </FilterChip>
+            </NavigationTab>
           ))}
         </div>
       ) : null}
