@@ -27,3 +27,5 @@ export { SquaresFourIcon } from "@phosphor-icons/react/dist/icons/SquaresFour";
 export { SunIcon } from "@phosphor-icons/react/dist/icons/Sun";
 export { UserCircleIcon } from "@phosphor-icons/react/dist/icons/UserCircle";
 export { WalletIcon } from "@phosphor-icons/react/dist/icons/Wallet";
+
+export { CheckIcon } from "@phosphor-icons/react/dist/icons/Check";

@@ -62,7 +62,7 @@ function SummaryTiles({
       {tiles.map((tile) => (
         <div
           key={tile.label}
-          className="border-border bg-surface build-row-padding min-w-0 [overflow-wrap:anywhere] space-y-[var(--aomi-caption-gap)] rounded-2xl border"
+          className="border-border bg-surface build-row-padding min-w-0 [overflow-wrap:anywhere] space-y-[var(--aomi-caption-gap)] rounded-build-panel border"
         >
           <div className="build-caption">{tile.label}</div>
           <div className={`build-page-title tabular-nums ${tile.valueClass}`}>

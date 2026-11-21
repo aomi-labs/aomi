@@ -19,7 +19,7 @@ export function Card({
         <h2 className="build-section-title">{title}</h2>
         {right}
       </div>
-      <div className="bg-surface overflow-x-auto">{children}</div>
+      <div className="build-table-frame">{children}</div>
     </section>
   );
 }

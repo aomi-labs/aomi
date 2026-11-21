@@ -217,3 +217,5 @@ Use level 1 for page titles and primary amounts (24px), level 2 for section titl
 | Selected navigation, segmented choices | `NavigationTab`, `Segmented` |
 | B3 table group / footer action | `aomi-table-band`, `AomiButton variant="on-band"` |
 | Neutral, primary and destructive actions | `AomiButton` with the corresponding variant |
+
+Build imports `NavigationTab`, `PillDropdown`, and `AomiButton` from `@aomi-labs/widget/controls`. Use `aomiButton` to give a link the same action styling. Operate cards and table frames share the 12px panel radius.

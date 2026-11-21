@@ -1,8 +1,10 @@
+import { TH } from "./table";
 // Transactions table with etherscan-style row expansion. Submit-time fields
 // render from today's payload; receipt fields (status detail, fee story,
 // transfers, revert reason) light up when the confirmation watcher ships.
 // EVM/SVM vocabulary flexes on the row's `family`.
 
+import { PillDropdown, aomiButton } from "@aomi-labs/widget/controls";
 import { Fragment } from "react";
 import { ChevronDown, ChevronRight, Copy, ExternalLink, X } from "lucide-react";
 import {
@@ -99,7 +101,7 @@ function TxDetail({ tx }: { tx: TxRow }) {
             {statusDetail(tx)}
           </span>
           {tx.revertReason ? (
-            <div className="mt-1.5 rounded-md border border-red-500/30 bg-red-500/5 px-2.5 py-1.5 text-xs text-red-500">
+            <div className="mt-1.5 rounded-build-panel border border-red-500/30 bg-red-500/5 px-2.5 py-1.5 text-xs text-red-500">
               {tx.revertReason}
             </div>
           ) : null}
@@ -188,7 +190,7 @@ function TxDetail({ tx }: { tx: TxRow }) {
         ) : null}
         {tx.calldataPreview ? (
           <Field label={svm ? "Instruction data" : "Calldata"}>
-            <div className="border-border bg-surface max-h-20 overflow-y-auto rounded-md border px-2.5 py-2">
+            <div className="border-border bg-surface max-h-20 overflow-y-auto rounded-build-panel border px-2.5 py-2">
               <Mono>{tx.calldataPreview}</Mono>
             </div>
           </Field>
@@ -197,7 +199,7 @@ function TxDetail({ tx }: { tx: TxRow }) {
 
       {/* Agent context — what no explorer can show */}
       <div className="mt-4 lg:mt-0">
-        <div className="border-border bg-surface rounded-md border">
+        <div className="border-border bg-surface rounded-build-panel border">
           <div className="border-border text-dim border-b px-3 py-2 text-xs font-medium uppercase">
             {payout ? "Partner payment context" : "Agent context"}
           </div>
@@ -234,7 +236,7 @@ function TxDetail({ tx }: { tx: TxRow }) {
             href={String(tx.explorerUrl)}
             target="_blank"
             rel="noreferrer"
-            className="border-border bg-surface hover:bg-accent-hover mt-2 flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm"
+            className="border-border bg-surface hover:bg-accent-hover mt-2 flex items-center justify-center gap-1.5 rounded-build-panel border px-3 py-2 text-sm"
           >
             View on explorer <ExternalLink className="size-3.5" />
           </a>
@@ -264,24 +266,18 @@ export function TransactionRows({
   );
   return (
     <div className="space-y-3">
-      <div className="border-border bg-surface-subtle flex flex-wrap items-center gap-2 rounded-md border px-3 py-2">
-        <select
+      <div className="border-border bg-surface-subtle flex flex-wrap items-center gap-2 rounded-build-panel border px-3 py-2">
+        <PillDropdown
+          label="Filter by app"
           value={appFilter ?? ""}
-          onChange={(event) => onAppFilterChange(event.target.value || null)}
-          className="border-border bg-surface text-foreground h-8 rounded-md border px-2 text-xs"
-        >
-          <option value="">All apps</option>
-          {apps.map((app) => (
-            <option key={app} value={app}>
-              {app}
-            </option>
-          ))}
-        </select>
+          options={[{ id: "", label: "All apps" }, ...apps.map(id => ({ id, label: id }))]}
+          onChange={id => onAppFilterChange(id || null)}
+        />
         {appFilter ? (
           <button
             type="button"
             onClick={() => onAppFilterChange(null)}
-            className="text-dim hover:text-foreground flex items-center gap-1 text-xs"
+            className={aomiButton({ size: "sm" })}
           >
             <X className="size-3" /> clear filter
           </button>
@@ -290,20 +286,20 @@ export function TransactionRows({
           {visible.length} records
         </span>
       </div>
-      <div className="border-border overflow-x-auto rounded-md border">
+      <div className="build-table-frame">
         <table className="divide-border w-full min-w-[960px] table-fixed divide-y text-sm">
-          <thead className="bg-surface-subtle text-dim text-left text-xs uppercase">
+          <thead className="build-table-band">
             <tr>
-              <th className="w-8 px-3 py-2" aria-label="expand" />
-              <th className="w-44 px-3 py-2">Time</th>
-              <th className="w-44 px-3 py-2">App</th>
-              <th className="w-24 px-3 py-2">Status</th>
-              <th className="w-28 px-3 py-2">Chain</th>
-              <th className="w-28 px-3 py-2">From</th>
-              <th className="w-28 px-3 py-2">To</th>
-              <th className="w-24 px-3 py-2">Value</th>
-              <th className="px-3 py-2">Description</th>
-              <th className="w-28 px-3 py-2">Hash</th>
+              <th className={`${TH} w-8`} aria-label="expand" />
+              <th className={`${TH} w-44`}>Time</th>
+              <th className={`${TH} w-44`}>App</th>
+              <th className={`${TH} w-24`}>Status</th>
+              <th className={`${TH} w-28`}>Chain</th>
+              <th className={`${TH} w-28`}>From</th>
+              <th className={`${TH} w-28`}>To</th>
+              <th className={`${TH} w-24`}>Value</th>
+              <th className={TH}>Description</th>
+              <th className={`${TH} w-28`}>Hash</th>
             </tr>
           </thead>
           <tbody className="divide-border bg-surface divide-y">

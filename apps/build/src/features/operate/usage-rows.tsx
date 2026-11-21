@@ -67,7 +67,7 @@ function Statement({
           ].map((tile) => (
             <div
               key={tile.label}
-              className="border-border bg-surface build-row-padding min-w-0 [overflow-wrap:anywhere] space-y-[var(--aomi-caption-gap)] rounded-2xl border"
+              className="border-border bg-surface build-row-padding min-w-0 [overflow-wrap:anywhere] space-y-[var(--aomi-caption-gap)] rounded-build-panel border"
             >
               <div className="build-caption">{tile.label}</div>
               <div
@@ -242,7 +242,7 @@ function Meter({ daily, breakdown }: { daily: Row[]; breakdown: Row[] }) {
         covers payment setup in Chat.
       </p>
       <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
-        <div className="overflow-x-auto">
+        <div className="build-table-frame">
           <table className="divide-border min-w-full divide-y text-sm">
             <thead className="build-table-band text-left text-sm">
               <tr>
@@ -274,7 +274,7 @@ function Meter({ daily, breakdown }: { daily: Row[]; breakdown: Row[] }) {
             </tbody>
           </table>
         </div>
-        <div className="border-border bg-surface rounded-md border p-3">
+        <div className="border-border bg-surface rounded-build-panel border p-3">
           <div className="text-dim mb-2 text-xs uppercase">Breakdown</div>
           <div className="space-y-2">
             {breakdown.map((row, index) => (

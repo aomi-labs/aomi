@@ -28,3 +28,29 @@
   --aomi-b2: #28354a;
   --aomi-control-ink: #fafafa;
 }
+
+@utility aomi-nav-row {
+  &:hover,
+  &:focus-visible {
+    background-color: var(--aomi-g2);
+  }
+
+  &[data-active],
+  &[aria-pressed="true"],
+  &[aria-checked="true"] {
+    background-color: var(--aomi-b2);
+  }
+}
+
+@utility aomi-menu-panel {
+  @apply rounded-[16px] border border-aomi-border bg-aomi-raised text-aomi-fg shadow-popover;
+}
+
+@utility aomi-menu-row {
+  @apply rounded-[10px] hover:bg-aomi-hover focus-visible:bg-aomi-hover;
+}
+
+@utility type-control {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}

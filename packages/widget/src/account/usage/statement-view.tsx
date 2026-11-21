@@ -5,8 +5,8 @@ import Link from "@/ui/link";
 import type { MonthlyStatement } from "./types";
 import { useAccountOverview } from "@/account/account-overview";
 import { useUsageStatement } from "./use-usage-statement";
-import { ArrowLeft, Check, ChevronDown } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
+import { ArrowLeft } from "lucide-react";
+import { PillDropdown } from "@/ui/aomi/pill-dropdown";
 import { Segmented } from "@/ui/aomi/segmented";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import {
@@ -143,7 +143,7 @@ export function StatementView() {
             </div>
 
             <StatementPeriodHero totalUsd={summary.totalUsd}>
-              <Dropdown
+              <PillDropdown
                 value={statement.selectedKey}
                 options={statement.monthKeys.map((key) => ({
                   id: key,
@@ -181,7 +181,7 @@ export function StatementView() {
                 ]}
               />
 
-              <Dropdown
+              <PillDropdown
                 value={appFilter}
                 options={[
                   { id: "all", label: "All apps" },
@@ -418,59 +418,5 @@ function ItemizedContent({
         </div>
       )}
     </div>
-  );
-}
-
-function Dropdown({
-  value,
-  options,
-  onChange,
-}: {
-  value: string;
-  options: { id: string; label: string }[];
-  onChange: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const current = options.find((o) => o.id === value);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="bg-aomi-surface-2 text-aomi-fg hover:bg-aomi-hover flex items-center gap-2 rounded-full px-3.5 py-[7px] text-xs font-medium"
-        >
-          {current?.label}
-          <ChevronDown
-            size={12}
-            className={`text-aomi-muted transition-transform ${open ? "rotate-180" : ""}`}
-          />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        collisionPadding={8}
-        aria-label={current?.label}
-        className="max-h-[var(--radix-popover-content-available-height)] w-max min-w-40 overflow-y-auto"
-      >
-        {options.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            aria-pressed={option.id === value}
-            onClick={() => {
-              onChange(option.id);
-              setOpen(false);
-            }}
-            className="aomi-menu-row text-aomi-fg flex min-h-9 w-full items-center justify-between gap-3 px-2.5 text-left text-[13px]"
-          >
-            {option.label}
-            {option.id === value && (
-              <Check className="text-aomi-accent-strong" size={14} />
-            )}
-          </button>
-        ))}
-      </PopoverContent>
-    </Popover>
   );
 }

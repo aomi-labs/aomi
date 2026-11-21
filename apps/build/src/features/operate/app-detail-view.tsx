@@ -1,3 +1,4 @@
+import { aomiButton } from "@aomi-labs/widget/controls";
 // Per-app drill-down dashboard shared by the live product route and the fixture
 // design harness. Product data is rendered as received; empty series are an
 // honest no-data state rather than substituted example values.
@@ -168,7 +169,7 @@ function Tile({
   tone?: "bad" | "warn";
 }) {
   return (
-    <div className="border-border bg-surface rounded-md border px-3 py-2.5">
+    <div className="border-border bg-surface rounded-build-panel border px-3 py-2.5">
       <div className="text-dim text-xs">{label}</div>
       <div
         className={`text-lg font-semibold ${tone === "bad" ? "text-red-500" : tone === "warn" ? "text-amber-500" : "text-foreground"}`}
@@ -192,7 +193,7 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <div className={table ? "bg-surface" : "border-border bg-surface rounded-md border"}>
+    <div className={table ? "bg-surface" : "border-border bg-surface rounded-build-panel border"}>
       <div className="border-border flex items-center justify-between border-b px-3 py-2">
         <span className="text-dim text-xs font-medium uppercase">{title}</span>
         {right}
@@ -262,7 +263,7 @@ export function AppDetailView({
             type="button"
             aria-label="Back to observability"
             onClick={onBack}
-            className="border-border bg-surface hover:bg-accent-hover rounded-md border p-2"
+            className="border-border bg-surface hover:bg-accent-hover rounded-build-panel border p-2"
           >
             <ArrowLeft className="size-4" />
           </button>
@@ -302,7 +303,7 @@ export function AppDetailView({
         </div>
         <div className="flex items-center gap-2">
           <div
-            className="border-border bg-surface flex rounded-md border text-xs"
+            className="border-border bg-surface flex rounded-build-panel border text-xs"
             role="group"
             aria-label="Activity time range"
           >
@@ -324,7 +325,7 @@ export function AppDetailView({
               href={dashboardHref}
               target="_blank"
               rel="noreferrer"
-              className="border-border bg-surface hover:bg-accent-hover flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs"
+              className={aomiButton({ variant: "primary", size: "sm" })}
             >
               Grafana <ExternalLink className="size-3" />
             </a>
@@ -349,7 +350,7 @@ export function AppDetailView({
                     <div>{prev ? `${conv}%` : "—"}</div>
                   </div>
                 ) : null}
-                <div className="border-border bg-surface-subtle min-w-28 rounded-md border px-4 py-3 text-center">
+                <div className="border-border bg-surface-subtle min-w-28 rounded-build-panel border px-4 py-3 text-center">
                   <div className="text-2xl font-semibold">
                     {stage.value ?? "—"}
                   </div>
@@ -467,7 +468,7 @@ export function AppDetailView({
           </span>
         }
       >
-        <div className="overflow-x-auto">
+        <div className="build-table-frame">
           <table className="min-w-full text-sm">
             <thead className="build-table-band">
               <tr>
@@ -523,7 +524,7 @@ export function AppDetailView({
           }
         >
           {recentTx.length ? (
-            <div className="overflow-x-auto">
+            <div className="build-table-frame">
               <table className="min-w-full text-sm">
                 <thead className="build-table-band">
                   <tr>

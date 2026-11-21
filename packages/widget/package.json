@@ -48,6 +48,10 @@
     "./checkout": {
       "types": "./dist/checkout.d.ts",
       "import": "./dist/checkout.js"
+    },
+    "./controls": {
+      "types": "./dist/controls.d.ts",
+      "import": "./dist/controls.js"
     }
   },
   "files": [

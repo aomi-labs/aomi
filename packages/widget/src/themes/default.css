@@ -10,20 +10,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Shared pointer, keyboard, and selection treatment for navigation rows. */
-@utility aomi-nav-row {
-  &:hover,
-  &:focus-visible {
-    background-color: var(--aomi-hover);
-  }
-
-  &[data-active],
-  &[aria-pressed="true"],
-  &[aria-checked="true"] {
-    background-color: var(--aomi-accent-subtle);
-  }
-}
-
 .aomi-widget:has(> [data-current-thread-status="sign"])
   .aui-thread-list-item[data-active] .aui-thread-status,
 .aui-thread-list-item[data-awaiting-approval] .aui-thread-status {
@@ -39,17 +25,9 @@
   }
 }
 
-/* Dropdowns share one surface across Radix portals and inline pickers. */
 @utility aomi-section-stack { @apply flex flex-col; gap: var(--aomi-section-gap); }
 @utility aomi-section-body { @apply flex flex-col; gap: var(--aomi-heading-gap); }
 @utility aomi-table-band { background: var(--aomi-b3); color: var(--aomi-on-band); }
-@utility aomi-menu-panel {
-  @apply rounded-[16px] border border-aomi-border bg-aomi-raised text-aomi-fg shadow-popover;
-}
-
-@utility aomi-menu-row {
-  @apply rounded-[10px] hover:bg-aomi-hover focus-visible:bg-aomi-hover;
-}
 
 /* Wallet choices use a checkmark alone. Keep keyboard focus inside the row. */
 @utility aomi-wallet-choice {
@@ -182,11 +160,6 @@
   font-size: var(--aomi-level-2);
   line-height: 1.4;
   font-weight: 600;
-}
-
-@utility type-control {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
 }
 
 @utility type-meta {

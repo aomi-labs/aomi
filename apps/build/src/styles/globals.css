@@ -406,6 +406,7 @@
   font-weight: 600;
 }
 @utility build-caption { font-size: var(--aomi-caption); color: var(--aomi-g3); }
+@utility build-table-frame { @apply overflow-x-auto rounded-build-panel border bg-surface-1; border-color: var(--aomi-g1); }
 @utility build-table-band { background: var(--aomi-b3); color: var(--aomi-on-band); }
 @utility build-row-padding { padding: var(--aomi-row-padding); }
 
@@ -493,3 +494,13 @@
 
 /* Shared checkout uses the same widget payment surface in Build and Chat. */
 @source "../../../../packages/widget/src/account/usage/credits";
+
+@source "../../../../packages/widget/src/ui/aomi/{navigation-tab,pill-dropdown,button}.tsx";
+@source "../../../../packages/widget/src/ui/popover.tsx";
+@theme inline {
+  --radius-build-panel: 12px;
+  --color-aomi-action-ink: var(--aomi-action-ink);
+  --color-aomi-control-ink: var(--aomi-control-ink);
+  --color-aomi-accent-strong: var(--aomi-brand-blue);
+  --shadow-popover: 0 4px 14px rgb(0 0 0 / 0.08);
+}
