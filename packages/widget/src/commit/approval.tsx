@@ -224,6 +224,11 @@ export function CommitApprovePanel({
         This request has no review to show yet.
       </p>
     );
+  const retrying =
+    signing && view.state === "needs_signature" && !!view.failure_code;
+  const retryNote = view.failure_code?.startsWith("commit_paymaster_")
+    ? "Gas sponsorship is unavailable. Aomi will retry this approved request."
+    : "Hosted signing is unavailable. Aomi will retry this approved request.";
   const refresh = (caught: unknown) => {
     if (
       caught instanceof CommitStaleError ||
@@ -240,9 +245,10 @@ export function CommitApprovePanel({
       }}
       supportedChains={supportedChains}
       approving={busy || signing}
+      pendingLabel={retrying ? "Retrying…" : undefined}
       approveLabel={approveLabel(view)}
       approveHidden={ruled}
-      note={ruled ? undefined : APPROVAL_NOTE}
+      note={ruled ? undefined : retrying ? retryNote : APPROVAL_NOTE}
       status={error}
       statusIsError={Boolean(error)}
       onApprove={() => void run(() => handle.approve(view), refresh)}

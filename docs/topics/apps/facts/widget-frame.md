@@ -58,3 +58,5 @@ hosts while reusing the same presentation and interaction implementation.
 - [client-runtime/facts/react-runtime.md](../../client-runtime/facts/react-runtime.md)
 - [auth/facts/wallet-kit.md](../../auth/facts/wallet-kit.md)
 - [apps/facts/app-surfaces.md](../../apps/facts/app-surfaces.md)
+
+The sign page shows **Retrying…** while an approved hosted commit reports a signing failure. A paymaster failure identifies gas sponsorship as the blocked step.

@@ -53,6 +53,7 @@ export function TransactionReview({
   approveDisabled = false,
   approveHidden = false,
   approveLabel,
+  pendingLabel,
   approveHref,
   connect,
   note,
@@ -76,6 +77,7 @@ export function TransactionReview({
   /** Approving cannot work (a wallet rule refused it): only Reject is offered. */
   approveHidden?: boolean;
   approveLabel?: string;
+  pendingLabel?: string;
   /** Approve happens elsewhere: the primary action opens this URL. */
   approveHref?: string;
   connect?: ConnectAction;
@@ -148,7 +150,7 @@ export function TransactionReview({
       ? action
       : `${action} · ${batchProgress.current} of ${batchProgress.total}`;
   const busy = approving || submitting;
-  const busyLabel = signs ? "Signing…" : "Sending…";
+  const busyLabel = pendingLabel ?? (signs ? "Signing…" : "Sending…");
   const split = Boolean(onApproveAll && batchProgress && !busy);
   const signers =
     request.type === "sign"
