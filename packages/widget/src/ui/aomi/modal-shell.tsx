@@ -5,6 +5,7 @@ import { useEffect, useRef, type ComponentType, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 import { ModalBackdrop } from "@/ui/modal-backdrop";
+import { NavigationTab } from "@/ui/aomi/navigation-tab";
 import { LoadingLine } from "./loading-pane";
 
 type IconComponent = ComponentType<{ className?: string }>;
@@ -125,7 +126,7 @@ export function ModalSidebar({
     >
       <div className="flex items-center gap-2 px-4 py-3 pr-14 md:px-2.5 md:pr-2.5">
         <Icon className="text-aomi-accent size-4 shrink-0" />
-        <h1 id={titleId} className="type-title flex-1 max-md:text-[17px]">
+        <h1 id={titleId} className="type-title flex-1">
           {title}
         </h1>
       </div>
@@ -152,7 +153,7 @@ export function ModalNav({
     <nav
       aria-label={label}
       className={cn(
-        "aomi-modal-nav flex gap-1.5 overflow-x-auto px-4 md:block md:space-y-0.5 md:px-0",
+        "aomi-modal-nav flex gap-1 overflow-x-auto px-4 md:block md:space-y-1 md:px-0",
         className,
       )}
     >
@@ -187,22 +188,11 @@ export function ModalNavItem({
     nav.scrollLeft += offset - (nav.clientWidth - item.offsetWidth) / 2;
   }, [active]);
   return (
-    <button
+    <NavigationTab
       ref={ref}
-      type="button"
+      active={active}
       onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "rounded-control type-control flex h-[34px] w-auto shrink-0 items-center gap-2.5 px-2.5 transition-colors md:w-full",
-        // Phone tabs are pills tall enough to hit with a thumb.
-        "max-md:h-9 max-md:gap-2 max-md:rounded-full max-md:px-3.5 max-md:text-sm",
-        // The nav scrolls, so an offset outline would be clipped: draw the
-        // keyboard ring inside the item instead, and none after a click.
-        "focus-visible:ring-aomi-ring/50 outline-none focus-visible:ring-2 focus-visible:ring-inset",
-        active
-          ? "bg-aomi-surface-2 text-aomi-fg font-medium"
-          : "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg max-md:bg-aomi-surface-2/40",
-      )}
+      className="h-9 md:h-[34px] md:w-full md:gap-2.5 md:px-2.5"
     >
       <Icon className="size-4 shrink-0" />
       <span className="min-w-0 flex-1 whitespace-nowrap text-left">
@@ -213,7 +203,7 @@ export function ModalNavItem({
       ) : count !== undefined ? (
         <span className="type-meta tabular-nums">{count}</span>
       ) : null}
-    </button>
+    </NavigationTab>
   );
 }
 
@@ -238,7 +228,7 @@ export function ModalHeader({
   return (
     <header
       className={cn(
-        "flex shrink-0 items-center gap-3 px-4 pb-2 pt-4 md:min-h-[74px] md:px-6 md:py-4 md:pr-14",
+        "flex shrink-0 items-center gap-3 px-4 pb-2 pt-4 md:px-6 md:pt-6 md:pb-3 md:pr-14",
         className,
       )}
     >

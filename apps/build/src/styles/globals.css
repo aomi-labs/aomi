@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "./aomi-design-tokens.css";
+@import "@aomi-labs/widget/design-tokens.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -40,11 +41,9 @@
   --muted: var(--aomi-bg-subtle);
   --muted-foreground: var(--aomi-text-muted);
   --accent: var(--aomi-accent-subtle);
-  /* Hover for rows/cards on plain surfaces; rail items sitting on the
-     cool-100 sidebar use --aomi-state-hover directly for a fuller step. */
-  --accent-hover: var(--aomi-primary-subtle);
-  --accent-selected: var(--aomi-accent-selected);
-  --accent-selected-foreground: var(--aomi-accent-selected-text);
+  --accent-hover: var(--aomi-g2);
+  --accent-selected: var(--aomi-b2);
+  --accent-selected-foreground: var(--aomi-control-ink);
   --accent-foreground: var(--aomi-text);
   --destructive: var(--aomi-danger-500);
   --destructive-foreground: var(--aomi-cool-0);
@@ -55,7 +54,7 @@
   --chart-3: var(--aomi-sky-500);
   --chart-4: var(--aomi-success-500);
   --chart-5: var(--aomi-warning-500);
-  --sidebar: var(--aomi-bg-subtle);
+  --sidebar: var(--aomi-bg);
   --sidebar-foreground: var(--aomi-text);
   --sidebar-primary: var(--aomi-surface);
   --sidebar-primary-foreground: var(--aomi-text);
@@ -390,29 +389,26 @@
 
 /* Nav link */
 .nav-link {
-  @apply flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] transition-all duration-150;
+  @apply flex h-9 items-center gap-2.5 rounded-[8px] px-2.5 text-sm transition-colors;
+  color: var(--aomi-control-ink);
 }
-.nav-link[data-active="false"] {
-  color: var(--aomi-text-secondary);
+.nav-link[data-active="false"]:hover { background: var(--accent-hover); }
+.nav-link[data-active="true"] { background: var(--accent-selected); font-weight: 500; }
+
+.operate-surface { --border: var(--aomi-g1); --text-dim: var(--aomi-g3); }
+@utility build-page-title {
+  font: 600 var(--aomi-level-1)/1.3 var(--aomi-font-sans);
+  letter-spacing: -.02em;
 }
-.nav-link[data-active="false"]:hover {
-  background: var(--aomi-state-hover);
-  color: var(--text-primary);
+@utility build-section-title {
+  font-size: var(--aomi-level-2);
+  line-height: 1.4;
+  font-weight: 600;
 }
-.nav-link[data-active="false"] .nav-icon {
-  color: var(--text-subtle);
-}
-.nav-link[data-active="false"]:hover .nav-icon {
-  color: var(--text-primary);
-}
-.nav-link[data-active="true"] {
-  background: var(--accent-selected);
-  color: var(--accent-selected-foreground);
-  font-weight: 500;
-}
-.nav-link[data-active="true"] .nav-icon {
-  color: var(--accent-selected-foreground);
-}
+@utility build-caption { font-size: var(--aomi-caption); color: var(--aomi-g3); }
+@utility build-table-frame { @apply overflow-x-auto rounded-build-panel border bg-surface-1; border-color: var(--aomi-g1); }
+@utility build-table-band { background: var(--aomi-b3); color: var(--aomi-on-band); }
+@utility build-row-padding { padding: var(--aomi-row-padding); }
 
 /* Markdown thread (agent responses) */
 .md-thread {
@@ -498,3 +494,16 @@
 
 /* Shared checkout uses the same widget payment surface in Build and Chat. */
 @source "../../../../packages/widget/src/account/usage/credits";
+
+@source "../../../../packages/widget/src/ui/aomi/{navigation-tab,pill-dropdown,button,status-pill}.tsx";
+@source "../../../../packages/widget/src/ui/popover.tsx";
+@theme inline {
+  --color-aomi-success: var(--aomi-success);
+  --color-aomi-warning: var(--aomi-warning);
+  --color-aomi-danger: var(--aomi-danger);
+  --radius-build-panel: 12px;
+  --color-aomi-action-ink: var(--aomi-action-ink);
+  --color-aomi-control-ink: var(--aomi-control-ink);
+  --color-aomi-accent-strong: var(--aomi-brand-blue);
+  --shadow-popover: 0 4px 14px rgb(0 0 0 / 0.08);
+}

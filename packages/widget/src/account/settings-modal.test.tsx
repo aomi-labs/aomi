@@ -121,8 +121,8 @@ describe("SettingsModal directory shell", () => {
     );
     expect(dialog).toHaveClass("md:rounded-shell", "md:shadow-modal");
     expect(
-      screen.getByText("Appearance, defaults, and account overview"),
-    ).toBeTruthy();
+      screen.queryByText("Appearance, defaults, and account overview"),
+    ).toBeNull();
   });
 
   it("switches sections from both the sidebar and in-content actions", async () => {

@@ -3,7 +3,7 @@
 import { useCallback, useState, type ReactNode } from "react";
 import Link from "@/ui/link";
 import { ChevronRight, Plus } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { NavigationTab } from "@/ui/aomi/navigation-tab";
 import { AomiButton } from "@/ui/aomi/button";
 import { AllowanceRing } from "@/ui/aomi/allowance-ring";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
@@ -56,27 +56,16 @@ export function BillingSettings({
   }, [credits.refetch, ledger.refetch]);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="aomi-section-stack">
       <div
         role="group"
         aria-label="Billing view"
-        className="border-aomi-border bg-aomi-surface flex h-8 w-max items-center rounded-lg border p-[3px]"
+        className="flex flex-wrap items-center gap-1"
       >
         {VIEWS.map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            aria-pressed={view === id}
-            onClick={() => setView(id)}
-            className={cn(
-              "rounded-md px-3.5 py-1 text-[12px] leading-none transition-colors",
-              view === id
-                ? "bg-aomi-surface-2 text-aomi-fg font-medium"
-                : "text-aomi-muted hover:text-aomi-fg",
-            )}
-          >
+          <NavigationTab key={id} active={view === id} onClick={() => setView(id)}>
             {label}
-          </button>
+          </NavigationTab>
         ))}
       </div>
 
@@ -167,9 +156,9 @@ function AllowanceCard({ billing, plan }: { billing: Billing; plan: string }) {
         <div className="flex items-center gap-4 pb-1">
           <AllowanceRing left={billing.allowanceLeft} size={56} />
           <div className="flex min-w-0 flex-col gap-1">
-            <span className="text-[22px] font-semibold tabular-nums leading-6 tracking-[-0.02em]">
+            <span className="type-title tabular-nums tracking-[-0.02em]">
               {formatDollars(billing.allowanceLeftUsd)}{" "}
-              <span className="text-aomi-muted whitespace-nowrap text-[13px] font-medium tracking-normal">
+              <span className="type-meta text-aomi-muted whitespace-nowrap font-medium tracking-normal">
                 of {formatDollars(billing.allowanceUsd)} left
               </span>
             </span>
@@ -202,7 +191,7 @@ function BalanceCard({
     >
       <div className="flex items-end justify-between gap-3 pb-1">
         <div className="flex flex-col gap-1">
-          <span className="text-[30px] font-semibold tabular-nums leading-8 tracking-[-0.02em]">
+          <span className="type-title tabular-nums tracking-[-0.02em]">
             {formatDollars(billing.balanceUsd)}
           </span>
           <span className="type-meta text-aomi-muted">
@@ -236,7 +225,7 @@ function MonthSoFar({
   );
   const { summary } = month;
   return (
-    <section className="flex flex-col gap-2.5">
+    <section className="aomi-section-body">
       <SectionHeader
         title={`${month.period.periodLabel.split(" ")[0]} so far`}
         detail={`${usd(summary.totalUsd)} spent`}
@@ -279,7 +268,7 @@ function Payments({
   const ledger = useAccountCreditLedger();
   const entries = ledger.data?.entries ?? [];
   return (
-    <section className="flex flex-col gap-2.5">
+    <section className="aomi-section-body">
       <SectionHeader
         title="Payments"
         count={entries.length || undefined}
@@ -343,7 +332,7 @@ function UsageView() {
       />
       <SpendBreakdownSection month={month} />
       {month.apps.length > 0 ? (
-        <section className="flex flex-col gap-2.5">
+        <section className="aomi-section-body">
           <SectionHeader
             title="By app"
             detail="This period"
