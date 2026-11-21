@@ -940,7 +940,7 @@ export function PolicyPicker({
           ) : null}
           <span className="flex-1" />
           <AomiButton
-            variant="ghost"
+            variant="danger"
             size="sm"
             onClick={() => {
               setSession(false);
@@ -955,7 +955,7 @@ export function PolicyPicker({
       ) : (
         <div className="flex flex-wrap items-center gap-3">
           <AomiButton
-            variant="primary"
+            variant="secondary"
             size="sm"
             onClick={() => {
               setSession(true);
@@ -1024,7 +1024,6 @@ export function PolicyAuthorityPicker({
         action={
           <Segmented
             label="Policy change authority"
-            size="sm"
             value={draft.kind}
             disabled={saving}
             onChange={(kind) => {
@@ -1114,7 +1113,7 @@ export function PolicyAuthorityPicker({
       {dirty ? (
         <div className="flex items-center justify-end gap-2">
           <AomiButton
-            variant="ghost"
+            variant="secondary"
             size="sm"
             onClick={() => setDraft(authority)}
           >

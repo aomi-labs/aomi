@@ -148,7 +148,7 @@ export function AccountManagement({
               <button
                 type="button"
                 onClick={onAddWallet}
-                className={aomiButton({ variant: "secondary", size: "sm" })}
+                className={aomiButton({ variant: "primary", size: "sm" })}
               >
                 <Plus />
                 Add a wallet
@@ -165,10 +165,6 @@ export function AccountManagement({
               onActivate={rowHandlers.onActivate}
               onAddWallet={onAddWallet}
             />
-            <p className="type-meta text-aomi-muted border-aomi-border border-t px-3.5 py-2">
-              Aomi starts from the default wallet and may use your other wallets
-              when it runs short.
-            </p>
             {wallets.length || logins.length ? (
               <>
                 <Divider

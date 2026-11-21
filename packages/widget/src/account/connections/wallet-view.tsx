@@ -97,7 +97,7 @@ function askModeOptions(
 /** The pill the ask mode picker and the fixed ask mode share. */
 const askModePill = cn(
   controlSelectTriggerClass,
-  "border-aomi-border bg-aomi-raised inline-flex shrink-0 items-center border",
+  "inline-flex shrink-0 items-center",
 );
 
 /** The composer's guard-policy menu, as a row's ask mode picker. */
@@ -174,7 +174,7 @@ export function AskModeSelect({
                 setOpen(false);
                 if (item.id !== askMode) onChange(item.id);
               }}
-              className={cn(controlMenuItemClass, "hover:bg-aomi-hover")}
+              className={controlMenuItemClass}
             >
               <span className={controlMenuIconClass}>
                 <item.Icon className="size-4" />

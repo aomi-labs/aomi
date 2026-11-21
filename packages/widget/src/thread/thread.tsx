@@ -528,7 +528,7 @@ const ComposerAction: FC = () => {
               variant="default"
               size="icon"
               data-testid={testIds.send}
-              className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
+              className="aui-composer-send mr-2 size-8 shrink-0 p-1 md:mr-2.5"
               aria-label="Send message"
               disabled={
                 Boolean(hostError) ||
@@ -549,7 +549,7 @@ const ComposerAction: FC = () => {
               variant="default"
               size="icon"
               data-testid={testIds.stop}
-              className="aui-composer-cancel bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full transition-opacity hover:opacity-90 md:mr-2.5"
+              className="aui-composer-cancel mr-2 size-8 shrink-0 md:mr-2.5"
               aria-label={
                 aomiRuntime?.isStopping
                   ? "Stopping generation"
@@ -900,7 +900,7 @@ const EditComposer: FC = () => {
             <ComposerPrimitive.Send asChild>
               <Button
                 size="sm"
-                className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg rounded-full text-[13px] transition-opacity hover:opacity-90"
+                className="text-[13px]"
                 aria-label="Save and resend"
               >
                 Save and resend

@@ -6,6 +6,8 @@ import type { MonthlyStatement } from "./types";
 import { useAccountOverview } from "@/account/account-overview";
 import { useUsageStatement } from "./use-usage-statement";
 import { ArrowLeft, Check, ChevronDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
+import { Segmented } from "@/ui/aomi/segmented";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import {
   AllowanceSettlementSection,
@@ -169,22 +171,15 @@ export function StatementView() {
             />
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="border-aomi-border flex rounded-full border p-[3px]">
-                {(["byApp", "itemized"] as View[]).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setView(v)}
-                    className={`rounded-full px-3.5 py-[6px] text-xs font-medium transition-colors ${
-                      view === v
-                        ? "bg-aomi-surface-2 text-aomi-fg font-medium"
-                        : "text-aomi-muted hover:text-aomi-fg"
-                    }`}
-                  >
-                    {v === "byApp" ? "By app" : "Itemized"}
-                  </button>
-                ))}
-              </div>
+              <Segmented<View>
+                label="Statement detail"
+                value={view}
+                onChange={setView}
+                options={[
+                  { value: "byApp", label: "By app" },
+                  { value: "itemized", label: "Itemized" },
+                ]}
+              />
 
               <Dropdown
                 value={appFilter}
@@ -439,51 +434,43 @@ function Dropdown({
   const current = options.find((o) => o.id === value);
 
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2/60 flex items-center gap-2 rounded-full border px-3.5 py-[7px] text-xs font-medium transition-colors"
-      >
-        {current?.label}
-        <ChevronDown
-          size={12}
-          className={`text-aomi-muted transition-transform ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-      {open && (
-        <>
-          <button
-            aria-label="Close menu"
-            type="button"
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-20 cursor-default"
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="bg-aomi-surface-2 text-aomi-fg hover:bg-aomi-hover flex items-center gap-2 rounded-full px-3.5 py-[7px] text-xs font-medium"
+        >
+          {current?.label}
+          <ChevronDown
+            size={12}
+            className={`text-aomi-muted transition-transform ${open ? "rotate-180" : ""}`}
           />
-          <div className="border-aomi-overlay-border bg-aomi-raised absolute left-0 top-full z-30 mt-1.5 min-w-[160px] overflow-hidden rounded-xl border p-1 shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
-            {options.map((o) => {
-              const selected = o.id === value;
-              return (
-                <button
-                  key={o.id}
-                  type="button"
-                  onClick={() => {
-                    onChange(o.id);
-                    setOpen(false);
-                  }}
-                  className={`hover:bg-aomi-hover flex min-h-8 w-full items-center justify-between gap-3 rounded-lg px-2.5 text-left text-[13px] transition-colors ${
-                    selected
-                      ? "bg-aomi-accent-subtle text-aomi-fg font-medium"
-                      : "text-aomi-muted"
-                  }`}
-                >
-                  {o.label}
-                  {selected && <Check size={13} />}
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
-    </div>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        collisionPadding={8}
+        aria-label={current?.label}
+        className="max-h-[var(--radix-popover-content-available-height)] w-max min-w-40 overflow-y-auto"
+      >
+        {options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            aria-pressed={option.id === value}
+            onClick={() => {
+              onChange(option.id);
+              setOpen(false);
+            }}
+            className="aomi-menu-row text-aomi-fg flex min-h-9 w-full items-center justify-between gap-3 px-2.5 text-left text-[13px]"
+          >
+            {option.label}
+            {option.id === value && (
+              <Check className="text-aomi-accent-strong" size={14} />
+            )}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
   );
 }

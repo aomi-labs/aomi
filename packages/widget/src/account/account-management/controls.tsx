@@ -170,7 +170,7 @@ export function ActionsMenu({
         type="button"
         role="menuitem"
         className={cn(
-          "hover:bg-aomi-hover focus:bg-aomi-hover flex min-h-[34px] w-full items-center gap-2.5 rounded-[8px] px-2.5 py-1.5 text-left text-[13px] font-medium leading-5 outline-none",
+          "aomi-menu-row flex min-h-[34px] w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-[13px] font-medium leading-5 outline-none",
           item.danger ? "text-aomi-danger" : "text-aomi-fg",
         )}
         onClick={() => {
@@ -211,7 +211,7 @@ export function ActionsMenu({
         aria-label={label}
         align="end"
         sideOffset={5}
-        className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-card shadow-popover z-[90] w-max min-w-48 max-w-[calc(100vw-2rem)] border p-1"
+        className="z-[90] space-y-1 w-max min-w-48 max-w-[calc(100vw-2rem)]"
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key))

@@ -179,7 +179,7 @@ export const NetworkSelect: FC<NetworkSelectProps> = ({
         onPointerLeave={hoverClose}
         onOpenAutoFocus={(event) => event.preventDefault()}
         onCloseAutoFocus={(event) => event.preventDefault()}
-        className="border-aomi-border bg-aomi-raised w-[280px] overflow-hidden rounded-2xl border p-0 shadow-[0_16px_40px_rgba(0,0,0,0.20)]"
+        className="w-[280px] overflow-hidden p-0"
       >
         <div className="px-4 pb-3 pt-4">
           <p className="text-aomi-fg flex items-center gap-1.5 text-[13px] font-medium">

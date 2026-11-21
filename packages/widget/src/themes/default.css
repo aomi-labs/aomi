@@ -9,47 +9,46 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Status changes live outside the sidebar, keeping chat rows stable per turn.
-   Each widget sets its own variables, including portaled mobile rows, so one
-   embedded widget cannot animate another widget's active chat. */
-.aomi-widget {
-  --aui-thread-status-color: var(--aomi-accent-strong);
-  --animate-aui-thread-status: none;
+/* Shared pointer, keyboard, and selection treatment for navigation rows. */
+@utility aomi-nav-row {
+  &:hover,
+  &:focus-visible {
+    background-color: var(--aomi-hover);
+  }
+
+  &[data-active],
+  &[aria-pressed="true"],
+  &[aria-checked="true"] {
+    background-color: var(--aomi-accent-subtle);
+  }
 }
 
-.aomi-widget:has(> [data-current-thread-status="run"]) {
-  --animate-aui-thread-status: auiThreadStatusPulse 2s
-    cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-.aomi-widget:has(> [data-current-thread-status="sign"]) {
-  --aui-thread-status-color: var(--aomi-warning);
-}
-
-.aui-thread-status {
-  background-color: var(--aomi-accent-strong);
-}
-
-.aui-thread-list-item[data-active] .aui-thread-status {
-  background-color: var(--aui-thread-status-color);
-  animation: var(--animate-aui-thread-status);
-}
-
+.aomi-widget:has(> [data-current-thread-status="sign"])
+  .aui-thread-list-item[data-active] .aui-thread-status,
 .aui-thread-list-item[data-awaiting-approval] .aui-thread-status {
-  opacity: 1;
-  background-color: var(--aomi-warning);
+  display: inline-block;
 }
 
-@keyframes auiThreadStatusPulse {
-  50% {
-    opacity: 0.5;
-  }
+/* Dropdowns share one surface across Radix portals and inline pickers. */
+@utility aomi-menu-panel {
+  @apply rounded-[16px] border border-aomi-border bg-aomi-raised text-aomi-fg shadow-popover;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .aui-thread-list-item[data-active] .aui-thread-status {
-    animation: none;
+@utility aomi-menu-row {
+  @apply rounded-[10px] hover:bg-aomi-hover focus-visible:bg-aomi-hover;
+}
+
+/* Wallet choices use a checkmark alone. Keep keyboard focus inside the row. */
+@utility aomi-wallet-choice {
+  @apply rounded-[10px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-aomi-ring;
+}
+
+@utility aomi-action-fill {
+  background-color: var(--action-bg);
+  @media (hover: hover) {
+    &:hover { background-color: color-mix(in srgb, var(--action-bg) 92%, black); }
   }
+  &:active { background-color: color-mix(in srgb, var(--action-bg) 84%, black); }
 }
 
 @theme inline {
@@ -257,6 +256,9 @@
      ---------------------------------------------------------------------- */
 
   /* surfaces — cool (zinc) ramp */
+  --aomi-action-primary: #416cac;
+  --aomi-action-danger-bg: #fae5e7;
+  --aomi-action-danger-fg: #aa2036;
   --aomi-bg: #ffffff; /* cool-0 */
   --aomi-surface: #fafafa; /* cool-50 */
   --aomi-surface-2: #f4f4f5; /* cool-100 */
@@ -311,7 +313,7 @@
 
   /* elevation — the only two shadows (the menu and modal shadows the app
      already used) */
-  --aomi-shadow-popover: 0 16px 40px rgb(0 0 0 / 0.2);
+  --aomi-shadow-popover: 0 4px 14px rgb(0 0 0 / 0.08);
   --aomi-shadow-modal: 0 24px 70px rgb(0 0 0 / 0.08);
 }
 
@@ -359,6 +361,8 @@
      round close button all vanished. Each step below clears the one under it,
      and `border` clears all of them — on dark it carries the structure that
      fills carry on light. */
+  --aomi-action-danger-bg: #49262c;
+  --aomi-action-danger-fg: #ffb2bc;
   --aomi-bg: #09090b; /* cool-950 */
   --aomi-surface: #18181b; /* cool-900 · recessed, mirrors light's #fafafa */
   --aomi-raised: #202024; /* panels lift off bg, and leave room for fills */
@@ -382,7 +386,7 @@
   --aomi-danger-strong: #c34255;
 
   /* Dark grounds swallow a soft tinted shadow; deeper black keeps the lift. */
-  --aomi-shadow-popover: 0 12px 32px rgb(0 0 0 / 0.5);
+  --aomi-shadow-popover: 0 4px 14px rgb(0 0 0 / 0.18);
   --aomi-shadow-modal: 0 24px 64px rgb(0 0 0 / 0.55);
 
   /* Derived tokens must be re-declared, not inherited. A `var()` inside a

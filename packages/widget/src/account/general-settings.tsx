@@ -21,6 +21,7 @@ import {
   useAccountOverview,
   useAccountOverviewStore,
 } from "./account-overview";
+import { Segmented } from "@/ui/aomi/segmented";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { useSettings, type ColorMode } from "./use-settings";
 import {
@@ -84,12 +85,6 @@ export function GeneralSettings({
   // Local preferences below never wait for the account.
   const accountReady = overviewSettled && credits !== undefined;
 
-  const themeChoices: { mode: ColorMode; label: string }[] = [
-    { mode: "dark", label: "Dark" },
-    { mode: "light", label: "Light" },
-    { mode: "auto", label: "System" },
-  ];
-
   return (
     <div className="flex flex-col gap-5">
       <section className="flex flex-col gap-2">
@@ -123,22 +118,16 @@ export function GeneralSettings({
         />
         <div className={settingsPanelClass}>
           <FlatSettingRow label="Theme">
-            <div className="border-aomi-border bg-aomi-surface flex h-8 items-center rounded-lg border p-[3px]">
-              {themeChoices.map(({ mode, label }) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => updateSetting("colorMode", mode)}
-                  className={`rounded-md px-3 py-1 text-[12px] leading-none transition-colors ${
-                    settings.colorMode === mode
-                      ? "bg-aomi-surface-2 text-aomi-fg font-medium"
-                      : "text-aomi-muted hover:text-aomi-fg"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <Segmented<ColorMode>
+              label="Theme"
+              value={settings.colorMode}
+              onChange={(mode) => updateSetting("colorMode", mode)}
+              options={[
+                { value: "dark", label: "Dark" },
+                { value: "light", label: "Light" },
+                { value: "auto", label: "System" },
+              ]}
+            />
           </FlatSettingRow>
 
           <Divider />
@@ -279,7 +268,7 @@ function AccountSummaryCard({
               Your allowance is used first, then your added balance.
             </span>
             <div className="flex gap-2">
-              <AomiButton size="sm" onClick={() => setCheckoutOpen(true)}>
+              <AomiButton variant="primary" size="sm" onClick={() => setCheckoutOpen(true)}>
                 Add funds
               </AomiButton>
               <AomiButton size="sm" onClick={onViewBilling}>

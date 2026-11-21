@@ -52,7 +52,7 @@ export function ConnectionAskModes({
   brand?: string;
   disabled?: boolean;
   /** Close the sheet before "Manage in Connections" moves the page. */
-  onClose: () => void;
+  onClose?: () => void;
   /** Instant needed the admin wallet's signature: the change waits in these rules. */
   onRulesFiled?: (rules: AomiWalletRules) => void;
 }) {
@@ -87,7 +87,7 @@ export function ConnectionAskModes({
               total={rows.length}
               onPage={setPage}
             />
-          ) : goTo ? (
+          ) : goTo && onClose ? (
             <button
               type="button"
               onClick={() => {
