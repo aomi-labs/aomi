@@ -24,10 +24,9 @@ import {
   focusRing,
 } from "./presentation";
 
-/** The review actions keep their pill shape: they are the panel's one decision. */
-const reviewButtonClass = cn(focusRing, "h-10 rounded-full");
+const reviewButtonClass = cn(focusRing, "h-10");
 // One half of the "<action> · n of m | Submit all" split button. No size
-// variant: the shared pill container owns the radius, so the halves stay square.
+// variant: the shared container owns the radius, so the halves stay square.
 const splitSegment = cn(
   aomiButton({ variant: "primary", size: null }),
   focusRing,
@@ -331,7 +330,7 @@ export function TransactionReview({
               {connect.label}
             </AomiButton>
           ) : split ? (
-            <div className="bg-aomi-fg text-aomi-bg flex min-w-0 overflow-hidden rounded-full">
+            <div className="flex min-w-0 overflow-hidden rounded-[8px] bg-[var(--aomi-action-primary)]">
               <button
                 type="button"
                 onClick={onApprove}
@@ -341,7 +340,7 @@ export function TransactionReview({
                 <span className="truncate">{label}</span>
               </button>
               <span
-                className="bg-aomi-bg/25 my-2 w-px shrink-0"
+                className="bg-white/25 my-2 w-px shrink-0"
                 aria-hidden="true"
               />
               <button

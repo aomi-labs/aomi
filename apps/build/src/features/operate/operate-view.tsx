@@ -1,12 +1,14 @@
+import { PillDropdown, aomiButton, StatusPill } from "@aomi-labs/widget/controls";
+import { TH } from "./table";
 import type { Project } from "@aomi-labs/deploy";
+import type { Icon as InterfaceIcon } from "@phosphor-icons/react";
 import {
-  Activity,
-  Gauge,
-  ListFilter,
-  ScrollText,
-  WalletCards,
-  type LucideIcon,
-} from "lucide-react";
+  FolderIcon,
+  GaugeIcon,
+  PulseIcon,
+  ScrollIcon,
+  WalletIcon,
+} from "@/components/control-plane/icons";
 import { UrlLink as Link } from "@/components/url-link";
 import {
   useLocation,
@@ -78,12 +80,12 @@ type PaymentState = {
   retry: () => void;
 };
 
-const meta = {
-  transactions: { title: "Transactions", icon: WalletCards },
-  usage: { title: "Usage", icon: Gauge },
-  logs: { title: "Logs", icon: ScrollText },
-  observability: { title: "Observability", icon: Activity },
-} satisfies Record<ViewKind, { title: string; icon: LucideIcon }>;
+export const operateSections = {
+  transactions: { title: "Transactions", icon: WalletIcon },
+  usage: { title: "Usage", icon: GaugeIcon },
+  logs: { title: "Logs", icon: ScrollIcon },
+  observability: { title: "Observability", icon: PulseIcon },
+} satisfies Record<ViewKind, { title: string; icon: InterfaceIcon }>;
 
 function projectLabel(project: Projectish) {
   return project.repositoryLink || `Project ${project.id}`;
@@ -116,7 +118,7 @@ function EmptyState({
   actionLabel?: string;
 }) {
   return (
-    <div className="border-border bg-surface-subtle text-dim rounded-md border px-4 py-10 text-center text-sm">
+    <div className="border-border bg-surface-subtle text-dim rounded-build-panel border px-4 py-10 text-center text-sm">
       <p className="text-foreground font-medium">
         No {title.toLowerCase()} yet
       </p>
@@ -304,7 +306,7 @@ function Rows({
   const paymentSummary = payments?.summary;
   return (
     <div className="space-y-4">
-      <div className="border-border bg-surface-subtle flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm">
+      <div className="border-border bg-surface-subtle flex flex-wrap items-center justify-between gap-3 rounded-build-panel border px-3 py-2 text-sm">
         <div>
           <span className="text-dim">Monitoring</span>{" "}
           <span className="text-foreground">
@@ -325,7 +327,7 @@ function Rows({
                 href={String(link.url)}
                 target="_blank"
                 rel="noreferrer"
-                className="border-border bg-surface hover:bg-accent-hover rounded-md border px-2 py-1 text-xs"
+                className={aomiButton({ variant: "primary", size: "sm" })}
               >
                 {link.label || "Open dashboard"}
               </a>
@@ -335,14 +337,14 @@ function Rows({
       </div>
 
       {payment?.loading ? (
-        <div className="border-border bg-surface rounded-md border px-3 py-3">
+        <div className="border-border bg-surface rounded-build-panel border px-3 py-3">
           <div className="text-foreground text-sm font-medium">
             Payment health
           </div>
           <div className="text-dim mt-2 text-xs">Loading payment health…</div>
         </div>
       ) : payment?.error ? (
-        <div className="border-danger/30 bg-danger/5 rounded-md border px-3 py-3">
+        <div className="border-danger/30 bg-danger/5 rounded-build-panel border px-3 py-3">
           <div className="text-foreground text-sm font-medium">
             Payment health
           </div>
@@ -350,14 +352,14 @@ function Rows({
           <button
             type="button"
             onClick={payment.retry}
-            className="border-border bg-surface hover:bg-accent-hover mt-2 rounded-md border px-2 py-1 text-xs"
+            className={aomiButton({ size: "sm", className: "mt-2" })}
           >
             Retry
           </button>
         </div>
       ) : payments?.available ||
         (Array.isArray(payments?.resources) && payments.resources.length) ? (
-        <div className="border-border bg-surface rounded-md border">
+        <div className="border-border bg-surface rounded-build-panel border">
           <div className="border-border border-b px-3 py-2">
             <div className="text-foreground text-sm font-medium">
               Payment health
@@ -425,9 +427,9 @@ function Rows({
             <>
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">
+                  <h2 className="build-section-title truncate">
                     {app.application}
-                  </div>
+                  </h2>
                   <div className="text-dim truncate text-xs">
                     {app.releaseTag ?? "No release"}
                   </div>
@@ -513,7 +515,7 @@ function Rows({
           );
           const key = `${app.project?.id}-${app.applicationId}`;
           const className =
-            "border-border bg-surface rounded-md border px-3 py-3";
+            "border-border bg-surface rounded-build-panel border px-3 py-3";
           return detailHref ? (
             <ControlPlaneLink
               key={key}
@@ -532,19 +534,19 @@ function Rows({
       </div>
 
       {platformMetrics.length ? (
-        <div className="border-border overflow-hidden rounded-md border">
+        <div className="build-table-frame">
           <table className="divide-border min-w-full divide-y text-sm">
-            <thead className="bg-surface-subtle text-dim text-left text-xs uppercase">
+            <thead className="build-table-band">
               <tr>
-                <th className="px-3 py-2">Platform metric</th>
-                <th className="px-3 py-2">Value</th>
-                <th className="px-3 py-2">Scope</th>
+                <th className={TH}>Platform metric</th>
+                <th className={TH}>Value</th>
+                <th className={TH}>Scope</th>
               </tr>
             </thead>
             <tbody className="divide-border bg-surface divide-y">
               {platformMetrics.map((metric, index) => (
                 <tr key={`${metric.label}-${index}`}>
-                  <td className="px-3 py-2">
+                  <td className="px-4 py-2">
                     <div>{metric.label}</div>
                     {metric.description ? (
                       <div className="text-dim text-xs">
@@ -552,10 +554,10 @@ function Rows({
                       </div>
                     ) : null}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-4 py-2">
                     {unitLabel(metric.value, String(metric.unit ?? ""))}
                   </td>
-                  <td className="text-dim px-3 py-2">{metric.scope}</td>
+                  <td className="text-dim px-4 py-2">{metric.scope}</td>
                 </tr>
               ))}
             </tbody>
@@ -649,7 +651,7 @@ export function OperateView({ kind }: { kind: ViewKind }) {
           },
         }
       : null;
-  const Icon = meta[kind].icon;
+  const Icon = operateSections[kind].icon;
   const projects = useMemo(() => payload?.projects ?? [], [payload?.projects]);
   const canPage = kind === "transactions" || kind === "logs";
   const nextCursor = canPage ? payload?.nextCursor : null;
@@ -747,48 +749,32 @@ export function OperateView({ kind }: { kind: ViewKind }) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="operate-surface mx-auto flex w-full max-w-7xl flex-col gap-[var(--aomi-section-gap)] px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Icon className="text-dim size-5" />
-          <h1 className="font-display text-xl font-normal tracking-tight">
-            {meta[kind].title}
+          <h1 className="build-page-title">
+            {operateSections[kind].title}
           </h1>
           {payload?.example ? (
-            <span
-              title="Live data for this view isn't connected yet — showing example data."
-              className="border-border bg-surface-subtle text-dim rounded-full border px-2 py-0.5 text-xs"
-            >
-              Example data
-            </span>
+            <StatusPill title="Live data for this view isn't connected yet — showing example data.">Example data</StatusPill>
           ) : null}
         </div>
-        <label className="text-dim flex items-center gap-2 text-sm">
-          <ListFilter className="size-4" />
-          <select
-            value={projectId ?? ""}
-            onChange={(event) =>
-              setSourceId(
-                event.target.value ? Number(event.target.value) : null,
-              )
-            }
-            className="border-border bg-surface text-foreground h-9 rounded-md border px-2"
-          >
-            <option value="">All projects</option>
-            {projects.map((source) => (
-              <option key={source.id} value={source.id}>
-                {projectLabel(source)}
-              </option>
-            ))}
-          </select>
-        </label>
+        <PillDropdown
+          label="Filter by project"
+          align="end"
+          optionIcon={<FolderIcon size={16} aria-hidden="true" />}
+          value={String(projectId ?? "")}
+          options={[{ id: "", label: "All projects" }, ...projects.map(project => ({ id: String(project.id), label: projectLabel(project) }))]}
+          onChange={id => setSourceId(id ? Number(id) : null)}
+        />
       </div>
       {loading ? (
-        <div className="border-border bg-surface-subtle text-dim rounded-md border px-4 py-10 text-center text-sm">
+        <div className="border-border bg-surface-subtle text-dim rounded-build-panel border px-4 py-10 text-center text-sm">
           Loading
         </div>
       ) : error ? (
-        <div className="border-danger/30 bg-danger/5 text-danger rounded-md border px-4 py-3 text-sm">
+        <div className="border-danger/30 bg-danger/5 text-danger rounded-build-panel border px-4 py-3 text-sm">
           {error}
         </div>
       ) : payload ? (
@@ -800,7 +786,7 @@ export function OperateView({ kind }: { kind: ViewKind }) {
                 type="button"
                 onClick={loadMore}
                 disabled={loadingMore}
-                className="border-border bg-surface hover:bg-accent-hover disabled:text-dim h-9 rounded-md border px-3 text-sm"
+                className={aomiButton()}
               >
                 {loadingMore ? "Loading" : "Load more"}
               </button>

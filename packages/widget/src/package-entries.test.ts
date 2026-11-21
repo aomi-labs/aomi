@@ -12,6 +12,7 @@ const read = (path: string) =>
   JSON.parse(readFileSync(resolve(packageRoot, path), "utf8"));
 const { entries } = read("package-entries.json") as { entries: Record<string, string> };
 const stylesheets = {
+  "./design-tokens.css": { types: "./dist/styles.d.ts", default: "./design-tokens.css" },
   "./styles.css": {
     types: "./dist/styles.d.ts",
     default: "./dist/styles.css",

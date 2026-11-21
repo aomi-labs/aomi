@@ -21,6 +21,7 @@ import {
   useAccountOverview,
   useAccountOverviewStore,
 } from "./account-overview";
+import { Segmented } from "@/ui/aomi/segmented";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { useSettings, type ColorMode } from "./use-settings";
 import {
@@ -84,18 +85,11 @@ export function GeneralSettings({
   // Local preferences below never wait for the account.
   const accountReady = overviewSettled && credits !== undefined;
 
-  const themeChoices: { mode: ColorMode; label: string }[] = [
-    { mode: "dark", label: "Dark" },
-    { mode: "light", label: "Light" },
-    { mode: "auto", label: "System" },
-  ];
-
   return (
-    <div className="flex flex-col gap-5">
-      <section className="flex flex-col gap-2">
+    <div className="aomi-section-stack">
+      <section className="aomi-section-body">
         <SettingsSectionHeading
           title="Account overview"
-          detail="Profile, plan, and this month"
           hint="Your plan's monthly allowance pays for usage first. Anything beyond it comes from the funds you add."
         />
         {accountReady ? (
@@ -116,29 +110,22 @@ export function GeneralSettings({
         )}
       </section>
 
-      <section className="flex flex-col gap-2">
+      <section className="aomi-section-body">
         <SettingsSectionHeading
           title="Preferences"
-          detail="Theme, network, and wallets"
         />
         <div className={settingsPanelClass}>
           <FlatSettingRow label="Theme">
-            <div className="border-aomi-border bg-aomi-surface flex h-8 items-center rounded-lg border p-[3px]">
-              {themeChoices.map(({ mode, label }) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => updateSetting("colorMode", mode)}
-                  className={`rounded-md px-3 py-1 text-[12px] leading-none transition-colors ${
-                    settings.colorMode === mode
-                      ? "bg-aomi-surface-2 text-aomi-fg font-medium"
-                      : "text-aomi-muted hover:text-aomi-fg"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <Segmented<ColorMode>
+              label="Theme"
+              value={settings.colorMode}
+              onChange={(mode) => updateSetting("colorMode", mode)}
+              options={[
+                { value: "dark", label: "Dark" },
+                { value: "light", label: "Light" },
+                { value: "auto", label: "System" },
+              ]}
+            />
           </FlatSettingRow>
 
           <Divider />
@@ -218,7 +205,7 @@ function AccountSummaryCard({
           </span>
         </span>
         <span className="type-meta text-aomi-muted group-hover:text-aomi-fg flex shrink-0 items-center gap-1 transition-colors">
-          <span className="@[30rem]:inline hidden">Manage account</span>
+          <span className="sr-only">Manage account</span>
           <ChevronRight size={14} aria-hidden />
         </span>
       </button>
@@ -226,8 +213,8 @@ function AccountSummaryCard({
       {billing ? (
         <>
           <Divider />
-          <div className="[&>*]:border-aomi-border grid grid-cols-2 sm:grid-cols-3">
-            <div className="col-span-2 flex items-center gap-3.5 border-b px-4 py-4 sm:col-span-1 sm:border-b-0 sm:border-r sm:px-5">
+          <div className="[&>*]:border-aomi-border grid grid-cols-2">
+            <div className="row-span-2 flex min-w-0 flex-col items-start justify-center gap-3.5 border-r px-4 py-4 @[30rem]:flex-row @[30rem]:items-center @[30rem]:justify-start @[30rem]:px-5">
               {billing.allowanceUsd > 0 ? (
                 <AllowanceRing left={billing.allowanceLeft} size={44} />
               ) : null}
@@ -237,7 +224,7 @@ function AccountSummaryCard({
                   billing.allowanceUsd > 0 ? (
                     <>
                       {formatDollars(billing.allowanceLeftUsd)}{" "}
-                      <span className="text-aomi-muted text-[12px] font-normal">
+                      <span className="type-meta text-aomi-muted font-normal">
                         of {formatDollars(billing.allowanceUsd)}
                       </span>
                     </>
@@ -252,14 +239,14 @@ function AccountSummaryCard({
                 }
               />
             </div>
-            <div className="border-r px-4 py-4 sm:px-5">
+            <div className="border-b px-4 py-3 @[30rem]:px-5">
               <Stat
                 label="Added balance"
                 value={formatDollars(billing.balanceUsd)}
                 detail="Never expires"
               />
             </div>
-            <div className="px-4 py-4 sm:px-5">
+            <div className="px-4 py-3 @[30rem]:px-5">
               <Stat
                 label={
                   month
@@ -274,15 +261,15 @@ function AccountSummaryCard({
             </div>
           </div>
           <Divider />
-          <div className="bg-aomi-surface flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
-            <span className="type-meta text-aomi-muted">
+          <div className="aomi-table-band flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
+            <span className="type-meta">
               Your allowance is used first, then your added balance.
             </span>
             <div className="flex gap-2">
-              <AomiButton size="sm" onClick={() => setCheckoutOpen(true)}>
+              <AomiButton variant="on-band" size="sm" onClick={() => setCheckoutOpen(true)}>
                 Add funds
               </AomiButton>
-              <AomiButton size="sm" onClick={onViewBilling}>
+              <AomiButton variant="on-band" size="sm" onClick={onViewBilling}>
                 Billing
                 <ChevronRight />
               </AomiButton>
@@ -313,10 +300,10 @@ function Stat({
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
       <span className="type-meta text-aomi-muted">{label}</span>
-      <span className="text-[16px] font-semibold tabular-nums leading-6 tracking-[-0.01em]">
+      <span className="type-title font-semibold tabular-nums tracking-[-0.01em]">
         {value}
       </span>
-      <span className="type-meta text-aomi-muted truncate">{detail}</span>
+      <span className="type-meta text-aomi-muted">{detail}</span>
     </div>
   );
 }

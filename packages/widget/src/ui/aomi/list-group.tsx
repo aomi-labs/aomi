@@ -45,14 +45,14 @@ export function ListRow({
   return (
     <div
       className={cn(
-        "flex min-h-14 flex-wrap items-center justify-between gap-3 px-3.5 py-3 sm:flex-nowrap",
+        "flex min-h-14 flex-wrap items-center justify-between gap-3 [padding:var(--aomi-row-padding)] sm:flex-nowrap",
         className,
       )}
       {...props}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {leading}
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-[var(--aomi-caption-gap)]">
           <div className="type-row [overflow-wrap:anywhere] sm:truncate">
             {title}
           </div>

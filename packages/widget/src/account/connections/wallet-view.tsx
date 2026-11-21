@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/cn";
+import { NavigationTab } from "@/ui/aomi/navigation-tab";
 import { useState, type ReactNode } from "react";
 import {
   BadgeCheck,
@@ -97,7 +98,7 @@ function askModeOptions(
 /** The pill the ask mode picker and the fixed ask mode share. */
 const askModePill = cn(
   controlSelectTriggerClass,
-  "border-aomi-border bg-aomi-raised inline-flex shrink-0 items-center border",
+  "inline-flex shrink-0 items-center",
 );
 
 /** The composer's guard-policy menu, as a row's ask mode picker. */
@@ -127,10 +128,10 @@ export function AskModeSelect({
   const current = options.find((option) => option.id === askMode) ?? first;
   if (askOnly)
     return (
-      <span className={cn(askModePill, "pointer-events-none")}>
+      <StatusPill>
         <Lock className="h-3 w-3 shrink-0 opacity-60" />
         <span className="truncate">{first.label}</span>
-      </span>
+      </StatusPill>
     );
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -174,7 +175,7 @@ export function AskModeSelect({
                 setOpen(false);
                 if (item.id !== askMode) onChange(item.id);
               }}
-              className={cn(controlMenuItemClass, "hover:bg-aomi-hover")}
+              className={controlMenuItemClass}
             >
               <span className={controlMenuIconClass}>
                 <item.Icon className="size-4" />
@@ -202,10 +203,10 @@ export function AskModeSelect({
  */
 export function FixedAskMode({ brand }: { brand: string }) {
   return (
-    <span className={cn(askModePill, "pointer-events-none")}>
+    <StatusPill>
       <SquarePen className="h-3 w-3 shrink-0 opacity-60" />
       <span className="truncate">Sign in {brand}</span>
-    </span>
+    </StatusPill>
   );
 }
 
@@ -262,33 +263,6 @@ export function usePage<T>(items: readonly T[], pageSize: number) {
     setPage,
     shown: items.slice(at * pageSize, at * pageSize + pageSize),
   };
-}
-
-/** A filter chip, as on the usage statement. */
-export function FilterChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn(
-        "rounded-full border px-3 py-[5px] text-xs transition-colors",
-        active
-          ? "bg-aomi-surface-2 text-aomi-fg border-transparent font-medium"
-          : "border-aomi-border text-aomi-muted hover:text-aomi-fg",
-      )}
-    >
-      {children}
-    </button>
-  );
 }
 
 const addressLine = (row: WalletViewRow) =>
@@ -377,8 +351,8 @@ export function WalletView({
         </label>
       ) : null}
       {kinds.length > 1 ? (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <FilterChip
+        <div role="group" aria-label="Wallet filters" className="flex flex-wrap items-center gap-1">
+          <NavigationTab
             active={kind === "all"}
             onClick={() => {
               setKind("all");
@@ -386,9 +360,9 @@ export function WalletView({
             }}
           >
             All
-          </FilterChip>
+          </NavigationTab>
           {kinds.map((entry) => (
-            <FilterChip
+            <NavigationTab
               key={entry}
               active={kind === entry}
               onClick={() => {
@@ -397,7 +371,7 @@ export function WalletView({
               }}
             >
               {KINDS[entry]}
-            </FilterChip>
+            </NavigationTab>
           ))}
         </div>
       ) : null}

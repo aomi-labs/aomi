@@ -107,7 +107,7 @@ export function TransactionSafetySettings() {
   return (
     <section
       aria-labelledby="guard-policy-heading"
-      className="flex flex-col gap-2"
+      className="aomi-section-body"
     >
       <SectionHeader
         id="guard-policy-heading"
