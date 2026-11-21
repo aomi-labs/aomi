@@ -48,6 +48,8 @@ Frontend owners: @CeciliaZ030 and @arixoneth.
 
 Widget and Portal action buttons use `AomiButton`. For links and slotted triggers inside the widget, use `aomiButton`. Primary actions use deep blue, secondary actions use a neutral fill, and destructive actions use `danger` for entry and `danger-fill` for confirmation. Action buttons have an 8 px radius.
 
+Dropdowns use the shared `PopoverContent` surface or `aomi-menu-panel` for inline pickers. Use `aomi-menu-row` for neutral hover and `aomi-wallet-choice` for default-wallet triggers and choices. Wallet choices show a blue selection check and a keyboard focus outline.
+
 Widget segmented controls use `Segmented` from `@/ui/aomi/segmented`. Pass the group label, options, value, and change handler. The component owns sizing, selection styling, and keyboard navigation.
 
 `@aomi-labs/widget/host-composition` is the intentional contract for

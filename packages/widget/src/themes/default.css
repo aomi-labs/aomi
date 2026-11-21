@@ -29,6 +29,20 @@
   display: inline-block;
 }
 
+/* Dropdowns share one surface across Radix portals and inline pickers. */
+@utility aomi-menu-panel {
+  @apply rounded-[16px] border border-aomi-border bg-aomi-raised text-aomi-fg shadow-popover;
+}
+
+@utility aomi-menu-row {
+  @apply rounded-[10px] hover:bg-aomi-hover focus-visible:bg-aomi-hover;
+}
+
+/* Wallet choices use a checkmark alone. Keep keyboard focus inside the row. */
+@utility aomi-wallet-choice {
+  @apply rounded-[10px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-aomi-ring;
+}
+
 @utility aomi-action-fill {
   background-color: var(--action-bg);
   @media (hover: hover) {
@@ -299,7 +313,7 @@
 
   /* elevation — the only two shadows (the menu and modal shadows the app
      already used) */
-  --aomi-shadow-popover: 0 16px 40px rgb(0 0 0 / 0.2);
+  --aomi-shadow-popover: 0 4px 14px rgb(0 0 0 / 0.08);
   --aomi-shadow-modal: 0 24px 70px rgb(0 0 0 / 0.08);
 }
 
@@ -372,7 +386,7 @@
   --aomi-danger-strong: #c34255;
 
   /* Dark grounds swallow a soft tinted shadow; deeper black keeps the lift. */
-  --aomi-shadow-popover: 0 12px 32px rgb(0 0 0 / 0.5);
+  --aomi-shadow-popover: 0 4px 14px rgb(0 0 0 / 0.18);
   --aomi-shadow-modal: 0 24px 64px rgb(0 0 0 / 0.55);
 
   /* Derived tokens must be re-declared, not inherited. A `var()` inside a

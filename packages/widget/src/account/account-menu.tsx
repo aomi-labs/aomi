@@ -138,7 +138,7 @@ export function AccountMenu({
         role="menu"
         aria-label="Account menu"
         className={cn(
-          "border-aomi-border bg-aomi-raised animate-in-pop absolute z-50 flex max-h-[calc(100dvh-1rem)] w-[min(248px,calc(100vw-1.5rem))] flex-col overflow-y-auto rounded-xl border p-2 shadow-[0_16px_40px_rgba(0,0,0,0.45)]",
+          "aomi-menu-panel animate-in-pop absolute z-50 flex max-h-[calc(100dvh-1rem)] w-[min(248px,calc(100vw-1.5rem))] flex-col overflow-y-auto p-2",
           placement === "above"
             ? "bottom-[calc(100%+8px)] left-0"
             : "right-0 top-[calc(100%+8px)]",
@@ -381,7 +381,7 @@ function SignsWithRows({
                 type="button"
                 aria-expanded
                 onClick={() => setOpenFamily(null)}
-                className="aomi-nav-row flex w-full items-center justify-between px-2.5 py-2 text-left text-[12px] font-medium transition-colors"
+                className="aomi-wallet-choice flex w-full items-center justify-between px-2.5 py-2 text-left text-[12px] font-medium transition-colors"
               >
                 {slot.family === "evm" ? "EVM" : "SVM"} wallets
                 <ChevronUpIcon className="text-aomi-muted" size={14} />
@@ -399,13 +399,13 @@ function SignsWithRows({
                     aria-label={`Use ${rowTitle(row).title} ${shortAddress(row.address)}`}
                     disabled={Boolean(switching)}
                     onClick={() => void activate(row)}
-                    className="aomi-nav-row flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors"
+                    className="aomi-wallet-choice flex w-full items-center gap-2 px-2 py-1.5 text-left"
                   >
                     <WalletLine row={row} />
                     {switching === row.key || row.activating ? (
                       <PendingMark />
                     ) : row.active ? (
-                      <CheckIcon className="text-aomi-fg" size={14} />
+                      <CheckIcon className="text-aomi-accent-strong" size={14} />
                     ) : null}
                   </button>
                 ))}
@@ -418,7 +418,7 @@ function SignsWithRows({
               aria-expanded={false}
               aria-label={`${slot.family.toUpperCase()} default wallet: ${rowTitle(current).title}`}
               onClick={() => setOpenFamily(slot.family)}
-              className="aomi-nav-row flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors"
+              className="aomi-wallet-choice flex w-full items-center gap-2 px-2 py-1.5 text-left"
             >
               <WalletLine row={current} />
               <FamilyTag family={slot.family} />

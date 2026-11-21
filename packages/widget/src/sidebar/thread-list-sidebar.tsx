@@ -103,7 +103,7 @@ function ProductSwitcher({
         align="start"
         side="bottom"
         sideOffset={6}
-        className="border-aomi-overlay-border bg-aomi-raised w-60 rounded-xl border p-1.5"
+        className="w-60 p-1.5"
       >
         {products.map((product) => {
           const isCurrent = product.id === current?.id;
@@ -129,7 +129,7 @@ function ProductSwitcher({
                 )}
               </span>
               {isCurrent && (
-                <Check className="text-aomi-muted ml-auto size-4 shrink-0" />
+                <Check className="text-aomi-accent-strong ml-auto size-4 shrink-0" />
               )}
             </a>
           );

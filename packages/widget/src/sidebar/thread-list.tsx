@@ -402,7 +402,7 @@ const ThreadListItemMenu: FC<{
         side="bottom"
         sideOffset={6}
         alignOffset={0}
-        className="aui-thread-list-item-menu-content border-aomi-overlay-border bg-aomi-raised space-y-1 w-44 rounded-xl border p-1.5"
+        className="aui-thread-list-item-menu-content space-y-1 w-44 p-1.5"
         onClick={(event) => event.stopPropagation()}
         onPointerEnter={onContentPointerEnter}
         onPointerLeave={onContentPointerLeave}

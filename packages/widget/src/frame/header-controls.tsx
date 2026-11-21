@@ -71,7 +71,7 @@ export function HeaderControls({
     <div className="flex min-w-0 items-center gap-1 md:gap-2.5">
       {showNetwork ? (
         <>
-          <NetworkSelect className="border-aomi-border bg-aomi-raised text-aomi-fg hover:border-aomi-muted/60 hover:bg-aomi-raised hover:text-aomi-fg focus-visible:border-aomi-border data-[state=open]:border-aomi-muted/60 h-8 rounded-full border pl-2 pr-2.5 text-[13px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-visible:ring-0 max-md:mr-1 max-md:h-9 max-md:[&>span.truncate]:sr-only" />
+          <NetworkSelect className="bg-aomi-surface-2 text-aomi-fg hover:bg-aomi-hover h-8 rounded-full pl-2 pr-2.5 text-[13px] font-medium max-md:mr-1 max-md:h-9 max-md:[&>span.truncate]:sr-only" />
           {showLibrary || showSettings || showTheme || showActivity ? (
             <span
               aria-hidden="true"
