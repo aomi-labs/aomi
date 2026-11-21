@@ -127,10 +127,10 @@ export function AskModeSelect({
   const current = options.find((option) => option.id === askMode) ?? first;
   if (askOnly)
     return (
-      <span className={cn(askModePill, "pointer-events-none")}>
+      <StatusPill>
         <Lock className="h-3 w-3 shrink-0 opacity-60" />
         <span className="truncate">{first.label}</span>
-      </span>
+      </StatusPill>
     );
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -202,10 +202,10 @@ export function AskModeSelect({
  */
 export function FixedAskMode({ brand }: { brand: string }) {
   return (
-    <span className={cn(askModePill, "pointer-events-none")}>
+    <StatusPill>
       <SquarePen className="h-3 w-3 shrink-0 opacity-60" />
       <span className="truncate">Sign in {brand}</span>
-    </span>
+    </StatusPill>
   );
 }
 
