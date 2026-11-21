@@ -13,6 +13,7 @@ import { AccountOverviewFixture } from "@/test/account-overview-fixture";
 import { PoliciesSettings } from "./policies-settings";
 import type { VaultReader } from "./vault-chain";
 import type { VaultHolding } from "./vault-model";
+import { encodeFunctionData, parseAbi } from "viem";
 import { DELEGATION_MANAGER } from "./vault-withdraw";
 import {
   dayFromToday,
@@ -23,6 +24,12 @@ import {
 
 const ADMIN = "0xAbCd00000000000000000000000000000000Ef12";
 const OTHER = "0x1111000000000000000000000000000000002222";
+/** SimpleFactory `deploy`, with init code that names `owner` like a vault's does. */
+const deployCall = (owner: string, salt = `0x${"00".repeat(32)}`) =>
+  encodeFunctionData({
+    abi: parseAbi(["function deploy(bytes, bytes32) returns (address)"]),
+    args: [`0x6080604052${owner.slice(2)}5f5ff3`, salt as `0x${string}`],
+  });
 const AGENT = "0x3333000000000000000000000000000000004444";
 const OWNER = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T";
 type Row = Record<string, string | boolean>;
@@ -1413,7 +1420,10 @@ describe("Settings › Policies", () => {
                 return Response.json({ action: sendAction });
               confirms += 1;
               return Response.json({
-                rules: confirms < 3 ? still : without([kept({ state: "off", note: null })]),
+                rules:
+                  confirms < 3
+                    ? still
+                    : without([kept({ state: "off", note: null })]),
               });
             };
             await renderPolicies();
@@ -1464,6 +1474,22 @@ describe("Settings › Policies", () => {
           [{ network: "eip155:10" }, NETWORK_REFUSED],
           [{ to: "vitalik.eth" }, /action.to must be a 20-byte/],
           [{ to: OTHER }, /different delegation manager/],
+          // The factory only for this owner's own vault.
+          [
+            {
+              to: "0x69Aa2f9fe1572F1B640E1bbc512f5c3a734fc77c",
+              data: deployCall(OTHER),
+            },
+            /different delegation manager/,
+          ],
+          // The owner's address only in the salt is not the owner's vault.
+          [
+            {
+              to: "0x69Aa2f9fe1572F1B640E1bbc512f5c3a734fc77c",
+              data: deployCall(OTHER, `0x${"00".repeat(12)}${ADMIN.slice(2)}`),
+            },
+            /different delegation manager/,
+          ],
           [{ value: "0xde0b6b3a7640000" }, /Aomi asked to send funds/],
         ] as const)("refuses a send with %o", async (bad, message) => {
           kit.identity.address = ADMIN;
@@ -1475,6 +1501,26 @@ describe("Settings › Policies", () => {
           expect(kit.sendTransaction).not.toHaveBeenCalled();
           expect(kit.switchChain).not.toHaveBeenCalled();
           expect(writes()).toHaveLength(1);
+        });
+
+        it("sends the factory call that deploys the owner's own vault before the revocation", async () => {
+          Object.assign(kit.identity, { address: ADMIN, chainId: 8453 });
+          rules = toSend();
+          const deploy = {
+            ...sendAction,
+            to: "0x69Aa2f9fe1572F1B640E1bbc512f5c3a734fc77c",
+            data: deployCall(ADMIN),
+          };
+          sendTo(deploy);
+          await renderPolicies();
+          await send();
+          await waitFor(() =>
+            expect(kit.sendTransaction).toHaveBeenCalledOnce(),
+          );
+          expect(kit.sendTransaction.mock.calls[0]![0]).toMatchObject({
+            to: deploy.to,
+            data: deploy.data,
+          });
         });
 
         it("refuses to send for a Solana signer, or from a wallet that cannot send", async () => {

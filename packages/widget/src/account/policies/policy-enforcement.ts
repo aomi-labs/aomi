@@ -23,7 +23,11 @@ import {
   sameWallet,
 } from "@/account/rules/rules-model";
 import { enforcementKey, sendsRevocation } from "./policy-model";
-import { DELEGATION_MANAGER } from "./vault-withdraw";
+import {
+  DELEGATION_MANAGER,
+  SIMPLE_FACTORY,
+  deploysVaultOf,
+} from "./vault-withdraw";
 
 const FAMILY = { evm: "an EVM", svm: "a Solana" };
 
@@ -192,9 +196,15 @@ async function act(
       throw new Error(
         "Aomi asked to send to something that is not an address. Nothing was sent.",
       );
+    // A MetaMask revocation goes to the manager. An undeployed vault is first
+    // created by the factory, and only as this owner's vault.
+    const to = action.to.toLowerCase();
+    const deploysOwnVault =
+      to === SIMPLE_FACTORY && deploysVaultOf(action.data, owner);
     if (
       entry.provider === "metamask" &&
-      action.to.toLowerCase() !== DELEGATION_MANAGER
+      to !== DELEGATION_MANAGER &&
+      !deploysOwnVault
     )
       throw new Error("The revocation targets a different delegation manager.");
     if (BigInt(action.value) !== BigInt(0))
