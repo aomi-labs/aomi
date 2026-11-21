@@ -153,16 +153,22 @@ describe("aomi publish", () => {
     write("packages/price/guards.json", "{}");
     write("packages/price/README.md", "not a member");
     write("price.wasm", "\0asm");
-    // A stand-in core: packs a fixed bundle and logs each call.
+    // A stand-in core: logs each call, packs a fixed bundle named after
+    // its folder, and refuses a folder called `bad`.
     write(
       "core.cjs",
       [
         "#!/usr/bin/env node",
         'const fs = require("node:fs");',
+        'const { basename } = require("node:path");',
         "const args = process.argv.slice(2);",
         'fs.appendFileSync(__dirname + "/core.log", JSON.stringify(args) + "\\n");',
+        'if (args[0] === "pack" && basename(args[1]) === "bad") {',
+        '  process.stdout.write(JSON.stringify({ error: { code: "manifest_invalid", message: "aomi.toml: bad" } }));',
+        "  process.exit(1);",
+        "}",
         'if (args[0] === "pack") fs.writeFileSync(args[args.indexOf("--out") + 1], "bundle");',
-        'process.stdout.write("{}\\n");',
+        'process.stdout.write(JSON.stringify(args[0] === "pack" ? { package: basename(args[1]) } : {}) + "\\n");',
       ].join("\n"),
     );
     chmodSync(join(root, "core.cjs"), 0o755);
@@ -212,6 +218,7 @@ describe("aomi publish", () => {
       .map((line) => JSON.parse(line) as string[]);
     const bundle = calls[0]!.at(-1)!;
     expect(calls).toEqual([
+      ["pack", join(root, "packages/price"), "--out", bundle],
       [
         "pack",
         join(root, "packages/price"),
@@ -359,6 +366,33 @@ describe("aomi publish", () => {
     expect(sent).toHaveLength(1);
   });
 
+  it("leaves manifests to aomi-build-core and publishes the others when one does not pack", async () => {
+    write(
+      "aomi.toml",
+      ["price", "aave", "bad"]
+        .map((name) => `[[packages]]\npath = "packages/${name}"\n`)
+        .join("\n"),
+    );
+    // Valid TOML the CLI's own parser refused (AB-T4c).
+    write(
+      "packages/aave/aomi.toml",
+      '[package]\nname = "aave"\n\n[onchain.gateway.check]\ndepositETH = { "0" = "$pool" }\n',
+    );
+    write("packages/bad/aomi.toml", "[package]\n");
+    for (const name of ["price", "aave"])
+      answers[`POST /api/build/packages/${name}/releases`] = Response.json(
+        { package: `alice/${name}`, release: release(1), live: null },
+        { status: 201 },
+      );
+    const { code, stdout, stderr } = await cli("publish", "--root", root);
+    expect(stdout).toContain("package alice/price  release 1");
+    expect(stdout).toContain("package alice/aave  release 1");
+    expect(code).toBe(1);
+    expect(stderr).toBe(
+      "error: packages/bad: manifest_invalid: aomi.toml: bad\n",
+    );
+  });
+
   it("prints a refusal's code and exits non-zero", async () => {
     answers["POST /api/build/packages/price/releases"] = Response.json(
       { code: "manifest_invalid", message: "contract must be 1" },
@@ -375,7 +409,7 @@ describe("aomi publish", () => {
       `price=${join(root, "price.wasm")}`,
     );
     expect(code).toBe(1);
-    expect(stderr).toBe("error: manifest_invalid: contract must be 1\n");
+    expect(stderr).toBe("error: price: manifest_invalid: contract must be 1\n");
     expect(sent).toHaveLength(1);
   });
 
@@ -615,7 +649,7 @@ describe.runIf(BUILT_CORE && existsSync(OFFICIAL))("aomi-build-core", () => {
       `lido=${join(root, "lido.wasm")}`,
     );
     expect(code).toBe(1);
-    expect(stderr).toMatch(/^error: not_a_component: /);
+    expect(stderr).toMatch(/^error: lido: not_a_component: /);
     expect(sent).toHaveLength(0);
   });
 });

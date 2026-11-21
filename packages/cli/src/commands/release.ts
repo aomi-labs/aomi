@@ -202,7 +202,7 @@ type PublishFlags = BuilderFlags & {
  * `--promote` makes each new release live. Without
  * `--package` or `--agent` it publishes everything the root lists. Each
  * promote moves one pointer, so a failure part way names the pointers that
- * already moved.
+ * already moved. A package that fails is reported after the rest publish.
  */
 export async function publish(flags: PublishFlags): Promise<void> {
   const root = resolve(flags.root ?? ".");
@@ -216,72 +216,95 @@ export async function publish(flags: PublishFlags): Promise<void> {
       return [entry.slice(0, at), resolve(entry.slice(at + 1))];
     }),
   );
-  const packages = ((manifest.packages ?? []) as { path: string }[]).map(
-    ({ path }) => {
-      const dir = join(root, inside(root, path));
-      const config = toml(join(dir, "aomi.toml")).package ?? {};
-      return { dir, name: String(config.name ?? "") };
-    },
-  );
-  const agents = (manifest.agents ?? []) as { name: string; voice?: string }[];
-  for (const name of flags.package ?? [])
-    if (!packages.some((entry) => entry.name === name))
-      throw usage(`${name} is not a package of ${root}/aomi.toml`);
-  for (const name of flags.agent ?? [])
-    if (!agents.some((agent) => agent.name === name))
-      throw usage(`${name} is not an agent of ${root}/aomi.toml`);
-
-  const client = builder(flags);
-  const bundles = mkdtempSync(join(tmpdir(), "aomi-bundles-"));
-  const results: Published[] = [];
   const moved: string[] = [];
-  const goLive = async (kind: ReleaseKind, name: string, result: Published) => {
-    if (!flags.promote || result.live === result.release.number) return;
-    const { live } = await refused(
-      client.promoteRelease({
-        kind,
-        name,
-        number: result.release.number,
-        expectedLive: result.live,
-      }),
-    );
-    moved.push(
-      `${kind} ${result.id}  live ${live} (was ${result.live ?? "-"})${result.live === null ? "" : `  undo: aomi rollback ${kind} ${name} ${result.live}`}`,
-    );
-    result.live = live;
-  };
-
+  const bundles = mkdtempSync(join(tmpdir(), "aomi-bundles-"));
   try {
-    for (const entry of packages) {
-      if (!everything && !flags.package?.includes(entry.name)) continue;
-      // A package with no `src/` is text-only: it ships no component.
-      const source = existsSync(join(entry.dir, "src"));
-      const built =
-        wasm.get(entry.name) ??
-        (source && flags.build !== false ? cargoBuild(entry.dir) : undefined);
-      if (source && !built)
-        throw usage(`--no-build needs --wasm ${entry.name}=<path>`);
-      // The Manager's own pack and release check, run here before upload.
-      const bundle = join(bundles, `${entry.name}.tar`);
-      core([
-        "pack",
-        entry.dir,
-        ...(built ? ["--wasm", built] : []),
-        "--out",
-        bundle,
-      ]);
-      core(["check", bundle]);
-      const result = await refused(
-        client.publishPackage({
-          name: entry.name,
-          bundle: readFileSync(bundle),
-          sourceRepo: process.env.GITHUB_REPOSITORY,
-          sourceCommit: process.env.GITHUB_SHA,
+    // `aomi-build-core` reads each package's manifest, as publish does: a
+    // first pack names the package, or says why it does not pack.
+    const packages = ((manifest.packages ?? []) as { path: string }[]).map(
+      ({ path }, index) => {
+        const dir = join(root, inside(root, path));
+        const bundle = join(bundles, `${index}.tar`);
+        try {
+          const packed = core<{ package: string }>([
+            "pack",
+            dir,
+            "--out",
+            bundle,
+          ]);
+          return { path, dir, bundle, name: packed.package };
+        } catch (error) {
+          return { path, dir, bundle, failure: messageOf(error) };
+        }
+      },
+    );
+    const agents = (manifest.agents ?? []) as {
+      name: string;
+      voice?: string;
+    }[];
+    const unpacked = packages.flatMap((entry) =>
+      entry.failure ? [`${entry.path}: ${entry.failure}`] : [],
+    );
+    for (const name of flags.package ?? [])
+      if (!packages.some((entry) => entry.name === name))
+        throw usage(
+          [`${name} is not a package of ${root}/aomi.toml`, ...unpacked].join(
+            "\n",
+          ),
+        );
+    for (const name of flags.agent ?? [])
+      if (!agents.some((agent) => agent.name === name))
+        throw usage(`${name} is not an agent of ${root}/aomi.toml`);
+
+    const client = builder(flags);
+    const results: Published[] = [];
+    // One package's failure leaves the others to publish.
+    const failed = everything ? unpacked : [];
+    const goLive = async (
+      kind: ReleaseKind,
+      name: string,
+      result: Published,
+    ) => {
+      if (!flags.promote || result.live === result.release.number) return;
+      const { live } = await refused(
+        client.promoteRelease({
+          kind,
+          name,
+          number: result.release.number,
+          expectedLive: result.live,
         }),
       );
-      await goLive("package", entry.name, result);
-      results.push(result);
-      if (!flags.json) print("package", result);
+      moved.push(
+        `${kind} ${result.id}  live ${live} (was ${result.live ?? "-"})${result.live === null ? "" : `  undo: aomi rollback ${kind} ${name} ${result.live}`}`,
+      );
+      result.live = live;
+    };
+
+    for (const { name, dir, bundle } of packages) {
+      if (!name || (!everything && !flags.package?.includes(name))) continue;
+      // A package with no `src/` is text-only: it ships no component.
+      const source = existsSync(join(dir, "src"));
+      if (source && flags.build === false && !wasm.has(name))
+        throw usage(`--no-build needs --wasm ${name}=<path>`);
+      try {
+        const built = wasm.get(name) ?? (source ? cargoBuild(dir) : undefined);
+        // The Manager's own pack and release check, run here before upload.
+        if (built) core(["pack", dir, "--wasm", built, "--out", bundle]);
+        core(["check", bundle]);
+        const result = await refused(
+          client.publishPackage({
+            name,
+            bundle: readFileSync(bundle),
+            sourceRepo: process.env.GITHUB_REPOSITORY,
+            sourceCommit: process.env.GITHUB_SHA,
+          }),
+        );
+        await goLive("package", name, result);
+        results.push(result);
+        if (!flags.json) print("package", result);
+      } catch (error) {
+        failed.push(`${name}: ${messageOf(error)}`);
+      }
     }
 
     for (const agent of agents) {
@@ -301,6 +324,8 @@ export async function publish(flags: PublishFlags): Promise<void> {
       results.push(result);
       if (!flags.json) print("agent", result);
     }
+    if (flags.json) for (const result of results) json(result);
+    if (failed.length) throw new CliError(failed.join("\n"));
   } catch (error) {
     if (!moved.length) throw error;
     throw new CliError(
@@ -313,7 +338,6 @@ export async function publish(flags: PublishFlags): Promise<void> {
   } finally {
     rmSync(bundles, { recursive: true, force: true });
   }
-  if (flags.json) for (const result of results) json(result);
 }
 
 /**
