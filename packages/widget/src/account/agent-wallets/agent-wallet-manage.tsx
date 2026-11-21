@@ -177,7 +177,7 @@ export function AgentWalletManage({
           agentWallet={archived ? undefined : wallet}
           brand="Aomi"
           disabled={paused}
-          onClose={onClose}
+          onClose={archived ? onClose : undefined}
           onRulesFiled={setFiled}
         />
         {paused ? (

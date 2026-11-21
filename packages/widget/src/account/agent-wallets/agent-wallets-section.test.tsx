@@ -508,6 +508,11 @@ describe("Agent wallets band", () => {
           summary.compareDocumentPosition(node) &
           Node.DOCUMENT_POSITION_FOLLOWING,
         );
+      expect(
+        within(sheet).getByRole("button", { name: /Manage in Connections/ }),
+      ).toBe(
+        within(summary).getByRole("button", { name: /Manage in Connections/ }),
+      );
       expect(after(within(sheet).getByText("Who can use it"))).toBe(false);
       expect(after(within(sheet).getByRole("button", { name: "Send" }))).toBe(
         true,
