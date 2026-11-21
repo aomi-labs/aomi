@@ -6,6 +6,7 @@ import type { MonthlyStatement } from "./types";
 import { useAccountOverview } from "@/account/account-overview";
 import { useUsageStatement } from "./use-usage-statement";
 import { ArrowLeft, Check, ChevronDown } from "lucide-react";
+import { Segmented } from "@/ui/aomi/segmented";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import {
   AllowanceSettlementSection,
@@ -169,22 +170,15 @@ export function StatementView() {
             />
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="border-aomi-border flex rounded-full border p-[3px]">
-                {(["byApp", "itemized"] as View[]).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setView(v)}
-                    className={`rounded-full px-3.5 py-[6px] text-xs font-medium transition-colors ${
-                      view === v
-                        ? "bg-aomi-surface-2 text-aomi-fg font-medium"
-                        : "text-aomi-muted hover:text-aomi-fg"
-                    }`}
-                  >
-                    {v === "byApp" ? "By app" : "Itemized"}
-                  </button>
-                ))}
-              </div>
+              <Segmented<View>
+                label="Statement detail"
+                value={view}
+                onChange={setView}
+                options={[
+                  { value: "byApp", label: "By app" },
+                  { value: "itemized", label: "Itemized" },
+                ]}
+              />
 
               <Dropdown
                 value={appFilter}

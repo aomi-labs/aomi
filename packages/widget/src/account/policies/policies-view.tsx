@@ -1024,7 +1024,6 @@ export function PolicyAuthorityPicker({
         action={
           <Segmented
             label="Policy change authority"
-            size="sm"
             value={draft.kind}
             disabled={saving}
             onChange={(kind) => {

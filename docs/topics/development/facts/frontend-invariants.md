@@ -46,6 +46,8 @@ Frontend owners: @CeciliaZ030 and @arixoneth.
 
 ## Shared UI and host policy
 
+Widget segmented controls use `Segmented` from `@/ui/aomi/segmented`. Pass the group label, options, value, and change handler. The component owns sizing, selection styling, and keyboard navigation.
+
 `@aomi-labs/widget/host-composition` is the intentional contract for
 first-party hosts that assemble `AomiFrame`. Keep the entrypoint curated: add a
 shared export because a host needs the shared implementation, not as a shortcut
