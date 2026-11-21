@@ -193,15 +193,15 @@ export function ModalNavItem({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "rounded-control type-control flex h-[34px] w-auto shrink-0 items-center gap-2.5 px-2.5 transition-colors md:w-full",
+        "aomi-nav-row rounded-control type-control flex h-[34px] w-auto shrink-0 items-center gap-2.5 px-2.5 transition-colors md:w-full",
         // Phone tabs are pills tall enough to hit with a thumb.
         "max-md:h-9 max-md:gap-2 max-md:rounded-full max-md:px-3.5 max-md:text-sm",
         // The nav scrolls, so an offset outline would be clipped: draw the
         // keyboard ring inside the item instead, and none after a click.
         "focus-visible:ring-aomi-ring/50 outline-none focus-visible:ring-2 focus-visible:ring-inset",
         active
-          ? "bg-aomi-surface-2 text-aomi-fg font-medium"
-          : "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg max-md:bg-aomi-surface-2/40",
+          ? "text-aomi-fg font-medium"
+          : "text-aomi-muted hover:text-aomi-fg",
       )}
     >
       <Icon className="size-4 shrink-0" />

@@ -170,7 +170,7 @@ export function ActionsMenu({
         type="button"
         role="menuitem"
         className={cn(
-          "hover:bg-aomi-hover focus:bg-aomi-hover flex min-h-[34px] w-full items-center gap-2.5 rounded-[8px] px-2.5 py-1.5 text-left text-[13px] font-medium leading-5 outline-none",
+          "aomi-nav-row flex min-h-[34px] w-full items-center gap-2.5 rounded-[8px] px-2.5 py-1.5 text-left text-[13px] font-medium leading-5 outline-none",
           item.danger ? "text-aomi-danger" : "text-aomi-fg",
         )}
         onClick={() => {
