@@ -13,6 +13,7 @@ import { AccountOverviewFixture } from "@/test/account-overview-fixture";
 import { PoliciesSettings } from "./policies-settings";
 import type { VaultReader } from "./vault-chain";
 import type { VaultHolding } from "./vault-model";
+import { encodeFunctionData, parseAbi } from "viem";
 import { DELEGATION_MANAGER } from "./vault-withdraw";
 import {
   dayFromToday,
@@ -23,6 +24,12 @@ import {
 
 const ADMIN = "0xAbCd00000000000000000000000000000000Ef12";
 const OTHER = "0x1111000000000000000000000000000000002222";
+/** SimpleFactory `deploy`, with init code that names `owner` like a vault's does. */
+const deployCall = (owner: string, salt = `0x${"00".repeat(32)}`) =>
+  encodeFunctionData({
+    abi: parseAbi(["function deploy(bytes, bytes32) returns (address)"]),
+    args: [`0x6080604052${owner.slice(2)}5f5ff3`, salt as `0x${string}`],
+  });
 const AGENT = "0x3333000000000000000000000000000000004444";
 const OWNER = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T";
 type Row = Record<string, string | boolean>;
@@ -1471,7 +1478,15 @@ describe("Settings › Policies", () => {
           [
             {
               to: "0x69Aa2f9fe1572F1B640E1bbc512f5c3a734fc77c",
-              data: `0x4af63f02${"00".repeat(64)}`,
+              data: deployCall(OTHER),
+            },
+            /different delegation manager/,
+          ],
+          // The owner's address only in the salt is not the owner's vault.
+          [
+            {
+              to: "0x69Aa2f9fe1572F1B640E1bbc512f5c3a734fc77c",
+              data: deployCall(OTHER, `0x${"00".repeat(12)}${ADMIN.slice(2)}`),
             },
             /different delegation manager/,
           ],
@@ -1494,7 +1509,7 @@ describe("Settings › Policies", () => {
           const deploy = {
             ...sendAction,
             to: "0x69Aa2f9fe1572F1B640E1bbc512f5c3a734fc77c",
-            data: `0x4af63f02${"00".repeat(40)}${ADMIN.slice(2).toLowerCase()}${"00".repeat(20)}`,
+            data: deployCall(ADMIN),
           };
           sendTo(deploy);
           await renderPolicies();

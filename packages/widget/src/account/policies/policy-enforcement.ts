@@ -25,8 +25,8 @@ import {
 import { enforcementKey, sendsRevocation } from "./policy-model";
 import {
   DELEGATION_MANAGER,
-  FACTORY_DEPLOY_SELECTOR,
   SIMPLE_FACTORY,
+  deploysVaultOf,
 } from "./vault-withdraw";
 
 const FAMILY = { evm: "an EVM", svm: "a Solana" };
@@ -200,9 +200,7 @@ async function act(
     // created by the factory, and only as this owner's vault.
     const to = action.to.toLowerCase();
     const deploysOwnVault =
-      to === SIMPLE_FACTORY &&
-      action.data.toLowerCase().startsWith(FACTORY_DEPLOY_SELECTOR) &&
-      action.data.toLowerCase().includes(owner.toLowerCase().slice(2));
+      to === SIMPLE_FACTORY && deploysVaultOf(action.data, owner);
     if (
       entry.provider === "metamask" &&
       to !== DELEGATION_MANAGER &&
