@@ -100,10 +100,10 @@ export function Segmented<T extends string>({
             onClick={() => select(index)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
-              "flex h-[26px] items-center justify-center whitespace-nowrap rounded-lg px-[11px] text-[12px] font-medium leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+              "flex h-[26px] items-center justify-center whitespace-nowrap rounded-lg px-[11px] type-control font-medium leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-40",
               fullWidth && "flex-1",
               checked
-                ? "bg-white text-black"
+                ? "bg-aomi-on-band text-aomi-on-band-ink"
                 : "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg",
             )}
           >

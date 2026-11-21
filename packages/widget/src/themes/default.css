@@ -42,7 +42,7 @@
 /* Dropdowns share one surface across Radix portals and inline pickers. */
 @utility aomi-section-stack { @apply flex flex-col; gap: var(--aomi-section-gap); }
 @utility aomi-section-body { @apply flex flex-col; gap: var(--aomi-heading-gap); }
-@utility aomi-table-band { background: var(--aomi-b3); color: white; }
+@utility aomi-table-band { background: var(--aomi-b3); color: var(--aomi-on-band); }
 @utility aomi-menu-panel {
   @apply rounded-[16px] border border-aomi-border bg-aomi-raised text-aomi-fg shadow-popover;
 }
@@ -134,6 +134,10 @@
   --color-aomi-accent-subtle: var(--aomi-accent-subtle);
   --color-aomi-on-accent: var(--aomi-on-accent);
   --color-aomi-hover: var(--aomi-hover);
+  --color-aomi-control-ink: var(--aomi-control-ink);
+  --color-aomi-action-ink: var(--aomi-action-ink);
+  --color-aomi-on-band: var(--aomi-on-band);
+  --color-aomi-on-band-ink: var(--aomi-on-band-ink);
   --color-aomi-pink: var(--aomi-pink);
   --color-aomi-success: var(--aomi-success);
   --color-aomi-warning: var(--aomi-warning);
@@ -271,7 +275,7 @@
   /* surfaces — cool (zinc) ramp */
   --aomi-action-primary: var(--aomi-brand-blue);
   --aomi-action-danger-bg: #fae5e7;
-  --aomi-action-danger-fg: #aa2036;
+  --aomi-action-danger-fg: var(--aomi-control-ink);
   --aomi-bg: #ffffff; /* cool-0 */
   --aomi-surface: var(--aomi-g1); /* cool-50 */
   --aomi-surface-2: var(--aomi-g1); /* cool-100 */

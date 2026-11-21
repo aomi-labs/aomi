@@ -275,7 +275,7 @@ export function Divider({
   return (
     <div
       data-band
-      className="aomi-table-band border-aomi-border flex items-baseline gap-2 border-y py-1.5 pl-[30px] pr-3.5"
+      className="aomi-table-band border-aomi-border flex items-baseline gap-2 border-y [padding:var(--aomi-band-padding)]"
     >
       <span className="type-meta shrink-0 font-medium">
         {title}

@@ -158,7 +158,7 @@ function AllowanceCard({ billing, plan }: { billing: Billing; plan: string }) {
           <div className="flex min-w-0 flex-col gap-1">
             <span className="type-title tabular-nums tracking-[-0.02em]">
               {formatDollars(billing.allowanceLeftUsd)}{" "}
-              <span className="text-aomi-muted whitespace-nowrap text-[13px] font-medium tracking-normal">
+              <span className="type-meta text-aomi-muted whitespace-nowrap font-medium tracking-normal">
                 of {formatDollars(billing.allowanceUsd)} left
               </span>
             </span>
@@ -225,7 +225,7 @@ function MonthSoFar({
   );
   const { summary } = month;
   return (
-    <section className="aomi-section-body.5">
+    <section className="aomi-section-body">
       <SectionHeader
         title={`${month.period.periodLabel.split(" ")[0]} so far`}
         detail={`${usd(summary.totalUsd)} spent`}
@@ -268,7 +268,7 @@ function Payments({
   const ledger = useAccountCreditLedger();
   const entries = ledger.data?.entries ?? [];
   return (
-    <section className="aomi-section-body.5">
+    <section className="aomi-section-body">
       <SectionHeader
         title="Payments"
         count={entries.length || undefined}
@@ -332,7 +332,7 @@ function UsageView() {
       />
       <SpendBreakdownSection month={month} />
       {month.apps.length > 0 ? (
-        <section className="aomi-section-body.5">
+        <section className="aomi-section-body">
           <SectionHeader
             title="By app"
             detail="This period"

@@ -208,3 +208,12 @@ account isolation and package-install checks remain required.
 Portal and Build share the interaction palette and layout scale in `@aomi-labs/widget/design-tokens.css`. Use G1 for neutral controls, labels and outlines, G2 for hover, G3 for secondary copy, B2 for navigation selection, and B3 with white ink for table group headers and summary footers. Segmented controls have a white selected segment. On-band actions use white with black ink. Primary actions use the brand blue. Keep color literals in the shared palette. Use semantic theme aliases in feature code.
 
 Use level 1 for page titles and primary amounts (24px), level 2 for section titles (18px), level 3 for row labels (14px), and captions for supporting text (13px). Use the section stack and section body layouts for 24px between sections and 16px below headings. Rows have 12px vertical and 16px horizontal inset, with 4px between label and detail. Align inline amounts and qualifiers on their text baselines.
+
+| Role | Widget class or component |
+| --- | --- |
+| Page title or main amount / section / row / supporting copy | `type-title` / `type-section` / `type-row` / `type-meta` |
+| Sections / heading followed by content | `aomi-section-stack` / `aomi-section-body` |
+| G1 fill / outline, G2 hover, G3 secondary ink | `bg-aomi-surface-2` / `border-aomi-border`, `hover:bg-aomi-hover`, `text-aomi-muted` |
+| Selected navigation, segmented choices | `NavigationTab`, `Segmented` |
+| B3 table group / footer action | `aomi-table-band`, `AomiButton variant="on-band"` |
+| Neutral, primary and destructive actions | `AomiButton` with the corresponding variant |
