@@ -13,7 +13,7 @@ export function NavigationTab({
       type="button"
       aria-pressed={active}
       className={cn(
-        "aomi-nav-row text-aomi-muted hover:text-aomi-fg focus-visible:ring-aomi-ring inline-flex shrink-0 items-center gap-[7px] whitespace-nowrap rounded-[8px] px-[11px] py-[7px] text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset",
+        "aomi-nav-row text-aomi-muted hover:text-aomi-fg focus-visible:ring-aomi-ring inline-flex shrink-0 items-center gap-[7px] whitespace-nowrap rounded-[8px] px-[11px] py-[7px] type-control outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset",
         active && "text-aomi-fg font-medium",
         className,
       )}
