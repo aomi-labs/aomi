@@ -124,6 +124,12 @@ export type Scenario = {
    * catch "the agent explained what it would do" masquerading as a demo.
    */
   expectsExecution?: boolean;
+  /**
+   * Picker label to choose for an @-mention whose label differs from the typed
+   * token, keyed by the token without "@" (e.g. { robinhood: "Robinhood Stocks" }).
+   * Without an entry the recorder picks the option whose label equals the token.
+   */
+  mentions?: Record<string, string>;
 };
 
 /** Beats worth timestamping so cuts can be derived from one master. */
