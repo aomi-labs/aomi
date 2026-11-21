@@ -759,14 +759,18 @@ export type AomiAccountConnections = {
 export class AomiAccountPackages {
     constructor(request: AccountRequest_2);
     activate(code: string): Promise<AomiPackage>;
-    clearChoice(packageId: number): Promise<AomiPackage>;
+    clearChoice(packageId: number, options?: {
+        threadId?: string;
+    }): Promise<AomiPackage>;
     // (undocumented)
     clearSecret(packageId: number, slot: string): Promise<AomiPackageSecretStatus>;
     list(options?: {
         threadId?: string;
         signal?: AbortSignal;
     }): Promise<AomiPackageCatalog>;
-    setChoice(packageId: number, enabled: boolean): Promise<AomiPackage>;
+    setChoice(packageId: number, enabled: boolean, options?: {
+        threadId?: string;
+    }): Promise<AomiPackage>;
     setSecret(packageId: number, slot: string, value: string): Promise<AomiPackageSecretStatus>;
 }
 

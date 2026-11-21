@@ -58,6 +58,7 @@ function installBackend(initial: AomiPackage[]) {
   let rows = initial.map((row) => ({ ...row }));
   const calls: Call[] = [];
   const listQueries: string[] = [];
+  const choiceQueries: string[] = [];
   const update = (id: number, change: Partial<AomiPackage>) => {
     rows = rows.map((row) =>
       row.package_id === id ? { ...row, ...change } : row,
@@ -101,6 +102,7 @@ function installBackend(initial: AomiPackage[]) {
         /^\/api\/account\/packages\/(\d+)\/choice$/,
       );
       if (choice && method === "PUT") {
+        choiceQueries.push(url.search);
         const id = Number(choice[1]);
         if (rows.find((row) => row.package_id === id)?.agent_listed)
           return Response.json({ error: "agent_listed" }, { status: 409 });
@@ -144,6 +146,7 @@ function installBackend(initial: AomiPackage[]) {
   return {
     calls,
     listQueries,
+    choiceQueries,
     writes: () => calls.filter((call) => call.method !== "GET"),
     reads: () =>
       calls.filter((call) => call.path === "/api/account/packages").length,
@@ -651,7 +654,7 @@ describe("packages modal", () => {
     expect(screen.getByLabelText("Activation code")).toBeTruthy();
   });
 
-  it("reads the open chat's agent only once the server stores that chat", async () => {
+  it("reads and changes the open chat's packages only once the server stores that chat", async () => {
     const backend = installBackend([VERIFIED]);
     host.runtime = {
       currentThreadId: "draft-chat",
@@ -666,6 +669,9 @@ describe("packages modal", () => {
     };
     await renderModal();
     expect(backend.listQueries).toEqual(["", "?thread_id=saved-chat"]);
+    actOn("Jupiter", "Turn off");
+    await footerAction("Jupiter", "Turn on");
+    expect(backend.choiceQueries).toEqual(["?thread_id=saved-chat"]);
   });
 
   it("offers a guest Retry when the public read fails", async () => {

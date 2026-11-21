@@ -116,7 +116,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
 
   const setChoice = (row: AomiPackage, enabled: boolean) =>
     void mutate(row, () =>
-      aomi.account.packages.setChoice(row.package_id, enabled),
+      aomi.account.packages.setChoice(row.package_id, enabled, { threadId }),
     );
   /** A not verified package shows its notice before it first turns on. */
   const toggle = (row: AomiPackage, enabled: boolean) => {

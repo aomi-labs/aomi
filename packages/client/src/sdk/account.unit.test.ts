@@ -93,8 +93,8 @@ describe("aomi.account", () => {
 
     const catalog = await aomi.account.packages.list({ threadId: "t 1" });
     expect(catalog.packages).toEqual([row]);
-    await aomi.account.packages.setChoice(9003, false);
-    await aomi.account.packages.clearChoice(9003);
+    await aomi.account.packages.setChoice(9003, false, { threadId: "t 1" });
+    await aomi.account.packages.clearChoice(9003, { threadId: "t 1" });
     await expect(
       aomi.account.packages.setSecret(9003, "JUP_KEY", "v"),
     ).resolves.toEqual({ slot: "JUP_KEY", status: "ready" });
@@ -105,8 +105,18 @@ describe("aomi.account", () => {
       calls.map(({ method, path, body, csrf }) => [method, path, body, csrf]),
     ).toEqual([
       ["GET", "/api/account/packages?thread_id=t%201", undefined, false],
-      ["PUT", "/api/account/packages/9003/choice", { enabled: false }, true],
-      ["DELETE", "/api/account/packages/9003/choice", undefined, true],
+      [
+        "PUT",
+        "/api/account/packages/9003/choice?thread_id=t%201",
+        { enabled: false },
+        true,
+      ],
+      [
+        "DELETE",
+        "/api/account/packages/9003/choice?thread_id=t%201",
+        undefined,
+        true,
+      ],
       [
         "PUT",
         "/api/account/packages/9003/secrets/JUP_KEY",

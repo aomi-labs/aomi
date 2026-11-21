@@ -76,10 +76,7 @@ export class AomiAccountPackages {
   list(
     options: { threadId?: string; signal?: AbortSignal } = {},
   ): Promise<AomiPackageCatalog> {
-    const query = options.threadId
-      ? `?thread_id=${encodeURIComponent(options.threadId)}`
-      : "";
-    return this.request(`/api/account/packages${query}`, {
+    return this.request(`/api/account/packages${threadQuery(options)}`, {
       method: "GET",
       signal: options.signal,
     });
@@ -98,21 +95,35 @@ export class AomiAccountPackages {
     });
   }
 
-  /** Switch a package on or off. 409: an agent-listed package refuses off
-   * (`agent_listed`), an unavailable one refuses on (`not_listed_by_agent`). */
-  setChoice(packageId: number, enabled: boolean): Promise<AomiPackage> {
-    return this.request(`${packagePath(packageId)}/choice`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled }),
-    });
+  /** Switch a package on or off in `threadId`'s chat, as `list` reads it.
+   * 409: an agent-listed package refuses off (`agent_listed`), an
+   * unavailable one refuses on (`not_listed_by_agent`). */
+  setChoice(
+    packageId: number,
+    enabled: boolean,
+    options: { threadId?: string } = {},
+  ): Promise<AomiPackage> {
+    return this.request(
+      `${packagePath(packageId)}/choice${threadQuery(options)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      },
+    );
   }
 
   /** Drop the person's choice; the row goes back to its default. */
-  clearChoice(packageId: number): Promise<AomiPackage> {
-    return this.request(`${packagePath(packageId)}/choice`, {
-      method: "DELETE",
-    });
+  clearChoice(
+    packageId: number,
+    options: { threadId?: string } = {},
+  ): Promise<AomiPackage> {
+    return this.request(
+      `${packagePath(packageId)}/choice${threadQuery(options)}`,
+      {
+        method: "DELETE",
+      },
+    );
   }
 
   /** Store the person's own value for a `person` slot of the live release. */
@@ -136,6 +147,9 @@ export class AomiAccountPackages {
   }
 }
 
+/** `?thread_id=` names the chat whose agent decides; none is `aomi/main`. */
+const threadQuery = ({ threadId }: { threadId?: string }) =>
+  threadId ? `?thread_id=${encodeURIComponent(threadId)}` : "";
 const packagePath = (packageId: number) =>
   `/api/account/packages/${encodeURIComponent(String(packageId))}`;
 const secretPath = (packageId: number, slot: string) =>
