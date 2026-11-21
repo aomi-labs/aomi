@@ -42,7 +42,7 @@ function Statement({
       </p>
 
       {summary ? (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid gap-3 min-[400px]:grid-cols-2 lg:grid-cols-4">
           {[
             {
               label: "Gross revenue",
@@ -67,7 +67,7 @@ function Statement({
           ].map((tile) => (
             <div
               key={tile.label}
-              className="border-border bg-surface build-row-padding space-y-[var(--aomi-caption-gap)] rounded-2xl border"
+              className="border-border bg-surface build-row-padding min-w-0 [overflow-wrap:anywhere] space-y-[var(--aomi-caption-gap)] rounded-2xl border"
             >
               <div className="build-caption">{tile.label}</div>
               <div
@@ -159,14 +159,14 @@ function Statement({
           title="Model usage detail"
           right={<span className="build-caption">by provider/model</span>}
         >
-          <div className="px-3 py-2">
+          <div className="build-row-padding">
             <div className="space-y-2">
               {breakdown.map((row, index) => (
                 <div
                   key={`${row.provider}-${row.model}-${index}`}
                   className="flex items-center justify-between gap-3 text-sm"
                 >
-                  <span className="min-w-0 truncate tabular-nums text-sm">
+                  <span className="min-w-0 truncate font-mono text-sm">
                     {row.provider}/{row.model}
                   </span>
                   <span className="text-dim tabular-nums text-sm">
@@ -242,15 +242,15 @@ function Meter({ daily, breakdown }: { daily: Row[]; breakdown: Row[] }) {
         covers payment setup in Chat.
       </p>
       <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
-        <div className="border-border overflow-x-auto rounded-md border">
+        <div className="border-border overflow-x-auto rounded-2xl border">
           <table className="divide-border min-w-full divide-y text-sm">
             <thead className="build-table-band text-left text-sm">
               <tr>
-                <th className="px-3 py-2">Day</th>
-                <th className="px-3 py-2">App</th>
-                <th className="px-3 py-2">Input</th>
-                <th className="px-3 py-2">Output</th>
-                <th className="px-3 py-2">Credits</th>
+                <th className="build-row-padding">Day</th>
+                <th className="build-row-padding">App</th>
+                <th className="build-row-padding">Input</th>
+                <th className="build-row-padding">Output</th>
+                <th className="build-row-padding">Credits</th>
               </tr>
             </thead>
             <tbody className="divide-border bg-surface divide-y">
@@ -258,15 +258,15 @@ function Meter({ daily, breakdown }: { daily: Row[]; breakdown: Row[] }) {
                 <tr
                   key={`${row.project?.id}-${row.periodUtcDay}-${row.application}-${index}`}
                 >
-                  <td className="px-3 py-2">{row.periodUtcDay}</td>
-                  <td className="px-3 py-2">{row.application}</td>
-                  <td className="px-3 py-2 tabular-nums text-sm">
+                  <td className="build-row-padding">{row.periodUtcDay}</td>
+                  <td className="build-row-padding">{row.application}</td>
+                  <td className="build-row-padding tabular-nums text-sm">
                     {tokensLabel(row.inputTokens)}
                   </td>
-                  <td className="px-3 py-2 tabular-nums text-sm">
+                  <td className="build-row-padding tabular-nums text-sm">
                     {tokensLabel(row.outputTokens)}
                   </td>
-                  <td className="px-3 py-2 tabular-nums text-sm">
+                  <td className="build-row-padding tabular-nums text-sm">
                     {Number(row.creditsUsed ?? 0).toFixed(4)}
                   </td>
                 </tr>

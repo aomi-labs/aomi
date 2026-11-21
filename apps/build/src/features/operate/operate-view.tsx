@@ -747,7 +747,7 @@ export function OperateView({ kind }: { kind: ViewKind }) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-[var(--aomi-section-gap)] px-4 py-6 sm:px-6 lg:px-8">
+    <div className="operate-surface mx-auto flex w-full max-w-7xl flex-col gap-[var(--aomi-section-gap)] px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Icon className="text-dim size-5" />

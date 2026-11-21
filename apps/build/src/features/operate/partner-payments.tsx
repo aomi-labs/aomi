@@ -58,11 +58,11 @@ function SummaryTiles({
     },
   ];
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid gap-3 min-[400px]:grid-cols-2 lg:grid-cols-4">
       {tiles.map((tile) => (
         <div
           key={tile.label}
-          className="border-border bg-surface build-row-padding space-y-[var(--aomi-caption-gap)] rounded-2xl border"
+          className="border-border bg-surface build-row-padding min-w-0 [overflow-wrap:anywhere] space-y-[var(--aomi-caption-gap)] rounded-2xl border"
         >
           <div className="build-caption">{tile.label}</div>
           <div className={`build-page-title tabular-nums ${tile.valueClass}`}>
@@ -92,7 +92,7 @@ function ConfiguredPrices({ resources }: { resources: Row[] }) {
             {resources.map((resource, index) => (
               <tr key={`${resource.applicationId}-${resource.tool}-${index}`}>
                 <td className={TD}>
-                  <div className="tabular-nums text-sm">{resource.tool}</div>
+                  <div className="font-mono text-sm">{resource.tool}</div>
                   <div className="build-caption">{resource.application}</div>
                 </td>
                 <td className={`${TD} whitespace-nowrap tabular-nums text-sm`}>
@@ -103,7 +103,7 @@ function ConfiguredPrices({ resources }: { resources: Row[] }) {
                 </td>
                 <td className={TD}>
                   <div
-                    className="tabular-nums text-sm"
+                    className="font-mono text-sm"
                     title={resource.recipient ?? ""}
                   >
                     {truncateAddress(resource.recipient)}
@@ -155,7 +155,7 @@ function PaymentActivity({ events }: { events: Row[] }) {
                     {Number(event.credits ?? 0).toFixed(2)} credits
                   </div>
                 </td>
-                <td className={`${TD} tabular-nums text-sm`}>
+                <td className={`${TD} font-mono text-sm`}>
                   <Receipt event={event} />
                 </td>
               </tr>

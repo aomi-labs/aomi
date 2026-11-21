@@ -14,7 +14,7 @@
   --composer: var(--aomi-chat-composer-bg);
   --composer-border: var(--aomi-border-strong);
 
-  --border: var(--aomi-g1);
+  --border: var(--aomi-border);
   --border-hover: var(--aomi-border-strong);
   --border-active: var(--aomi-accent-interactive);
 
@@ -24,9 +24,9 @@
   --link: var(--aomi-info-500);
 
   --text-primary: var(--aomi-text);
-  --text-subtle: var(--aomi-g3);
-  --text-dim: var(--aomi-g3);
-  --text-muted: var(--aomi-g3);
+  --text-subtle: var(--aomi-text-muted);
+  --text-dim: var(--aomi-text-subtle);
+  --text-muted: var(--aomi-text-muted);
   --text-hint: var(--aomi-text-subtle);
 
   --foreground: var(--aomi-text);
@@ -41,8 +41,6 @@
   --muted: var(--aomi-bg-subtle);
   --muted-foreground: var(--aomi-text-muted);
   --accent: var(--aomi-accent-subtle);
-  /* Hover for rows/cards on plain surfaces; rail items sitting on the
-     cool-100 sidebar use --aomi-state-hover directly for a fuller step. */
   --accent-hover: var(--aomi-g2);
   --accent-selected: var(--aomi-b2);
   --accent-selected-foreground: var(--aomi-control-ink);
@@ -56,7 +54,7 @@
   --chart-3: var(--aomi-sky-500);
   --chart-4: var(--aomi-success-500);
   --chart-5: var(--aomi-warning-500);
-  --sidebar: var(--aomi-bg-subtle);
+  --sidebar: var(--aomi-bg);
   --sidebar-foreground: var(--aomi-text);
   --sidebar-primary: var(--aomi-surface);
   --sidebar-primary-foreground: var(--aomi-text);
@@ -397,6 +395,7 @@
 .nav-link[data-active="false"]:hover { background: var(--accent-hover); }
 .nav-link[data-active="true"] { background: var(--accent-selected); font-weight: 500; }
 
+.operate-surface { --border: var(--aomi-g1); --text-dim: var(--aomi-g3); }
 @utility build-page-title {
   font: 600 var(--aomi-level-1)/1.3 var(--aomi-font-sans);
   letter-spacing: -.02em;
@@ -407,7 +406,7 @@
   font-weight: 600;
 }
 @utility build-caption { font-size: var(--aomi-caption); color: var(--aomi-g3); }
-@utility build-table-band { background: var(--aomi-b3); color: white; }
+@utility build-table-band { background: var(--aomi-b3); color: var(--aomi-on-band); }
 @utility build-row-padding { padding: var(--aomi-row-padding); }
 
 /* Markdown thread (agent responses) */
