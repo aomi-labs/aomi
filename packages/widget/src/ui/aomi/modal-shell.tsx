@@ -126,7 +126,7 @@ export function ModalSidebar({
     >
       <div className="flex items-center gap-2 px-4 py-3 pr-14 md:px-2.5 md:pr-2.5">
         <Icon className="text-aomi-accent size-4 shrink-0" />
-        <h1 id={titleId} className="type-title flex-1 max-md:text-[17px]">
+        <h1 id={titleId} className="type-title flex-1">
           {title}
         </h1>
       </div>
@@ -228,7 +228,7 @@ export function ModalHeader({
   return (
     <header
       className={cn(
-        "flex shrink-0 items-center gap-3 px-4 pb-2 pt-4 md:min-h-[74px] md:px-6 md:py-4 md:pr-14",
+        "flex shrink-0 items-center gap-3 px-4 pb-2 pt-4 md:px-6 md:pt-6 md:pb-3 md:pr-14",
         className,
       )}
     >

@@ -275,12 +275,12 @@ export function Divider({
   return (
     <div
       data-band
-      className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y py-1.5 pl-[30px] pr-3.5"
+      className="aomi-table-band border-aomi-border flex items-baseline gap-2 border-y py-1.5 pl-[30px] pr-3.5"
     >
-      <span className="type-meta text-aomi-fg shrink-0 font-medium">
+      <span className="type-meta shrink-0 font-medium">
         {title}
       </span>
-      <span className="type-meta text-aomi-muted min-w-0 truncate">
+      <span className="type-meta min-w-0 truncate">
         {detail}
       </span>
       {action ? (

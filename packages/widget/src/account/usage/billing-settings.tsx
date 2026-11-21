@@ -56,7 +56,7 @@ export function BillingSettings({
   }, [credits.refetch, ledger.refetch]);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="aomi-section-stack">
       <div
         role="group"
         aria-label="Billing view"
@@ -156,7 +156,7 @@ function AllowanceCard({ billing, plan }: { billing: Billing; plan: string }) {
         <div className="flex items-center gap-4 pb-1">
           <AllowanceRing left={billing.allowanceLeft} size={56} />
           <div className="flex min-w-0 flex-col gap-1">
-            <span className="text-[22px] font-semibold tabular-nums leading-6 tracking-[-0.02em]">
+            <span className="type-title tabular-nums tracking-[-0.02em]">
               {formatDollars(billing.allowanceLeftUsd)}{" "}
               <span className="text-aomi-muted whitespace-nowrap text-[13px] font-medium tracking-normal">
                 of {formatDollars(billing.allowanceUsd)} left
@@ -191,7 +191,7 @@ function BalanceCard({
     >
       <div className="flex items-end justify-between gap-3 pb-1">
         <div className="flex flex-col gap-1">
-          <span className="text-[30px] font-semibold tabular-nums leading-8 tracking-[-0.02em]">
+          <span className="type-title tabular-nums tracking-[-0.02em]">
             {formatDollars(billing.balanceUsd)}
           </span>
           <span className="type-meta text-aomi-muted">
@@ -225,7 +225,7 @@ function MonthSoFar({
   );
   const { summary } = month;
   return (
-    <section className="flex flex-col gap-2.5">
+    <section className="aomi-section-body.5">
       <SectionHeader
         title={`${month.period.periodLabel.split(" ")[0]} so far`}
         detail={`${usd(summary.totalUsd)} spent`}
@@ -268,7 +268,7 @@ function Payments({
   const ledger = useAccountCreditLedger();
   const entries = ledger.data?.entries ?? [];
   return (
-    <section className="flex flex-col gap-2.5">
+    <section className="aomi-section-body.5">
       <SectionHeader
         title="Payments"
         count={entries.length || undefined}
@@ -332,7 +332,7 @@ function UsageView() {
       />
       <SpendBreakdownSection month={month} />
       {month.apps.length > 0 ? (
-        <section className="flex flex-col gap-2.5">
+        <section className="aomi-section-body.5">
           <SectionHeader
             title="By app"
             detail="This period"

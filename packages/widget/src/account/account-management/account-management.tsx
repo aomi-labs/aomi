@@ -107,7 +107,7 @@ export function AccountManagement({
     });
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="aomi-section-stack">
       {error ? (
         <div
           role="alert"
@@ -117,8 +117,8 @@ export function AccountManagement({
         </div>
       ) : null}
 
-      <section className="flex flex-col gap-2">
-        <SectionHeader title="Profile" detail="How your account appears" />
+      <section className="aomi-section-body">
+        <SectionHeader title="Profile" />
         <ListGroup>
           <ListRow
             leading={<AccountAvatar seed={user?.id} size={32} />}
@@ -138,7 +138,7 @@ export function AccountManagement({
         </ListGroup>
       </section>
 
-      <section className="flex flex-col gap-2 [&_h3]:shrink-0">
+      <section className="aomi-section-body [&_h3]:shrink-0">
         <SectionHeader
           title="Wallets & access"
           className="flex-wrap sm:flex-nowrap"
@@ -199,7 +199,7 @@ export function AccountManagement({
       </section>
 
       {onSignOut || onDeleteAccount ? (
-        <section className="flex flex-col gap-2">
+        <section className="aomi-section-body">
           <SectionHeader title="Session" detail="This device" />
           <ListGroup>
             {onSignOut ? (

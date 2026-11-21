@@ -103,8 +103,8 @@ export function Segmented<T extends string>({
               "flex h-[26px] items-center justify-center whitespace-nowrap rounded-lg px-[11px] text-[12px] font-medium leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-40",
               fullWidth && "flex-1",
               checked
-                ? "bg-aomi-raised text-aomi-fg ring-aomi-border ring-1"
-                : "text-aomi-muted hover:text-aomi-fg",
+                ? "bg-white text-black"
+                : "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg",
             )}
           >
             {option.label}

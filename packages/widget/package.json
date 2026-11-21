@@ -40,6 +40,7 @@
       "types": "./dist/providers/privy.d.ts",
       "import": "./dist/providers/privy.js"
     },
+    "./design-tokens.css": "./design-tokens.css",
     "./styles.css": {
       "types": "./dist/styles.d.ts",
       "default": "./dist/styles.css"
@@ -50,7 +51,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "design-tokens.css"
   ],
   "scripts": {
     "build": "tsup && tsc --project tsconfig.types.json && node scripts/build-package-types.mjs && node scripts/build-package-css.mjs",

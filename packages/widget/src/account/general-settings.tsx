@@ -86,11 +86,10 @@ export function GeneralSettings({
   const accountReady = overviewSettled && credits !== undefined;
 
   return (
-    <div className="flex flex-col gap-5">
-      <section className="flex flex-col gap-2">
+    <div className="aomi-section-stack">
+      <section className="aomi-section-body">
         <SettingsSectionHeading
           title="Account overview"
-          detail="Profile, plan, and this month"
           hint="Your plan's monthly allowance pays for usage first. Anything beyond it comes from the funds you add."
         />
         {accountReady ? (
@@ -111,10 +110,9 @@ export function GeneralSettings({
         )}
       </section>
 
-      <section className="flex flex-col gap-2">
+      <section className="aomi-section-body">
         <SettingsSectionHeading
           title="Preferences"
-          detail="Theme, network, and wallets"
         />
         <div className={settingsPanelClass}>
           <FlatSettingRow label="Theme">
@@ -207,7 +205,7 @@ function AccountSummaryCard({
           </span>
         </span>
         <span className="type-meta text-aomi-muted group-hover:text-aomi-fg flex shrink-0 items-center gap-1 transition-colors">
-          <span className="@[30rem]:inline hidden">Manage account</span>
+          <span className="sr-only">Manage account</span>
           <ChevronRight size={14} aria-hidden />
         </span>
       </button>
@@ -226,7 +224,7 @@ function AccountSummaryCard({
                   billing.allowanceUsd > 0 ? (
                     <>
                       {formatDollars(billing.allowanceLeftUsd)}{" "}
-                      <span className="text-aomi-muted text-[12px] font-normal">
+                      <span className="type-meta text-aomi-muted font-normal">
                         of {formatDollars(billing.allowanceUsd)}
                       </span>
                     </>
@@ -263,15 +261,15 @@ function AccountSummaryCard({
             </div>
           </div>
           <Divider />
-          <div className="bg-aomi-surface flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
-            <span className="type-meta text-aomi-muted">
+          <div className="aomi-table-band flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
+            <span className="type-meta">
               Your allowance is used first, then your added balance.
             </span>
             <div className="flex gap-2">
-              <AomiButton variant="primary" size="sm" onClick={() => setCheckoutOpen(true)}>
+              <AomiButton variant="on-band" size="sm" onClick={() => setCheckoutOpen(true)}>
                 Add funds
               </AomiButton>
-              <AomiButton size="sm" onClick={onViewBilling}>
+              <AomiButton variant="on-band" size="sm" onClick={onViewBilling}>
                 Billing
                 <ChevronRight />
               </AomiButton>
@@ -302,7 +300,7 @@ function Stat({
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
       <span className="type-meta text-aomi-muted">{label}</span>
-      <span className="text-[16px] font-semibold tabular-nums leading-6 tracking-[-0.01em]">
+      <span className="type-title font-semibold tabular-nums tracking-[-0.01em]">
         {value}
       </span>
       <span className="type-meta text-aomi-muted">{detail}</span>

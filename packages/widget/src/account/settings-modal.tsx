@@ -305,7 +305,7 @@ export function SettingsModal({
       <section className="flex min-h-0 min-w-0 flex-col">
         <ModalHeader
           title={activeNav.label}
-          description={activeNav.description}
+          description={tab === "general" ? undefined : activeNav.description}
         />
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <SettingsNavContext.Provider value={accountOnly ? null : selectTab}>

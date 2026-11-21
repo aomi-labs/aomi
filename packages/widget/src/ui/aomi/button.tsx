@@ -4,10 +4,11 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 /** Shared appearance for action buttons, links, and slotted controls. */
 export const actionAppearance = {
-  primary: "aomi-action-fill [--action-bg:var(--aomi-action-primary)] text-white",
-  secondary: "aomi-action-fill [--action-bg:var(--aomi-surface-2)] text-aomi-fg",
+  primary: "aomi-action-fill [--action-bg:var(--aomi-action-primary)] text-[color:var(--aomi-control-ink)]",
+  secondary: "bg-aomi-surface-2 hover:bg-aomi-hover active:bg-aomi-hover text-[color:var(--aomi-control-ink)]",
+  "on-band": "bg-white text-black hover:bg-aomi-surface-2 dark:hover:bg-white",
   ghost: "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg active:bg-aomi-hover",
-  danger: "aomi-action-fill [--action-bg:var(--aomi-action-danger-bg)] text-[color:var(--aomi-action-danger-fg)]",
+  danger: "aomi-action-fill [--action-bg:var(--aomi-action-danger-bg)] text-[color:var(--aomi-control-ink)]",
   "danger-fill": "aomi-action-fill [--action-bg:var(--aomi-danger-strong)] text-aomi-on-danger",
 };
 
