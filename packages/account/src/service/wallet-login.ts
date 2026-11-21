@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { APIError } from "better-auth/api";
 import { createLocalAccountIssuer } from "better-auth/db";
 import type { PoolClient } from "pg";
 import {
@@ -12,6 +13,7 @@ import {
   getOrCreateAomiUserForSiwe,
   getOrCreateAomiUserForSiws,
 } from "./account-service";
+import { WidgetAuthError } from "../widget-auth/origin";
 import { normalizeWalletAddress } from "./wallet-normalization";
 
 /** Only call after verifying a single-use wallet proof. Canonical ownership
@@ -30,18 +32,23 @@ export async function resolveWalletLogin(input: {
       db,
     });
   };
-  const user =
+  const user = await (
     input.family === "evm"
-      ? await getOrCreateAomiUserForSiwe({
+      ? getOrCreateAomiUserForSiwe({
           address: input.address,
           chainId: Number(input.chainId),
           onResolved,
         })
-      : await getOrCreateAomiUserForSiws({
+      : getOrCreateAomiUserForSiws({
           address: input.address,
           chainId: String(input.chainId),
           onResolved,
-        });
+        })
+  ).catch((error: unknown) => {
+    if (error instanceof WidgetAuthError && error.status === 401)
+      throw new APIError("UNAUTHORIZED", { message: error.code });
+    throw error;
+  });
   return { userId: user.id, betterAuthUserId };
 }
 

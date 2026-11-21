@@ -154,10 +154,12 @@ export async function signInWithVerifiedProviderIdentity(input: {
             db,
           });
         }
+        // A provider sign-in: the human just authenticated with the provider.
         await persistProviderWallets({
           userId: result.user.id,
           identity: input.identity,
           wallets,
+          loginAllowed: true,
           db,
         });
       },
@@ -177,6 +179,9 @@ export async function linkVerifiedProviderIdentityForUser(input: {
   identity: VerifiedProviderIdentity;
   policy: Pick<WidgetProviderPolicy, "subjectIsEnvironmentGlobal">;
   wallets?: readonly AttestedWallet[];
+  /** Only a portal session may enroll the provider's wallets for login; a
+   *  widget or bearer holder could be linking a credential of its own. */
+  loginAllowed: boolean;
 }): Promise<ProviderLinkResult> {
   await ensureAccountSchema();
   const wallets = [...(input.wallets ?? input.identity.walletAttestations)];
@@ -198,6 +203,7 @@ export async function linkVerifiedProviderIdentityForUser(input: {
           userId: input.userId,
           identity: input.identity,
           wallets,
+          loginAllowed: input.loginAllowed,
           db,
         });
       },
@@ -215,6 +221,7 @@ export async function linkVerifiedProviderIdentityForUser(input: {
 export async function linkVerifiedProviderCredentialForUser(input: {
   userId: AomiUserId;
   verified: VerifiedProviderTokenCredential;
+  loginAllowed: boolean;
 }): Promise<ProviderLinkResult> {
   const prepared = await prepareVerifiedCredential(input.verified);
   return linkVerifiedProviderIdentityForUser({
@@ -222,6 +229,7 @@ export async function linkVerifiedProviderCredentialForUser(input: {
     identity: prepared.identity,
     policy: nativeProviderResolutionPolicy(prepared.identity.provider),
     wallets: prepared.wallets,
+    loginAllowed: input.loginAllowed,
   });
 }
 
@@ -229,6 +237,7 @@ export async function exchangeProviderForExistingSession(input: {
   betterAuthUserId: string;
   currentUserId?: AomiUserId;
   credential: AomiAccountCredential;
+  loginAllowed: boolean;
 }): Promise<ProviderExchangeResult> {
   const verified = await verifyProviderCredential(input.credential);
   const betterAuthOwner = await findSignalOwner({
@@ -246,6 +255,7 @@ export async function exchangeProviderForExistingSession(input: {
   const resolution = await linkVerifiedProviderCredentialForUser({
     userId,
     verified,
+    loginAllowed: input.loginAllowed,
   });
   if (resolution.status === "conflict") return resolution;
   const user = resolution.user ?? (await findAomiUserById(userId));
@@ -308,6 +318,7 @@ async function persistProviderWallets(input: {
   userId: AomiUserId;
   identity: VerifiedProviderIdentity;
   wallets: readonly AttestedWallet[];
+  loginAllowed: boolean;
   db: import("pg").PoolClient;
 }): Promise<void> {
   if (!input.wallets.length) return;
@@ -319,6 +330,7 @@ async function persistProviderWallets(input: {
     tenantId: input.identity.tenantId,
     subject: input.identity.subject,
     attested: [...input.wallets],
+    loginAllowed: input.loginAllowed,
     db: input.db,
   });
   if (resolution.status === "conflict") {
