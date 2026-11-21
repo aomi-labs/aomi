@@ -7,12 +7,11 @@
   --aomi-b3: #56759f;
   --aomi-brand-blue: #416cac;
   --aomi-control-ink: #000;
-  --aomi-action-ink: #000;
+  --aomi-action-ink: #fff;
   --aomi-on-band: #fff;
   --aomi-on-band-ink: #000;
   --aomi-band-padding: .5rem 1rem;
-  /* A lighter brand fill keeps compact black action labels readable. */
-  --aomi-primary-fill: #4b78b5;
+  --aomi-primary-fill: var(--aomi-brand-blue);
   --aomi-level-1: 1.5rem;
   --aomi-level-2: 1.125rem;
   --aomi-level-3: .875rem;
@@ -28,6 +27,4 @@
   --aomi-g3: #c1c1ca;
   --aomi-b2: #28354a;
   --aomi-control-ink: #fafafa;
-  --aomi-primary-fill: var(--aomi-brand-blue);
-  --aomi-action-ink: #fff;
 }

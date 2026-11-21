@@ -154,7 +154,7 @@ export const NetworkSelect: FC<NetworkSelectProps> = ({
                   // Keep closed geometry stable before hydration/CSS settles.
                   marginLeft: index > 0 ? (open ? 1 : -3) : undefined,
                 }}
-                className="bg-aomi-surface-2 text-aomi-fg/80 ring-aomi-raised relative flex size-[18px] items-center justify-center rounded-full text-[7px] font-semibold uppercase ring-2 transition-[margin] duration-300 ease-out motion-reduce:transition-none"
+                className="border border-aomi-border bg-white text-black relative flex size-[18px] items-center justify-center rounded-full text-[7px] font-semibold uppercase transition-[margin] duration-300 ease-out motion-reduce:transition-none"
               >
                 {network.Icon ? (
                   <network.Icon className="size-3" />
