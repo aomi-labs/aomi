@@ -111,11 +111,11 @@ consumer compatibility. Plain documentation and historical work-log changes do
 not run product builds. Landing content under `apps/landing/content` is product
 input and still selects Landing.
 
-The advisory PR smoke checks Cloudflare staging Chat and the immutable Build
-preview for the PR SHA. The required Portal browser contracts exercise the PR's
-Portal build. The nightly fallback smoke checks both canonical staging hosts.
-Production Chat's page Worker rolls back through the product-mono Edge release
-workflow. The frontend Vercel rollback covers Build, Base and Landing.
+The advisory PR and nightly smoke check the canonical Cloudflare staging hosts
+for Chat and Build. The required app checks build the PR source, and the Portal
+browser contracts exercise the PR's Portal build. Production Chat and Build
+page Workers roll back through the product-mono Edge release workflow. The
+frontend Vercel rollback covers Base and Landing.
 
 Lockfiles, root build configuration, shared source, selector changes, unknown
 paths, unavailable comparisons, and every production candidate default to the
