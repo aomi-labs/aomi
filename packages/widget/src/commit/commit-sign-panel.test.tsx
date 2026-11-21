@@ -510,6 +510,27 @@ describe("CommitSignPanel · approvals", () => {
     expect(signTransaction).not.toHaveBeenCalled();
   });
 
+  it("shows the sponsorship failure while an approved commit waits for signing", async () => {
+    const waiting = parked({
+      state: "needs_signature",
+      can_approve: false,
+      failure_code: "commit_paymaster_data_unavailable",
+      approval: {
+        ...parked().approval!,
+        state: "approved",
+        approved_by: "portal",
+        approved_at: 1_760_529_700,
+      },
+    });
+    const { handle, writes } = await open(waiting);
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
+    expect(
+      await screen.findByRole("button", { name: "Retrying…" }),
+    ).toHaveProperty("disabled", true);
+    expect(screen.getByText(/Gas sponsorship is unavailable/)).toBeTruthy();
+    expect(writes).toHaveLength(0);
+  });
+
   it.each([
     [
       { code: "commit_version_conflict", status: 409 },
