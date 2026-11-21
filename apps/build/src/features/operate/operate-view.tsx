@@ -3,7 +3,7 @@ import { TH } from "./table";
 import type { Project } from "@aomi-labs/deploy";
 import type { Icon as InterfaceIcon } from "@phosphor-icons/react";
 import {
-
+  FolderIcon,
   GaugeIcon,
   PulseIcon,
   ScrollIcon,
@@ -427,9 +427,9 @@ function Rows({
             <>
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">
+                  <h2 className="build-section-title truncate">
                     {app.application}
-                  </div>
+                  </h2>
                   <div className="text-dim truncate text-xs">
                     {app.releaseTag ?? "No release"}
                   </div>
@@ -767,6 +767,8 @@ export function OperateView({ kind }: { kind: ViewKind }) {
         </div>
         <PillDropdown
           label="Filter by project"
+          align="end"
+          optionIcon={<FolderIcon size={16} aria-hidden="true" />}
           value={String(projectId ?? "")}
           options={[{ id: "", label: "All projects" }, ...projects.map(project => ({ id: String(project.id), label: projectLabel(project) }))]}
           onChange={id => setSourceId(id ? Number(id) : null)}
