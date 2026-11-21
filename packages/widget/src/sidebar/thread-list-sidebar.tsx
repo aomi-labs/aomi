@@ -115,7 +115,7 @@ function ProductSwitcher({
                 ? {}
                 : { target: "_blank", rel: "noopener noreferrer" })}
               onClick={() => setOpen(false)}
-              className="text-aomi-fg aomi-nav-row flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start outline-none transition-colors"
+              className="text-aomi-fg aomi-menu-row flex w-full items-center gap-2.5 px-2.5 py-2 text-start outline-none transition-colors"
             >
               <AomiMark className="size-4 shrink-0" />
               <span className="flex min-w-0 flex-col">

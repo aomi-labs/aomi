@@ -411,7 +411,7 @@ const ThreadListItemMenu: FC<{
           <button
             type="button"
             disabled={!saved}
-            className="aui-thread-list-item-menu-item text-aomi-fg aomi-nav-row flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
+            className="aui-thread-list-item-menu-item text-aomi-fg aomi-menu-row flex w-full items-center gap-2.5 px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
             data-testid={testIds.rename}
             onClick={onRename}
           >
@@ -427,7 +427,7 @@ const ThreadListItemMenu: FC<{
             type="button"
             disabled={!saved}
             data-testid={testIds.archive}
-            className="aui-thread-list-item-menu-item text-aomi-danger aomi-nav-row flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
+            className="aui-thread-list-item-menu-item text-aomi-danger aomi-menu-row flex w-full items-center gap-2.5 px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
             onClick={(event) => {
               event.stopPropagation();
               onOpenChange(false);

@@ -73,7 +73,7 @@ function MenuRow({
     <button
       type="button"
       onClick={onClick}
-      className="text-aomi-fg aomi-nav-row mb-1 flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-left text-[13px] transition-colors"
+      className="text-aomi-fg aomi-menu-row mb-1 flex h-9 w-full items-center justify-between px-2.5 text-left text-[13px] transition-colors"
     >
       <span>{label}</span>
       {trailing ? (
@@ -227,7 +227,7 @@ export function AccountMenu({
           href="https://aomi.dev/docs"
           target="_blank"
           rel="noreferrer"
-          className="text-aomi-muted aomi-nav-row hover:text-aomi-fg flex h-9 items-center rounded-lg px-2.5 text-[13px] transition-colors"
+          className="text-aomi-muted aomi-menu-row hover:text-aomi-fg flex h-9 items-center px-2.5 text-[13px] transition-colors"
           onClick={onClose}
         >
           Docs
@@ -237,7 +237,7 @@ export function AccountMenu({
             type="button"
             aria-expanded={sessionOpen}
             onClick={() => setSessionOpen((value) => !value)}
-            className="text-aomi-fg aomi-nav-row flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-[13px] font-medium transition-colors"
+            className="text-aomi-fg aomi-menu-row flex h-9 w-full items-center gap-2 px-2.5 text-[13px] font-medium transition-colors"
           >
             <WalletCardsIcon className="text-aomi-muted" size={14} />
             <span className="flex-1 text-left">Session &amp; wallet</span>
@@ -253,7 +253,7 @@ export function AccountMenu({
                 <button
                   type="button"
                   onClick={onDisconnect}
-                  className="aomi-nav-row flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors"
+                  className="aomi-menu-row flex w-full items-center gap-2.5 px-2.5 py-2 text-left transition-colors"
                 >
                   <UnplugIcon className="text-aomi-muted shrink-0" size={14} />
                   <span className="min-w-0 flex-1">
@@ -450,7 +450,7 @@ function EmptyFamilyRow({
     <button
       type="button"
       onClick={onAddWallet}
-      className="text-aomi-muted aomi-nav-row hover:text-aomi-fg flex w-full items-center gap-2 px-2 py-1.5 text-left text-[12px] transition-colors"
+      className="text-aomi-muted aomi-menu-row hover:text-aomi-fg flex w-full items-center gap-2 px-2 py-1.5 text-left text-[12px] transition-colors"
     >
       <span className="flex size-[26px] shrink-0 items-center justify-center">
         <PlusIcon size={14} />

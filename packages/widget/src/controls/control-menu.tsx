@@ -5,10 +5,10 @@ import { useCallback, useRef, useState, type FC, type ReactNode } from "react";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
 
 export const controlSelectTriggerClass =
-  "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg h-8 min-w-0 gap-1.5 rounded-full px-2.5 text-xs";
+  "bg-aomi-surface-2 text-aomi-fg hover:bg-aomi-hover h-8 min-w-0 gap-1.5 rounded-full px-2.5 text-xs";
 
 export const controlMenuContentClass =
-  "w-[248px] overflow-hidden border p-2";
+  "w-[248px] overflow-hidden p-2";
 
 export const controlMenuCommandClass =
   "bg-transparent rounded-lg [&_[cmdk-input-wrapper]]:bg-aomi-surface-2/55 [&_[cmdk-input-wrapper]]:mb-1.5 [&_[cmdk-input-wrapper]]:rounded-lg [&_[cmdk-input-wrapper]]:border-0 [&_[cmdk-input-wrapper]]:px-2.5 [&_[cmdk-input-wrapper]_svg]:mr-[7px] [&_[cmdk-input-wrapper]_svg]:size-3.5 [&_[cmdk-input]]:h-8 [&_[cmdk-input]]:py-1 [&_[cmdk-input]]:text-xs";
