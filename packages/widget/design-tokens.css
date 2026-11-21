@@ -1,5 +1,8 @@
 /* Product interaction, type and spacing roles shared by Portal and Build. */
 :root, .light {
+  --aomi-success: #1f8558;
+  --aomi-warning: #d9982b;
+  --aomi-danger: #d2495b;
   --aomi-g1: #f1f1f3;
   --aomi-g2: #e6e6e9;
   --aomi-g3: #44444d;
@@ -22,6 +25,8 @@
   --aomi-row-padding: .75rem 1rem;
 }
 .dark {
+  --aomi-success: #35b37b;
+  --aomi-danger: #e2687a;
   --aomi-g1: #2e2e33;
   --aomi-g2: #4a4a52;
   --aomi-g3: #c1c1ca;

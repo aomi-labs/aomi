@@ -1,4 +1,5 @@
-import { aomiButton } from "@aomi-labs/widget/controls";
+import { transactionStatusTone } from "./transaction-status";
+import { aomiButton, StatusPill } from "@aomi-labs/widget/controls";
 // Per-app drill-down dashboard shared by the live product route and the fixture
 // design harness. Product data is rendered as received; empty series are an
 // honest no-data state rather than substituted example values.
@@ -203,13 +204,6 @@ function Panel({
   );
 }
 
-const STATUS_CHIP: Record<TxRecord["status"], string> = {
-  confirmed: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
-  submitted: "bg-amber-500/10 text-amber-500 border-amber-500/30",
-  failed: "bg-red-500/10 text-red-500 border-red-500/30",
-  created: "bg-surface-subtle text-dim border-border",
-};
-
 const STATUS_DOT: Record<string, string> = {
   healthy: "bg-emerald-500",
   not_loaded: "bg-amber-500",
@@ -273,12 +267,7 @@ export function AppDetailView({
                 {displayName ?? meta.name}
               </h1>
               {example ? (
-                <span
-                  title="Live data for this view isn't connected yet — showing example data."
-                  className="border-border bg-surface-subtle text-dim rounded-full border px-2 py-0.5 text-xs"
-                >
-                  Example data
-                </span>
+                <StatusPill title="Live data for this view isn't connected yet — showing example data.">Example data</StatusPill>
               ) : null}
               <span className="flex items-center gap-1.5 text-xs">
                 <span
@@ -287,12 +276,7 @@ export function AppDetailView({
                 {meta.status}
               </span>
               {meta.families.map((family) => (
-                <span
-                  key={family}
-                  className="border-border bg-surface-subtle text-dim rounded-full border px-2 py-0.5 text-[10px] uppercase"
-                >
-                  {family}
-                </span>
+                <StatusPill key={family}>{family.toUpperCase()}</StatusPill>
               ))}
             </div>
             <div className="text-dim text-xs">
@@ -551,11 +535,7 @@ export function AppDetailView({
                       </td>
                       <td className="py-2 px-4">{tx.chain}</td>
                       <td className="py-2 px-4">
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-xs ${STATUS_CHIP[tx.status]}`}
-                        >
-                          {tx.status}
-                        </span>
+                        <StatusPill tone={transactionStatusTone(tx.status)}>{tx.status}</StatusPill>
                       </td>
                       <td className="py-2 px-4 font-mono text-xs">
                         {tx.txFee ?? "—"}
@@ -599,9 +579,7 @@ export function AppDetailView({
                     </span>
                     <span className="text-dim text-xs">{release.when}</span>
                     {release.current ? (
-                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-500">
-                        current
-                      </span>
+                      <StatusPill tone="success">current</StatusPill>
                     ) : (
                       <span className="text-dim text-xs">{release.note}</span>
                     )}

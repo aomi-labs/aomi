@@ -495,9 +495,12 @@
 /* Shared checkout uses the same widget payment surface in Build and Chat. */
 @source "../../../../packages/widget/src/account/usage/credits";
 
-@source "../../../../packages/widget/src/ui/aomi/{navigation-tab,pill-dropdown,button}.tsx";
+@source "../../../../packages/widget/src/ui/aomi/{navigation-tab,pill-dropdown,button,status-pill}.tsx";
 @source "../../../../packages/widget/src/ui/popover.tsx";
 @theme inline {
+  --color-aomi-success: var(--aomi-success);
+  --color-aomi-warning: var(--aomi-warning);
+  --color-aomi-danger: var(--aomi-danger);
   --radius-build-panel: 12px;
   --color-aomi-action-ink: var(--aomi-action-ink);
   --color-aomi-control-ink: var(--aomi-control-ink);

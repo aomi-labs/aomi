@@ -1,4 +1,4 @@
-import { PillDropdown, aomiButton } from "@aomi-labs/widget/controls";
+import { PillDropdown, aomiButton, StatusPill } from "@aomi-labs/widget/controls";
 import { TH } from "./table";
 import type { Project } from "@aomi-labs/deploy";
 import type { Icon as InterfaceIcon } from "@phosphor-icons/react";
@@ -757,12 +757,7 @@ export function OperateView({ kind }: { kind: ViewKind }) {
             {operateSections[kind].title}
           </h1>
           {payload?.example ? (
-            <span
-              title="Live data for this view isn't connected yet — showing example data."
-              className="border-border bg-surface-subtle text-dim rounded-full border px-2 py-0.5 text-xs"
-            >
-              Example data
-            </span>
+            <StatusPill title="Live data for this view isn't connected yet — showing example data.">Example data</StatusPill>
           ) : null}
         </div>
         <PillDropdown

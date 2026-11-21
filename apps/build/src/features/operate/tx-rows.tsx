@@ -1,10 +1,11 @@
+import { transactionStatusTone } from "./transaction-status";
 import { TH } from "./table";
 // Transactions table with etherscan-style row expansion. Submit-time fields
 // render from today's payload; receipt fields (status detail, fee story,
 // transfers, revert reason) light up when the confirmation watcher ships.
 // EVM/SVM vocabulary flexes on the row's `family`.
 
-import { PillDropdown, aomiButton } from "@aomi-labs/widget/controls";
+import { PillDropdown, aomiButton, StatusPill } from "@aomi-labs/widget/controls";
 import { Fragment } from "react";
 import { ChevronDown, ChevronRight, Copy, ExternalLink, X } from "lucide-react";
 import {
@@ -15,14 +16,6 @@ import {
 } from "./format";
 
 type TxRow = Record<string, any>;
-
-const STATUS_CHIP: Record<string, string> = {
-  confirmed: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
-  submitted: "bg-amber-500/10 text-amber-500 border-amber-500/30",
-  failed: "bg-red-500/10 text-red-500 border-red-500/30",
-  rejected: "bg-red-500/10 text-red-500 border-red-500/30",
-  created: "bg-surface-subtle text-dim border-border",
-};
 
 function Field({
   label,
@@ -95,11 +88,7 @@ function TxDetail({ tx }: { tx: TxRow }) {
           )}
         </Field>
         <Field label="Status">
-          <span
-            className={`rounded-full border px-2 py-0.5 text-xs ${STATUS_CHIP[String(tx.status)] ?? STATUS_CHIP.created}`}
-          >
-            {statusDetail(tx)}
-          </span>
+          <StatusPill tone={transactionStatusTone(tx.status)}>{statusDetail(tx)}</StatusPill>
           {tx.revertReason ? (
             <div className="mt-1.5 rounded-build-panel border border-red-500/30 bg-red-500/5 px-2.5 py-1.5 text-xs text-red-500">
               {tx.revertReason}
@@ -327,21 +316,12 @@ export function TransactionRows({
                           {tx.application}
                         </span>
                         {tx.kind === "partner_payout" ? (
-                          <span
-                            aria-label="Partner payout"
-                            className="border-border bg-surface-subtle text-dim shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium uppercase"
-                          >
-                            Payout
-                          </span>
+                          <StatusPill aria-label="Partner payout">Payout</StatusPill>
                         ) : null}
                       </div>
                     </td>
                     <td className="px-3 py-2">
-                      <span
-                        className={`rounded-full border px-2 py-0.5 text-xs ${STATUS_CHIP[String(tx.status)] ?? STATUS_CHIP.created}`}
-                      >
-                        {tx.status}
-                      </span>
+                      <StatusPill tone={transactionStatusTone(tx.status)}>{tx.status}</StatusPill>
                     </td>
                     <td
                       className="truncate whitespace-nowrap px-3 py-2"

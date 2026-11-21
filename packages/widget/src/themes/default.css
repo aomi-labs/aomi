@@ -272,11 +272,6 @@
                             filled with surface-2 — the round close button, the
                             chips — had no hover feedback at all. */
   --aomi-pink: #df5d90; /* pink-500 · decorative meters/pops */
-  --aomi-success: #1f8558; /* darkened from #2e9e6b: it renders as text ("free"
-                              rows, status labels), where the lighter green was
-                              3.38:1 on white — under AA. Dark keeps the
-                              brighter value below. */
-  --aomi-warning: #d9982b;
   /* Focus: one ring for the whole system, so no surface falls back to the
      browser's default outline. */
   --aomi-ring: var(--aomi-accent);
@@ -291,7 +286,6 @@
   );
   --aomi-overlay-border: color-mix(in srgb, var(--aomi-muted) 30%, transparent);
 
-  --aomi-danger: #d2495b; /* text + outline */
   --aomi-danger-strong: #b8394a; /* fills — white on #d2495b is only 4.3:1 */
   --aomi-on-danger: #ffffff;
   --aomi-info: #416cac;
@@ -370,9 +364,6 @@
   --aomi-hover: var(--aomi-g2); /* one step above border, so a hover fill never
                             swallows the hairline of the row it lands on */
   --aomi-pink: #e77ba6; /* pink-400 — lifted for dark */
-  --aomi-success: #35b37b; /* lifted: light's darkened green is for white
-                              grounds and drops under AA on the dark panel */
-  --aomi-danger: #e2687a; /* lifted so it carries on the dark ground */
   --aomi-danger-strong: #c34255;
 
   /* Dark grounds swallow a soft tinted shadow; deeper black keeps the lift. */
