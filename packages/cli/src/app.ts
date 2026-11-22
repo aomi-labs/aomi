@@ -9,6 +9,7 @@ import {
 } from "@stricli/core";
 import packageJson from "../package.json";
 import * as account from "./commands/account";
+import * as build from "./commands/build";
 import * as packages from "./commands/packages";
 import { chat } from "./commands/chat";
 import { guard } from "./commands/guard";
@@ -76,6 +77,21 @@ const signing = {
   }),
   chain: text("Chain id", { parse: parseChain, placeholder: "id" }),
 };
+/** How `aomi build` builds packages before packing them. */
+const building = {
+  build: yes("Build each package with cargo (--no-build skips)", {
+    default: true,
+    optional: undefined,
+  }),
+  wasm: text("Use this component for a package", {
+    placeholder: "name=path",
+    variadic: true,
+  }),
+};
+const rootFlag = text("Folder with the root aomi.toml (default .)", {
+  placeholder: "dir",
+});
+const packageFlag = text("Package folder (default .)", { placeholder: "dir" });
 /** Who publishes: a builder key, and where Build is. */
 const builder = {
   ...json,
@@ -162,13 +178,9 @@ const BRIEFS = {
   rules: "What the agent may sign",
   tx: "Review, approve, sign, export",
   guard: "Spending limits for signing",
-  packages: "Turn packages on or off, connect keys",
+  library: "Turn packages on or off, connect keys",
   pipeline: "Call operations directly",
-  publish: "Build and upload packages and agents",
-  promote: "Make a release live",
-  rollback: "Make an earlier release live",
-  releases: "A package's or agent's releases",
-  codes: "Activation codes for a private package",
+  build: "Make, check and publish packages and agents",
   model: "Pick the model",
   chain: "Pick the chain",
   keys: "Your own provider keys",
@@ -441,8 +453,8 @@ const root = routes("the Aomi agent in your terminal", {
     [arg("strict, balanced or yolo", "mode", true)],
     guard,
   ),
-  packages: routes(
-    BRIEFS.packages,
+  library: routes(
+    BRIEFS.library,
     {
       list: command(
         "Packages and whether each is on",
@@ -554,7 +566,7 @@ const root = routes("the Aomi agent in your terminal", {
         ],
         pipeline.invoke,
       ),
-      build: command(
+      stage: command(
         "Stage and simulate an operation",
         {
           ...json,
@@ -572,80 +584,171 @@ const root = routes("the Aomi agent in your terminal", {
           arg("Operation", "name"),
           arg("JSON arguments, a file, @file or -", "args", true),
         ],
-        pipeline.build,
+        pipeline.stage,
       ),
     },
     { default: "ops" },
   ),
-  publish: command(
-    BRIEFS.publish,
-    {
-      ...builder,
-      root: text("Folder with the root aomi.toml (default .)", {
-        placeholder: "dir",
-      }),
-      package: many("Only this package (repeatable)", "name"),
-      agent: many("Only this agent (repeatable)", "name"),
-      promote: yes("Make each new release live"),
-      build: yes("Build each package with cargo (--no-build skips)", {
-        default: true,
-        optional: undefined,
-      }),
-      wasm: many("Use this component for a package", "name=path"),
-    },
-    [],
-    release.publish,
-  ),
-  promote: command(
-    BRIEFS.promote,
-    builder,
-    [
-      arg("package or agent", "kind"),
-      arg("Name", "name"),
-      arg("Release", "number"),
-    ],
-    release.promote,
-  ),
-  rollback: command(
-    BRIEFS.rollback,
-    builder,
-    [
-      arg("package or agent", "kind"),
-      arg("Name", "name"),
-      arg("Release to go back to (see releases)", "number"),
-    ],
-    release.promote,
-  ),
-  releases: command(
-    BRIEFS.releases,
-    builder,
-    [arg("package or agent", "kind"), arg("Name", "name")],
-    release.releases,
-  ),
-  codes: routes(BRIEFS.codes, {
-    create: command(
-      "Make a code (shown once)",
+  build: routes(BRIEFS.build, {
+    init: command(
+      "Start a project and its first package",
       {
-        ...builder,
-        agent: text("Give the package to this agent too", {
-          placeholder: "publisher/name",
+        ...json,
+        publisher: text("Your publisher slug", {
+          optional: false,
+          placeholder: "slug",
+        }),
+        name: text("The first package (default: the folder's name)", {
+          placeholder: "name",
         }),
       },
-      [arg("Package", "package")],
-      release.createCode,
+      [arg("Project folder (default .)", "dir", true)],
+      build.init,
     ),
-    list: command(
-      "Codes and who holds them",
+    new: routes("Add a package or an agent to the project", {
+      package: command(
+        "A text-only package under packages/",
+        { ...json, root: rootFlag },
+        [arg("Package name", "name")],
+        build.create("package"),
+      ),
+      agent: command(
+        "An agent with every package of the project",
+        { ...json, root: rootFlag },
+        [arg("Agent name", "name")],
+        build.create("agent"),
+      ),
+    }),
+    contracts: routes("A package's contracts", {
+      add: command(
+        "Add an ABI or IDL from Aomi's registry, or --file",
+        {
+          ...json,
+          ...conn,
+          chain: text("EVM chain id of the address", {
+            parse: parseChain,
+            placeholder: "id",
+          }),
+          file: text("ABI or IDL JSON file", { placeholder: "path" }),
+          address: many("A deployment (repeatable)", "chain=address"),
+          package: packageFlag,
+        },
+        [
+          arg("Label, [a-z0-9-]", "label"),
+          arg("Address or program id to look up", "address", true),
+        ],
+        build.addContract,
+      ),
+    }),
+    tool: routes("A package's tools", {
+      add: command(
+        "Add a tool stub to src/lib.rs",
+        { ...json, package: packageFlag },
+        [arg("Tool name, [a-z][a-z0-9_]*", "name")],
+        build.addTool,
+      ),
+    }),
+    gen: command(
+      "Write generated/ from the package's [onchain] sections",
+      { ...json, package: packageFlag },
+      [],
+      build.gen,
+    ),
+    doctor: command(
+      "Run publish's checks without building",
+      json,
+      [arg("Project or package folder (default .)", "path", true)],
+      build.doctor,
+    ),
+    test: command(
+      "Build, pack and check each package, then run its tests",
+      {
+        ...json,
+        ...building,
+        root: rootFlag,
+        package: many("Only this package (repeatable)", "name"),
+      },
+      [],
+      build.test,
+    ),
+    pack: command(
+      "Write each package's checked bundle",
+      {
+        ...json,
+        ...building,
+        root: rootFlag,
+        package: many("Only this package (repeatable)", "name"),
+        out: text("Folder for the bundles (default .)", {
+          placeholder: "dir",
+        }),
+      },
+      [],
+      build.pack,
+    ),
+    publish: command(
+      "Build and upload packages and agents",
+      {
+        ...builder,
+        ...building,
+        root: rootFlag,
+        package: many("Only this package (repeatable)", "name"),
+        agent: many("Only this agent (repeatable)", "name"),
+        promote: yes("Make each new release live"),
+      },
+      [],
+      release.publish,
+    ),
+    promote: command(
+      "Make a release live",
       builder,
-      [arg("Package", "package")],
-      release.listCodes,
+      [
+        arg("package or agent", "kind"),
+        arg("Name", "name"),
+        arg("Release", "number"),
+      ],
+      release.promote,
     ),
-    revoke: command(
-      "End a code for everyone who used it",
+    rollback: command(
+      "Make an earlier release live",
       builder,
-      [arg("Package", "package"), arg("Code id", "id")],
-      release.revokeCode,
+      [
+        arg("package or agent", "kind"),
+        arg("Name", "name"),
+        arg("Release to go back to (see releases)", "number"),
+      ],
+      release.promote,
     ),
+    releases: command(
+      "A package's or agent's releases",
+      builder,
+      [arg("package or agent", "kind"), arg("Name", "name")],
+      release.releases,
+    ),
+    codes: routes("Activation codes for a private package", {
+      create: command(
+        "Make a code (shown once)",
+        {
+          ...builder,
+          agent: text("Give the package to this agent too", {
+            placeholder: "publisher/name",
+          }),
+        },
+        [arg("Package", "package")],
+        release.createCode,
+      ),
+      list: command(
+        "Codes and who holds them",
+        builder,
+        [arg("Package", "package")],
+        release.listCodes,
+      ),
+      revoke: command(
+        "End a code for everyone who used it",
+        builder,
+        [arg("Package", "package"), arg("Code id", "id")],
+        release.revokeCode,
+      ),
+    }),
   }),
   model: routes(
     BRIEFS.model,
@@ -755,8 +858,8 @@ const GROUPS: [string, (keyof typeof BRIEFS)[]][] = [
   ["CHAT", ["chat", "threads"]],
   ["ACCOUNT", ["login", "logout", "whoami", "account"]],
   ["WALLETS & TRADES", ["wallets", "rules", "tx", "guard"]],
-  ["AGENTS", ["packages", "pipeline"]],
-  ["PACKAGES", ["publish", "promote", "rollback", "releases", "codes"]],
+  ["AGENTS", ["library", "pipeline"]],
+  ["BUILD", ["build"]],
 ];
 const SETTINGS: (keyof typeof BRIEFS)[] = [
   "model",

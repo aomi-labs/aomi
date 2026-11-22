@@ -184,7 +184,8 @@ describe("help", () => {
     [["tx", "approve"]],
     [["wallets"]],
     [["rules"]],
-    [["pipeline", "build"]],
+    [["pipeline", "stage"]],
+    [["build"]],
   ])("prints %j --help", async (route) => {
     const { code, stdout } = await cli(...route, "--help");
     expect(code).toBe(0);
@@ -196,10 +197,10 @@ describe("help", () => {
     [["pipeline"]],
     [["pipeline", "ops"]],
     [["pipeline", "package"]],
-    [["packages"]],
-    [["publish"]],
-    [["promote"]],
-    [["rollback"]],
+    [["library"]],
+    [["build"]],
+    [["build", "publish"]],
+    [["build", "rollback"]],
   ])("%j --help names no retired word", async (route) => {
     const { code, stdout } = await cli(...route, "--help");
     expect(code).toBe(0);
@@ -215,12 +216,24 @@ describe("help", () => {
 });
 
 describe("command validation", () => {
-  it.each(["session", "wallet", "toolset", "byok"])(
-    "rejects retired command %s",
-    async (name) => {
-      expect((await cli(name)).code).toBe(2);
-    },
-  );
+  it.each([
+    "session",
+    "wallet",
+    "toolset",
+    "byok",
+    "packages",
+    "publish",
+    "promote",
+    "rollback",
+    "releases",
+    "codes",
+  ])("rejects retired command %s", async (name) => {
+    expect((await cli(name)).code).toBe(2);
+  });
+
+  it("names pipeline stage, not pipeline build", async () => {
+    expect((await cli("pipeline", "build", "op")).code).toBe(2);
+  });
 
   it("is a usage error to mistype a command or pass a non-decimal chain", async () => {
     expect((await cli("thraeds")).code).toBe(2);
@@ -392,7 +405,7 @@ describe("sign-in", () => {
   });
 });
 
-describe("aomi packages", () => {
+describe("aomi library", () => {
   const row = (id: number, name: string, more: object = {}) => ({
     package_id: id,
     id: `acme/${name}`,
@@ -461,7 +474,7 @@ describe("aomi packages", () => {
   });
 
   it("lists each package with its state and reason", async () => {
-    const { code, stdout } = await cli("packages", "--private-key", KEY);
+    const { code, stdout } = await cli("library", "--private-key", KEY);
     expect(code).toBe(0);
     expect(stdout.split("\n")).toEqual([
       "acme/swap  on (on by default)  verified  ethereum+base  needs API_KEY",
@@ -473,7 +486,7 @@ describe("aomi packages", () => {
 
   it("shows the notice and turns nothing on without --yes", async () => {
     const { code, stdout, stderr } = await cli(
-      "packages",
+      "library",
       "on",
       "acme/lend",
       "--private-key",
@@ -488,7 +501,7 @@ describe("aomi packages", () => {
 
   it("turns a package on with --yes", async () => {
     const { code, stdout } = await cli(
-      "packages",
+      "library",
       "on",
       "acme/lend",
       "--yes",
@@ -503,7 +516,7 @@ describe("aomi packages", () => {
 
   it("refuses off for an agent-listed package and exits non-zero", async () => {
     const { code, stderr } = await cli(
-      "packages",
+      "library",
       "off",
       "acme/core",
       "--private-key",
@@ -521,7 +534,7 @@ describe("aomi packages", () => {
       configurable: true,
     });
     const { code, stdout, stderr } = await cli(
-      "packages",
+      "library",
       "connect",
       "acme/swap",
       "API_KEY",

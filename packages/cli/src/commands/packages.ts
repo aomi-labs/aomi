@@ -45,7 +45,7 @@ function notice(row: AomiPackage): string[] {
   return lines;
 }
 
-/** `aomi packages`: every package in the Library, with whether it is on. */
+/** `aomi library`: every package in the Library, with whether it is on. */
 export async function list(flags: Flags & { thread?: string }): Promise<void> {
   const aomi = await connect(flags);
   const { packages } = await aomi.account.packages.list({

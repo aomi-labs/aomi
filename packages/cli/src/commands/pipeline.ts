@@ -86,7 +86,7 @@ export async function invoke(
 }
 
 /** Stage and simulate; with --commit, also make the commit to sign. */
-export async function build(
+export async function stage(
   flags: Flags & { commit?: boolean; chainFamily?: "evm" | "svm" },
   name: string,
   args?: string,

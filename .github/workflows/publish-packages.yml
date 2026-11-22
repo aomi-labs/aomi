@@ -1,5 +1,5 @@
 # A reusable workflow for builder repositories: build each package of the
-# root aomi.toml for wasm32-wasip2 on the runner, upload it with `aomi publish`
+# root aomi.toml for wasm32-wasip2 on the runner, upload it with `aomi build publish`
 # and make the new releases live. It runs only when a builder repository calls
 # it, for example:
 #
@@ -51,9 +51,9 @@ jobs:
           CLI_VERSION: ${{ inputs.cli-version }}
       - run: |
           if [ "${PROMOTE}" = "true" ]; then
-            aomi publish --root "${ROOT}" --promote
+            aomi build publish --root "${ROOT}" --promote
           else
-            aomi publish --root "${ROOT}"
+            aomi build publish --root "${ROOT}"
           fi
         env:
           AOMI_BUILDER_KEY: ${{ secrets.AOMI_BUILDER_KEY }}

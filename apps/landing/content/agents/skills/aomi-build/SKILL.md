@@ -10,8 +10,8 @@ identity, secret slots, network hosts, capabilities and limits. Tools implement
 `Tool` with typed `Args` and return an `Outcome`. Export them with
 `aomi_sdk::package!(ToolName)`.
 
-Use `aomi-build new-package <name>` for an OpenAPI source or `aomi-build init
-<name>` for a new package. Sources live under `packages/<name>/`. Build the
+Start with `aomi build init <dir> --publisher <slug>`, or
+`aomi-build new-package <name>` for an OpenAPI source. Sources live under `packages/<name>/`. Build the
 component for `wasm32-wasip2`; validate locally with mock upstreams. Package
 publishing and promotion use numbered releases, and agent configuration lists
 the packages it uses. A package never chooses wallets or bypasses host policy.

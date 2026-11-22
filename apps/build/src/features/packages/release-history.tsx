@@ -60,7 +60,7 @@ export function ReleaseHistory({
             {refusal}
           </span>
         ) : kind === "package" ? (
-          "Each release is built by your CI and uploaded with aomi publish. Which one is live is set here."
+          "Each release is built by your CI and uploaded with aomi build publish. Which one is live is set here."
         ) : (
           "Configs come from aomi.toml. Which one is live is set here."
         )
@@ -69,7 +69,7 @@ export function ReleaseHistory({
       {data.releases.length === 0 ? (
         <Row
           label="Nothing published yet"
-          hint={`Run aomi publish --${kind} ${name}`}
+          hint={`Run aomi build publish --${kind} ${name}`}
         />
       ) : (
         data.releases.map((release) => (

@@ -86,8 +86,8 @@ it("tells the builder an agent carried over from an earlier deployment needs a r
   expect(
     screen.getAllByRole("listitem").map((item) => item.textContent),
   ).toEqual([
-    "aomi publish --promote --package <package> for each package it lists",
-    "aomi publish --promote --agent dottie",
+    "aomi build publish --promote --package <package> for each package it lists",
+    "aomi build publish --promote --agent dottie",
   ]);
   expect(
     screen.queryByRole("button", { name: /save/i }),

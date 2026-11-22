@@ -329,7 +329,7 @@ export function PackageDetailView({ name }: { name: string }) {
       ) : (
         <Notice>
           No release is live. Publish one with{" "}
-          <code className="font-mono">aomi publish --package {name}</code> and
+          <code className="font-mono">aomi build publish --package {name}</code> and
           promote it under Releases.
         </Notice>
       )}

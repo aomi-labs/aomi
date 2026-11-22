@@ -1,5 +1,44 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`help > prints ["build"] --help 1`] = `
+"USAGE
+  aomi build init [--json] (--publisher slug) [--name name] [<dir>]
+  aomi build new package|agent ...
+  aomi build contracts add ...
+  aomi build tool add ...
+  aomi build gen [--json] [--package dir]
+  aomi build doctor [--json] [<path>]
+  aomi build test [--json] [--build] [--wasm name=path]... [--root dir] [--package name]...
+  aomi build pack [--json] [--build] [--wasm name=path]... [--root dir] [--package name]... [--out dir]
+  aomi build publish [--json] [--key-file path] [--build] [--wasm name=path]... [--root dir] [--package name]... [--agent name]... [--promote]
+  aomi build promote [--json] [--key-file path] <kind> <name> <number>
+  aomi build rollback [--json] [--key-file path] <kind> <name> <number>
+  aomi build releases [--json] [--key-file path] <kind> <name>
+  aomi build codes create|list|revoke ...
+  aomi build --help
+
+Make, check and publish packages and agents
+
+FLAGS
+  -h --help  Print help information and exit
+
+COMMANDS
+  init       Start a project and its first package
+  new        Add a package or an agent to the project
+  contracts  A package's contracts
+  tool       A package's tools
+  gen        Write generated/ from the package's [onchain] sections
+  doctor     Run publish's checks without building
+  test       Build, pack and check each package, then run its tests
+  pack       Write each package's checked bundle
+  publish    Build and upload packages and agents
+  promote    Make a release live
+  rollback   Make an earlier release live
+  releases   A package's or agent's releases
+  codes      Activation codes for a private package
+"
+`;
+
 exports[`help > prints ["chat"] --help 1`] = `
 "USAGE
   aomi chat [--prompt message] [--thread id] [--new] [--agent name] [--model name] [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [<message>]
@@ -25,10 +64,10 @@ ARGUMENTS
 "
 `;
 
-exports[`help > prints ["pipeline","build"] --help 1`] = `
+exports[`help > prints ["pipeline","stage"] --help 1`] = `
 "USAGE
-  aomi pipeline build [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [--agent name] [--commit] <name> [<args>]
-  aomi pipeline build --help
+  aomi pipeline stage [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [--agent name] [--commit] <name> [<args>]
+  aomi pipeline stage --help
 
 Stage and simulate an operation
 
@@ -184,15 +223,11 @@ WALLETS & TRADES
   guard      Spending limits for signing
 
 AGENTS
-  packages   Turn packages on or off, connect keys
+  library    Turn packages on or off, connect keys
   pipeline   Call operations directly
 
-PACKAGES
-  publish    Build and upload packages and agents
-  promote    Make a release live
-  rollback   Make an earlier release live
-  releases   A package's or agent's releases
-  codes      Activation codes for a private package
+BUILD
+  build      Make, check and publish packages and agents
 
 SETTINGS
   model  chain  keys  secret  config  completion

@@ -38,7 +38,7 @@ code of its own.
 
 ## Packages
 
-- `aomi packages` (`src/commands/packages.ts`) drives `aomi.account.packages`
+- `aomi library` (`src/commands/packages.ts`) drives `aomi.account.packages`
   on `/api/account/packages`. `list [--thread <id>]` prints each package as
   `publisher/name`, on or off with the reason, verified, families and missing
   slots. A package is named by `publisher/name` or its numeric id.
@@ -52,24 +52,28 @@ code of its own.
 
 ## Releases
 
-- `aomi publish` reads the root `aomi.toml` (`[[packages]] path`,
-  `[[agents]] name` and `voice`). For each package folder it runs
-  `cargo build --release --target wasm32-wasip2` (skipped by `--no-build`;
-  `--wasm <name>=<path>` names the component), tars `aomi.toml`,
-  `package.wasm` and the `icon`, `skills` paths and `guards` its `[package]`
-  lists, and uploads the tar. It then posts each agent's root text and voice
-  file. `--package` and `--agent` select; `--promote` promotes each new
-  release with the live number the upload answered.
-- `aomi promote <package|agent> <name> <number>`, `aomi rollback <package|agent>
-<name> [<number>]` (default: the highest release below live) and
-  `aomi releases <package|agent> <name>` read the list first and send its live
-  number as `expected_live`.
+- Every author command is under `aomi build` (`src/commands/build.ts`,
+  `release.ts`). Anything about a package or agent runs in `aomi-build-core`
+  (`AOMI_BUILD_CORE`, or the platform's optional dependency): `init`,
+  `new package|agent`, `contracts add` (the CLI fetches a registry lookup
+  through the pipeline's `evm_get_contract`/`svm_get_program`), `tool add`,
+  `gen`, `doctor`, and `manifest`, which lists the root's packages and agents.
+- `aomi build test`, `pack` and `publish` build each package folder with
+  `cargo build --release --target wasm32-wasip2` unless it is text-only
+  (`--no-build`; `--wasm <name>=<path>` names the component), then pack and
+  check it with the core. `publish` uploads the bundle, then posts each
+  agent's root text and voice file. `--package` and `--agent` select;
+  `--promote` promotes each new release with the live number the upload
+  answered.
+- `aomi build promote|rollback <package|agent> <name> <number>` (rollback
+  always names its release) and `aomi build releases <package|agent> <name>`
+  read the list first and send its live number as `expected_live`.
 - They call the Build edge's `/api/build/{packages,agents}/*` (default
   `https://build.aomi.dev`, `AOMI_BUILD_URL`) through `ManagerClient` from
   `@aomi-labs/internal` with a builder API key from `AOMI_BUILDER_KEY` or
   `--key-file`. A refusal prints `code: message` and exits 1.
 - `.github/workflows/publish-packages.yml` is the reusable workflow a builder
-  repository calls to run `aomi publish --promote` on its runner.
+  repository calls to run `aomi build publish --promote` on its runner.
 
 ## Output
 

@@ -54,34 +54,42 @@ sign-in.
 
 ## Commands
 
-| Command                          | What it does                                                                                                                       |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `chat [message]`                 | Ask once (`-p`) or open the chat screen. `--thread`, `--new`, `--agent`, `--model`                                                 |
-| `threads`                        | `list`, `open <id>`, `new`, `rename <id> <title>`, `archive <id>`                                                                  |
-| `login`, `logout`, `whoami`      | Sign in and out                                                                                                                    |
-| `account`                        | Profile; `connections`, `unlink`, `credits`, `fund`, `statement`                                                                   |
-| `wallets`                        | Agent wallets: `list`, `balance <id>`, `use <id>`; the local `signer` (`show`, `set`, `clear`)                                     |
-| `rules`                          | Each agent wallet's rules, today's use and waiting change; `approve <change-id>`, `decline <change-id>`                            |
-| `tx`                             | `list`, `review <ref>`, `approve <ref>`, `reject <ref>`, `sign <ref>`, `export <ref>`                                              |
-| `guard [strict\|balanced\|yolo]` | The thread's guard, or `--account`'s default                                                                                       |
-| `packages`                       | `list [--thread]`, `on <id> [--yes]`, `off <id>`, `reset <id>`, `connect <id> <slot>`, `disconnect <id> <slot>`                    |
-| `pipeline`                       | `ops`, `op`, `agents`, `packages`, `package`, `invoke`, `build [--commit]`                                                         |
-| `publish`                        | Build and upload the root `aomi.toml`'s packages and agents. `--promote`, `--package`, `--agent`, `--no-build`, `--wasm name=path` |
-| `promote`, `rollback`            | `<package\|agent> <name> <number>`: make a release live; rollback names the release to go back to                                  |
-| `codes`                          | `create <package> [--agent <id>]`, `list <package>`, `revoke <package> <id>`: activation codes for a private package               |
-| `releases`                       | `<package\|agent> <name>`: every release, newest first                                                                             |
-| `model`, `chain`                 | `current`, `list`, `set`                                                                                                           |
-| `keys`                           | Your own provider keys: `list`, `set <provider>`, `remove`                                                                         |
-| `secret`                         | `list`, `add NAME=value…`, `clear`                                                                                                 |
-| `config`                         | `current`, `set-backend <url>`                                                                                                     |
-| `completion`                     | `eval "$(aomi completion)"`                                                                                                        |
+| Command                           | What it does                                                                                                                       |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `chat [message]`                  | Ask once (`-p`) or open the chat screen. `--thread`, `--new`, `--agent`, `--model`                                                 |
+| `threads`                         | `list`, `open <id>`, `new`, `rename <id> <title>`, `archive <id>`                                                                  |
+| `login`, `logout`, `whoami`       | Sign in and out                                                                                                                    |
+| `account`                         | Profile; `connections`, `unlink`, `credits`, `fund`, `statement`                                                                   |
+| `wallets`                         | Agent wallets: `list`, `balance <id>`, `use <id>`; the local `signer` (`show`, `set`, `clear`)                                     |
+| `rules`                           | Each agent wallet's rules, today's use and waiting change; `approve <change-id>`, `decline <change-id>`                            |
+| `tx`                              | `list`, `review <ref>`, `approve <ref>`, `reject <ref>`, `sign <ref>`, `export <ref>`                                              |
+| `guard [strict\|balanced\|yolo]`  | The thread's guard, or `--account`'s default                                                                                       |
+| `library`                         | `list [--thread]`, `on <id> [--yes]`, `off <id>`, `reset <id>`, `connect <id> <slot>`, `disconnect <id> <slot>`                    |
+| `pipeline`                        | `ops`, `op`, `agents`, `packages`, `package`, `invoke`, `stage [--commit]`                                                         |
+| `build`                           | Author packages and agents: `init`, `new package\|agent`, `contracts add`, `tool add`, `gen`, `doctor`, `test`, `pack`             |
+| `build publish`                   | Build and upload the root `aomi.toml`'s packages and agents. `--promote`, `--package`, `--agent`, `--no-build`, `--wasm name=path` |
+| `build promote`, `build rollback` | `<package\|agent> <name> <number>`: make a release live; rollback names the release to go back to                                  |
+| `build codes`                     | `create <package> [--agent <id>]`, `list <package>`, `revoke <package> <id>`: activation codes for a private package               |
+| `build releases`                  | `<package\|agent> <name>`: every release, newest first                                                                             |
+| `model`, `chain`                  | `current`, `list`, `set`                                                                                                           |
+| `keys`                            | Your own provider keys: `list`, `set <provider>`, `remove`                                                                         |
+| `secret`                          | `list`, `add NAME=value…`, `clear`                                                                                                 |
+| `config`                          | `current`, `set-backend <url>`                                                                                                     |
+| `completion`                      | `eval "$(aomi completion)"`                                                                                                        |
 
 Credential and key values come from stdin or a hidden prompt, never argv.
 `--chain` takes a decimal chain id.
 
-## Publish packages
+## Build and publish packages
 
-`aomi publish` builds packages that have a `src/` directory with
+`aomi build init <dir> --publisher <slug>` starts a project; each package's
+`aomi.toml` points at `aomi.schema.json` for editor checks. `new`,
+`contracts add` (from Aomi's registry or `--file`), `tool add` and `gen` write
+the files; `doctor` runs publish's checks without building and `test` builds,
+packs and checks each package. The `aomi-build` skill in aomi-sdk walks a
+coding agent through the loop.
+
+`aomi build publish` builds packages that have a `src/` directory with
 `cargo build --release --target wasm32-wasip2`. Text-only packages ship their
 manifest and listed files. The CLI uses the platform's optional
 `@aomi-labs/build-core-<platform>-<arch>` binary to pack and check each upload,

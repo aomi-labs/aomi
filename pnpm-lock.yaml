@@ -1019,9 +1019,6 @@ importers:
       bs58:
         specifier: ^6.0.0
         version: 6.0.0
-      toml:
-        specifier: ^3.0.0
-        version: 3.0.0
       tweetnacl:
         specifier: ^1.0.3
         version: 1.0.3

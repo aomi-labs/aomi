@@ -613,5 +613,5 @@ device code, or headlessly with a key:
 ```bash
 aomi whoami --private-key "$PRIVATE_KEY"                         # EVM, SIWE
 aomi whoami --solana-private-key "$SOLANA_KEY" --cluster devnet  # Solana, SIWS
-aomi pipeline build supply --agent aave '{"asset":"USDC","amount":"100"}' --commit
+aomi pipeline stage supply --agent aave '{"asset":"USDC","amount":"100"}' --commit
 ```

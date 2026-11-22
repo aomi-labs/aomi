@@ -17,7 +17,12 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { parse } from "toml";
+const STATE = vi.hoisted(() => {
+  const path = `${process.env.TMPDIR ?? "/tmp"}/aomi-release-test-${process.pid}`;
+  process.env.AOMI_STATE_DIR = path;
+  return path;
+});
+
 import { main } from "./app";
 import { core } from "./build-core";
 
@@ -28,6 +33,7 @@ const OFFICIAL =
   resolve(import.meta.dirname, "../../../../packages/packages");
 
 const BUILD = "https://build.example";
+const CHAT = "https://chat.example";
 const KEY = "aomi_key_test";
 
 type Sent = {
@@ -129,14 +135,16 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  delete process.env.AOMI_BACKEND_URL;
+  rmSync(STATE, { recursive: true, force: true });
   rmSync(root, { recursive: true, force: true });
 });
 
-describe("aomi publish", () => {
+describe("aomi build", () => {
   beforeEach(() => {
     write(
       "aomi.toml",
-      `[project]\npublisher = "alice"\n\n[[packages]]\npath = "packages/price"\n\n[[agents]]\nname = "hoodit"\nvoice = "agents/hoodit.md"\n`,
+      `[project]\npublisher = "alice"\n\n[[packages]]\npath = "packages/price"\n\n[[agents]]\nname = "hoodit"\nvoice = "agents/hoodit.md"\ndisplay_name = "Hoodit"\nchains = ["evm"]\nmodel_cost = "builder"\naudience = "public"\n`,
     );
     write("agents/hoodit.md", "Be brief.");
     write(
@@ -160,27 +168,54 @@ describe("aomi publish", () => {
     write("packages/price/guards.json", "{}");
     write("packages/price/README.md", "not a member");
     write("price.wasm", "\0asm");
-    // A stand-in core: logs each call, names a package after its folder,
-    // packs a fixed bundle, refuses the manifest of a folder called `bad`
-    // and the pack of one called `broken`.
+    // A stand-in core: logs each call, lists a root's package paths and
+    // agents, names a package after its folder, refuses the manifest of a
+    // folder called `bad` and packs a fixed bundle, except for `broken`.
     write(
       "core.cjs",
-      [
-        "#!/usr/bin/env node",
-        'const fs = require("node:fs");',
-        'const { basename } = require("node:path");',
-        "const args = process.argv.slice(2);",
-        "const name = basename(args[1]);",
-        'fs.appendFileSync(__dirname + "/core.log", JSON.stringify(args) + "\\n");',
-        "const refuse = (code, message) => {",
-        "  process.stdout.write(JSON.stringify({ error: { code, message } }));",
-        "  process.exit(1);",
-        "};",
-        'if (args[0] === "manifest" && name === "bad") refuse("manifest_invalid", "aomi.toml: bad");',
-        'if (args[0] === "pack" && name === "broken") refuse("bundle_invalid", "skills/x.md: missing");',
-        'if (args[0] === "pack") fs.writeFileSync(args[args.indexOf("--out") + 1], "bundle");',
-        'process.stdout.write(JSON.stringify(args[0] === "manifest" ? { package: name } : {}) + "\\n");',
-      ].join("\n"),
+      String.raw`#!/usr/bin/env node
+const fs = require("node:fs");
+const { basename, join } = require("node:path");
+const args = process.argv.slice(2);
+const name = basename(args[1]);
+fs.appendFileSync(__dirname + "/core.log", JSON.stringify(args) + "\n");
+const answer = (value) => process.stdout.write(JSON.stringify(value) + "\n");
+if (args.includes("--lookup"))
+  fs.copyFileSync(args[args.indexOf("--lookup") + 1], __dirname + "/lookup.json");
+// A test's canned answer for a command; one with an error is a refusal.
+const canned = fs.existsSync(__dirname + "/canned.json")
+  ? JSON.parse(fs.readFileSync(__dirname + "/canned.json", "utf8"))[args[0]]
+  : undefined;
+if (canned) {
+  answer(canned);
+  process.exit(canned.error ? 1 : 0);
+}
+if (args[0] === "manifest") {
+  const text = fs.readFileSync(join(args[1], "aomi.toml"), "utf8");
+  const packages = [...text.matchAll(/^path = "(.+)"$/gm)].map(([, path]) =>
+    basename(path) === "bad"
+      ? { path, error: "manifest_invalid: aomi.toml: bad" }
+      : { path, package: basename(path) },
+  );
+  const agents = [...text.matchAll(/^\[\[agents\]\]\nname = "(.+)"(?:\nvoice = "(.+)")?/gm)];
+  answer({
+    publisher: "alice",
+    packages,
+    agents: agents.map(([, name, voice]) => ({ name, voice: voice ?? null })),
+  });
+  process.exit(0);
+}
+if (args[0] === "pack" && name === "broken") {
+  answer({ error: { code: "bundle_invalid", message: "skills/x.md: missing" } });
+  process.exit(1);
+}
+if (args[0] === "pack") {
+  fs.writeFileSync(args[args.indexOf("--out") + 1], "bundle");
+  answer({ digest: "sha256:b" });
+  process.exit(0);
+}
+answer({});
+`,
     );
     chmodSync(join(root, "core.cjs"), 0o755);
     process.env.AOMI_BUILD_CORE = join(root, "core.cjs");
@@ -205,6 +240,7 @@ describe("aomi publish", () => {
       { status: 201 },
     );
     const { code, stdout, stderr } = await cli(
+      "build",
       "publish",
       "--root",
       root,
@@ -229,7 +265,7 @@ describe("aomi publish", () => {
       .map((line) => JSON.parse(line) as string[]);
     const bundle = calls[1]!.at(-1)!;
     expect(calls).toEqual([
-      ["manifest", join(root, "packages/price")],
+      ["manifest", root],
       [
         "pack",
         join(root, "packages/price"),
@@ -303,6 +339,7 @@ describe("aomi publish", () => {
           process.execPath,
           [
             resolve(import.meta.dirname, "../dist/bin.js"),
+            "build",
             "publish",
             "--root",
             root,
@@ -342,6 +379,7 @@ describe("aomi publish", () => {
     );
     // No `src/`: nothing to build, and the bundle has no component.
     const { code, stderr } = await cli(
+      "build",
       "publish",
       "--root",
       root,
@@ -365,6 +403,7 @@ describe("aomi publish", () => {
     // With `src/`, a package needs its component.
     write("packages/price/src/lib.rs", "");
     const built = await cli(
+      "build",
       "publish",
       "--root",
       root,
@@ -397,6 +436,7 @@ describe("aomi publish", () => {
       { status: 422 },
     );
     const { code, stdout, stderr } = await cli(
+      "build",
       "publish",
       "--root",
       root,
@@ -462,9 +502,18 @@ describe("aomi publish", () => {
       },
       { status: 201 },
     );
-    const agent = await cli("publish", "--root", root, "--agent", "hoodit");
+    const agent = await cli(
+      "build",
+      "publish",
+      "--root",
+      root,
+      "--agent",
+      "hoodit",
+    );
     expect(agent.code).toBe(0);
-    expect(existsSync(join(root, "core.log"))).toBe(false);
+    expect(readFileSync(join(root, "core.log"), "utf8")).toBe(
+      `${JSON.stringify(["manifest", root])}\n`,
+    );
   });
 
   it("leaves manifests to aomi-build-core and publishes the others when one does not pack", async () => {
@@ -485,7 +534,12 @@ describe("aomi publish", () => {
         { package: `alice/${name}`, release: release(1), live: null },
         { status: 201 },
       );
-    const { code, stdout, stderr } = await cli("publish", "--root", root);
+    const { code, stdout, stderr } = await cli(
+      "build",
+      "publish",
+      "--root",
+      root,
+    );
     expect(stdout).toContain("package alice/price  release 1");
     expect(stdout).toContain("package alice/aave  release 1");
     expect(code).toBe(1);
@@ -500,6 +554,7 @@ describe("aomi publish", () => {
       { status: 422 },
     );
     const { code, stderr } = await cli(
+      "build",
       "publish",
       "--root",
       root,
@@ -524,6 +579,7 @@ describe("aomi publish", () => {
       { status: 409 },
     );
     const flags = [
+      "build",
       "publish",
       "--root",
       root,
@@ -564,7 +620,8 @@ describe("aomi publish", () => {
         "aomi.toml",
         ["price", "nodesc"]
           .map((name) => `[[packages]]\npath = "packages/${name}"\n`)
-          .join("\n"),
+          .join("\n")
+          .replace(/^/, '[project]\npublisher = "alice"\n\n'),
       );
       const manifest = (name: string, description: string) =>
         `[package]\nname = "${name}"\n${description}contract = 1\nskills = [{ id = "quote", path = "skills/quote.md", description = "Quotes" }]\n`;
@@ -579,6 +636,7 @@ describe("aomi publish", () => {
         { status: 201 },
       );
       const { code, stdout } = await cli(
+        "build",
         "publish",
         "--root",
         root,
@@ -619,6 +677,7 @@ describe("aomi publish", () => {
       { status: 422 },
     );
     const { code, stderr } = await cli(
+      "build",
       "publish",
       "--root",
       root,
@@ -632,16 +691,188 @@ describe("aomi publish", () => {
       [
         "error: hoodit: agent_invalid: agent hoodit: unknown tool",
         "These pointers moved before the failure:",
-        "  package alice/price  live 3 (was 2)  undo: aomi rollback package price 2",
+        "  package alice/price  live 3 (was 2)  undo: aomi build rollback package price 2",
         "",
       ].join("\n"),
     );
   });
+
+  const log = () =>
+    readFileSync(join(root, "core.log"), "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as string[]);
+
+  it("contracts add looks an address up in Aomi's registry and hands the answer to aomi-build-core", async () => {
+    mkdirSync(STATE, { recursive: true });
+    writeFileSync(
+      join(STATE, "cli.json"),
+      JSON.stringify({ guest: { baseUrl: CHAT, token: "guest-token" } }),
+    );
+    process.env.AOMI_BACKEND_URL = CHAT;
+    const operation =
+      "/v1/pipeline/toolsets/default/operations/evm_get_contract";
+    const found = {
+      found: true,
+      count: 1,
+      contracts: [
+        {
+          address: "0xa0b8",
+          chain_id: 1,
+          abi: ["function approve(address,uint256)"],
+        },
+      ],
+    };
+    answers[`GET ${operation}`] = Response.json({
+      name: "evm_get_contract",
+      inputSchema: { type: "object" },
+    });
+    answers[`POST ${operation}`] = Response.json({ result: found });
+
+    const refused = await cli("build", "contracts", "add", "usdc", "0xa0b8");
+    expect(refused.code).toBe(2);
+    expect(refused.stderr).toContain("--chain");
+    expect(sent).toHaveLength(0);
+
+    const { code, stderr } = await cli(
+      "build",
+      "contracts",
+      "add",
+      "usdc",
+      "0xa0b8",
+      "--chain",
+      "1",
+      "--package",
+      join(root, "packages/price"),
+    );
+    expect(stderr).toBe("");
+    expect(code).toBe(0);
+    expect(sent.at(-1)!.auth).toBe("Bearer guest-token");
+    expect(JSON.parse(new TextDecoder().decode(sent.at(-1)!.body))).toEqual({
+      address: "0xa0b8",
+      chain_id: 1,
+      mode: "abi",
+    });
+    expect(JSON.parse(readFileSync(join(root, "lookup.json"), "utf8"))).toEqual(
+      found,
+    );
+    expect(log()[0]!.slice(0, 5)).toEqual([
+      "contracts",
+      "add",
+      "usdc",
+      "--package",
+      join(root, "packages/price"),
+    ]);
+  });
+
+  it("pack writes each package's checked bundle to --out, and names an unknown package", async () => {
+    const out = join(root, "dist");
+    const packed = await cli("build", "pack", "--root", root, "--out", out);
+    expect(packed.code).toBe(0);
+    expect(packed.stdout).toBe(`price  ${join(out, "price.tar")}  sha256:b\n`);
+    expect(readFileSync(join(out, "price.tar"), "utf8")).toBe("bundle");
+    expect(log().map((call) => call[0])).toEqual(["manifest", "pack", "check"]);
+
+    const unknown = await cli(
+      "build",
+      "pack",
+      "--root",
+      root,
+      "--package",
+      "nope",
+    );
+    expect(unknown.code).toBe(2);
+    expect(unknown.stderr).toContain("nope is not a package of");
+  });
+
+  it("test builds, packs and checks each package, and reports one that cannot build", async () => {
+    const { code, stdout } = await cli(
+      "build",
+      "test",
+      "--root",
+      root,
+      "--json",
+    );
+    expect(code).toBe(0);
+    expect(lines(stdout)).toEqual([
+      { package: "price", result: "ok", digest: "sha256:b" },
+    ]);
+    write("packages/price/src/lib.rs", "");
+    const built = await cli("build", "test", "--root", root, "--no-build");
+    expect(built.code).toBe(1);
+    expect(built.stderr).toBe(
+      "error: price: --no-build needs --wasm price=<path>\n",
+    );
+  });
+
+  it("doctor prints each finding and fails on an error", async () => {
+    const report = (level: string) => ({
+      ok: level !== "error",
+      findings: [{ level, subject: "packages/price", message: "a finding" }],
+    });
+    write("canned.json", JSON.stringify({ doctor: report("warn") }));
+    const fine = await cli("build", "doctor", root);
+    expect(fine.code).toBe(0);
+    expect(fine.stdout).toBe("warn  packages/price  a finding\n");
+    write("canned.json", JSON.stringify({ doctor: report("error") }));
+    const failed = await cli("build", "doctor", root);
+    expect(failed.code).toBe(1);
+    expect(failed.stderr).toBe("error: doctor found errors\n");
+  });
+
+  it("init, new, tool add and gen hand the folder to aomi-build-core and print its refusal", async () => {
+    write(
+      "canned.json",
+      JSON.stringify({
+        init: {
+          root: "r/aomi.toml",
+          package: { package: "kit", path: "packages/kit" },
+        },
+        new: { package: "quotes", path: "packages/quotes" },
+        tool: {
+          error: {
+            code: "tool_exists",
+            message: "src/lib.rs already has a tool named price",
+          },
+        },
+        gen: { error: { code: "onchain_missing", message: "nothing to do" } },
+      }),
+    );
+    const made = await cli(
+      "build",
+      "init",
+      join(root, "kit"),
+      "--publisher",
+      "alice",
+    );
+    expect(made.stdout).toBe("r/aomi.toml  kit  packages/kit\n");
+    const added = await cli(
+      "build",
+      "new",
+      "package",
+      "quotes",
+      "--root",
+      root,
+    );
+    expect(added.code).toBe(0);
+    const tool = await cli("build", "tool", "add", "price", "--package", root);
+    expect(tool.code).toBe(1);
+    expect(tool.stderr).toBe(
+      "error: tool_exists: src/lib.rs already has a tool named price\n",
+    );
+    expect((await cli("build", "gen", "--package", root)).code).toBe(1);
+    expect(log()).toEqual([
+      ["init", join(root, "kit"), "--publisher", "alice"],
+      ["new", "package", "quotes", "--root", root],
+      ["tool", "add", "price", "--package", root],
+      ["gen", root],
+    ]);
+  });
 });
 
-describe("aomi rollback", () => {
+describe("aomi build rollback", () => {
   it("rollback_requires_target: names no default and sends nothing", async () => {
-    const { code, stderr } = await cli("rollback", "package", "price");
+    const { code, stderr } = await cli("build", "rollback", "package", "price");
     expect(code).not.toBe(0);
     expect(stderr).not.toBe("");
     expect(sent).toHaveLength(0);
@@ -657,7 +888,13 @@ describe("aomi rollback", () => {
       package: "alice/price",
       live: 2,
     });
-    const { code, stdout } = await cli("rollback", "package", "price", "2");
+    const { code, stdout } = await cli(
+      "build",
+      "rollback",
+      "package",
+      "price",
+      "2",
+    );
     expect(code).toBe(0);
     expect(JSON.parse(new TextDecoder().decode(sent[1]!.body))).toEqual({
       release: 2,
@@ -676,7 +913,13 @@ describe("aomi rollback", () => {
       { code: "live_changed", message: "live is 3", live: 3 },
       { status: 409 },
     );
-    const { code, stderr } = await cli("rollback", "agent", "hoodit", "1");
+    const { code, stderr } = await cli(
+      "build",
+      "rollback",
+      "agent",
+      "hoodit",
+      "1",
+    );
     expect(code).toBe(1);
     expect(JSON.parse(new TextDecoder().decode(sent[1]!.body))).toEqual({
       config: 1,
@@ -686,7 +929,7 @@ describe("aomi rollback", () => {
   });
 });
 
-describe("aomi codes", () => {
+describe("aomi build codes", () => {
   it("creates a code, prints it once, lists and revokes", async () => {
     answers["POST /api/build/packages/price/codes"] = Response.json(
       {
@@ -731,18 +974,18 @@ describe("aomi codes", () => {
       revoked: 2,
     });
 
-    const created = await cli("codes", "create", "price");
+    const created = await cli("build", "codes", "create", "price");
     expect(created.code).toBe(0);
     expect(created.stdout.split("\n")[0]).toBe(
       "1f3a9c2e-00000000-11111111-22222222",
     );
     expect(created.stdout).toContain("for people with the code");
-    const listed = await cli("codes", "list", "price");
+    const listed = await cli("build", "codes", "list", "price");
     expect(listed.stdout).toBe(
       "   7  2026-11-20T00:00:00Z  people  1 holding  active\n",
     );
     expect(listed.stdout).not.toContain("1f3a9c2e");
-    const revoked = await cli("codes", "revoke", "price", "7");
+    const revoked = await cli("build", "codes", "revoke", "price", "7");
     expect(revoked.stdout).toBe("code 7 revoked\n");
     expect(sent.map(({ method, path }) => `${method} ${path}`)).toEqual([
       `POST ${BUILD}/api/build/packages/price/codes`,
@@ -764,6 +1007,7 @@ describe("aomi codes", () => {
       { status: 201 },
     );
     const { code, stdout } = await cli(
+      "build",
       "codes",
       "create",
       "price",
@@ -777,65 +1021,6 @@ describe("aomi codes", () => {
     });
   });
 });
-
-/** A plain ustar archive of `members`, in order. */
-function tar(members: [string, Uint8Array][]): Uint8Array {
-  const blocks: Uint8Array[] = [];
-  const encoder = new TextEncoder();
-  for (const [name, data] of members) {
-    const header = new Uint8Array(512);
-    const put = (offset: number, text: string) =>
-      header.set(encoder.encode(text), offset);
-    put(0, name);
-    put(100, "0000644\0");
-    put(108, "0000000\0");
-    put(116, "0000000\0");
-    put(124, `${data.length.toString(8).padStart(11, "0")}\0`);
-    put(136, "00000000000\0");
-    put(148, "        ");
-    put(156, "0");
-    put(257, "ustar\u000000");
-    const sum = header.reduce((total, byte) => total + byte, 0);
-    put(148, `${sum.toString(8).padStart(6, "0")}\0 `);
-    blocks.push(
-      header,
-      data,
-      new Uint8Array((512 - (data.length % 512)) % 512),
-    );
-  }
-  blocks.push(new Uint8Array(1024));
-  const archive = new Uint8Array(blocks.reduce((n, b) => n + b.length, 0));
-  let offset = 0;
-  for (const block of blocks) {
-    archive.set(block, offset);
-    offset += block.length;
-  }
-  return archive;
-}
-
-/**
- * The legacy TypeScript packer, kept as an oracle: the members
- * `dir/aomi.toml` declares, in a plain tar.
- */
-function tarPackage(dir: string, wasm?: string): Uint8Array {
-  const manifest = parse(readFileSync(join(dir, "aomi.toml"), "utf8"));
-  const { icon, guards, skills = [] } = manifest.package ?? {};
-  const listed = [
-    icon,
-    ...(skills as { path: string }[]).map((skill) => skill.path),
-    guards,
-  ].filter((path): path is string => typeof path === "string");
-  return tar([
-    ["aomi.toml", readFileSync(join(dir, "aomi.toml"))],
-    ...(wasm
-      ? [["package.wasm", readFileSync(wasm)] as [string, Uint8Array]]
-      : []),
-    ...listed.map((path): [string, Uint8Array] => [
-      path,
-      readFileSync(join(dir, path)),
-    ]),
-  ]);
-}
 
 /**
  * An official package copied out of the packages repo. Until the manifest
@@ -860,28 +1045,54 @@ describe.runIf(BUILT_CORE && existsSync(OFFICIAL))("aomi-build-core", () => {
     process.env.AOMI_BUILD_CORE = BUILT_CORE;
   });
 
-  it("the TypeScript packer and aomi-build-core pack the same members on official packages", () => {
-    const component = join(root, "component.wasm");
-    writeFileSync(component, "\0asm stand-in");
-    // One with a component, one with guards, one text-only.
-    const cases: [string, string | undefined, string][] = [
-      ["defillama", component, "package.wasm"],
-      ["lido", component, "guards.json"],
-      ["kaito", undefined, "skills/kaito.md"],
+  it("runs the authoring loop: init, new agent, contracts add, gen, doctor, test, pack", async () => {
+    const project = join(root, "kit");
+    const package_ = join(project, "packages/kit");
+    const usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
+    write(
+      "usdc.json",
+      JSON.stringify([
+        {
+          type: "function",
+          name: "approve",
+          inputs: [
+            { name: "spender", type: "address" },
+            { name: "amount", type: "uint256" },
+          ],
+          outputs: [{ name: "", type: "bool" }],
+          stateMutability: "nonpayable",
+        },
+      ]),
+    );
+    const steps = [
+      ["init", project, "--publisher", "alice"],
+      ["new", "agent", "desk", "--root", project],
+      ["contracts", "add", "usdc", "--file", join(root, "usdc.json")].concat([
+        "--address",
+        `ethereum=${usdc}`,
+        "--package",
+        package_,
+      ]),
+      ["gen", "--package", package_],
+      ["doctor", project],
+      ["test", "--root", project],
+      ["pack", "--root", project, "--out", join(root, "dist")],
     ];
-    for (const [name, wasm, member] of cases) {
-      const folder = official(name, root);
-      const out = join(root, `${name}.tar`);
-      core(["pack", folder, ...(wasm ? ["--wasm", wasm] : []), "--out", out]);
-      const packed = untar(readFileSync(out));
-      const legacy = untar(tarPackage(folder, wasm));
-      expect(Object.keys(packed)).toContain(member);
-      expect(Object.keys(packed).includes("package.wasm")).toBe(!!wasm);
-      // The Manager re-packs an upload from its members alone.
-      expect(Object.keys(legacy).sort(), name).toEqual(Object.keys(packed));
-      for (const [path, bytes] of Object.entries(packed))
-        expect(legacy[path]!.equals(bytes), `${name} ${path}`).toBe(true);
+    for (const step of steps) {
+      const { code, stderr } = await cli("build", ...step);
+      expect(stderr, step.join(" ")).toBe("");
+      expect(code, step.join(" ")).toBe(0);
     }
+    const toml = readFileSync(join(package_, "aomi.toml"), "utf8");
+    expect(toml).toMatch(/^#:schema \.\.\/\.\.\/aomi\.schema\.json\n/);
+    expect(toml).toContain("[onchain.usdc]");
+    expect(existsSync(join(package_, "generated/descriptor.json"))).toBe(true);
+    const bundle = untar(readFileSync(join(root, "dist/kit.tar")));
+    expect(Object.keys(bundle)).toContain("abi/usdc.json");
+
+    const again = await cli("build", "init", project, "--publisher", "alice");
+    expect(again.code).toBe(1);
+    expect(again.stderr).toMatch(/^error: project_exists: /);
   });
 
   it("publish refuses what aomi-build-core rejects, before any upload", async () => {
@@ -892,6 +1103,7 @@ describe.runIf(BUILT_CORE && existsSync(OFFICIAL))("aomi-build-core", () => {
     official("lido", root);
     write("lido.wasm", "\0asm");
     const { code, stderr } = await cli(
+      "build",
       "publish",
       "--root",
       root,

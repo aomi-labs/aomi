@@ -1,5 +1,4 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, normalize, resolve } from "node:path";
 import {
@@ -8,9 +7,16 @@ import {
   type Published,
   type ReleaseKind,
 } from "@aomi-labs/internal/manager";
-import { parse } from "toml";
 import { core } from "../build-core";
 import { CliError, json, messageOf, out, usage } from "../context";
+import {
+  bundle,
+  packagesOf,
+  selected,
+  type BuildFlags,
+  type Phase,
+  type Project,
+} from "./build";
 
 /** How a release command reaches Build, and as whom. */
 type BuilderFlags = { keyFile?: string; buildUrl?: string; json?: boolean };
@@ -71,14 +77,6 @@ function numberOf(value: string): number {
   return number;
 }
 
-function toml(path: string): Record<string, any> {
-  try {
-    return parse(readFileSync(path, "utf8"));
-  } catch (error) {
-    throw usage(`${path}: ${(error as Error).message}`);
-  }
-}
-
 /** A path the manifest names, kept inside its folder. */
 function inside(dir: string, path: string): string {
   const clean = normalize(path);
@@ -87,52 +85,20 @@ function inside(dir: string, path: string): string {
   return clean;
 }
 
-/** `cargo build` the package's folder for wasm32-wasip2; its one `.wasm`. */
-function cargoBuild(dir: string): string {
-  const output = execFileSync(
-    "cargo",
-    [
-      "build",
-      "--release",
-      "--target",
-      "wasm32-wasip2",
-      "--message-format=json-render-diagnostics",
-    ],
-    { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] },
-  );
-  const manifest = resolve(dir, "Cargo.toml");
-  const wasm = output
-    .split("\n")
-    .filter((line) => line.startsWith("{"))
-    .map((line) => JSON.parse(line))
-    .filter(
-      (message) =>
-        message.reason === "compiler-artifact" &&
-        message.manifest_path === manifest,
-    )
-    .flatMap((message) => message.filenames as string[])
-    .find((file) => file.endsWith(".wasm"));
-  if (!wasm) throw new CliError(`cargo built no .wasm in ${dir}`);
-  return wasm;
-}
-
 function print(kind: string, result: Published): void {
   out(
     `${kind} ${result.id}  release ${result.release.number}  ${result.release.digest}  live ${result.live ?? "-"}`,
   );
 }
 
-type PublishFlags = BuilderFlags & {
-  root?: string;
-  package?: string[];
-  agent?: string[];
-  promote?: boolean;
-  build?: boolean;
-  wasm?: string[];
-};
+type PublishFlags = BuilderFlags &
+  BuildFlags & {
+    root?: string;
+    package?: string[];
+    agent?: string[];
+    promote?: boolean;
+  };
 
-/** Where a release stopped. */
-type Phase = "manifest" | "build" | "pack" | "check" | "upload" | "promote";
 type Failure = {
   kind: ReleaseKind;
   name: string;
@@ -142,7 +108,7 @@ type Failure = {
 const line = ({ name, message }: Failure) => `${name}: ${message}`;
 
 /**
- * `aomi publish`: build each package of the root `aomi.toml`, pack and check
+ * `aomi build publish`: build each package of the root `aomi.toml`, pack and check
  * it with `aomi-build-core`, upload it, then publish the root's agents;
  * `--promote` makes each new release live. Without `--package` or `--agent`
  * it publishes everything the root lists. Each upload prints as it lands,
@@ -154,42 +120,17 @@ const line = ({ name, message }: Failure) => `${name}: ${message}`;
 export async function publish(flags: PublishFlags): Promise<void> {
   const root = resolve(flags.root ?? ".");
   const rootText = readFileSync(join(root, "aomi.toml"), "utf8");
-  const manifest = toml(join(root, "aomi.toml"));
+  const project = core<Project>(["manifest", root]);
   const everything = !flags.package?.length && !flags.agent?.length;
-  const wasm = new Map(
-    (flags.wasm ?? []).map((entry) => {
-      const at = entry.indexOf("=");
-      if (at <= 0) throw usage(`--wasm takes <name>=<path>, not ${entry}`);
-      return [entry.slice(0, at), resolve(entry.slice(at + 1))];
-    }),
-  );
-  // Each package's name, as `aomi-build-core` reads its manifest.
-  const listed = (manifest.packages ?? []) as { path: string }[];
-  const packages = (everything || flags.package?.length ? listed : []).map(
-    ({ path }) => {
-      const dir = join(root, inside(root, path));
-      try {
-        const { package: name } = core<{ package: string }>(["manifest", dir]);
-        return { path, dir, name };
-      } catch (error) {
-        return { path, dir, failure: messageOf(error) };
-      }
-    },
-  );
-  const agents = (manifest.agents ?? []) as { name: string; voice?: string }[];
-  const unnamed: Failure[] = packages.flatMap(({ path, failure }) =>
+  const listed =
+    everything || flags.package?.length ? packagesOf(root, project) : [];
+  const packages = selected(root, listed, flags.package);
+  const { agents } = project;
+  const unnamed: Failure[] = listed.flatMap(({ path, failure }) =>
     failure
       ? [{ kind: "package", name: path, phase: "manifest", message: failure }]
       : [],
   );
-  for (const name of flags.package ?? [])
-    if (!packages.some((entry) => entry.name === name))
-      throw usage(
-        [
-          `${name} is not a package of ${root}/aomi.toml`,
-          ...unnamed.map(line),
-        ].join("\n"),
-      );
   for (const name of flags.agent ?? [])
     if (!agents.some((agent) => agent.name === name))
       throw usage(`${name} is not an agent of ${root}/aomi.toml`);
@@ -218,7 +159,7 @@ export async function publish(flags: PublishFlags): Promise<void> {
             }),
           );
           moved.push(
-            `${kind} ${result.id}  live ${live} (was ${result.live ?? "-"})${result.live === null ? "" : `  undo: aomi rollback ${kind} ${name} ${result.live}`}`,
+            `${kind} ${result.id}  live ${live} (was ${result.live ?? "-"})${result.live === null ? "" : `  undo: aomi build rollback ${kind} ${name} ${result.live}`}`,
           );
           result.live = live;
         }
@@ -233,26 +174,14 @@ export async function publish(flags: PublishFlags): Promise<void> {
   const bundles = mkdtempSync(join(tmpdir(), "aomi-bundles-"));
   try {
     for (const { name, dir } of packages) {
-      if (!name || (!everything && !flags.package?.includes(name))) continue;
-      await release("package", name, async (at) => {
-        at("build");
-        // A package with no `src/` is text-only: it ships no component.
-        const source = existsSync(join(dir, "src"));
-        if (source && flags.build === false && !wasm.has(name))
-          throw usage(`--no-build needs --wasm ${name}=<path>`);
-        const built = wasm.get(name) ?? (source ? cargoBuild(dir) : undefined);
-        // The Manager's own pack and release check, run here before upload.
-        const bundle = join(bundles, `${name}.tar`);
-        const component = built ? ["--wasm", built] : [];
-        at("pack");
-        core(["pack", dir, ...component, "--out", bundle]);
-        at("check");
-        core(["check", bundle]);
+      await release("package", name!, async (at) => {
+        const file = join(bundles, `${name}.tar`);
+        bundle({ dir, name: name! }, flags, file, at);
         at("upload");
         return refused(
           client.publishPackage({
-            name,
-            bundle: readFileSync(bundle),
+            name: name!,
+            bundle: readFileSync(file),
             sourceRepo: process.env.GITHUB_REPOSITORY,
             sourceCommit: process.env.GITHUB_SHA,
           }),
@@ -295,8 +224,8 @@ export async function publish(flags: PublishFlags): Promise<void> {
 }
 
 /**
- * `aomi promote <package|agent> <name> <number>`: make a release live, and
- * `aomi rollback`, which takes the same explicit number: the release before
+ * `aomi build promote <package|agent> <name> <number>`: make a release
+ * live, and `aomi build rollback`, which takes the same explicit number: the release before
  * the live one may never have been live.
  */
 export async function promote(
@@ -322,7 +251,7 @@ export async function promote(
   out(`${kind} ${result.id}  live ${result.live} (was ${live ?? "-"})`);
 }
 
-/** `aomi releases <package|agent> <name>`: newest first. */
+/** `aomi build releases <package|agent> <name>`: newest first. */
 export async function releases(
   flags: BuilderFlags,
   kind: string,
@@ -339,7 +268,7 @@ export async function releases(
 }
 
 /**
- * `aomi codes create <package> [--agent <publisher/name>]`: a new activation
+ * `aomi build codes create <package> [--agent <publisher/name>]`: a new activation
  * code for a private package. People add the package with it in the Library;
  * with `--agent`, that agent gets the package at once. The code is printed
  * once and never again.
@@ -358,7 +287,7 @@ export async function createCode(
   );
 }
 
-/** `aomi codes list <package>`: newest first, with how many hold each. */
+/** `aomi build codes list <package>`: newest first, with how many hold each. */
 export async function listCodes(
   flags: BuilderFlags,
   name: string,
@@ -373,7 +302,7 @@ export async function listCodes(
   }
 }
 
-/** `aomi codes revoke <package> <id>`: nobody can redeem it again, and everyone who did loses the package. */
+/** `aomi build codes revoke <package> <id>`: nobody can redeem it again, and everyone who did loses the package. */
 export async function revokeCode(
   flags: BuilderFlags,
   name: string,

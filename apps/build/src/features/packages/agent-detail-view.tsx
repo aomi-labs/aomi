@@ -47,13 +47,13 @@ function StatusNotice({ agent, name }: { agent: Agent; name: string }) {
         <ol className="mt-1.5 list-decimal pl-5">
           <li>
             <code className="font-mono">
-              aomi publish --promote --package &lt;package&gt;
+              aomi build publish --promote --package &lt;package&gt;
             </code>{" "}
             for each package it lists
           </li>
           <li>
             <code className="font-mono">
-              aomi publish --promote --agent {name}
+              aomi build publish --promote --agent {name}
             </code>
           </li>
         </ol>
@@ -76,7 +76,7 @@ function StatusNotice({ agent, name }: { agent: Agent; name: string }) {
     return (
       <Notice>
         No config is live yet. Publish it with{" "}
-        <code className="font-mono">aomi publish --agent {name}</code>, then
+        <code className="font-mono">aomi build publish --agent {name}</code>, then
         promote it below.
       </Notice>
     );
