@@ -50,26 +50,15 @@ export const INPUT =
 
 /** Settings › Policies: waiting changes first, then one card per wallet. */
 export function PoliciesView({
-  title = true,
   changes,
   children,
 }: {
-  /** Off where the page around it already says "Policies". */
-  title?: boolean;
   /** One card per waiting change. */
   changes?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div data-policies className="flex flex-col gap-5">
-      <header className="flex flex-col gap-1 px-0.5">
-        {title ? <h2 className="type-title">Policies</h2> : null}
-        <p className="type-meta text-aomi-muted max-w-prose">
-          Rules that secure your agent wallets. Aomi enforces every policy, and
-          works with on-chain policy providers to enforce them on chain too.
-        </p>
-      </header>
-
       {changes ? (
         <section aria-label="Policy changes" className="flex flex-col gap-2">
           {changes}

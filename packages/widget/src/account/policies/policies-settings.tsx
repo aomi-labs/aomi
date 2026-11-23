@@ -338,7 +338,6 @@ export function PoliciesSettings({
 
   return (
     <PoliciesView
-      title={false}
       changes={
         waiting.length
           ? waiting.map(({ wallet, held, pending }) =>
