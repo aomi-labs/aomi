@@ -225,6 +225,17 @@ describe("release routes", () => {
     await build("/api/build/packages/trade/codes", { headers: auth });
     expect(seen.map((call) => call.url)).toEqual([`${MANAGER}/api/packages/trade/codes`]);
   });
+
+  it("forwards a partner token revoke to the manager under agent:promote", async () => {
+    const path = "/api/build/agents/desk/tokens/t-1";
+    const refused = await build(path, { method: "DELETE", headers: { authorization: `Bearer ${PUBLISH_KEY}` } });
+    expect(refused.status).toBe(403);
+    expect(seen).toEqual([]);
+    const session = await new GitHubSessionSigner(SECRET).issueSession({ githubUserId: ALICE, githubLogin: "alice" });
+    await build(path, { method: "DELETE", headers: { cookie: `aomi_github=${session}`, origin: BUILD } });
+    expect(seen.map((call) => call.url)).toEqual([`${MANAGER}/api/agents/desk/tokens/t-1`]);
+    expect(String((await claims(seen[0])).scope).split(" ")).toContain("agent:promote");
+  });
 });
 
 describe("package icons on Build", () => {

@@ -2,9 +2,10 @@
  * The release API at the edge: package releases and agent configs, published,
  * listed and promoted by a builder API key, a CLI bearer or the GitHub session
  * cookie, plus the builder's read models (its publisher's agents and packages,
- * one agent, one package), a package's builder secret values and the
+ * one agent, one package), a package's builder secret values, the
  * activation codes of a private package (issued, revoked and a grant removed
- * under `package:promote`). `/api/build/<path>` is the manager's `/api/<path>`, proxied with the
+ * under `package:promote`) and a partner agent's user tokens (one revoked
+ * under `agent:promote`). `/api/build/<path>` is the manager's `/api/<path>`, proxied with the
  * raw body (a tar or JSON, at most 10 MB) and a builder bearer in place of the
  * caller's credential. A key needs the route's capability; a session holds
  * them all. The manager parses, checks and stores everything.
@@ -102,4 +103,5 @@ export const RELEASE_ROUTES: readonly BuildRoute[] = [
   route("agent.publish", "POST", AGENT_CONFIGS, "agent:publish", "deploy"),
   route("agent.configs", "GET", AGENT_CONFIGS, null, "deployment:read"),
   route("agent.promote", "POST", /^\/api\/build\/agents\/[^/]+\/promote$/, "agent:promote", "activate"),
+  route("agent.token.revoke", "DELETE", /^\/api\/build\/agents\/[^/]+\/tokens\/[^/]+$/, "agent:promote", "activate"),
 ];

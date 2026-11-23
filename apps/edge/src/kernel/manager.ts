@@ -58,6 +58,7 @@ const MANAGER_ROUTE_PATTERNS: readonly RegExp[] = [
   /^\/api\/agents\/[^\/]+$/,
   /^\/api\/agents\/[^\/]+\/configs$/,
   /^\/api\/agents\/[^\/]+\/promote$/,
+  /^\/api\/agents\/[^\/]+\/tokens\/[^\/]+$/,
   /^\/api\/account\/channels$/,
   /^\/api\/account\/channels\/[^\/]+$/,
   /^\/api\/platforms\/[^\/]+\/activate$/,
