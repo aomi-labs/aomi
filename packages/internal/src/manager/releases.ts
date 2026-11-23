@@ -90,10 +90,12 @@ export type AgentConfig = {
   /** The voice markdown text, or null to speak as Aomi. */
   voice: string | null;
   chains: string[];
-  /** `publisher/name` package ids. */
+  /** `publisher/name` package ids, resolved from the selectors and `extends`. */
   packages: string[];
+  /** `publisher/name@number`: the agent config this one started from, pinned. */
+  extends?: string;
   model_cost: "builder" | "person";
-  audience: "public" | "signed-in";
+  audience: "public" | "signed-in" | "partner";
   /** Origins that may embed the agent; empty means any. */
   allowed_origins: string[];
   wallet_rules: {
@@ -114,6 +116,8 @@ export type Channel = { id: string; kind: string; external_bot_id: string; live:
 export type Agent = {
   agent: { id: string; display_name: string; status: AgentStatus };
   live: (Source & { number: number; digest: string; config: AgentConfig }) | null;
+  /** The agent the live config extends: the config it pinned and the one live now. */
+  base: { agent: string; pinned: number | null; live: number | null } | null;
   channels: Channel[];
 };
 
@@ -259,7 +263,7 @@ export const RELEASE_ENDPOINTS = {
   getAgent: (input: { name: string }): ManagerRequest<Agent> => ({
     op: "get_agent",
     path: `/api/agents/${named(input.name)}`,
-    read: (raw) => ({ agent: raw.agent, live: raw.live ?? null, channels: raw.channels ?? [] }),
+    read: (raw) => ({ agent: raw.agent, live: raw.live ?? null, base: raw.base ?? null, channels: raw.channels ?? [] }),
   }),
 
   getPackage: (input: { name: string }): ManagerRequest<Package> => ({

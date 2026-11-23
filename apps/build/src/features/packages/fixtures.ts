@@ -77,6 +77,7 @@ export const agentFixture: Agent = {
       shortcuts: [{ command: "positions", tool: "trade_get_positions" }],
     },
   },
+  base: null,
   channels: [
     {
       id: "4f6c2d1e-8a3b-4c5d-9e7f-0a1b2c3d4e5f",
@@ -101,6 +102,7 @@ export const needsRebuildAgentFixture: Agent = {
     status: "needs_rebuild",
   },
   live: null,
+  base: null,
   channels: [],
 };
 

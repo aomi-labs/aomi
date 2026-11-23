@@ -83,6 +83,21 @@ function StatusNotice({ agent, name }: { agent: Agent; name: string }) {
   return null;
 }
 
+/** The agent this one extends moved on: republishing takes its packages (D12). */
+function BaseNotice({ agent, name }: { agent: Agent; name: string }) {
+  const { base } = agent;
+  if (!base || base.live === null || base.live === base.pinned) return null;
+  return (
+    <Notice>
+      Built on <Mono>{base.agent}</Mono> config {base.pinned}; config{" "}
+      {base.live} is live now. Republish to take its packages:{" "}
+      <code className="font-mono">
+        aomi build publish --promote --agent {name}
+      </code>
+    </Notice>
+  );
+}
+
 function Voice({ config }: { config: Config }) {
   return (
     <Card title="Voice" origin="repo">
@@ -211,7 +226,11 @@ function Reach({ config }: { config: Config }) {
   return (
     <Card title="Reach and cost" origin="repo">
       <Field label="Audience">
-        {config.audience === "public" ? "Anyone" : "Signed-in people"}
+        {config.audience === "public"
+          ? "Anyone"
+          : config.audience === "partner"
+            ? "Through its partner's app"
+            : "Signed-in people"}
       </Field>
       <Field label="Allowed origins">
         {config.allowed_origins.length
@@ -265,6 +284,7 @@ export function AgentDetailView({ name }: { name: string }) {
         </div>
       </div>
       <StatusNotice agent={data} name={name} />
+      <BaseNotice agent={data} name={name} />
       <Columns
         main={
           <>

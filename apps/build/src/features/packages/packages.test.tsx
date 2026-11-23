@@ -96,6 +96,25 @@ it("tells the builder an agent carried over from an earlier deployment needs a r
   expect(await screen.findByText(/#3 · 37be02/)).toBeInTheDocument();
 });
 
+it("offers a republish when the agent it extends has moved on", async () => {
+  routes["GET /api/build/agents/dottie"] = {
+    body: {
+      ...needsRebuildAgentFixture,
+      agent: { ...needsRebuildAgentFixture.agent, status: "active" },
+      base: { agent: "aomi/main", pinned: 3, live: 5 },
+    },
+  };
+  renderWithQueries(<AgentDetailView name="dottie" />);
+  expect(
+    await screen.findByText(
+      /config 5 is live now\. Republish to take its packages/,
+    ),
+  ).toHaveTextContent("Built on aomi/main config 3");
+  expect(
+    screen.getByText("aomi build publish --promote --agent dottie"),
+  ).toBeInTheDocument();
+});
+
 it("names no source when the live release was published without one", async () => {
   routes["GET /api/build/packages/trade"] = {
     body: {
