@@ -77,6 +77,15 @@ const signing = {
   }),
   chain: text("Chain id", { parse: parseChain, placeholder: "id" }),
 };
+/** Whose operations a pipeline command uses. */
+const scoped = {
+  agent: text("Agent (default: the main agent)", {
+    placeholder: "publisher/name",
+  }),
+  package: text("Only this package's operations", {
+    placeholder: "publisher/name",
+  }),
+};
 /** How `aomi build` builds packages before packing them. */
 const building = {
   build: yes("Build each package with cargo (--no-build skips)", {
@@ -503,14 +512,11 @@ const root = routes("the Aomi agent in your terminal", {
     BRIEFS.pipeline,
     {
       ops: command(
-        "Operations of an agent or package",
+        "Operations of an agent or one of its packages",
         {
           ...json,
           ...conn,
-          agent: text("Agent (default: the main agent)", {
-            placeholder: "name",
-          }),
-          package: text("Package", { placeholder: "name" }),
+          ...scoped,
           filter: text("Names containing this", { placeholder: "text" }),
         },
         [],
@@ -518,29 +524,16 @@ const root = routes("the Aomi agent in your terminal", {
       ),
       op: command(
         "Describe one operation",
-        {
-          ...conn,
-          agent: text("Agent", { placeholder: "name" }),
-          package: text("Package", { placeholder: "name" }),
-        },
+        { ...conn, ...scoped },
         [arg("Operation", "name")],
         pipeline.operation,
       ),
-      agents: command(
-        "Agents with operations",
-        {
-          ...json,
-          ...conn,
-          filter: text("Names containing this", { placeholder: "text" }),
-        },
-        [],
-        pipeline.agents,
-      ),
       packages: command(
-        "Packages with operations",
+        "Packages on for an agent",
         {
           ...json,
           ...conn,
+          agent: scoped.agent,
           filter: text("Names containing this", { placeholder: "text" }),
         },
         [],
@@ -548,16 +541,20 @@ const root = routes("the Aomi agent in your terminal", {
       ),
       package: command(
         "One package",
-        { ...json, ...conn, instructions: yes("Print its instructions") },
-        [arg("Package", "name")],
+        {
+          ...json,
+          ...conn,
+          agent: scoped.agent,
+          instructions: yes("Print its instructions"),
+        },
+        [arg("Package, publisher/name", "name")],
         pipeline.describePackage,
       ),
       invoke: command(
         "Run a read operation",
         {
           ...conn,
-          agent: text("Agent", { placeholder: "name" }),
-          package: text("Package", { placeholder: "name" }),
+          ...scoped,
           idempotencyKey: text("Reuse when retrying", { placeholder: "key" }),
         },
         [
@@ -571,9 +568,7 @@ const root = routes("the Aomi agent in your terminal", {
         {
           ...json,
           ...signing,
-          agent: text("Agent (default: the main agent)", {
-            placeholder: "name",
-          }),
+          ...scoped,
           commit: yes("Also make the commit to sign"),
           chainFamily: text("evm or svm when it can't be told", {
             hidden: true,

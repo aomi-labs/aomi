@@ -66,7 +66,7 @@ ARGUMENTS
 
 exports[`help > prints ["pipeline","stage"] --help 1`] = `
 "USAGE
-  aomi pipeline stage [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [--agent name] [--commit] <name> [<args>]
+  aomi pipeline stage [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [--agent publisher/name] [--package publisher/name] [--commit] <name> [<args>]
   aomi pipeline stage --help
 
 Stage and simulate an operation
@@ -78,6 +78,7 @@ FLAGS
      [--cluster]             Solana cluster: mainnet, devnet or testnet
      [--chain]               Chain id
      [--agent]               Agent (default: the main agent)
+     [--package]             Only this package's operations
      [--commit/--no-commit]  Also make the commit to sign
   -h  --help                 Print help information and exit
 

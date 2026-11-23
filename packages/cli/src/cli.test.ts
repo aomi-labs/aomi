@@ -83,7 +83,12 @@ const turn = {
   commits: [view("7f3c", "awaiting_approval")],
 };
 
-let requests: { key: string; auth: string | null; body: string }[] = [];
+let requests: {
+  key: string;
+  url: string;
+  auth: string | null;
+  body: string;
+}[] = [];
 const routes: Record<string, unknown> = {
   "POST /v1/agent/chat": turn,
   "GET /v1/commits/7f3c": {
@@ -155,6 +160,7 @@ beforeEach(() => {
       const key = `${request.method} ${new URL(request.url).pathname}`;
       requests.push({
         key,
+        url: request.url,
         auth: request.headers.get("authorization"),
         body: await request.text(),
       });
@@ -233,6 +239,10 @@ describe("command validation", () => {
 
   it("names pipeline stage, not pipeline build", async () => {
     expect((await cli("pipeline", "build", "op")).code).toBe(2);
+  });
+
+  it("has no pipeline agents directory", async () => {
+    expect((await cli("pipeline", "agents")).code).toBe(2);
   });
 
   it("is a usage error to mistype a command or pass a non-decimal chain", async () => {
@@ -402,6 +412,103 @@ describe("sign-in", () => {
     expect(requests.find((r) => r.key === "GET /v1/agent/sessions")?.auth).toBe(
       "Bearer device-token",
     );
+  });
+});
+
+describe("aomi pipeline", () => {
+  const AGENT = "agent=acme%2Fprices";
+  const operation = "/v1/pipeline/packages/acme%2Ffeeds/operations/stage_quote";
+  const build = {
+    version: 2,
+    status: "simulated",
+    actions: [],
+    origin: { agent: "acme/prices", packages: ["acme/feeds"], operations: [] },
+    simulation: {
+      status: "passed",
+      balanceChanges: [],
+      approvals: [],
+      warnings: [],
+      fees: [],
+      guards: [],
+      gas: null,
+      logs: [],
+    },
+    expiresAt: at,
+    digest: "sha256:quote",
+    attestation: "a",
+  };
+
+  beforeEach(() => {
+    state({ guest: { baseUrl: BASE, token: "guest-token" } });
+    routes[`GET ${operation}`] = {
+      kind: "operation",
+      name: "stage_quote",
+      method: "POST",
+      href: `${operation}?${AGENT}`,
+      chainFamily: "evm",
+      inputSchema: { type: "object" },
+    };
+    routes["GET /v1/pipeline/packages/acme%2Ffeeds/operations"] = {
+      kind: "directory",
+      path: "/v1/pipeline/packages/acme%2Ffeeds/operations",
+      entries: [{ name: "stage_quote", kind: "operation", href: "" }],
+    };
+    routes["POST /v1/pipeline/evm/build"] = build;
+  });
+  afterEach(() => {
+    for (const key of Object.keys(routes))
+      if (key.includes("/v1/pipeline")) delete routes[key];
+  });
+
+  it("lists one package's operations for the named agent", async () => {
+    const { code, stdout } = await cli(
+      "pipeline",
+      "ops",
+      "--agent",
+      "acme/prices",
+      "--package",
+      "acme/feeds",
+    );
+    expect(code).toBe(0);
+    expect(stdout).toBe("stage_quote\n");
+    expect(requests.at(-1)?.url).toBe(
+      `${BASE}/v1/pipeline/packages/acme%2Ffeeds/operations?${AGENT}`,
+    );
+  });
+
+  it("stages the described operation as the named agent", async () => {
+    const { code, stdout } = await cli(
+      "pipeline",
+      "stage",
+      "stage_quote",
+      "{}",
+      "--agent",
+      "acme/prices",
+      "--package",
+      "acme/feeds",
+    );
+    expect(code).toBe(0);
+    expect(stdout).toContain("Build sha256:quote  evm");
+    const pipeline = requests.filter((r) => r.key.includes("/v1/pipeline"));
+    expect(pipeline.map((r) => r.url)).toEqual([
+      `${BASE}${operation}?${AGENT}`,
+      `${BASE}/v1/pipeline/evm/build?${AGENT}`,
+    ]);
+    expect(JSON.parse(pipeline[1]!.body)).toEqual({
+      packages: ["acme/feeds"],
+      operation,
+      arguments: {},
+    });
+  });
+
+  it("uses the main agent when none is named", async () => {
+    routes["GET /v1/pipeline/operations"] = {
+      kind: "directory",
+      path: "/v1/pipeline/operations",
+      entries: [],
+    };
+    expect((await cli("pipeline", "ops")).code).toBe(0);
+    expect(requests.at(-1)?.url).toBe(`${BASE}/v1/pipeline/operations`);
   });
 });
 

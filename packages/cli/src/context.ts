@@ -243,10 +243,7 @@ export function turnOptions(
     walletPick?: { evm?: string; svm?: string };
   } = {},
 ) {
-  const agent = overrides.agent;
-  const target: AgentTarget = agent
-    ? { mode: "direct", agent }
-    : { mode: "auto" };
+  const target: AgentTarget = { agent: overrides.agent };
   const evm = aomi.wallet?.evm?.address;
   const svm = aomi.wallet?.svm?.address;
   const chainId = overrides.chain ?? state.chain;

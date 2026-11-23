@@ -19,11 +19,9 @@ function printDirectory(flags: Flags, directory: PipelineDirectory) {
     out(`${entry.name}${entry.description ? `  ${entry.description}` : ""}`);
 }
 
+/** The agent's operations (none is the main agent), or one package's of them. */
 function scope(aomi: Awaited<ReturnType<typeof connect>>, flags: Flags) {
-  if (flags.agent && flags.package) throw usage("Choose --agent or --package");
-  return flags.package
-    ? aomi.pipeline.skill(flags.package)
-    : aomi.pipeline.toolset(flags.agent ?? "default");
+  return aomi.pipeline.scope({ agent: flags.agent, package: flags.package });
 }
 
 /** A JSON object, a file, @file, or - for stdin. */
@@ -51,25 +49,23 @@ export async function operation(flags: Flags, name: string): Promise<void> {
   json(await scope(aomi, flags).operation(name));
 }
 
-export async function agents(flags: Flags): Promise<void> {
-  const aomi = await connect(flags);
-  printDirectory(flags, await aomi.pipeline.raw.toolsets.list());
-}
-
 export async function packages(flags: Flags): Promise<void> {
   const aomi = await connect(flags);
-  printDirectory(flags, await aomi.pipeline.skills.list());
+  printDirectory(flags, await aomi.pipeline.packages({ agent: flags.agent }));
 }
 
+/** Its instruction files and operations; with --instructions, their text. */
 export async function describePackage(
   flags: Flags & { instructions?: boolean },
   name: string,
 ): Promise<void> {
   const aomi = await connect(flags);
-  const selected = aomi.pipeline.skill(name);
-  if (flags.instructions)
-    return void process.stdout.write(await selected.instructions());
-  printDirectory(flags, await selected.directory());
+  const selected = aomi.pipeline.raw.agent(flags.agent).package(name);
+  const directory = await selected.directory();
+  if (!flags.instructions) return printDirectory(flags, directory);
+  for (const entry of directory.entries)
+    if (entry.kind === "document")
+      process.stdout.write(await selected.skill(entry.name));
 }
 
 export async function invoke(
@@ -93,7 +89,8 @@ export async function stage(
 ): Promise<void> {
   const aomi = await connect(flags);
   const built = await aomi.pipeline.build(name, await readArgs(args), {
-    toolset: flags.agent,
+    agent: flags.agent,
+    package: flags.package,
     chainFamily: flags.chainFamily,
   });
   if (flags.json) json({ type: "build", ...built.raw.toJSON() });
