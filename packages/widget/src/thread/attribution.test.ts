@@ -27,27 +27,6 @@ const attribution: TraceAttribution = {
       metadata: { tool_names: ["hyperliquid_orders"] },
     },
   ],
-  skills: [
-    {
-      id: "lifi_swap",
-      name: "lifi_swap",
-      injectedTools: ["lifi_get_quote", "lifi_prepare_swap_tx"],
-    },
-    {
-      id: "defillama",
-      name: "defillama",
-      injectedTools: [
-        "defillama_prices",
-        "defillama_find_yields",
-        "defillama_find_protocols",
-      ],
-    },
-    {
-      id: "aomi/hoodit/markets",
-      name: "aomi/hoodit/markets",
-      injectedTools: ["hoodit_search_tokens"],
-    },
-  ],
 };
 
 describe("trace attribution", () => {
@@ -90,82 +69,7 @@ describe("trace attribution", () => {
     expect(result.activated[0]).toBe("aomi/hoodit/markets");
   });
 
-  it("attributes pending, completed and failed injected calls", () => {
-    for (const result of [
-      undefined,
-      { quote_id: "q" },
-      { error: "Quote unavailable" },
-    ]) {
-      const step = interpretToolStep({
-        toolName: "lifi_get_quote",
-        result,
-        attribution,
-      });
-      expect(
-        drawn(step.chips.find((chip) => chip.attribution === "skill")),
-      ).toMatchObject({
-        label: "LI.FI",
-        icon: PuzzleIcon,
-        title: "Package: LI.FI",
-      });
-      expect(step.failed).toBe(Boolean(result && "error" in result));
-    }
-  });
-
-  it("keeps quote facts ahead of the skill badge", () => {
-    const step = interpretToolStep({
-      toolName: "lifi_get_quote",
-      result: {
-        quote_id: "quote-1",
-        chain_id: 8453,
-        from_token: { symbol: "USDC" },
-        to_token: { symbol: "ETH" },
-        from_amount: { display: "10 USDC" },
-        estimate: { to_amount_display: "0.002 ETH" },
-      },
-      attribution,
-    });
-    expect(step.title).toBe("Quote LI.FI swap");
-    expect(step.chips.map((chip) => chip.label)).toEqual([
-      "Base",
-      "USDC -> ETH",
-      "10 USDC",
-      "0.002 ETH",
-      "LI.FI",
-    ]);
-  });
-
-  it("appends the DefiLlama skill badge after research facts", () => {
-    const step = interpretToolStep({
-      toolName: "defillama_prices",
-      argsText: JSON.stringify({ topic: "Price ETH", tokens: ["ETH"] }),
-      result: {
-        source: "defillama",
-        prices: [{ query: "ETH", symbol: "ETH", price_usd: 2689.4 }],
-        unresolved: [],
-      },
-      attribution,
-    });
-    expect(step.chips.map((chip) => chip.label)).toEqual([
-      "ETH $2,689",
-      "DefiLlama",
-    ]);
-    expect(drawn(step.chips.at(-1))).toMatchObject({
-      attribution: "skill",
-      icon: PuzzleIcon,
-      title: "Package: DefiLlama",
-    });
-  });
-
-  it("shows a single combined agent/skill badge for an owned tool", () => {
-    const step = interpretToolStep({
-      toolName: "hoodit_search_tokens",
-      attribution,
-    });
-    expect(step.chips.map((chip) => chip.label)).toEqual(["Hoodit / Markets"]);
-  });
-
-  it("uses agent metadata when a skill owner is not available", () => {
+  it("attributes a tool to the agent that declares it", () => {
     const step = interpretToolStep({
       toolName: "hyperliquid_orders",
       attribution,
@@ -176,7 +80,7 @@ describe("trace attribution", () => {
     });
   });
 
-  it("attributes arbitrary agent and skill names using declarations, regardless of tool spelling", () => {
+  it("attributes arbitrary agent names using declarations, regardless of tool spelling", () => {
     for (const name of ["atlas", "weather-service", "community_42"]) {
       const catalog: TraceAttribution = {
         agents: [
@@ -190,13 +94,6 @@ describe("trace attribution", () => {
             },
           },
         ],
-        skills: [
-          {
-            id: `publisher/${name}/research`,
-            name: "Research",
-            injectedTools: ["read_data"],
-          },
-        ],
       };
       expect(
         drawn(
@@ -207,13 +104,6 @@ describe("trace attribution", () => {
         id: `agent:publisher/${name}`,
         label: "Custom Agent",
         icon: AppWindowIcon,
-      });
-      expect(
-        interpretToolStep({ toolName: "read_data", attribution: catalog })
-          .chips[0],
-      ).toMatchObject({
-        skillId: `publisher/${name}/research`,
-        label: "Custom Agent / Research",
       });
       expect(
         interpretToolStep({ toolName: `${name}_unknown`, attribution: catalog })
@@ -262,25 +152,6 @@ describe("trace attribution", () => {
       },
     });
     expect(step.chips[0].label).toBe("Analytics");
-  });
-
-  it("does not infer skill ownership from protocol-specific tool results", () => {
-    for (const toolName of [
-      "lifi_get_quote",
-      "jupiter_prepare_swap",
-      "Swap ETH to USDC",
-    ]) {
-      const step = interpretToolStep({
-        toolName,
-        result: {
-          quote_id: "q",
-          tool: "lifi",
-          chain_id: 8453,
-          tx: { to: "0x123", data: "0x", value: "0" },
-        },
-      });
-      expect(step.chips.some((chip) => chip.skillId)).toBe(false);
-    }
   });
 
   it("does not attribute generic calls or guesses from names/previous activations", () => {
@@ -382,11 +253,28 @@ describe("trace attribution", () => {
     });
   });
 
+  it("names an activated package as the packages feed does", () => {
+    const step = interpretToolStep({
+      toolName: "activate_package",
+      result: { activated: ["acme/feeds/prices"] },
+      attribution: {
+        packages: [
+          { id: "acme/feeds", label: "Price Feeds", Icon: PackageIcon },
+        ],
+      },
+    });
+    expect(step.chips[0]).toMatchObject({
+      packageId: "acme/feeds",
+      label: "Price Feeds",
+      title: "Price Feeds · Skills: prices",
+    });
+  });
+
   it("does not borrow official artwork for a package outside the catalog", () => {
     const step = interpretToolStep({
       toolName: "activate_package",
       result: { activated: ["aomi/hyperliquid/portfolio"] },
-      attribution: { skills: [] },
+      attribution: {},
     });
     expect(drawn(step.chips[0])).toMatchObject({
       label: "Hyperliquid",
@@ -394,7 +282,7 @@ describe("trace attribution", () => {
     });
   });
 
-  it("does not guess when multiple agents or skills declare the same bare tool", () => {
+  it("does not guess when multiple agents declare the same bare tool", () => {
     const step = interpretToolStep({
       toolName: "lookup",
       attribution: {
@@ -403,11 +291,6 @@ describe("trace attribution", () => {
           agent: `publisher/${name}`,
           display_name: name,
           metadata: { tool_names: ["lookup"] },
-        })),
-        skills: ["one/read", "two/read"].map((id) => ({
-          id,
-          name: id,
-          injectedTools: ["lookup"],
         })),
       },
     });

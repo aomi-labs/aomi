@@ -64,15 +64,12 @@ export type ToolConfidence = "high" | "medium" | "fallback";
 export type ToolChip = {
   key?: string;
   label: string;
-  /** Agent and skill names, rendered with a graphical separator. */
-  labelParts?: readonly [string, string];
   /** Stable identity for attribution badges with potentially identical labels. */
   id?: string;
   title?: string;
-  skillId?: string;
   /** The activated package this chip stands for. */
   packageId?: string;
-  attribution?: "agent" | "skill";
+  attribution?: "agent";
   icon?: TraceIcon;
   essential?: boolean;
 };

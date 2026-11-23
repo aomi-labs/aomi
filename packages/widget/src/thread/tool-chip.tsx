@@ -41,28 +41,7 @@ export const ToolChipView: FC<{
       }
     >
       <Glyph className="text-aomi-fg/80 size-3.5 shrink-0" />
-      {chip.labelParts ? (
-        <span className="inline-flex min-w-0 items-center gap-1.5">
-          <span className="truncate">{chip.labelParts[0]}</span>
-          <svg
-            viewBox="0 0 8 16"
-            fill="none"
-            aria-hidden="true"
-            className="text-aomi-muted/40 h-3.5 w-1.5 shrink-0"
-          >
-            <path
-              d="M6 2 2 14"
-              stroke="currentColor"
-              strokeWidth="1.25"
-              strokeLinecap="round"
-            />
-          </svg>
-          <span className="sr-only"> / </span>
-          <span className="truncate">{chip.labelParts[1]}</span>
-        </span>
-      ) : (
-        <span className="truncate">{chip.label}</span>
-      )}
+      <span className="truncate">{chip.label}</span>
     </span>
   );
 };

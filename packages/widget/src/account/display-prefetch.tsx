@@ -8,8 +8,10 @@ import {
   type DisplayQuery,
 } from "@aomi-labs/react";
 import { useShellTransport } from "./transport";
-import { skillCatalogQuery } from "../composer/capabilities/skill-catalog";
-import { packageCatalogQuery } from "@/library/use-package-catalog";
+import {
+  packageCatalogQuery,
+  publicPackageQuery,
+} from "@/library/use-package-catalog";
 import { accountProfileQuery } from "./account-overview";
 import {
   accountWalletsQuery,
@@ -31,20 +33,17 @@ export function DisplayPrefetch() {
     const shell = transport.aomi;
     const userId =
       cache.scope.account?.kind === "user" ? cache.scope.account.id : undefined;
-    const queries: DisplayQuery<unknown>[] = [
-      skillCatalogQuery(api),
-      ...(userId
-        ? [
-            accountProfileQuery(transport, userId),
-            displayQueries.credits(api),
-            packageCatalogQuery(shell, userId),
-            agentWalletsQuery(shell),
-            accountWalletsQuery(shell),
-            connectionsQuery(shell),
-            accountSafetyQuery(shell.account.guard),
-          ]
-        : []),
-    ];
+    const queries: DisplayQuery<unknown>[] = userId
+      ? [
+          accountProfileQuery(transport, userId),
+          displayQueries.credits(api),
+          packageCatalogQuery(shell, userId),
+          agentWalletsQuery(shell),
+          accountWalletsQuery(shell),
+          connectionsQuery(shell),
+          accountSafetyQuery(shell.account.guard),
+        ]
+      : [publicPackageQuery(api)];
     const warm = () => {
       for (const query of queries)
         void fetchDisplayQuery(cache, query).catch(() => {});

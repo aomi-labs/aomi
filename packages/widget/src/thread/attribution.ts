@@ -7,12 +7,10 @@ import {
 } from "@aomi-labs/client/trace";
 import { resolveAgentIdentity } from "@aomi-labs/client";
 import { skillLabel } from "@/composer/capabilities/skill-label";
-import type { SkillSummary } from "@/composer/capabilities/skill-catalog";
 import type { PickerItem } from "@/composer/capability-composer/model";
 
 export type TraceAttribution = {
   agents?: readonly AgentCard[];
-  skills?: readonly Pick<SkillSummary, "id" | "name" | "injectedTools">[];
   /** Hosted packages with the icon the composer and the Library show. */
   packages?: readonly Pick<PickerItem, "id" | "label" | "Icon">[];
 };
@@ -36,35 +34,16 @@ function agentChip(name: string, catalog?: TraceAttribution): ToolChip {
   };
 }
 
-export function skillChip(id: string, catalog?: TraceAttribution): ToolChip {
-  const skill = catalog?.skills?.find((skill) => skill.id === id);
-  const label = skillLabel({ name: skill?.name || id });
-  const namespace = id.includes("/")
-    ? id.slice(0, id.lastIndexOf("/"))
-    : undefined;
-  const agent = namespace ? agentChip(namespace, catalog) : undefined;
-  return {
-    id: `skill:${id}`,
-    skillId: id,
-    label: agent ? `${agent.label} / ${label}` : label,
-    ...(agent ? { labelParts: [agent.label, label] as const } : {}),
-    title: agent ? `${agent.title} / Package: ${label}` : `Package: ${label}`,
-    icon: agent?.icon ?? `skill:${id}`,
-  };
-}
-
-/** An activated package: a hosted one by its catalog name, a built-in by its
- * skill name. `detail` (the skills it brought) goes on hover. */
+/** An activated package by its catalog name. `detail` (the skills it
+ * brought) goes on hover. */
 export function packageChip(
   id: string,
   catalog?: TraceAttribution,
   detail?: string,
 ): ToolChip {
-  const hosted = catalog?.packages?.find((item) => item.id === id);
-  const builtIn = catalog?.skills?.find((skill) => skill.id === id);
   const label =
-    hosted?.label ??
-    skillLabel({ name: builtIn?.name || (id.split("/").at(-1) ?? id) });
+    catalog?.packages?.find((item) => item.id === id)?.label ??
+    skillLabel({ name: id.split("/").at(-1) ?? id });
   return {
     id: `package:${id}`,
     packageId: id,
@@ -74,29 +53,13 @@ export function packageChip(
   };
 }
 
-/** Attribute only declared ownership; an activated skill does not own every
+/** Attribute only declared ownership; an activated package does not own every
  * generic tool called after it (for example get_chain_context or stage_tx). */
 export function attributeToolStep(
   step: InterpretedToolStep,
   rawLabel: string,
   catalog?: TraceAttribution,
 ): InterpretedToolStep {
-  const candidates =
-    catalog?.skills?.filter((skill) =>
-      skill.injectedTools.includes(rawLabel),
-    ) ?? [];
-  const owners = candidates.length === 1 ? candidates : [];
-  const skillChips = owners.map((skill) => ({
-    ...skillChip(skill.id, catalog),
-    attribution: "skill" as const,
-  }));
-  const ownedAgents = new Set(
-    owners.flatMap((skill) =>
-      skill.id.includes("/")
-        ? [skill.id.slice(0, skill.id.lastIndexOf("/"))]
-        : [],
-    ),
-  );
   const agents =
     catalog?.agents?.filter(
       (agent) =>
@@ -105,20 +68,11 @@ export function attributeToolStep(
     ) ?? [];
   // Exact declarations only. A prefix, selected agent, or prior activation
   // cannot establish who supplied a tool. Ambiguous bare names stay untagged.
-  const agentChips =
-    agents.length === 1 && !ownedAgents.has(agents[0]!.agent)
-      ? [agentChip(agents[0]!.agent, catalog)]
-      : [];
   const chips = [
     ...step.chips.map((chip) =>
-      chip.packageId
-        ? packageChip(chip.packageId, catalog, chip.title)
-        : chip.skillId
-          ? skillChip(chip.skillId, catalog)
-          : chip,
+      chip.packageId ? packageChip(chip.packageId, catalog, chip.title) : chip,
     ),
-    ...agentChips,
-    ...skillChips,
+    ...(agents.length === 1 ? [agentChip(agents[0]!.agent, catalog)] : []),
   ];
   const seen = new Set<string>();
   return {
@@ -132,7 +86,7 @@ export function attributeToolStep(
   };
 }
 
-/** A decoded step with the agents and skills that declare its tool. */
+/** A decoded step with the agent that declares its tool. */
 export const interpretToolStep = (
   input: ToolStepInput & { attribution?: TraceAttribution },
 ): InterpretedToolStep =>

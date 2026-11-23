@@ -277,7 +277,6 @@ export type {
   ToolsetCard,
   ThreadCatalog,
   AomiFeatureCategory,
-  AomiPlatformFilter,
   AomiRequestOptions,
   AomiRequestQueryValue,
   AomiClientOptions,

@@ -4,7 +4,6 @@ import { AppWindowIcon, Globe2Icon } from "lucide-react";
 import {
   isTestnetChain,
   packageMentions,
-  parsePackageCatalog,
   shortAddress,
   type AomiPublicPackage,
 } from "@aomi-labs/client";
@@ -15,7 +14,10 @@ import {
   useOptionalAomiRuntime,
 } from "@aomi-labs/react";
 import { useAccountOverview } from "@/account/account-overview";
-import { packageCatalogQuery } from "@/library/use-package-catalog";
+import {
+  packageCatalogQuery,
+  publicPackageQuery,
+} from "@/library/use-package-catalog";
 import { useAomi, useShellAomi } from "@/account/transport";
 import {
   walletName,
@@ -129,11 +131,7 @@ export function usePackagePickerItems(): PickerItem[] {
     enabled: accountUserId != null,
   });
   const publicRows = useDisplayQuery({
-    resource: "packages",
-    fetcher: (signal) =>
-      aomi.raw
-        .getPublicCatalog("packages", { signal })
-        .then(parsePackageCatalog),
+    ...publicPackageQuery(aomi),
     enabled: accountUserId == null,
   });
   const rows = useMemo(

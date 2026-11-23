@@ -23,6 +23,19 @@ export function packageCatalogQuery(
   };
 }
 
+/** The listed packages anyone may read, each with its skills. */
+export function publicPackageQuery(
+  aomi: Aomi,
+): DisplayQuery<AomiPublicPackage[]> {
+  return {
+    resource: "packages",
+    fetcher: (signal) =>
+      aomi.raw
+        .getPublicCatalog("packages", { signal })
+        .then(parsePackageCatalog),
+  };
+}
+
 /**
  * A signed-in account reads its own rows, with choices and keys. A guest reads
  * the public catalog: listed packages only, nothing tied to an account.
@@ -33,13 +46,8 @@ export function usePackageCatalog(accountUserId?: string, threadId?: string) {
     ...packageCatalogQuery(useShellAomi(), accountUserId, threadId),
     enabled: signedIn,
   });
-  const runtime = useAomi();
   const guest = useDisplayQuery({
-    resource: "packages",
-    fetcher: (signal) =>
-      runtime.raw
-        .getPublicCatalog("packages", { signal })
-        .then(parsePackageCatalog),
+    ...publicPackageQuery(useAomi()),
     enabled: !signedIn,
   });
   const query = signedIn ? account : guest;

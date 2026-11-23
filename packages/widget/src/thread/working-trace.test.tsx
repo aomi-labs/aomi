@@ -218,7 +218,7 @@ describe("WorkingTrace", () => {
             },
             {
               id: "skill:portfolio",
-              attribution: "skill",
+              attribution: "agent",
               label: "Portfolio",
               icon: "skill:portfolio",
             },
@@ -898,8 +898,13 @@ describe("WorkingTrace", () => {
 
 it("keeps ownership badges visible in the mother and delegated trace", () => {
   const attribution = {
-    skills: [
-      { id: "lifi_swap", name: "lifi_swap", injectedTools: ["lifi_get_quote"] },
+    agents: [
+      {
+        agent_id: 7,
+        agent: "acme/lifi",
+        display_name: "LI.FI",
+        metadata: { tool_names: ["lifi_get_quote"] },
+      },
     ],
   };
   const child = run([

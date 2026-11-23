@@ -74,17 +74,6 @@ const SAVED_FIELDS: Partial<
       "featureCatalog",
       "platform",
     ]),
-  skills: (value) =>
-    pickRows(value, [
-      "id",
-      "name",
-      "description",
-      "tags",
-      "featureCatalog",
-      "chainIds",
-      "injectedTools",
-      "estimatedTokens",
-    ]),
   threads: (value) =>
     Array.isArray(value)
       ? value.flatMap((value) => {

@@ -56,6 +56,7 @@ vi.mock("@/account/transport", () => ({
 }));
 vi.mock("@/library/use-package-catalog", () => ({
   packageCatalogQuery: () => ({ resource: "account-packages" }),
+  publicPackageQuery: () => ({ resource: "packages" }),
 }));
 import {
   packagePickerItems,

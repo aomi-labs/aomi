@@ -23,4 +23,16 @@ describe("public catalog transport", () => {
     expect(new Headers(init.headers).has("x-thread-id")).toBe(false);
     expect(init.signal).toBe(signal);
   });
+
+  it("reads skills from the packages feed", async () => {
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ packages: [] }));
+    const client = new AomiClient({
+      baseUrl: "https://portal.example",
+      fetch: fetcher,
+    });
+    await client.getPublicCatalog("packages");
+    expect(String(fetcher.mock.calls[0][0])).toBe(
+      "https://portal.example/api/public/catalog/packages",
+    );
+  });
 });

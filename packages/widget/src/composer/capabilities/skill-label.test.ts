@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { conciseSkillDescription, skillLabel } from "./skill-catalog";
+import { conciseSkillDescription } from "@aomi-labs/client";
+import { skillLabel } from "./skill-label";
 
 describe("conciseSkillDescription", () => {
   it("removes picker boilerplate and redundant chain prose", () => {

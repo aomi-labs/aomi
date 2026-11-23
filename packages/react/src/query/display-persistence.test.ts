@@ -58,11 +58,6 @@ describe("what the display cache saves", () => {
 
   it.each([
     [
-      "skills",
-      [{ id: "swap", name: "Swap", instructions: "secret" }],
-      [{ id: "swap", name: "Swap" }],
-    ],
-    [
       "threads",
       [
         {

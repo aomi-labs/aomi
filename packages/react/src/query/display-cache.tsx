@@ -22,7 +22,6 @@ export type RuntimeAccount = { kind: "guest" | "user"; id: string };
 export type DisplayResource =
   | "models"
   | "agent-catalog"
-  | "skills"
   | "packages"
   | "authorized-models"
   | "authorized-agents"
@@ -40,7 +39,6 @@ export type DisplayResource =
 const PUBLIC_CATALOGS: ReadonlySet<DisplayResource> = new Set([
   "models",
   "agent-catalog",
-  "skills",
   "packages",
 ]);
 export const isPublicCatalog = (resource: DisplayResource) =>
@@ -50,7 +48,6 @@ const MINUTE = 60_000;
 const STALE_TIME: Partial<Record<DisplayResource, number>> = {
   models: 30 * MINUTE,
   "agent-catalog": 30 * MINUTE,
-  skills: 30 * MINUTE,
   credits: MINUTE,
   "transaction-safety": 10 * MINUTE,
   "account-wallets": MINUTE,

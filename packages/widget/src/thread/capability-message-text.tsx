@@ -10,7 +10,7 @@ import { getAgentIcon } from "@/icons/agent-map";
 import { getChainIcon } from "@/icons/chain-map";
 import { getSkillIcon } from "@/icons/skills/skill-icons";
 import { SolanaIcon } from "@/icons/chain-icons";
-import { skillLabel } from "@/composer/capabilities/skill-catalog";
+import { skillLabel } from "@/composer/capabilities/skill-label";
 import { useOptionalAomiWalletNetworkPreferences } from "@/wallet/network-preferences";
 import { useAomiWalletKit } from "@/wallet/context";
 import {

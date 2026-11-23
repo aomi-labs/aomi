@@ -378,59 +378,10 @@ export function capabilityHintPayload(
   };
 }
 
-// Skills, as the public catalog lists them.
-
-export type SkillSummary = {
-  id: string;
-  name: string;
-  description: string;
-  tags: string[];
-  featureCatalog: string[];
-  chainIds: number[];
-  injectedTools: string[];
-  estimatedTokens?: number;
-};
-
 function strings(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
-}
-
-function numbers(value: unknown): number[] {
-  return Array.isArray(value)
-    ? value.filter(
-        (item): item is number =>
-          typeof item === "number" && Number.isFinite(item),
-      )
-    : [];
-}
-
-function parseSkill(value: unknown): SkillSummary | null {
-  if (!value || typeof value !== "object") return null;
-  const row = value as Record<string, unknown>;
-  if (typeof row.id !== "string" || typeof row.name !== "string") return null;
-  return {
-    id: row.id,
-    name: row.name,
-    description: typeof row.description === "string" ? row.description : "",
-    tags: strings(row.tags),
-    featureCatalog: strings(row.feature_catalog),
-    chainIds: numbers(row.chain_ids),
-    injectedTools: strings(row.injected_tools),
-    ...(typeof row.est_tokens === "number"
-      ? { estimatedTokens: row.est_tokens }
-      : {}),
-  };
-}
-
-export function parseSkillCatalog(value: unknown): SkillSummary[] {
-  if (!value || typeof value !== "object") return [];
-  const rows = (value as Record<string, unknown>).skills;
-  if (!Array.isArray(rows)) return [];
-  return rows
-    .map(parseSkill)
-    .filter((skill): skill is SkillSummary => skill !== null);
 }
 
 // Packages, as the public catalog lists them.

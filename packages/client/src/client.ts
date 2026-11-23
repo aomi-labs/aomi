@@ -16,7 +16,6 @@ import type {
   GetAccountBearer,
   Logger,
   AomiHttpMethod,
-  AomiPlatformFilter,
 } from "./types";
 import { normalizeAgentCard } from "./agent-card";
 import { UserState } from "./user-state";
@@ -90,23 +89,6 @@ function normalizeQuery(
       value === null || value === undefined ? undefined : String(value);
   }
   return normalized;
-}
-
-function normalizePlatformFilter(platforms: AomiPlatformFilter): string[] {
-  const rawValues = Array.isArray(platforms)
-    ? platforms
-    : platforms === null || platforms === undefined
-      ? []
-      : [platforms];
-
-  return Array.from(
-    new Set(
-      rawValues
-        .flatMap((value) => value.split(","))
-        .map((value) => value.trim())
-        .filter(Boolean),
-    ),
-  );
 }
 
 function encodeJsonBody(body: unknown): BodyInit | undefined {
@@ -549,17 +531,13 @@ export class AomiClient {
     };
   }
 
-  /** Credential-free projection suitable for shared caching and public persistence. */
+  /** Credential-free projection suitable for shared caching and public
+   * persistence: the models, or the listed packages with their skills. */
   async getPublicCatalog<T = unknown>(
-    kind: "models" | "toolsets" | "skills" | "packages",
-    options?: { signal?: AbortSignal; platforms?: AomiPlatformFilter },
+    kind: "models" | "packages",
+    options?: { signal?: AbortSignal },
   ): Promise<T> {
-    const url = buildApiUrl(this.baseUrl, `/api/public/catalog/${kind}`, {
-      platform:
-        kind === "toolsets"
-          ? normalizePlatformFilter(options?.platforms)
-          : undefined,
-    });
+    const url = buildApiUrl(this.baseUrl, `/api/public/catalog/${kind}`);
     const response = await this.publicFetchImpl(url, {
       method: "GET",
       credentials: "omit",
