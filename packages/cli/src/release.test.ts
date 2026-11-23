@@ -805,6 +805,21 @@ answer({});
     );
   });
 
+  it("regenerates a package's descriptor before compiling it, and stops when it cannot", async () => {
+    write("packages/price/src/lib.rs", "");
+    write("packages/price/generated/descriptor.json", "{}");
+    write(
+      "canned.json",
+      JSON.stringify({
+        gen: { error: { code: "onchain_missing", message: "no [onchain]" } },
+      }),
+    );
+    const { code, stderr } = await cli("build", "test", "--root", root);
+    expect(code).toBe(1);
+    expect(stderr).toContain("price: onchain_missing: no [onchain]");
+    expect(log().map((call) => call[0])).toEqual(["manifest", "gen"]);
+  });
+
   it("doctor prints each finding and fails on an error", async () => {
     const report = (level: string) => ({
       ok: level !== "error",

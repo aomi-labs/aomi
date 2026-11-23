@@ -126,6 +126,14 @@ export function bundle(
   const source = existsSync(join(dir, "src"));
   if (source && flags.build === false && !wasm.has(name))
     throw usage(`--no-build needs --wasm ${name}=<path>`);
+  // `onchain!()` compiles `generated/descriptor.json`: refresh it from
+  // `aomi.toml` first, so the build never targets old contracts.
+  if (
+    source &&
+    !wasm.has(name) &&
+    existsSync(join(dir, "generated/descriptor.json"))
+  )
+    core(["gen", dir]);
   const built = wasm.get(name) ?? (source ? cargoBuild(dir) : undefined);
   at("pack");
   const packed = core<Packed>([
