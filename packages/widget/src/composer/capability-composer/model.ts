@@ -1,9 +1,9 @@
 import {
   mentionGroups,
-  type AgentMode,
   type CapabilityKind,
   type MentionGroup,
 } from "@aomi-labs/client";
+import type { AgentMode } from "@aomi-labs/react";
 import type { FC } from "react";
 
 export type ExecutionPolicy = AgentMode;

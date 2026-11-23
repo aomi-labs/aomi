@@ -41,6 +41,7 @@ export {
 } from "./contexts/thread-context";
 export type { ThreadContext } from "./contexts/thread-context";
 export type {
+  AgentMode,
   ModelSelectionMode,
   ThreadMetadata,
   ThreadControlState,

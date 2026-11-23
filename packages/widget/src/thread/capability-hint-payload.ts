@@ -1,8 +1,8 @@
 import {
   capabilityHintPayload,
-  type AgentMode,
   type CapabilitySelection,
 } from "@aomi-labs/client";
+import type { AgentMode } from "@aomi-labs/react";
 
 export type CapabilityHintSelection = CapabilitySelection;
 

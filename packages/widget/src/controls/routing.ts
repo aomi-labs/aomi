@@ -1,8 +1,5 @@
-import {
-  isAgentSlug,
-  type AgentMode,
-  type AgentTarget,
-} from "@aomi-labs/client";
+import { isAgentSlug, type AgentTarget } from "@aomi-labs/client";
+import type { AgentMode } from "@aomi-labs/react";
 
 export type DirectRoutingAgent = { agent: string };
 
