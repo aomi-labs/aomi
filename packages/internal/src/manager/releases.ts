@@ -92,6 +92,8 @@ export type AgentConfig = {
   chains: string[];
   /** `publisher/name` package ids, resolved from the selectors and `extends`. */
   packages: string[];
+  exclude: string[];
+  read_only: boolean;
   /** `publisher/name@number`: the agent config this one started from, pinned. */
   extends?: string;
   model_cost: "builder" | "person";

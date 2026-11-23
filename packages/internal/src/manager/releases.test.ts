@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { fakeManager } from "./testing";
 
@@ -22,6 +22,14 @@ describe("builder read rows", () => {
       "GET /api/agents/hoodit",
       "GET /api/packages/trade",
     ]);
+  });
+
+  it("reads the excluded package selectors from a live agent config", async () => {
+    const exclude = ["alice/trade", "tag:bridge"];
+    const { client } = fakeManager({ live: { config: { exclude } } });
+    const { live } = await client.getAgent({ name: "hoodit" });
+    expectTypeOf(live!.config.exclude).toEqualTypeOf<string[]>();
+    expect(live?.config.exclude).toEqual(exclude);
   });
 
   it("sets and clears a builder secret by package and slot", async () => {
