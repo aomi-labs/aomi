@@ -10,7 +10,6 @@ import { ActionAttempt } from '@aomi-labs/client';
 import { ActionCapabilities } from '@aomi-labs/client';
 import { ActionResult } from '@aomi-labs/client';
 import { AgentCard } from '@aomi-labs/client';
-import { AgentMode } from '@aomi-labs/client';
 import { AgentTarget } from '@aomi-labs/client';
 import { Aomi } from '@aomi-labs/client';
 import { AomiClientOptions } from '@aomi-labs/client';
@@ -37,6 +36,9 @@ import { ThreadOrigin } from '@aomi-labs/client';
 import { TransactionSafetyTransport } from '@aomi-labs/client';
 import { TurnState } from '@aomi-labs/client';
 import { UserState } from '@aomi-labs/client';
+
+// @public
+export type AgentMode = "auto" | "direct";
 
 // @public
 export function AomiChatBoundary(input: {
@@ -203,7 +205,7 @@ export type DisplayQuery<T> = {
 };
 
 // @public (undocumented)
-export type DisplayResource = "models" | "agent-catalog" | "skills" | "packages" | "authorized-models" | "authorized-agents" | "threads" | "profile" | "credits" | "credit-ledger" | "account-packages" | "transaction-safety" | "usage" | "account-wallets" | "connections";
+export type DisplayResource = "models" | "agent-catalog" | "packages" | "authorized-models" | "authorized-agents" | "threads" | "profile" | "credits" | "credit-ledger" | "account-packages" | "transaction-safety" | "usage" | "account-wallets" | "connections";
 
 // @public (undocumented)
 export const EMPTY_TASK_RUNS: ThreadTaskRuns;

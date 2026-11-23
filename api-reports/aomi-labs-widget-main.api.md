@@ -4,7 +4,7 @@
 
 ```ts
 
-import { AgentMode } from '@aomi-labs/client';
+import type { AgentMode } from '@aomi-labs/react';
 import { AomiClientOptions } from '@aomi-labs/client';
 import type { Chain } from 'viem';
 import { ClassValue } from 'clsx';

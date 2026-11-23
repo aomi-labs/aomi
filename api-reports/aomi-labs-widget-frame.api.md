@@ -4,7 +4,7 @@
 
 ```ts
 
-import { AgentMode } from '@aomi-labs/client';
+import type { AgentMode } from '@aomi-labs/react';
 import { AgentTarget } from '@aomi-labs/client';
 import { AomiClientOptions } from '@aomi-labs/client';
 import { CSSProperties } from 'react';

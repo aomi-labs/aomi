@@ -70,12 +70,10 @@ export const STAGED_ACTION_ICON_REGISTRY: ReadonlyArray<readonly [RegExp, TraceI
 export type ToolChip = {
     key?: string;
     label: string;
-    labelParts?: readonly [string, string];
     id?: string;
     title?: string;
-    skillId?: string;
     packageId?: string;
-    attribution?: "agent" | "skill";
+    attribution?: "agent";
     icon?: TraceIcon;
     essential?: boolean;
 };

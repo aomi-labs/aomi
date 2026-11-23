@@ -580,9 +580,6 @@ export type AgentInfo = {
     category: AgentCategoryInfo;
 };
 
-// @public (undocumented)
-export type AgentMode = "auto" | "direct";
-
 // @public
 export class AgentRun extends TypedEventEmitter<AgentRunEventMap> implements PromiseLike<AgentRunResult> {
     constructor(client: AomiClient, prompt: string, actions: ActionCapabilities, options?: AgentRunOptions);
@@ -637,12 +634,8 @@ export interface AgentRunResult extends SendResult {
 // @public (undocumented)
 export type AgentSession = Schemas$3["Session"];
 
-// @public (undocumented)
+// @public
 export type AgentTarget = {
-    mode?: "auto";
-    agent?: string;
-} | {
-    mode: "direct";
     agent?: string;
 };
 
@@ -1096,9 +1089,8 @@ export class AomiClient {
         signal?: AbortSignal;
         apiKey?: string;
     }): Promise<string[]>;
-    getPublicCatalog<T = unknown>(kind: "models" | "toolsets" | "skills" | "packages", options?: {
+    getPublicCatalog<T = unknown>(kind: "models" | "packages", options?: {
         signal?: AbortSignal;
-        platforms?: AomiPlatformFilter;
     }): Promise<T>;
     guestIdentity(): string | null;
     ingestSecrets(sessionId: string, clientId: string, secrets: Record<string, string>): Promise<AomiIngestSecretsResponse>;
@@ -1117,7 +1109,7 @@ export class AomiClient {
         signal?: AbortSignal;
     }): Promise<AgentCard>;
     setModel(sessionId: string, rig: string, options?: {
-        toolset?: string;
+        agent?: string;
         apiKey?: string;
         clientId?: string;
     }): Promise<{
@@ -1649,38 +1641,29 @@ export interface AomiPackageSlot {
 // @public (undocumented)
 export class AomiPipeline {
     constructor(raw: PipelineTransport, client?: AomiClient, capabilities?: CommitCapabilities);
-    build(name: string, args: Record<string, unknown>, options?: AomiOperationBuildOptions & {
-        toolset?: string;
-    }): Promise<Build>;
+    build(name: string, args: Record<string, unknown>, options?: AomiOperationBuildOptions & AomiPipelineScope): Promise<Build>;
     // (undocumented)
     readonly evm: AomiEvmPipeline;
     // (undocumented)
-    invoke<T = unknown>(name: string, args: Record<string, unknown>, options?: PipelineInvokeOptions & {
-        toolset?: string;
-    }): Promise<T>;
-    operations(options?: {
-        toolset?: string;
+    invoke<T = unknown>(name: string, args: Record<string, unknown>, options?: PipelineInvokeOptions & AomiPipelineScope): Promise<T>;
+    // (undocumented)
+    operations(options?: AomiPipelineScope): Promise<PipelineDirectory>;
+    packages(options?: {
+        agent?: string;
     }): Promise<PipelineDirectory>;
     // (undocumented)
     readonly raw: PipelineTransport;
     // (undocumented)
-    skill(name: string): AomiPipelineSkillScope;
-    readonly skills: {
-        list(): Promise<PipelineDirectory>;
-    };
+    scope(input?: AomiPipelineScope): AomiPipelineOperationScope;
     // (undocumented)
     readonly svm: AomiSvmPipeline;
-    // (undocumented)
-    toolset(name: string): AomiPipelineOperationScope;
 }
 
-// @public (undocumented)
+// @public
 export class AomiPipelineOperationScope {
-    constructor(raw: PipelineOperationTransport, evm: AomiEvmPipeline, svm: AomiSvmPipeline);
+    constructor(raw: PipelineOperationsTransport, evm: AomiEvmPipeline, svm: AomiSvmPipeline);
     // (undocumented)
     build(name: string, args: Record<string, unknown>, options?: AomiOperationBuildOptions): Promise<EvmBuild | SvmBuild>;
-    // (undocumented)
-    directory(): Promise<PipelineDirectory>;
     // (undocumented)
     invoke<T = unknown>(name: string, args: Record<string, unknown>, options?: PipelineInvokeOptions): Promise<T>;
     // (undocumented)
@@ -1688,20 +1671,16 @@ export class AomiPipelineOperationScope {
     // (undocumented)
     operations(): Promise<PipelineDirectory>;
     // (undocumented)
-    readonly raw: PipelineOperationTransport;
+    readonly raw: PipelineOperationsTransport;
 }
 
-// @public (undocumented)
-export class AomiPipelineSkillScope extends AomiPipelineOperationScope {
-    constructor(skillRaw: PipelineSkillTransport, evm: AomiEvmPipeline, svm: AomiSvmPipeline);
+// @public
+export interface AomiPipelineScope {
     // (undocumented)
-    instructions(): Promise<string>;
+    agent?: string;
     // (undocumented)
-    readonly skillRaw: PipelineSkillTransport;
+    package?: string;
 }
-
-// @public (undocumented)
-export type AomiPlatformFilter = string | readonly string[] | null | undefined;
 
 // @public (undocumented)
 export type AomiPolicyWindow = {
@@ -3529,9 +3508,6 @@ export function parseChainId(value: unknown): number | undefined;
 // @public
 export function parsePackageCatalog(value: unknown): AomiPublicPackage[];
 
-// @public (undocumented)
-export function parseSkillCatalog(value: unknown): SkillSummary[];
-
 // @public
 export function parseWalletRef(value: string): string | undefined;
 
@@ -3576,6 +3552,15 @@ export interface PipelineActionSummary {
     transactionCount?: number;
 }
 
+// @public
+export class PipelineAgentTransport extends PipelineOperationsTransport {
+    constructor(requestResponse: RequestResponse$4, agent?: string);
+    core(): Promise<PipelineDirectory>;
+    // (undocumented)
+    package(id: string): PipelinePackageTransport;
+    packages(): Promise<PipelineDirectory>;
+}
+
 // @public (undocumented)
 export class PipelineApiError extends AomiApiError {
     // (undocumented)
@@ -3597,15 +3582,12 @@ export type PipelineBalanceChange = Schemas["PipelineBalanceChange"];
 // @public (undocumented)
 export interface PipelineBuildOrigin {
     // (undocumented)
+    agent: string;
+    // (undocumented)
     operations: PipelineOperationInvocation[];
     // (undocumented)
-    skills?: string[];
-    // (undocumented)
-    toolset: string;
+    packages?: string[];
 }
-
-// @public @deprecated (undocumented)
-export type PipelineBuildProvenance = PipelineBuildOrigin;
 
 // @public (undocumented)
 export interface PipelineCommitOptions extends PipelineMutationOptions {
@@ -3639,10 +3621,8 @@ export type PipelineDirectoryEntryKind = "directory" | "operation" | "document";
 
 // @public (undocumented)
 export interface PipelineExecutionScope {
-    // (undocumented)
-    skills?: string[];
-    // (undocumented)
-    toolset?: string;
+    agent?: string;
+    packages?: string[];
     transactionSafetyMode?: TransactionSafetyMode;
 }
 
@@ -3711,14 +3691,16 @@ export interface PipelineOperationInvocation<Arguments extends Record<string, un
     operation: string;
 }
 
-// @public (undocumented)
-export class PipelineOperationTransport {
-    constructor(requestResponse: RequestResponse$4, scope: "toolsets" | "skills", owner: string);
+// @public
+export class PipelineOperationsTransport {
+    constructor(requestResponse: RequestResponse$4,
+    href: string, agent?: string | undefined, packageId?: string);
     // (undocumented)
-    directory(): Promise<PipelineDirectory>;
+    readonly agent?: string | undefined;
+    // (undocumented)
+    protected at(path: string): string;
     // (undocumented)
     readonly executionScope: PipelineExecutionScope;
-    // (undocumented)
     readonly href: string;
     // (undocumented)
     invoke<T = unknown>(name: string, args: Record<string, unknown>, options?: PipelineInvokeOptions): Promise<T>;
@@ -3726,6 +3708,15 @@ export class PipelineOperationTransport {
     operation(name: string): Promise<PipelineOperationDescriptor>;
     // (undocumented)
     operations(): Promise<PipelineDirectory>;
+    // (undocumented)
+    protected readonly requestResponse: RequestResponse$4;
+}
+
+// @public
+export class PipelinePackageTransport extends PipelineOperationsTransport {
+    constructor(requestResponse: RequestResponse$4, id: string, agent?: string);
+    directory(): Promise<PipelineDirectory>;
+    skill(file: string): Promise<string>;
 }
 
 // @public (undocumented)
@@ -3741,34 +3732,10 @@ export type PipelineSimulation = Schemas["PipelineSimulation"];
 // @public (undocumented)
 export type PipelineSimulationStatus = PipelineSimulation["status"];
 
-// @public (undocumented)
-export class PipelineSkillsTransport {
-    constructor(requestResponse: RequestResponse$4);
-    // (undocumented)
-    get(skill: string): PipelineSkillTransport;
-    // (undocumented)
-    list(): Promise<PipelineDirectory>;
-}
-
-// @public (undocumented)
-export class PipelineSkillTransport extends PipelineOperationTransport {
-    constructor(skillRequestResponse: RequestResponse$4, skill: string);
-    // (undocumented)
-    instructions(): Promise<string>;
-}
-
-// @public (undocumented)
-export class PipelineToolsetsTransport {
-    constructor(requestResponse: RequestResponse$4);
-    // (undocumented)
-    get(toolset: string): PipelineOperationTransport;
-    // (undocumented)
-    list(): Promise<PipelineDirectory>;
-}
-
 // @public
 export class PipelineTransport {
     constructor(requestResponse: RequestResponse$4);
+    agent(agent?: string): PipelineAgentTransport;
     // (undocumented)
     readonly evm: EvmPipelineTransport;
     // (undocumented)
@@ -3778,15 +3745,7 @@ export class PipelineTransport {
     // (undocumented)
     root(): Promise<PipelineDirectory>;
     // (undocumented)
-    skill(name: string): PipelineSkillTransport;
-    // (undocumented)
-    readonly skills: PipelineSkillsTransport;
-    // (undocumented)
     readonly svm: SvmPipelineTransport;
-    // (undocumented)
-    toolset(name: string): PipelineOperationTransport;
-    // (undocumented)
-    readonly toolsets: PipelineToolsetsTransport;
 }
 
 // @public (undocumented)
@@ -4190,18 +4149,6 @@ export function skillBrandLabel(id: string): string | undefined;
 export function skillLabel(skill: {
     name: string;
 }): string;
-
-// @public (undocumented)
-export type SkillSummary = {
-    id: string;
-    name: string;
-    description: string;
-    tags: string[];
-    featureCatalog: string[];
-    chainIds: number[];
-    injectedTools: string[];
-    estimatedTokens?: number;
-};
 
 // @public (undocumented)
 export type SponsorshipPaymasterServiceContext = Record<string, unknown> & {
