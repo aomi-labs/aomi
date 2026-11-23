@@ -50,26 +50,15 @@ export const INPUT =
 
 /** Settings › Policies: waiting changes first, then one card per wallet. */
 export function PoliciesView({
-  title = true,
   changes,
   children,
 }: {
-  /** Off where the page around it already says "Policies". */
-  title?: boolean;
   /** One card per waiting change. */
   changes?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div data-policies className="flex flex-col gap-5">
-      <header className="flex flex-col gap-1 px-0.5">
-        {title ? <h2 className="type-title">Policies</h2> : null}
-        <p className="type-meta text-aomi-muted max-w-prose">
-          Rules that secure your agent wallets. Aomi enforces every policy, and
-          works with on-chain policy providers to enforce them on chain too.
-        </p>
-      </header>
-
       {changes ? (
         <section aria-label="Policy changes" className="flex flex-col gap-2">
           {changes}
@@ -203,6 +192,7 @@ export function WalletPolicyCard({
             saving={saving}
             deploy={deploy(policy)}
             onRemove={() => onRemove(policy)}
+            holdable={policy.chains.some((chain) => providers[chain.network])}
           />
         ))}
         {wallet.policies.length === 0 && !adding ? (
@@ -292,14 +282,22 @@ export function PolicyRow({
   saving = false,
   deploy,
   onRemove,
+  holdable = true,
 }: {
   policy: Policy;
   saving?: boolean;
   deploy?: PolicyDeploy;
   /** Left out where the row is only there to be signed (the chat panel). */
   onRemove?: () => void;
+  /** False when no provider here can hold a policy on any of its chains. */
+  holdable?: boolean;
 }) {
   const { enforcement } = policy;
+  const note =
+    enforcement.note ??
+    (enforcement.name === null && !holdable && !policy.ended && !policy.blocked
+      ? NO_PROVIDER
+      : null);
   const where = policyToPhrase(policy.to);
   return (
     <div
@@ -401,9 +399,7 @@ export function PolicyRow({
           <StatusPill tone="warning">Total not enforced</StatusPill>
         )}
       </div>
-      {enforcement.note ? (
-        <p className="type-meta text-aomi-muted">{enforcement.note}</p>
-      ) : null}
+      {note ? <p className="type-meta text-aomi-muted">{note}</p> : null}
       {enforcement.deploy && deploy?.hint ? (
         <p className="type-meta text-aomi-muted">{deploy.hint}</p>
       ) : null}
@@ -413,6 +409,10 @@ export function PolicyRow({
     </div>
   );
 }
+
+/** Why a row says None when nothing here could hold it on chain. */
+export const NO_PROVIDER =
+  "On-chain enforcement isn’t available on this network yet. Aomi still checks every trade against this policy.";
 
 /**
  * A removed policy the chain still holds; its one action takes it off (or
@@ -940,7 +940,7 @@ export function PolicyPicker({
           ) : null}
           <span className="flex-1" />
           <AomiButton
-            variant="ghost"
+            variant="danger"
             size="sm"
             onClick={() => {
               setSession(false);
@@ -955,7 +955,7 @@ export function PolicyPicker({
       ) : (
         <div className="flex flex-wrap items-center gap-3">
           <AomiButton
-            variant="primary"
+            variant="secondary"
             size="sm"
             onClick={() => {
               setSession(true);
@@ -1024,7 +1024,6 @@ export function PolicyAuthorityPicker({
         action={
           <Segmented
             label="Policy change authority"
-            size="sm"
             value={draft.kind}
             disabled={saving}
             onChange={(kind) => {
@@ -1114,7 +1113,7 @@ export function PolicyAuthorityPicker({
       {dirty ? (
         <div className="flex items-center justify-end gap-2">
           <AomiButton
-            variant="ghost"
+            variant="secondary"
             size="sm"
             onClick={() => setDraft(authority)}
           >

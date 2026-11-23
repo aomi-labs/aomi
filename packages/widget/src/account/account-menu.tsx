@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { shortAddress } from "@aomi-labs/client";
 import { aomiButton } from "@/ui/aomi/button";
-import { PendingMark } from "@/ui/aomi/status-pill";
+import { PendingMark, StatusPill } from "@/ui/aomi/status-pill";
 import { AccountAvatar } from "./account-avatar";
 import type { WalletFamily } from "@/wallet/types";
 import { BrandMark } from "./account-management/controls";
@@ -73,7 +73,7 @@ function MenuRow({
     <button
       type="button"
       onClick={onClick}
-      className="text-aomi-fg hover:bg-aomi-surface-2 flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-left text-[13px] transition-colors"
+      className="text-aomi-fg aomi-menu-row mb-1 flex h-9 w-full items-center justify-between px-2.5 text-left text-[13px] transition-colors"
     >
       <span>{label}</span>
       {trailing ? (
@@ -138,7 +138,7 @@ export function AccountMenu({
         role="menu"
         aria-label="Account menu"
         className={cn(
-          "border-aomi-border bg-aomi-raised animate-in-pop absolute z-50 flex max-h-[calc(100dvh-1rem)] w-[min(248px,calc(100vw-1.5rem))] flex-col overflow-y-auto rounded-xl border p-2 shadow-[0_16px_40px_rgba(0,0,0,0.45)]",
+          "aomi-menu-panel animate-in-pop absolute z-50 flex max-h-[calc(100dvh-1rem)] w-[min(248px,calc(100vw-1.5rem))] flex-col overflow-y-auto p-2",
           placement === "above"
             ? "bottom-[calc(100%+8px)] left-0"
             : "right-0 top-[calc(100%+8px)]",
@@ -151,9 +151,7 @@ export function AccountMenu({
               {accountLabel ?? walletLabel ?? "Account"}
             </span>
             {planLabel ? (
-              <span className="border-aomi-border bg-aomi-raised text-aomi-muted ml-auto shrink-0 rounded-full border px-1.5 py-px text-[9.5px] font-semibold uppercase leading-[14px] tracking-[0.06em]">
-                {planLabel}
-              </span>
+              <StatusPill className="ml-auto uppercase tracking-wide">{planLabel}</StatusPill>
             ) : null}
           </div>
           {allowanceLine || allowanceLoading ? (
@@ -200,7 +198,7 @@ export function AccountMenu({
               onClose();
               onSignIn();
             }}
-            className="bg-aomi-fg text-aomi-bg mx-0.5 mb-1 flex h-9 w-[calc(100%-4px)] items-center justify-center rounded-lg px-2.5 text-[13px] font-medium transition-opacity hover:opacity-90"
+            className={cn(aomiButton({ variant: "primary" }), "mx-0.5 mb-1 h-9 w-[calc(100%-4px)]")}
           >
             Sign in
           </button>
@@ -227,7 +225,7 @@ export function AccountMenu({
           href="https://aomi.dev/docs"
           target="_blank"
           rel="noreferrer"
-          className="text-aomi-muted hover:bg-aomi-surface-2 hover:text-aomi-fg flex h-9 items-center rounded-lg px-2.5 text-[13px] transition-colors"
+          className="text-aomi-muted aomi-menu-row hover:text-aomi-fg flex h-9 items-center px-2.5 text-[13px] transition-colors"
           onClick={onClose}
         >
           Docs
@@ -237,7 +235,7 @@ export function AccountMenu({
             type="button"
             aria-expanded={sessionOpen}
             onClick={() => setSessionOpen((value) => !value)}
-            className="text-aomi-fg hover:bg-aomi-surface-2 flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-[13px] font-medium transition-colors"
+            className="text-aomi-fg aomi-menu-row flex h-9 w-full items-center gap-2 px-2.5 text-[13px] font-medium transition-colors"
           >
             <WalletCardsIcon className="text-aomi-muted" size={14} />
             <span className="flex-1 text-left">Session &amp; wallet</span>
@@ -253,7 +251,7 @@ export function AccountMenu({
                 <button
                   type="button"
                   onClick={onDisconnect}
-                  className="hover:bg-aomi-surface-2 flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors"
+                  className="aomi-menu-row flex w-full items-center gap-2.5 px-2.5 py-2 text-left transition-colors"
                 >
                   <UnplugIcon className="text-aomi-muted shrink-0" size={14} />
                   <span className="min-w-0 flex-1">
@@ -381,7 +379,7 @@ function SignsWithRows({
                 type="button"
                 aria-expanded
                 onClick={() => setOpenFamily(null)}
-                className="hover:bg-aomi-hover/60 flex w-full items-center justify-between px-2.5 py-2 text-left text-[12px] font-medium transition-colors"
+                className="aomi-wallet-choice flex w-full items-center justify-between px-2.5 py-2 text-left text-[12px] font-medium transition-colors"
               >
                 {slot.family === "evm" ? "EVM" : "SVM"} wallets
                 <ChevronUpIcon className="text-aomi-muted" size={14} />
@@ -399,18 +397,13 @@ function SignsWithRows({
                     aria-label={`Use ${rowTitle(row).title} ${shortAddress(row.address)}`}
                     disabled={Boolean(switching)}
                     onClick={() => void activate(row)}
-                    className={cn(
-                      "flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors",
-                      row.active
-                        ? "bg-aomi-surface-2/70"
-                        : "hover:bg-aomi-hover/60",
-                    )}
+                    className="aomi-wallet-choice flex w-full items-center gap-2 px-2 py-1.5 text-left"
                   >
                     <WalletLine row={row} />
                     {switching === row.key || row.activating ? (
                       <PendingMark />
                     ) : row.active ? (
-                      <CheckIcon className="text-aomi-fg" size={14} />
+                      <CheckIcon className="text-aomi-accent-strong" size={14} />
                     ) : null}
                   </button>
                 ))}
@@ -423,7 +416,7 @@ function SignsWithRows({
               aria-expanded={false}
               aria-label={`${slot.family.toUpperCase()} default wallet: ${rowTitle(current).title}`}
               onClick={() => setOpenFamily(slot.family)}
-              className="hover:bg-aomi-hover/60 flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors"
+              className="aomi-wallet-choice flex w-full items-center gap-2 px-2 py-1.5 text-left"
             >
               <WalletLine row={current} />
               <FamilyTag family={slot.family} />
@@ -455,7 +448,7 @@ function EmptyFamilyRow({
     <button
       type="button"
       onClick={onAddWallet}
-      className="text-aomi-muted hover:bg-aomi-hover/60 hover:text-aomi-fg flex w-full items-center gap-2 px-2 py-1.5 text-left text-[12px] transition-colors"
+      className="text-aomi-muted aomi-menu-row hover:text-aomi-fg flex w-full items-center gap-2 px-2 py-1.5 text-left text-[12px] transition-colors"
     >
       <span className="flex size-[26px] shrink-0 items-center justify-center">
         <PlusIcon size={14} />

@@ -2,39 +2,26 @@ import { cn } from "@/lib/cn";
 import type { ComponentProps } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 
-/**
- * Aomi action buttons, built only from `aomi-*` tokens. `ui/button` keeps the
- * shadcn vocabulary for registry consumers; redesigned surfaces use this.
- * Use `aomiButton({ variant, size })` directly on links or Radix `asChild`
- * triggers that must render something other than a `<button>`.
- */
+/** Shared appearance for action buttons, links, and slotted controls. */
+export const actionAppearance = {
+  primary: "bg-[var(--aomi-primary-fill)] text-aomi-action-ink hover:brightness-[1.06]",
+  secondary: "bg-aomi-surface-2 hover:bg-aomi-hover active:bg-aomi-hover text-aomi-control-ink",
+  "on-band": "bg-aomi-on-band text-aomi-on-band-ink",
+  ghost: "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg active:bg-aomi-hover",
+  danger: "aomi-action-fill [--action-bg:var(--aomi-action-danger-bg)] text-[color:var(--aomi-action-danger-fg)]",
+  "danger-fill": "aomi-action-fill [--action-bg:var(--aomi-danger-strong)] text-aomi-on-danger",
+};
+
 export const aomiButton = cva(
-  "inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap border font-medium transition-[color,background-color,border-color,opacity,transform] duration-[120ms] active:scale-[.98] motion-reduce:active:scale-100 disabled:pointer-events-none disabled:opacity-50 [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:shrink-0",
+  "inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[8px] font-medium transition-colors duration-[120ms] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-aomi-ring disabled:pointer-events-none disabled:opacity-50 [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:shrink-0",
   {
     variants: {
-      variant: {
-        primary: "bg-aomi-fg text-aomi-bg border-transparent hover:opacity-90",
-        // The account chip's recipe: white, hairline border, a faint lift;
-        // hover darkens the border instead of filling.
-        secondary:
-          "border-aomi-border bg-aomi-raised text-aomi-fg shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-aomi-muted/60",
-        ghost:
-          "text-aomi-muted border-transparent hover:bg-aomi-hover hover:text-aomi-fg",
-        /** Quiet destructive entry point (e.g. a row's "Remove"). */
-        danger:
-          "border-aomi-border bg-aomi-raised text-aomi-danger shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-aomi-danger/40 hover:bg-aomi-danger/5",
-        /** The committing destructive action, e.g. inside a confirm. */
-        "danger-fill":
-          "bg-aomi-danger-strong text-aomi-on-danger border-transparent hover:opacity-90",
-      },
-      // Radius and type live per size, not in the base: tailwind-merge cannot
-      // see that `rounded-control` and `rounded-lg` (or `type-control` and a
-      // `text-*` size) conflict, so a base default would never be replaced.
+      variant: actionAppearance,
       size: {
-        md: "rounded-control type-control h-8 px-3",
-        sm: "h-7 rounded-[8px] px-2.5 text-[12px] leading-4",
-        icon: "rounded-control size-8",
-        "icon-sm": "size-7 rounded-[8px]",
+        md: "type-control h-8 px-3",
+        sm: "h-7 px-2.5 text-[12px] leading-4",
+        icon: "size-8",
+        "icon-sm": "size-7",
       },
     },
     defaultVariants: { variant: "secondary", size: "md" },

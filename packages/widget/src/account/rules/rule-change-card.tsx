@@ -224,10 +224,11 @@ export function RuleChangeCard({
       {stale ? (
         <div
           role="alert"
-          className="rounded-control bg-aomi-warning/15 type-meta flex items-center justify-between gap-3 px-3 py-2"
+          className="rounded-[16px] bg-aomi-warning/15 type-meta flex items-center justify-between gap-3 px-3 py-2"
         >
           <span>For a policy change, sign in again.</span>
           <AomiButton
+            variant="primary"
             size="sm"
             onClick={() =>
               void signOutAndDisconnect(kit).catch(() => undefined)
@@ -240,7 +241,7 @@ export function RuleChangeCard({
       <div className="flex items-center gap-2">
         {onLater ? (
           <AomiButton
-            variant="ghost"
+            variant="secondary"
             size="sm"
             disabled={busy !== null}
             onClick={onLater}

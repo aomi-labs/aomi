@@ -1,7 +1,13 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { LibraryBig, ListTree, Moon, Settings, Sun } from "lucide-react";
+import type { ReactElement } from "react";
+import {
+  BooksIcon,
+  GearSixIcon,
+  ListBulletsIcon,
+  MoonIcon,
+  SunIcon,
+} from "@/icons/ui-icons";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
 import { NetworkSelect } from "@/controls/network-select";
 import { useActivityPanel } from "@/sidebar/activity/activity-panel-context";
@@ -13,20 +19,22 @@ import { useSettings } from "@/account/use-settings";
  * on phones each grows to a 36px touch target.
  */
 const headerButtonClass =
-  "flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-aomi-muted transition-colors hover:bg-aomi-hover hover:text-aomi-fg max-md:h-9 max-md:w-9";
+  "aomi-icon-trigger size-8 max-md:size-9";
 
 /** Names each icon on hover; the span keeps the tip working on a disabled button. */
 function HeaderTip({
   label,
   children,
+  disabled,
 }: {
+  disabled?: boolean;
   label: string;
-  children: ReactNode;
+  children: ReactElement;
 }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className="inline-flex">{children}</span>
+        {disabled ? <span className="inline-flex">{children}</span> : children}
       </TooltipTrigger>
       <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
@@ -71,7 +79,7 @@ export function HeaderControls({
     <div className="flex min-w-0 items-center gap-1 md:gap-2.5">
       {showNetwork ? (
         <>
-          <NetworkSelect className="border-aomi-border bg-aomi-raised text-aomi-fg hover:border-aomi-muted/60 hover:bg-aomi-raised hover:text-aomi-fg focus-visible:border-aomi-border data-[state=open]:border-aomi-muted/60 h-8 rounded-full border pl-2 pr-2.5 text-[13px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-visible:ring-0 max-md:mr-1 max-md:h-9 max-md:[&>span.truncate]:sr-only" />
+          <NetworkSelect className="pl-2 pr-2.5 text-[13px] font-medium max-md:mr-1 max-md:h-9 max-md:[&>span.truncate]:sr-only" />
           {showLibrary || showSettings || showTheme || showActivity ? (
             <span
               aria-hidden="true"
@@ -88,7 +96,7 @@ export function HeaderControls({
             className={headerButtonClass}
             aria-label="Open capability library"
           >
-            <LibraryBig size={18} />
+            <BooksIcon size={20} />
           </button>
         </HeaderTip>
       ) : null}
@@ -100,22 +108,27 @@ export function HeaderControls({
             className={headerButtonClass}
             aria-label="Open settings"
           >
-            <Settings size={18} />
+            <GearSixIcon size={20} />
           </button>
         </HeaderTip>
       ) : null}
       {showTheme ? (
         <HeaderTip label={isDark ? "Light mode" : "Dark mode"}>
-          <ThemeSwitch
-            dark={isDark}
-            onToggle={() =>
-              updateSetting("colorMode", isDark ? "light" : "dark")
-            }
-          />
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isDark}
+            aria-label="Dark mode"
+            onClick={() => updateSetting("colorMode", isDark ? "light" : "dark")}
+            className={headerButtonClass}
+          >
+            {isDark ? <MoonIcon size={20} /> : <SunIcon size={20} />}
+          </button>
         </HeaderTip>
       ) : null}
       {showActivity ? (
         <HeaderTip
+          disabled={!activity.worthShowing}
           label={
             !activity.worthShowing
               ? "No activity yet"
@@ -142,7 +155,7 @@ export function HeaderControls({
             }
             aria-pressed={activity.worthShowing ? activity.open : false}
           >
-            <ListTree size={18} />
+            <ListBulletsIcon size={20} />
             {activity.reviewing && !activity.open ? (
               <span
                 aria-hidden="true"
@@ -154,27 +167,5 @@ export function HeaderControls({
         </HeaderTip>
       ) : null}
     </div>
-  );
-}
-
-/** Theme uses the same quiet, compact icon control as the rest of the header. */
-function ThemeSwitch({
-  dark,
-  onToggle,
-}: {
-  dark: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={dark}
-      aria-label="Dark mode"
-      onClick={onToggle}
-      className={headerButtonClass}
-    >
-      {dark ? <Moon size={18} /> : <Sun size={18} />}
-    </button>
   );
 }

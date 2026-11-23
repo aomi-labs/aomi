@@ -7,6 +7,7 @@
     "browser-auth": "src/account/browser-auth.ts",
     "providers/para": "src/wallet/providers/para/index.ts",
     "providers/privy": "src/wallet/providers/privy/index.ts",
-    "checkout": "src/account/usage/credits/credit-checkout-dialog.tsx"
+    "checkout": "src/account/usage/credits/credit-checkout-dialog.tsx",
+    "controls": "src/ui/controls.ts"
   }
 }
