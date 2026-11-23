@@ -747,6 +747,12 @@
     "/v1/pipeline/core": {
       "get": {
         "operationId": "browsePipelineCore",
+        "description": "The agent's core operations: its tools of no package.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineAgent"
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/PipelineDirectory"
@@ -8576,7 +8582,7 @@
           },
           "origin": {
             "type": "object",
-            "description": "The agent, activated packages and operations that assembled the actions.",
+            "description": "The agent, activated packages and operations that assembled the actions. A Build whose origin names no agent was staged before Builds named one: simulate and commit refuse it with 422 restage.",
             "required": ["agent", "operations"],
             "properties": {
               "agent": {
