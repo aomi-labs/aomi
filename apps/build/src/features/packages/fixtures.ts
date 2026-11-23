@@ -1,5 +1,3 @@
-// One fixture per builder read, in the wire shape the manager answers
-// (briefs/P8-build-api.md). Tests and previews share them.
 import type {
   Agent,
   BuilderKey,
@@ -61,6 +59,8 @@ export const agentFixture: Agent = {
         "You are Hoodit. Sizes are in ETH. Say why a token looks risky before offering to buy.",
       chains: ["robinhood"],
       packages: ["arixoneth/trade", "aomi/swap"],
+      exclude: [],
+      read_only: false,
       model_cost: "person",
       audience: "public",
       allowed_origins: ["hoodit.xyz"],
