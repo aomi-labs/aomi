@@ -12,8 +12,8 @@ import {
 } from "@/features/deploy/components/deployments/ui/state-panels";
 import { operateFetch } from "@/features/operate/client";
 
-import { shortName } from "./client";
-import { useAgents, usePublisher } from "./hooks";
+import { shortName, type Package } from "./client";
+import { useAgents, usePackages, usePublisher } from "./hooks";
 import { channelLabel } from "./inventory-view";
 import { AgentMark, Card, Cell, EmptyRow, ListHeader, Row } from "./ui";
 
@@ -56,6 +56,42 @@ export function useUsage(from: string) {
 }
 
 
+/**
+ * A package's calls for its row: counts, or "Unavailable" before counting
+ * started, with the day it started when that falls inside the window.
+ */
+export function callsLabel(calls: Package["calls"] | undefined, today = new Date()) {
+  if (calls === undefined) return { count: "—", note: null };
+  if (!calls?.coverage_from) return { count: "Unavailable", note: null };
+  const errors = calls.errors ? ` · ${calls.errors.toLocaleString("en-US")} errors` : "";
+  const start = new Date(today.getTime() - (calls.days - 1) * 86_400_000).toISOString().slice(0, 10);
+  return {
+    count: `${calls.calls.toLocaleString("en-US")}${errors}`,
+    note: calls.coverage_from > start ? `Since ${calls.coverage_from}` : null,
+  };
+}
+
+/** A package's calls and P95, aggregates only; `detail` is undefined until it is read. */
+function CallCells({ detail }: { detail: Package | undefined }) {
+  const label = callsLabel(detail?.calls);
+  const p95 = detail?.calls?.coverage_from ? detail.calls.p95_ms : null;
+  return (
+    <>
+      <Cell width={140}>
+        <span className="flex flex-col">
+          <span className="text-[13px]">{label.count}</span>
+          {label.note ? <span className="type-meta text-aomi-muted">{label.note}</span> : null}
+        </span>
+      </Cell>
+      <Cell width={130}>
+        <span className="text-[13px]">
+          {p95 == null ? "—" : `${Math.round(p95).toLocaleString("en-US")} ms`}
+        </span>
+      </Cell>
+    </>
+  );
+}
+
 const usd = (micro: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
     micro / 1_000_000,
@@ -67,6 +103,7 @@ export function UsageView() {
   const publisher = usePublisher();
   const agents = useAgents(publisher.data?.agents.map((agent) => agent.id) ?? []);
   const usage = useUsage(fromDate(period));
+  const packages = usePackages(publisher.data?.packages.map((pkg) => pkg.id) ?? []);
   const credits = useQuery({
     queryKey: ["builder-credits"],
     queryFn: () => new Aomi({ baseUrl: "", guest: false }).builder.credits.get(),
@@ -91,7 +128,8 @@ export function UsageView() {
         summary={
           <p>
             Chats and model cost are counted per agent. Tool calls, fees and
-            hosting are counted per package, wherever it is used.
+            hosting are counted per package, wherever it is used; calls in
+            other builders' agents show as totals only.
           </p>
         }
         actions={
@@ -191,12 +229,16 @@ export function UsageView() {
       >
         <ListHeader
           title="Package"
-          columns={[{ label: "Used in", width: 300 }]}
+          columns={[
+            { label: "Used in", width: 240 },
+            { label: "Calls · 30 days", width: 140 },
+            { label: "P95 · last 14 days", width: 130 },
+          ]}
         />
         {publisher.data.packages.length === 0 ? (
           <EmptyRow>No packages yet</EmptyRow>
         ) : (
-          publisher.data.packages.map((pkg) => (
+          publisher.data.packages.map((pkg, index) => (
             <Row
               key={pkg.id}
               leading={<PackageTile iconUrl={pkg.icon_url} />}
@@ -209,7 +251,7 @@ export function UsageView() {
                 </>
               }
             >
-              <Cell width={300}>
+              <Cell width={240}>
                 <span className="flex flex-wrap gap-1">
                   {usedIn(pkg.id).map((name) => (
                     <span
@@ -224,11 +266,17 @@ export function UsageView() {
                       Aomi Chat
                     </span>
                   ) : null}
+                  {packages[index]?.calls?.where.some((place) => place.kind === "others") ? (
+                    <span className="border-aomi-border bg-aomi-surface inline-flex h-6 items-center rounded-full border px-2 text-[12px]">
+                      Other agents
+                    </span>
+                  ) : null}
                   {pkg.live_release == null ? (
                     <span className="type-meta text-aomi-muted">Not live</span>
                   ) : null}
                 </span>
               </Cell>
+              <CallCells detail={packages[index]} />
             </Row>
           ))
         )}

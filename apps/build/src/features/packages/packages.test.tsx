@@ -13,6 +13,7 @@ import {
 } from "./fixtures";
 import { InventoryView } from "./inventory-view";
 import { PackageDetailView } from "./package-detail-view";
+import { callsLabel } from "./usage-view";
 
 type Answer = { status?: number; body: unknown };
 let routes: Record<string, Answer>;
@@ -188,4 +189,13 @@ it("draws the package's icon as the Library does and checks an SVG before it is 
       (mark) => mark.dataset.packageIcon,
     ),
   ).toContain("blob:icon");
+});
+
+it("shows a package's call counts, unavailable before counting started", () => {
+  const today = new Date("2026-12-01T12:00:00Z");
+  const calls = packageFixture.calls!;
+  expect(callsLabel(calls, today)).toEqual({ count: "42 · 2 errors", note: "Since 2026-11-23" });
+  expect(callsLabel({ ...calls, coverage_from: "2026-10-01" }, today).note).toBeNull();
+  expect(callsLabel({ ...calls, coverage_from: null }, today).count).toBe("Unavailable");
+  expect(callsLabel(null, today).count).toBe("Unavailable");
 });

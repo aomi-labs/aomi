@@ -150,6 +150,29 @@ export type Package = {
     | null;
   verified: boolean;
   slots: SecretSlot[];
+  /** Its tool calls wherever it runs; null when the manager sent none. */
+  calls: PackageCalls | null;
+};
+
+/**
+ * A package's tool calls over the last `days` days, aggregates only: per-call
+ * rows stay with each agent's owner. Counting started on `coverage_from`;
+ * null means no data yet. P95 covers the last `p95_days` days.
+ */
+export type PackageCalls = {
+  coverage_from: string | null;
+  days: number;
+  calls: number;
+  errors: number;
+  p95_ms: number | null;
+  p95_days: number;
+  where: {
+    /** `publisher/name`; null for every other builder's agents together. */
+    agent: string | null;
+    kind: "yours" | "aomi_chat" | "others";
+    calls: number;
+    errors: number;
+  }[];
 };
 
 /** A person's or an agent's grant of a private package, made with an activation code. */
@@ -242,7 +265,7 @@ export const RELEASE_ENDPOINTS = {
   getPackage: (input: { name: string }): ManagerRequest<Package> => ({
     op: "get_package",
     path: `/api/packages/${named(input.name)}`,
-    read: (raw) => ({ package: raw.package, live: raw.live ?? null, verified: raw.verified === true, slots: raw.slots ?? [] }),
+    read: (raw) => ({ package: raw.package, live: raw.live ?? null, verified: raw.verified === true, slots: raw.slots ?? [], calls: raw.calls ?? null }),
   }),
 
   /** Set a builder slot's value. The value is never read back. */

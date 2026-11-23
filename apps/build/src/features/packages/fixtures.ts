@@ -148,6 +148,18 @@ export const packageFixture: Package = {
     limits: {},
   },
   verified: true,
+  calls: {
+    coverage_from: "2026-11-23",
+    days: 30,
+    calls: 42,
+    errors: 2,
+    p95_ms: 180,
+    p95_days: 14,
+    where: [
+      { agent: "arixoneth/dottie", kind: "yours", calls: 30, errors: 1 },
+      { agent: null, kind: "others", calls: 12, errors: 1 },
+    ],
+  },
   slots: [
     {
       name: "GMGN_API_KEY",
