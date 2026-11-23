@@ -10,7 +10,7 @@ import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 // @playwright/test re-exports the driver; importing from "playwright" would rely
 // on a transitive dep that pnpm does not hoist.
-import { chromium, type Browser } from "@playwright/test";
+import { chromium, type Browser, type Locator } from "@playwright/test";
 
 import { sel } from "./selectors";
 import {
@@ -128,6 +128,61 @@ class MarkerLog {
  * which is why this is keyed off `scenario.expectsExecution` rather than being
  * applied blindly.
  */
+
+/**
+ * Types a prompt the way a person would, turning each `@name` into a real
+ * capability mention: type the token, wait for the picker to open on it, and
+ * pick its first match with Tab. A mention typed as plain text never reaches
+ * the backend as a preferred skill, so a take that shows "@memecoin" must
+ * select it. When no picker opens, the token stays as typed text.
+ */
+async function typePrompt(
+  composer: Locator,
+  prompt: string,
+  mentions: Record<string, string> = {},
+): Promise<void> {
+  const page = composer.page();
+  const norm = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const chips = composer.locator("[data-capability-key]");
+  for (const part of prompt.split(/(@[A-Za-z0-9_]+)/)) {
+    if (!part) continue;
+    await composer.pressSequentially(part, { delay: TYPING_DELAY_MS });
+    if (!part.startsWith("@")) continue;
+    const token = part.slice(1);
+    const want = mentions[token] ?? token;
+    const options = page.locator('[role="listbox"] [role="option"]');
+    // Pick the option by its label, never by position or the first fuzzy hit:
+    // "@stocks" otherwise picks Swap and "@robinhood" the Robinhood chain.
+    const escaped = want.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const option = options.filter({
+      has: page.locator("span.block").filter({
+        hasText: new RegExp(`^\\s*${escaped}\\s*$`, "i"),
+      }),
+    });
+    const found = await option
+      .first()
+      .waitFor({ timeout: 4_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!found) {
+      const labels = await options.evaluateAll((nodes) =>
+        nodes.map((n) => n.querySelector("span.block")?.textContent ?? ""),
+      );
+      throw new Error(
+        `@${token}: no picker option labelled "${want}" (saw ${labels.join(", ") || "no picker"})`,
+      );
+    }
+    const before = await chips.count();
+    await option.first().click();
+    const chip = chips.nth(before);
+    await chip.waitFor({ timeout: 2_000 });
+    const label = (await chip.textContent()) ?? "";
+    if (!norm(label).includes(norm(want))) {
+      throw new Error(`@${token}: inserted "${label.trim()}", expected "${want}"`);
+    }
+  }
+}
+
 async function forkProgress(
   chains: readonly ForkedChain[],
   requireAll: boolean,
@@ -295,13 +350,15 @@ async function runScenario(
       await dismissConsent();
       const composer = page.locator(sel.composer);
       await composer.click();
-      await composer.pressSequentially(prompt, { delay: TYPING_DELAY_MS });
+      await typePrompt(composer, prompt, scenario.mentions);
       // Take 7 lost its first keystroke to hydration ("~~S~~take half…"), and a
-      // typo'd prompt is on camera forever. Verify; retype once if mangled.
-      const typed = await composer.inputValue().catch(() => null);
-      if (typed !== null && typed !== prompt) {
+      // typo'd prompt is on camera forever. The composer is contenteditable and
+      // shows mentions as chips, so check the opening words; retype once.
+      const opening = prompt.split("@")[0].trim();
+      const typed = (await composer.innerText()).replace(/\s+/g, " ").trim();
+      if (!typed.startsWith(opening)) {
         await composer.fill("");
-        await composer.pressSequentially(prompt, { delay: TYPING_DELAY_MS });
+        await typePrompt(composer, prompt, scenario.mentions);
       }
       markers.mark("prompt-typed");
 

@@ -4,6 +4,7 @@
 // surface. Privacy: user intents never reach it; args/results are operational
 // payloads.
 
+import { PillDropdown, aomiButton, NavigationTab } from "@aomi-labs/widget/controls";
 import { Lock, X } from "lucide-react";
 import {
   clockLabel,
@@ -29,8 +30,7 @@ export const EMPTY_LOGS_PAGE_FILTER: LogsPageFilter = {
   paymentsOnly: false,
 };
 
-const SELECT_CLS =
-  "border-border bg-surface text-foreground h-8 rounded-md border px-2 text-xs";
+
 
 const DOT: Record<string, string> = {
   ok: "bg-emerald-500",
@@ -158,7 +158,7 @@ function PaymentDetail({
           <div className="text-dim text-[10px] uppercase tracking-wide">
             Priced calls
           </div>
-          <div className="divide-border mt-1 divide-y rounded-md border">
+          <div className="divide-border mt-1 divide-y rounded-build-panel border">
             {billingItems.map((item, index) => (
               <div
                 key={`${String(item.tool ?? "priced-tool")}-${index}`}
@@ -210,68 +210,42 @@ export function LogRows({
   return (
     <div className="space-y-3">
       {/* Filter bar */}
-      <div className="border-border bg-surface-subtle flex flex-wrap items-center gap-2 rounded-md border px-3 py-2">
-        <select
+      <div className="border-border bg-surface-subtle flex flex-wrap items-center gap-2 rounded-build-panel border px-3 py-2">
+        <PillDropdown
+          label="Filter by app"
           value={filter.app ?? ""}
-          onChange={(event) =>
-            onFilterChange({ ...filter, app: event.target.value || null })
-          }
-          className={SELECT_CLS}
-        >
-          <option value="">All apps</option>
-          {apps.map((app) => (
-            <option key={app} value={app}>
-              {app}
-            </option>
-          ))}
-        </select>
+          options={[{ id: "", label: "All apps" }, ...apps.map(id => ({ id, label: id }))]}
+          onChange={id => onFilterChange({ ...filter, app: id || null })}
+        />
         {tools.length ? (
-          <select
-            value={filter.tool ?? ""}
-            onChange={(event) =>
-              onFilterChange({ ...filter, tool: event.target.value || null })
-            }
-            className={SELECT_CLS}
-          >
-            <option value="">All tools</option>
-            {tools.map((tool) => (
-              <option key={tool} value={tool}>
-                {tool}
-              </option>
-            ))}
-          </select>
+          <PillDropdown
+          label="Filter by tool"
+          value={filter.tool ?? ""}
+          options={[{ id: "", label: "All tools" }, ...tools.map(id => ({ id, label: id }))]}
+          onChange={id => onFilterChange({ ...filter, tool: id || null })}
+        />
         ) : null}
-        <button
-          type="button"
+        <NavigationTab
+          active={Boolean(filter.errorsOnly)}
           onClick={() =>
             onFilterChange({ ...filter, errorsOnly: !filter.errorsOnly })
           }
-          className={`rounded-full border px-2.5 py-1 text-xs ${
-            filter.errorsOnly
-              ? "border-red-500/30 bg-red-500/10 text-red-500"
-              : "border-border bg-surface text-dim"
-          }`}
         >
           Errors only
-        </button>
-        <button
-          type="button"
+        </NavigationTab>
+        <NavigationTab
+          active={Boolean(filter.paymentsOnly)}
           onClick={() =>
             onFilterChange({ ...filter, paymentsOnly: !filter.paymentsOnly })
           }
-          className={`rounded-full border px-2.5 py-1 text-xs ${
-            filter.paymentsOnly
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
-              : "border-border bg-surface text-dim"
-          }`}
         >
           Partner payments only
-        </button>
+        </NavigationTab>
         {active ? (
           <button
             type="button"
             onClick={() => onFilterChange(EMPTY_LOGS_PAGE_FILTER)}
-            className="text-dim hover:text-foreground flex items-center gap-1 text-xs"
+            className={aomiButton({ size: "sm" })}
           >
             <X className="size-3" /> Clear filters
           </button>
@@ -283,7 +257,7 @@ export function LogRows({
       </div>
 
       {/* Stream: one line per record */}
-      <div className="border-border overflow-hidden rounded-md border">
+      <div className="build-table-frame">
         {visible.map((row, position) => {
           const rowId = `${row.eventType ?? "invocation"}-${row.id}`;
           const prev = position > 0 ? visible[position - 1] : null;
@@ -297,7 +271,7 @@ export function LogRows({
           return (
             <div key={rowId}>
               {showDay && day ? (
-                <div className="border-border bg-surface-subtle text-dim border-b px-3 py-1 text-[10px] uppercase tracking-wide">
+                <div className="build-table-band px-4 py-1.5 text-sm">
                   {day}
                 </div>
               ) : null}
@@ -305,7 +279,7 @@ export function LogRows({
                 onClick={
                   expandable ? () => onToggle(open ? null : rowId) : undefined
                 }
-                className={`border-border grid grid-cols-[8px_66px_150px_1fr] items-baseline gap-x-3 border-b px-3 py-1.5 font-mono text-xs last:border-b-0 sm:grid-cols-[8px_66px_150px_60px_1fr_110px] ${
+                className={`border-border grid grid-cols-[8px_66px_150px_1fr] items-baseline gap-x-3 border-b px-3 py-1.5 font-mono text-xs sm:grid-cols-[8px_66px_150px_60px_1fr_110px] ${
                   expandable ? "hover:bg-surface-subtle cursor-pointer" : ""
                 } ${open ? "bg-surface-subtle" : "bg-surface"}`}
               >

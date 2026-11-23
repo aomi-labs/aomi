@@ -1,4 +1,4 @@
-import { ShieldCheckIcon, ShieldIcon, ShieldOffIcon } from "lucide-react";
+import { ShieldCheckIcon, ShieldIcon, ShieldSlashIcon } from "@/icons/ui-icons";
 import type { ComponentType } from "react";
 import {
   TRANSACTION_SAFETY_NAMES,
@@ -36,7 +36,7 @@ const LEVELS: Record<TransactionSafetyMode, TransactionSafetyLevel> = {
     ...TRANSACTION_SAFETY_NAMES.yolo,
     // Not the lightning of the Instant ask mode: Yolo turns guards off, it does
     // not skip approval.
-    Icon: ShieldOffIcon,
+    Icon: ShieldSlashIcon,
     canBeDefault: false,
     danger: true,
   },

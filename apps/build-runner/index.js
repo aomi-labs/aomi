@@ -1,8 +1,35 @@
 import { Buffer } from "node:buffer";
+import { Container } from "@cloudflare/containers";
 import { extractFileFromTarGz } from "../build/src/server/build/tar.ts";
 import { modelRequest } from "./model.js";
+
 export { ContainerProxy } from "@cloudflare/containers";
-import { Container } from "@cloudflare/containers";
+
+// Smithers limits its base64 crate archive to 2,500,000 characters.
+const MAX_ARTIFACT_BYTES = 2_000_000;
+
+// R2 requires a known length. Buffer at most the runner's small crate archive.
+async function readArtifact(body) {
+  const reader = body.getReader();
+  const chunks = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_ARTIFACT_BYTES) {
+        await reader.cancel();
+        throw new Error("Build artifact exceeds the size limit");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  if (!size) throw new Error("Build artifact is empty");
+  return Buffer.concat(chunks, size);
+}
 
 // This Worker has only a private service binding. The caller authenticates the owner.
 export default {
@@ -23,10 +50,6 @@ export default {
 };
 
 export class BuildRun extends Container {
-  static outboundByHost = {
-    "model.internal": (request, env, ctx) =>
-      env.RUNS.get(env.RUNS.idFromString(ctx.containerId)).model(request),
-  };
   async model(request) {
     return modelRequest(request, this.env, await this.ctx.storage.get("run"));
   }
@@ -89,6 +112,8 @@ export class BuildRun extends Container {
     // Install the next tick first so an eviction during I/O cannot orphan the run.
     await this.schedule(15, "supervise");
     const headers = { authorization: "Bearer " + run.capability };
+    let step = "starting the container";
+    let httpStatus;
     try {
       await this.startAndWaitForPorts({ ports: 8080, startOptions: {
         entrypoint: ["bun", "/workspace/container.ts"], enableInternet: true,
@@ -102,12 +127,17 @@ export class BuildRun extends Container {
             OPENAI_BASE_URL: "http://model.internal/v1", OPENAI_API_KEY: run.modelCapability,
           } : {}) },
       } });
+      step = "reading the build status";
       const response = await this.containerFetch("http://runner/start", {
         method: "POST", headers, body: JSON.stringify(run.input),
       });
-      if (!response.ok) throw new Error("Container rejected supervision");
+      if (!response.ok) {
+        httpStatus = response.status;
+        throw new Error("Container rejected supervision");
+      }
       const report = await response.json();
       if (report.runId !== run.id) throw new Error("Container reported a different run");
+      step = "saving the build status";
       if ((await this.ctx.storage.get("run"))?.status !== "running") return;
       run.stages = report.stages;
       run.fileTree = report.fileTree;
@@ -115,15 +145,33 @@ export class BuildRun extends Container {
       if (report.status === "running") await this.ctx.storage.put("run", run);
       if (report.status === "failed") return this.finish(run, "failed", report.error);
       if (report.status === "completed") {
+        step = "reading the build artifact";
         const artifact = await this.containerFetch("http://runner/artifact", { headers });
-        if (!artifact.ok || !artifact.body) throw new Error("Artifact unavailable");
-        await this.env.ARTIFACTS.put(this.ctx.id.toString(), artifact.body);
+        if (!artifact.ok || !artifact.body) {
+          httpStatus = artifact.status;
+          throw new Error("Artifact unavailable");
+        }
+        const bytes = await readArtifact(artifact.body);
+        step = "saving the build artifact";
+        await this.env.ARTIFACTS.put(this.ctx.id.toString(), bytes);
+        step = "saving the build status";
         await this.finish(run, "completed");
       }
     } catch {
       if ((await this.ctx.storage.get("run"))?.status !== "running") return;
-      if (++run.attempts >= 3) return this.finish(run, "failed", "Runner unavailable after three attempts");
+      run.attempts++;
+      // Retry logs use fixed stage labels and omit request bodies and error text.
+      console.warn("Build runner retry", { runId: run.id, step, httpStatus, attempt: run.attempts });
+      if (run.attempts >= 3) {
+        return this.finish(run, "failed", `Build runner failed while ${step} after three attempts`);
+      }
       await this.ctx.storage.put("run", run);
     }
   }
 }
+
+// Assign through the Container setter so ContainerProxy can find the handler.
+BuildRun.outboundByHost = {
+  "model.internal": (request, env, ctx) =>
+    env.RUNS.get(env.RUNS.idFromString(ctx.containerId)).model(request),
+};

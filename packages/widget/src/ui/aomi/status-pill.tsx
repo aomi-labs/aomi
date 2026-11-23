@@ -1,5 +1,5 @@
 import { cn } from "@/lib/cn";
-import type { ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 export type StatusTone =
   | "neutral"
@@ -9,7 +9,7 @@ export type StatusTone =
   | "danger";
 
 const TONE: Record<StatusTone, string> = {
-  neutral: "bg-aomi-surface-2 text-aomi-muted",
+  neutral: "bg-[var(--aomi-g1)] text-[color:var(--aomi-g3)]",
   accent: "bg-aomi-accent-subtle text-aomi-accent-strong",
   success: "bg-aomi-success/12 text-aomi-success",
   // The raw warning amber is a fill color: as 11px text on its own tint it
@@ -30,7 +30,8 @@ export function StatusPill({
   dot = false,
   className,
   children,
-}: {
+  ...props
+}: ComponentPropsWithoutRef<"span"> & {
   tone?: StatusTone;
   /** Leading 6px dot in the tone's color. */
   dot?: boolean;
@@ -39,6 +40,7 @@ export function StatusPill({
 }) {
   return (
     <span
+      {...props}
       data-status-tone={tone}
       className={cn(
         "inline-flex h-5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[11px] font-medium leading-none",

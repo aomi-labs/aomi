@@ -1,7 +1,10 @@
+import { transactionStatusTone } from "./transaction-status";
+import { aomiButton, StatusPill } from "@aomi-labs/widget/controls";
 // Per-app drill-down dashboard shared by the live product route and the fixture
 // design harness. Product data is rendered as received; empty series are an
 // honest no-data state rather than substituted example values.
 
+import { TH } from "./table";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import type { AppFixture, TxRecord } from "@/features/operate/fixtures";
 
@@ -167,7 +170,7 @@ function Tile({
   tone?: "bad" | "warn";
 }) {
   return (
-    <div className="border-border bg-surface rounded-md border px-3 py-2.5">
+    <div className="border-border bg-surface rounded-build-panel border px-3 py-2.5">
       <div className="text-dim text-xs">{label}</div>
       <div
         className={`text-lg font-semibold ${tone === "bad" ? "text-red-500" : tone === "warn" ? "text-amber-500" : "text-foreground"}`}
@@ -180,31 +183,26 @@ function Tile({
 }
 
 function Panel({
+  table,
   title,
   right,
   children,
 }: {
   title: string;
+  table?: boolean;
   right?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-border bg-surface rounded-md border">
+    <div className={table ? "bg-surface" : "border-border bg-surface rounded-build-panel border"}>
       <div className="border-border flex items-center justify-between border-b px-3 py-2">
         <span className="text-dim text-xs font-medium uppercase">{title}</span>
         {right}
       </div>
-      <div className="px-3 py-3">{children}</div>
+      <div className={table ? undefined : "px-3 py-3"}>{children}</div>
     </div>
   );
 }
-
-const STATUS_CHIP: Record<TxRecord["status"], string> = {
-  confirmed: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
-  submitted: "bg-amber-500/10 text-amber-500 border-amber-500/30",
-  failed: "bg-red-500/10 text-red-500 border-red-500/30",
-  created: "bg-surface-subtle text-dim border-border",
-};
 
 const STATUS_DOT: Record<string, string> = {
   healthy: "bg-emerald-500",
@@ -259,7 +257,7 @@ export function AppDetailView({
             type="button"
             aria-label="Back to observability"
             onClick={onBack}
-            className="border-border bg-surface hover:bg-accent-hover rounded-md border p-2"
+            className="border-border bg-surface hover:bg-accent-hover rounded-build-panel border p-2"
           >
             <ArrowLeft className="size-4" />
           </button>
@@ -269,12 +267,7 @@ export function AppDetailView({
                 {displayName ?? meta.name}
               </h1>
               {example ? (
-                <span
-                  title="Live data for this view isn't connected yet — showing example data."
-                  className="border-border bg-surface-subtle text-dim rounded-full border px-2 py-0.5 text-xs"
-                >
-                  Example data
-                </span>
+                <StatusPill title="Live data for this view isn't connected yet — showing example data.">Example data</StatusPill>
               ) : null}
               <span className="flex items-center gap-1.5 text-xs">
                 <span
@@ -283,12 +276,7 @@ export function AppDetailView({
                 {meta.status}
               </span>
               {meta.families.map((family) => (
-                <span
-                  key={family}
-                  className="border-border bg-surface-subtle text-dim rounded-full border px-2 py-0.5 text-[10px] uppercase"
-                >
-                  {family}
-                </span>
+                <StatusPill key={family}>{family.toUpperCase()}</StatusPill>
               ))}
             </div>
             <div className="text-dim text-xs">
@@ -299,7 +287,7 @@ export function AppDetailView({
         </div>
         <div className="flex items-center gap-2">
           <div
-            className="border-border bg-surface flex rounded-md border text-xs"
+            className="border-border bg-surface flex rounded-build-panel border text-xs"
             role="group"
             aria-label="Activity time range"
           >
@@ -321,7 +309,7 @@ export function AppDetailView({
               href={dashboardHref}
               target="_blank"
               rel="noreferrer"
-              className="border-border bg-surface hover:bg-accent-hover flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs"
+              className={aomiButton({ variant: "primary", size: "sm" })}
             >
               Grafana <ExternalLink className="size-3" />
             </a>
@@ -346,7 +334,7 @@ export function AppDetailView({
                     <div>{prev ? `${conv}%` : "—"}</div>
                   </div>
                 ) : null}
-                <div className="border-border bg-surface-subtle min-w-28 rounded-md border px-4 py-3 text-center">
+                <div className="border-border bg-surface-subtle min-w-28 rounded-build-panel border px-4 py-3 text-center">
                   <div className="text-2xl font-semibold">
                     {stage.value ?? "—"}
                   </div>
@@ -456,6 +444,7 @@ export function AppDetailView({
 
       {/* Tools table → click a row to open its trace in Logs */}
       <Panel
+        table
         title={`Tools · ${window}`}
         right={
           <span className="text-dim text-xs">
@@ -463,16 +452,16 @@ export function AppDetailView({
           </span>
         }
       >
-        <div className="overflow-x-auto">
+        <div className="build-table-frame">
           <table className="min-w-full text-sm">
-            <thead className="text-dim text-left text-xs uppercase">
+            <thead className="build-table-band">
               <tr>
-                <th className="py-1.5 pr-3">Tool</th>
-                <th className="py-1.5 pr-3">Calls</th>
-                <th className="py-1.5 pr-3">Errors</th>
-                <th className="py-1.5 pr-3">Error rate</th>
-                <th className="py-1.5 pr-3">P95</th>
-                <th className="py-1.5">Last error</th>
+                <th className={TH}>Tool</th>
+                <th className={TH}>Calls</th>
+                <th className={TH}>Errors</th>
+                <th className={TH}>Error rate</th>
+                <th className={TH}>P95</th>
+                <th className={TH}>Last error</th>
               </tr>
             </thead>
             <tbody className="divide-border divide-y">
@@ -483,16 +472,16 @@ export function AppDetailView({
                     onClick={() => onOpenTrace(row.tool)}
                     className="hover:bg-surface-subtle cursor-pointer"
                   >
-                    <td className="py-2 pr-3 font-mono text-xs">{row.tool}</td>
-                    <td className="py-2 pr-3">{row.calls ?? "—"}</td>
-                    <td className="py-2 pr-3">{row.errors ?? "—"}</td>
+                    <td className="py-2 px-4 font-mono text-xs">{row.tool}</td>
+                    <td className="py-2 px-4">{row.calls ?? "—"}</td>
+                    <td className="py-2 px-4">{row.errors ?? "—"}</td>
                     <td
-                      className={`py-2 pr-3 font-medium ${row.bad ? "text-red-500" : ""}`}
+                      className={`py-2 px-4 font-medium ${row.bad ? "text-red-500" : ""}`}
                     >
                       {row.errorRate}
                     </td>
-                    <td className="py-2 pr-3">{row.p95}</td>
-                    <td className="text-dim py-2 text-xs">{row.last}</td>
+                    <td className="py-2 px-4">{row.p95}</td>
+                    <td className="text-dim px-4 py-2 text-xs">{row.last}</td>
                   </tr>
                 ))
               ) : (
@@ -510,6 +499,7 @@ export function AppDetailView({
       {/* Transactions + right column */}
       <div className="grid gap-2 lg:grid-cols-[1fr_340px]">
         <Panel
+          table
           title="Recent transactions"
           right={
             <span className="text-dim text-xs">
@@ -518,16 +508,16 @@ export function AppDetailView({
           }
         >
           {recentTx.length ? (
-            <div className="overflow-x-auto">
+            <div className="build-table-frame">
               <table className="min-w-full text-sm">
-                <thead className="text-dim text-left text-xs uppercase">
+                <thead className="build-table-band">
                   <tr>
-                    <th className="py-1.5 pr-3">Time</th>
-                    <th className="py-1.5 pr-3">Action</th>
-                    <th className="py-1.5 pr-3">Chain</th>
-                    <th className="py-1.5 pr-3">Status</th>
-                    <th className="py-1.5 pr-3">Fee</th>
-                    <th className="py-1.5">Platform fee</th>
+                    <th className={TH}>Time</th>
+                    <th className={TH}>Action</th>
+                    <th className={TH}>Chain</th>
+                    <th className={TH}>Status</th>
+                    <th className={TH}>Fee</th>
+                    <th className={TH}>Platform fee</th>
                   </tr>
                 </thead>
                 <tbody className="divide-border divide-y">
@@ -537,24 +527,20 @@ export function AppDetailView({
                       onClick={() => onOpenTx(tx.id)}
                       className="hover:bg-surface-subtle cursor-pointer"
                     >
-                      <td className="text-dim py-2 pr-3 text-xs">
+                      <td className="text-dim py-2 px-4 text-xs">
                         {clockOf(tx)}
                       </td>
-                      <td className="max-w-64 truncate py-2 pr-3">
+                      <td className="max-w-64 truncate py-2 px-4">
                         {tx.description}
                       </td>
-                      <td className="py-2 pr-3">{tx.chain}</td>
-                      <td className="py-2 pr-3">
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-xs ${STATUS_CHIP[tx.status]}`}
-                        >
-                          {tx.status}
-                        </span>
+                      <td className="py-2 px-4">{tx.chain}</td>
+                      <td className="py-2 px-4">
+                        <StatusPill tone={transactionStatusTone(tx.status)}>{tx.status}</StatusPill>
                       </td>
-                      <td className="py-2 pr-3 font-mono text-xs">
+                      <td className="py-2 px-4 font-mono text-xs">
                         {tx.txFee ?? "—"}
                       </td>
-                      <td className="py-2 font-mono text-xs">
+                      <td className="px-4 py-2 font-mono text-xs">
                         {tx.platformFee ?? "—"}
                       </td>
                     </tr>
@@ -593,9 +579,7 @@ export function AppDetailView({
                     </span>
                     <span className="text-dim text-xs">{release.when}</span>
                     {release.current ? (
-                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-500">
-                        current
-                      </span>
+                      <StatusPill tone="success">current</StatusPill>
                     ) : (
                       <span className="text-dim text-xs">{release.note}</span>
                     )}

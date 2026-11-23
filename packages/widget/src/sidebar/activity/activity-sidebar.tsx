@@ -31,9 +31,17 @@ import { ToolChipView } from "@/thread/tool-chip";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import {
   selectActivity,
+  selectPolicyChangeIds,
+  selectPolicyFilings,
   selectReviewCommit,
   type ActivityTransaction,
 } from "./model";
+import {
+  PolicyChangeCard,
+  usePolicyChanges,
+  usePolicyWallets,
+  WalletSignatures,
+} from "./policy-changes";
 import { focusRing } from "./presentation";
 import { SubagentRow } from "./subagent-row";
 import { TransactionCard, TransactionList } from "./transactions";
@@ -114,6 +122,17 @@ function ActivitySidebarContent() {
         -Infinity,
       ),
     [events],
+  );
+  const policyChangeIds = useMemo(
+    () => selectPolicyChangeIds(events),
+    [events],
+  );
+  const policy = usePolicyChanges(policyChangeIds);
+  const policyFilings = useMemo(() => selectPolicyFilings(events), [events]);
+  const policyWallets = usePolicyWallets(policyFilings);
+  const policySignatures = policyWallets.signing.reduce(
+    (count, wallet) => count + wallet.rows.length,
+    0,
   );
   const pending = pendingActions[0];
   const pendingCommit = selectReviewCommit(commits, commitController);
@@ -217,16 +236,28 @@ function ActivitySidebarContent() {
     activity.history.length ||
     pendingActions.length ||
     commits.length ||
-    scheduled.length,
+    scheduled.length ||
+    policy.changes.length ||
+    policySignatures,
   );
-  const waiting = Boolean(pending || pendingCommit || scheduled.length);
+  const waiting = Boolean(
+    pending ||
+    pendingCommit ||
+    scheduled.length ||
+    policy.changes.length ||
+    policySignatures,
+  );
   useEffect(() => {
     setWorthShowing(hasActivity, waiting);
   }, [hasActivity, waiting, setWorthShowing]);
   useEffect(() => () => setWorthShowing(false, false), [setWorthShowing]);
   // A new wallet request reopens the sheet: it holds the only sign controls.
   // Key it like WalletReview picks its request: the live commit comes first.
-  const reviewKey = pendingCommit?.commit_id ?? pending?.id;
+  const reviewKey =
+    pendingCommit?.commit_id ??
+    pending?.id ??
+    policy.changes[0]?.id ??
+    policyWallets.signing[0]?.rows[0]?.id;
   useEffect(() => {
     if (sheet && reviewKey) setPanelOpen(true);
   }, [sheet, reviewKey, setPanelOpen]);
@@ -260,6 +291,38 @@ function ActivitySidebarContent() {
       {activity.skills.length > 0 && (
         <Group title="Skills" count={activity.skills.length}>
           <InvokedSkills ids={activity.skills} />
+        </Group>
+      )}
+      {policy.changes.length > 0 && (
+        <Group title="Review policy change" count={policy.changes.length}>
+          <div className="flex flex-col gap-3">
+            {policy.changes.map((change) => (
+              <PolicyChangeCard
+                key={change.id}
+                change={change}
+                onDecided={(id) => {
+                  policy.drop(id);
+                  policyWallets.reload();
+                }}
+                onStale={policy.reload}
+              />
+            ))}
+          </div>
+        </Group>
+      )}
+      {policySignatures > 0 && (
+        <Group title="Sign policy on chain" count={policySignatures}>
+          <div className="flex flex-col gap-3">
+            {policyWallets.signing.map((wallet) => (
+              <WalletSignatures
+                key={wallet.rules.agent_wallet_id}
+                wallet={wallet.rules}
+                rows={wallet.rows}
+                onRules={policyWallets.update}
+                onStale={policyWallets.reload}
+              />
+            ))}
+          </div>
         </Group>
       )}
       {hasTransactions && (

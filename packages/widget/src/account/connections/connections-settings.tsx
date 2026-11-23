@@ -373,7 +373,7 @@ export function ConnectionsSettings() {
   })).filter((band) => band.items.length > 0);
 
   return (
-    <section className="flex flex-col gap-2">
+    <section className="aomi-section-body">
       <SectionHeader
         title="Connected"
         detail="Each one uses only the agent wallets you allow"
@@ -471,7 +471,7 @@ function TelegramSheet({
         onClose={onClose}
       />
       <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pb-5">
-        <section className="flex flex-col gap-2">
+        <section className="aomi-section-body">
           <SectionHeader
             title="Bots"
             detail="Each bot uses only the wallets you allow it"

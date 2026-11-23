@@ -1,5 +1,6 @@
 "use client";
 
+import { StatusPill } from "@/ui/aomi/status-pill";
 import type { ReactNode } from "react";
 import type {
   AppModelRow,
@@ -335,15 +336,9 @@ export function Chip({
   accent?: boolean;
 }) {
   return (
-    <span
-      className={`shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-        accent
-          ? "border-aomi-accent-outline bg-aomi-accent-tint text-aomi-accent"
-          : "border-aomi-border bg-aomi-surface-2 text-aomi-muted"
-      }`}
-    >
+    <StatusPill tone={accent ? "accent" : "neutral"} className="uppercase tracking-wide">
       {children}
-    </span>
+    </StatusPill>
   );
 }
 

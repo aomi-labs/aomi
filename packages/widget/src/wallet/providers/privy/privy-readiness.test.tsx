@@ -433,4 +433,23 @@ describe("Privy signer readiness", () => {
     ).rejects.toThrow("not the requested signer");
     expect(fixture.providerRequest).not.toHaveBeenCalled();
   });
+  it("sends uint256 bigints to the embedded signer as decimal strings", async () => {
+    fixture.providerRequest.mockResolvedValueOnce("0xsignature");
+    const execution = mount();
+    await expect(
+      execution.evm.signTypedData!({
+        signer: EOA,
+        typed_data: {
+          domain: {},
+          types: { Grant: [{ name: "salt", type: "uint256" }] },
+          primaryType: "Grant",
+          message: { salt: BigInt("123456789012345678901234567890") },
+        },
+      }),
+    ).resolves.toEqual({ signature: "0xsignature" });
+    const [{ params }] = fixture.providerRequest.mock.calls[0]!;
+    expect(JSON.parse(params[1]).message.salt).toBe(
+      "123456789012345678901234567890",
+    );
+  });
 });
