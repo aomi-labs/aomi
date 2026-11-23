@@ -60,43 +60,36 @@ export type { SettingsTab };
 const NAV: {
   id: SettingsTab;
   label: string;
-  description: string;
   Icon: ComponentType<{ className?: string }>;
 }[] = [
   {
     id: "general",
     label: "General",
-    description: "Appearance, defaults, and account overview",
     Icon: SlidersHorizontalIcon,
   },
   {
     id: "account",
     label: "Account",
-    description: "Wallets and sign-in methods",
     Icon: UserCircleIcon,
   },
   {
     id: "connections",
     label: "Connections",
-    description: "Apps, bots and terminals that use your account",
     Icon: PlugsIcon,
   },
   {
     id: "policies",
     label: "Policies",
-    description: "What your agent wallets may spend, and where",
     Icon: ScrollIcon,
   },
   {
     id: "policy",
     label: "Safety",
-    description: "Guard policy for new chats",
     Icon: ShieldCheckIcon,
   },
   {
     id: "usage",
     label: "Billing",
-    description: "Plan, balance, usage and payments",
     Icon: CreditCardIcon,
   },
 ];
@@ -286,7 +279,11 @@ export function SettingsModal({
       closeLabel="Close settings"
       onClose={onClose}
     >
-      <ModalSidebar title="Settings" titleId="settings-title" icon={GearSixIcon}>
+      <ModalSidebar
+        title="Settings"
+        titleId="settings-title"
+        icon={GearSixIcon}
+      >
         <ModalNav label="Settings sections" className="mt-2 md:mt-3">
           {NAV.filter((item) => !accountOnly || item.id === "account").map(
             ({ id, label, Icon }) => (
@@ -303,10 +300,7 @@ export function SettingsModal({
       </ModalSidebar>
 
       <section className="flex min-h-0 min-w-0 flex-col">
-        <ModalHeader
-          title={activeNav.label}
-          description={tab === "general" ? undefined : activeNav.description}
-        />
+        <ModalHeader title={activeNav.label} />
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <SettingsNavContext.Provider value={accountOnly ? null : selectTab}>
             {renderContent()}

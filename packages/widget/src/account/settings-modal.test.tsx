@@ -130,21 +130,24 @@ describe("SettingsModal directory shell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Account" }));
     expect(await screen.findByText("Account content")).toBeTruthy();
-    expect(screen.getByText("Wallets and sign-in methods")).toBeTruthy();
+    expect(screen.queryByText("Wallets and sign-in methods")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));
     fireEvent.click(screen.getByRole("button", { name: "Safety" }));
     expect(screen.getByText("Policy content")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Safety" })).toBeTruthy();
-    expect(screen.getByText("Guard policy for new chats")).toBeTruthy();
+    expect(screen.queryByText("Guard policy for new chats")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Connections" }));
     expect(await screen.findByText("Connections content")).toBeTruthy();
+    expect(
+      screen.queryByText("Apps, bots and terminals that use your account"),
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));
     fireEvent.click(screen.getByRole("button", { name: "View billing" }));
     expect(screen.getByText("Billing content")).toBeTruthy();
-    expect(screen.getByText("Plan, balance, usage and payments")).toBeTruthy();
+    expect(screen.queryByText("Plan, balance, usage and payments")).toBeNull();
   });
 
   it("lists Policies after Connections, apart from Safety, and tells it when it is in front", async () => {
@@ -164,6 +167,9 @@ describe("SettingsModal directory shell", () => {
     ]);
     fireEvent.click(screen.getByRole("button", { name: "Policies" }));
     expect(screen.getByRole("heading", { name: "Policies" })).toBeTruthy();
+    expect(
+      screen.queryByText("What your agent wallets may spend, and where"),
+    ).toBeNull();
     expect(await screen.findByText("Policies content")).toHaveAttribute(
       "data-active",
       "true",
