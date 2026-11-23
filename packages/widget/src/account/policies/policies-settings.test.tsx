@@ -1543,9 +1543,12 @@ describe("Settings › Policies", () => {
           (kit as { sendTransaction?: unknown }).sendTransaction = undefined;
           try {
             await renderPolicies();
+            has(
+              removedRows()[0],
+              "This wallet can’t send transactions here. Connect another EVM wallet to send it.",
+            );
             await send();
-            await see("This wallet can't send that.");
-            expect(writes()).toHaveLength(2);
+            expect(writes()).toHaveLength(1);
           } finally {
             kit.sendTransaction = original;
           }

@@ -13,6 +13,7 @@ import {
 import { useAomiWalletKit } from "@/wallet/context";
 import type { AomiWalletKit } from "@/wallet/types";
 import { isExpectedWalletCancellation } from "@/wallet/picker/wallet-cancellation";
+import { canSendSolana, sendSolana } from "@/wallet/runtime/svm/transactions";
 import {
   connectedAddress,
   type RulesClient,
@@ -231,12 +232,31 @@ async function act(
     });
     return {};
   }
-  const execute = kit.signAndSendSolanaTransaction ?? kit.sendSolanaTransaction;
   const cluster = normalizeSolanaCluster(action.network);
-  if (entry.signer.family !== "svm" || !cluster || !execute)
+  if (entry.signer.family !== "svm" || !cluster || !canSendSolana(kit))
     throw new Error("This wallet can't sign that transaction.");
-  await execute({ unsignedTx: action.unsigned_base64, description, cluster });
+  await sendSolana(kit, {
+    unsignedTx: action.unsigned_base64,
+    description,
+    cluster,
+  });
   return {};
+}
+
+/** Why the owner's connected wallet can't take this step, or null when it can. */
+function unable(
+  kit: AomiWalletKit,
+  entry: AomiPolicyEnforcement,
+  remove: boolean,
+): string | null {
+  const send = remove && sendsRevocation(entry);
+  const end = `wallet to ${send ? "send it" : remove ? "take it off" : "deploy"}.`;
+  if (entry.signer.family === "svm")
+    return canSendSolana(kit)
+      ? null
+      : `This wallet can’t sign Solana transactions here. Connect another Solana ${end}`;
+  if (send ? kit.sendTransaction : kit.signTypedData) return null;
+  return `This wallet can’t ${send ? "send transactions" : "sign this policy"} here. Connect another EVM ${end}`;
 }
 
 /** What a wallet or network said when a step failed; wallets often throw plain objects. */
@@ -278,7 +298,7 @@ const stillHeld = (rules: AomiWalletPolicies, key: string) =>
 export type EnforcementStep = {
   busy: boolean;
   disabled: boolean;
-  /** Which wallet to connect, or what is being signed while the wallet asks. */
+  /** Why the step is unavailable, or what is being signed while the wallet asks. */
   hint: string | null;
   error: string | null;
   run: () => void;
@@ -428,16 +448,16 @@ export function useRuleEnforcement({
   ): EnforcementStep => {
     const key = enforcementKey(entry);
     const { connected, owner, canSign } = signerOf(entry);
+    const verb = remove && sendsRevocation(entry) ? "send" : "sign";
+    const blocked = canSign
+      ? unable(kit, entry, remove)
+      : owner && owner !== connected
+        ? `Only the wallet that set this policy can change it on chain. Connect ${shortAddress(owner)} to ${verb}.`
+        : `Connect ${FAMILY[entry.signer.family]} wallet to ${verb}.`;
     return {
       busy: busy === key,
-      disabled: busy !== null || !canSign,
-      hint: canSign
-        ? (signing[key] ?? null)
-        : `Connect ${
-            owner && owner !== connected
-              ? shortAddress(owner)
-              : `${FAMILY[entry.signer.family]} wallet`
-          } to ${remove && sendsRevocation(entry) ? "send" : "sign"}.`,
+      disabled: busy !== null || blocked !== null,
+      hint: blocked ?? signing[key] ?? null,
       error: errors[key] ?? null,
       run: () => void run(entry, { remove, summary }),
     };

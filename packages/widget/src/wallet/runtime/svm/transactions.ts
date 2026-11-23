@@ -9,6 +9,7 @@ import {
   Transaction as SolanaTransaction,
   VersionedTransaction,
 } from "@solana/web3.js";
+import type { AomiWalletKit } from "@/wallet/types";
 import type { SafeSvmWalletState } from "./wallet-runtime";
 
 function decodeBase64(value: string): Uint8Array {
@@ -171,4 +172,42 @@ export function buildSvmTransactionMethods(
     solanaRpcHttpUrl: config.rpcHttpUrl,
     solanaRpcWsUrl: config.rpcWsUrl,
   };
+}
+
+type SolanaSender = Pick<
+  AomiWalletKit,
+  | "signAndSendSolanaTransaction"
+  | "sendSolanaTransaction"
+  | "signSolanaTransaction"
+  | "solanaRpcHttpUrl"
+>;
+
+/** Whether this wallet can get a Solana transaction on chain at all. */
+export function canSendSolana(kit: SolanaSender): boolean {
+  return Boolean(
+    kit.signAndSendSolanaTransaction ||
+    kit.sendSolanaTransaction ||
+    (kit.signSolanaTransaction && kit.solanaRpcHttpUrl),
+  );
+}
+
+/** Sign and send with the best path the wallet has: direct send, else sign then broadcast. */
+export async function sendSolana(
+  kit: SolanaSender,
+  payload: WalletSolanaSignPayload,
+): Promise<{ signature: string; signedTx?: string }> {
+  if (kit.signAndSendSolanaTransaction) {
+    return kit.signAndSendSolanaTransaction(payload);
+  }
+  if (kit.sendSolanaTransaction) return kit.sendSolanaTransaction(payload);
+  if (kit.signSolanaTransaction && kit.solanaRpcHttpUrl) {
+    const signed = await kit.signSolanaTransaction(payload);
+    const connection = new SolanaConnection(kit.solanaRpcHttpUrl, "confirmed");
+    const signature = await connection.sendRawTransaction(
+      decodeBase64(signed.signedTx),
+    );
+    await connection.confirmTransaction(signature, "confirmed");
+    return { signature, signedTx: signed.signedTx };
+  }
+  throw new Error("Solana wallet provider is not ready");
 }

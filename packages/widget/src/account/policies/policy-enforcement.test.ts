@@ -214,6 +214,105 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
   });
 });
 
+describe("a step the connected wallet cannot take is disabled, with the reason", () => {
+  const OWNER = "0xAbCd00000000000000000000000000000000Ef12";
+  const SOL = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T";
+  const SENT = "Your revocation is signed. Send it from your wallet.";
+  const evm = { family: "evm", address: OWNER };
+  const svm = { family: "svm", address: SOL };
+  const sign = vi.fn();
+  const NO_SOLANA =
+    "This wallet can’t sign Solana transactions here. Connect another Solana wallet to deploy.";
+  it.each([
+    [
+      "Swig deploy, direct send",
+      svm,
+      false,
+      { signAndSendSolanaTransaction: sign },
+      null,
+    ],
+    [
+      "Swig deploy, sign then broadcast",
+      svm,
+      false,
+      { signSolanaTransaction: sign, solanaRpcHttpUrl: "https://rpc" },
+      null,
+    ],
+    [
+      "Swig deploy, signing with no RPC",
+      svm,
+      false,
+      { signSolanaTransaction: sign },
+      NO_SOLANA,
+    ],
+    ["Swig deploy, no Solana path", svm, false, {}, NO_SOLANA],
+    ["MetaMask deploy", evm, false, { signTypedData: sign }, null],
+    [
+      "MetaMask deploy, no typed data",
+      evm,
+      false,
+      {},
+      "This wallet can’t sign this policy here. Connect another EVM wallet to deploy.",
+    ],
+    ["MetaMask revoke", evm, true, { sendTransaction: sign }, null],
+    [
+      "MetaMask revoke, no send",
+      evm,
+      true,
+      { signTypedData: sign },
+      "This wallet can’t send transactions here. Connect another EVM wallet to send it.",
+    ],
+    [
+      "another EVM wallet connected",
+      evm,
+      false,
+      {
+        identity: { address: "0x1111000000000000000000000000000000002222" },
+        signTypedData: sign,
+      },
+      "Only the wallet that set this policy can change it on chain. Connect 0xAbCd…Ef12 to sign.",
+    ],
+    [
+      "no wallet, no owner yet",
+      { family: "svm" },
+      false,
+      { identity: { svmAddress: undefined } },
+      "Connect a Solana wallet to sign.",
+    ],
+  ])("%s", (_, signer, remove, wallet, hint) => {
+    const { identity, ...methods } = {
+      identity: {},
+      sendTransaction: undefined,
+      ...wallet,
+    };
+    Object.assign(kit, methods, {
+      identity: { address: OWNER, svmAddress: SOL, chainId: 8453, ...identity },
+    });
+    const entry = {
+      rule: "r",
+      provider: "p",
+      network: "n",
+      ready: true,
+      note: remove ? SENT : null,
+      signer,
+    } as AomiPolicyEnforcement;
+    const { result } = renderHook(() =>
+      useRuleEnforcement({
+        client: {} as never,
+        walletId: "w",
+        revision: 1,
+        onRules: vi.fn(),
+        onStale: vi.fn(),
+      }),
+    );
+    const step = result.current[remove ? "takeOff" : "step"](entry);
+    expect(step).toMatchObject({ disabled: hint !== null, hint });
+    for (const key of Object.keys(methods))
+      delete (kit as Record<string, unknown>)[key];
+    kit.sendTransaction = vi.fn(async () => ({ txHash: "0xsent" }));
+  });
+});
+
 describe("failureText", () => {
   it("names a Solana adapter error that has no message", () => {
     const cause = new Error("");
