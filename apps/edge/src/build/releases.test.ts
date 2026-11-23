@@ -266,7 +266,7 @@ describe("the public catalog on Build", () => {
     });
     expect(response.status).toBe(200);
     expect(seen.map((call) => call.url)).toEqual([
-      "https://backend.example/api/resource/packages",
+      "https://backend.example/api/catalog/packages",
     ]);
     expect(seen[0]!.headers.get("cookie")).toBeNull();
   });

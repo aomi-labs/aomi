@@ -442,13 +442,14 @@ describe("multi-origin load balancing", () => {
     const staticHome = rankOrigins("42", ORIGINS)[0];
     const onlyAvailableHere = ORIGINS.find((origin) => origin !== staticHome);
     const response = await handleRequest(
-      new Request("https://api.aomi.dev/api/thread/state?agent_id=42", {
+      new Request("https://api.aomi.dev/api/thread/state?agent=acme%2Ftrader", {
         headers: { "X-Thread-Id": "agent-thread" },
       }),
       multiEnv,
       async (request) => {
         const target = new URL(request.url);
         if (target.pathname === "/availability") {
+          expect(target.searchParams.get("agent")).toBe("acme/trader");
           probes.push(target.origin);
           return new Response("OK", {
             status: target.origin === onlyAvailableHere ? 200 : 404,
@@ -470,7 +471,9 @@ describe("multi-origin load balancing", () => {
       const forwarded: string[] = [];
       let aborted = false;
       const pending = handleRequest(
-        new Request("https://api.aomi.dev/api/thread/state?agent_id=42"),
+        new Request(
+          "https://api.aomi.dev/api/thread/state?agent=acme%2Ftrader",
+        ),
         multiEnv,
         async (request) => {
           const url = new URL(request.url);
@@ -510,7 +513,7 @@ describe("multi-origin load balancing", () => {
     const origins: string[] = [];
     let probes = 0;
     const response = await handleRequest(
-      new Request("https://api.aomi.dev/api/thread/chat?agent_id=42", {
+      new Request("https://api.aomi.dev/api/thread/chat?agent=acme%2Ftrader", {
         method: "POST",
         body: "{}",
       }),
@@ -540,7 +543,7 @@ describe("multi-origin load balancing", () => {
     const waits: number[] = [];
     let appRequests = 0;
     const response = await handleRequest(
-      new Request("https://api.aomi.dev/api/thread/chat?agent_id=42", {
+      new Request("https://api.aomi.dev/api/thread/chat?agent=acme%2Ftrader", {
         method: "POST",
         body: "{}",
       }),
@@ -564,7 +567,7 @@ describe("multi-origin load balancing", () => {
 
   it("keeps the availability probe origin-direct and unrouted at the edge", async () => {
     const response = await handleRequest(
-      new Request("https://api.aomi.dev/availability?agent_id=42"),
+      new Request("https://api.aomi.dev/availability?agent=acme%2Ftrader"),
       multiEnv,
       unexpected,
     );
@@ -573,8 +576,8 @@ describe("multi-origin load balancing", () => {
 
   it("never availability-constrains /health or /api/_internal reads", async () => {
     for (const path of [
-      "/health?agent_id=42",
-      "/api/_internal/secrets?agent_id=42",
+      "/health?agent=acme%2Ftrader",
+      "/api/_internal/secrets?agent=acme%2Ftrader",
     ]) {
       const paths: string[] = [];
       const response = await handleRequest(

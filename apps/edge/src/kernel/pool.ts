@@ -3,14 +3,13 @@ import { config } from "./config";
 
 // The whole backend fleet, in BACKEND_ORIGINS order: the Terraform backend
 // inventory, injected by scripts/deploy.mjs. Routing never narrows this
-// statically: a hosted-agent request (one carrying agent_id) is probed
+// statically: a hosted-agent request (one carrying ?agent=publisher/name) is probed
 // against every origin and sent only to one that holds the agent's artifact
 // right now (constrainRouteToAvailableAgent). Static home-set placement stays a
 // backend prefetch concern, so an agent that is ready on a non-home host is never
 // made unreachable by placement.
 //
-// Internal placement requests may carry agent_id. Public session requests
-// use their thread binding and rendezvous routing.
+// Public session requests use their thread binding and rendezvous routing.
 export function resolvePool(env: EdgeEnv): readonly string[] {
   return config(env).pool;
 }

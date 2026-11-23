@@ -26,7 +26,7 @@ async function placed(
   fetchImpl: FetchLike,
   waitImpl: WaitLike,
 ): Promise<URL[]> {
-  if (!route.appId) return route.targets;
+  if (!route.agent) return route.targets;
   // Up to ten probes a second apart: long enough for a small artifact to land.
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const available = await Promise.all(
@@ -35,7 +35,7 @@ async function placed(
         const probe = target(
           url.origin,
           "/availability",
-          `?agent_id=${encodeURIComponent(route.appId!)}`,
+          `?agent=${encodeURIComponent(route.agent!)}`,
         );
         // Placement must not wait indefinitely for a hung pool member.
         const controller = new AbortController();

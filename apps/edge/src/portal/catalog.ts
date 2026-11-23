@@ -3,14 +3,11 @@ import type { EdgeEnv } from "../env";
 import { rankedPool } from "../kernel/pool";
 import type { FetchLike } from "../kernel/proxy";
 
-export type PublicCatalogKind = "models" | "toolsets" | "skills" | "packages";
+export type PublicCatalogKind = "models" | "packages";
 const PATHS: Record<PublicCatalogKind, string> = {
   models: "/api/thread/models",
-  toolsets: "/api/resource/toolsets",
-  skills: "/api/resource/skills",
-  packages: "/api/resource/packages",
+  packages: "/api/catalog/packages",
 };
-const TOOLSET_FIELDS = ["name", "display_name"];
 const PACKAGE_FIELDS = [
   "id",
   "display_name",
@@ -20,16 +17,6 @@ const PACKAGE_FIELDS = [
   "tags",
   "tool_count",
   "verified",
-];
-const SKILL_FIELDS = [
-  "id",
-  "name",
-  "description",
-  "tags",
-  "feature_catalog",
-  "chain_ids",
-  "injected_tools",
-  "est_tokens",
 ];
 
 function row(value: unknown): Record<string, unknown> | null {
@@ -70,45 +57,23 @@ export function projectPublicCatalog(
     return Array.isArray(value)
       ? value.filter((item) => typeof item === "string")
       : [];
-  if (kind === "toolsets") {
-    const toolsets = row(value)?.toolsets;
-    return (Array.isArray(toolsets) ? toolsets : []).flatMap((item) => {
-      const toolset = row(item);
-      return toolset && typeof toolset.name === "string"
-        ? [pick(toolset, TOOLSET_FIELDS)]
-        : [];
-    });
-  }
-  if (kind === "packages") {
-    const packages = row(value)?.packages;
-    return {
-      packages: (Array.isArray(packages) ? packages : []).flatMap((item) => {
-        const card = row(item);
-        if (!card || typeof card.id !== "string") return [];
-        const skills = Array.isArray(card.skills) ? card.skills : [];
-        return [
-          {
-            ...pick(card, PACKAGE_FIELDS),
-            skills: skills.flatMap((entry) => {
-              const skill = row(entry);
-              return skill && typeof skill.id === "string"
-                ? [pick(skill, ["id", "description"])]
-                : [];
-            }),
-          },
-        ];
-      }),
-    };
-  }
-  const skills = row(value)?.skills;
+  const packages = row(value)?.packages;
   return {
-    skills: (Array.isArray(skills) ? skills : []).flatMap((item) => {
-      const skill = row(item);
-      return skill &&
-        typeof skill.id === "string" &&
-        typeof skill.name === "string"
-        ? [pick(skill, SKILL_FIELDS)]
-        : [];
+    packages: (Array.isArray(packages) ? packages : []).flatMap((item) => {
+      const card = row(item);
+      if (!card || typeof card.id !== "string") return [];
+      const skills = Array.isArray(card.skills) ? card.skills : [];
+      return [
+        {
+          ...pick(card, PACKAGE_FIELDS),
+          skills: skills.flatMap((entry) => {
+            const skill = row(entry);
+            return skill && typeof skill.id === "string"
+              ? [pick(skill, ["id", "description"])]
+              : [];
+          }),
+        },
+      ];
     }),
   };
 }
@@ -117,7 +82,7 @@ export function isPublicCatalogKind(kind: string): kind is PublicCatalogKind {
   return Object.hasOwn(PATHS, kind);
 }
 
-/** The public catalog: a projected, cacheable read of the backend's thread catalogs. */
+/** The public catalog: a projected, cacheable read of the backend's public feeds. */
 export async function publicCatalog(
   request: Request,
   kind: PublicCatalogKind,
@@ -125,14 +90,12 @@ export async function publicCatalog(
   fetchImpl: FetchLike,
 ): Promise<Response> {
   const upstreamUrl = new URL(PATHS[kind], backendOrigin);
-  // Only public catalog filters. Never copy account, agent key, session, or auth query fields.
-  if (kind === "toolsets") upstreamUrl.searchParams.set("limit", "20");
-  if (kind === "skills") upstreamUrl.searchParams.set("limit", "100");
+  // Never copy account, agent key, session, or auth query fields.
   const upstreamHeaders = new Headers({ accept: "application/json" });
   // The backend's thread extractors require a transport id even for reads.
   // A fresh, edge-owned id selects anonymous public state and cannot reuse a
   // caller's account-bound thread. These routes require no bearer assertion.
-  if (kind === "toolsets" || kind === "models")
+  if (kind === "models")
     upstreamHeaders.set("x-thread-id", `public-catalog-${crypto.randomUUID()}`);
   let upstream: Response;
   try {

@@ -23,8 +23,8 @@ export type Route = {
   /** In failover order. */
   targets: URL[];
   headers?: HeaderPolicy;
-  /** Hosted-agent placement: probe the targets for this agent before sending. */
-  appId?: string;
+  /** Hosted-agent placement: probe the targets for this `publisher/name`. */
+  agent?: string;
   /** Payment routes admit exact methods only. */
   methods?: readonly string[];
   /** A Task discovery document the edge serves itself; `targets` is the API Server. */
@@ -225,14 +225,14 @@ function backend(
 ): Route | null {
   const ranked = rankOrigins(routingKey, config(env).pool);
   if (ranked.length === 0) return null;
-  const appId =
+  const agent =
     name === "api" && !url.pathname.startsWith("/api/_internal/")
-      ? url.searchParams.get("agent_id")
+      ? url.searchParams.get("agent")
       : null;
   return {
     name,
     targets: ranked.map((origin) => target(origin, url.pathname, url.search)),
-    ...(appId && /^[1-9]\d*$/.test(appId) ? { appId } : {}),
+    ...(agent && /^[^/\s]+\/[^/\s]+$/.test(agent) ? { agent } : {}),
   };
 }
 

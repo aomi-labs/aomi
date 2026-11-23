@@ -199,6 +199,8 @@ type Seen = {
   body: string;
 };
 let seen: Seen[];
+/** The backend redirects its public package feed. */
+let redirectPackages = false;
 
 function echo(request: Request, body: string, tag: string): Response {
   const headers: Record<string, string> = {};
@@ -244,7 +246,12 @@ const world: FetchLike = async (request) => {
     }
     if (url.pathname === "/api/thread/models")
       return Response.json(["gpt", 3, "claude"]);
-    if (url.pathname === "/api/resource/packages")
+    if (url.pathname === "/api/catalog/packages" && redirectPackages)
+      return new Response(null, {
+        status: 302,
+        headers: { location: `${BACKEND}/elsewhere` },
+      });
+    if (url.pathname === "/api/catalog/packages")
       return Response.json({
         packages: [
           {
@@ -264,11 +271,6 @@ const world: FetchLike = async (request) => {
           },
           { display_name: "No id" },
         ],
-      });
-    if (url.pathname === "/api/resource/skills")
-      return new Response(null, {
-        status: 302,
-        headers: { location: `${BACKEND}/elsewhere` },
       });
     return echo(request, body, "backend");
   }
@@ -1348,7 +1350,9 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     expect(seen[0].headers.cookie).toBeUndefined();
     expect(catalog.headers.get("access-control-allow-origin")).toBe("*");
 
-    const models = await portal("/api/public/catalog/models?agent_id=9");
+    const models = await portal(
+      "/api/public/catalog/models?agent=acme%2Ftrader",
+    );
     expect(models.status).toBe(200);
     expect(await models.json()).toEqual(["gpt", "claude"]);
     expect(models.headers.get("etag")).toMatch(/^"[0-9a-f]{64}"$/);
@@ -1360,9 +1364,16 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
 
     // A redirecting backend is unavailable; the edge never follows it, and
     // workerd offers no "error" redirect mode to refuse it with.
-    const redirected = await portal("/api/public/catalog/skills");
+    redirectPackages = true;
+    const redirected = await portal("/api/public/catalog/packages");
+    redirectPackages = false;
     expect(redirected.status).toBe(502);
     expect(await redirected.json()).toEqual({ error: "catalog_unavailable" });
+    for (const removed of ["toolsets", "skills"])
+      expect(
+        (await portal(`/api/public/catalog/${removed}`)).status,
+        removed,
+      ).toBe(404);
   });
 
   it("answers preflight for moved routes without credentials", async () => {
