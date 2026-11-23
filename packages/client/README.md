@@ -372,20 +372,20 @@ runtime-schema-driven:
 
 ```ts
 const root = await client.pipeline.root();
-const operation = await client.pipeline.toolset("aave").operation("supply");
+// An agent by slug; none is aomi/main.
+const lender = client.pipeline.agent("acme/lender");
+const operation = await lender.operation("supply");
 
-const result = await client.pipeline.toolset("aave").invoke("supply", {
+const result = await lender.invoke("supply", {
   asset: "USDC",
   amount: "100",
 }); // arguments are checked against operation.inputSchema before POST
 
-const skillMarkdown = await client.pipeline
-  .skill("leveraged-lending")
-  .instructions();
+const skillMarkdown = await lender.package("acme/aave").skill("lending.md");
 ```
 
 Integrations use filesystem discovery, scoped operations, and chain-specific Builds.
-The base package does not claim compile-time knowledge of live toolset or skill
+The base package does not claim compile-time knowledge of live package
 operations; Catalog-specific generation remains a separate later capability.
 
 ### Verify before you sign

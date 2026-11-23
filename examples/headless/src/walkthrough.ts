@@ -72,20 +72,20 @@ console.log(
 );
 
 // 5. Pipeline is a catalog + deterministic Build lifecycle on the same facade.
-// Listing the toolset and skill directories is read-only and lets an integrator
-// discover the live catalog instead of hard-coding a second registry.
+// Listing the main agent's operations and packages is read-only and lets an
+// integrator discover the live catalog instead of hard-coding a second registry.
 console.log("\n6. Pipeline catalog");
 let pipelineAvailable = true;
 try {
-  const [toolsets, skills] = await Promise.all([
-    aomi.raw.pipeline.toolsets.list(),
-    aomi.raw.pipeline.skills.list(),
+  const [operations, packages] = await Promise.all([
+    aomi.raw.pipeline.agent().operations(),
+    aomi.raw.pipeline.agent().packages(),
   ]);
-  for (const entry of toolsets.entries.slice(0, 4)) {
-    console.log(`   toolset       ${entry.name}`);
+  for (const entry of operations.entries.slice(0, 4)) {
+    console.log(`   operation ${entry.name}`);
   }
-  for (const entry of skills.entries.slice(0, 4)) {
-    console.log(`   skill     ${entry.name}`);
+  for (const entry of packages.entries.slice(0, 4)) {
+    console.log(`   package   ${entry.name}`);
   }
 } catch (error) {
   if (

@@ -2,8 +2,7 @@ import type { AomiClient } from "../client";
 import { CommitController, type CommitCapabilities } from "../commits";
 import type {
   EvmPipelineTransport,
-  PipelineOperationTransport,
-  PipelineSkillTransport,
+  PipelineOperationsTransport,
   PipelineTransport,
   SvmPipelineTransport,
 } from "../pipeline/transport";
@@ -129,8 +128,8 @@ export class AomiEvmPipeline {
       "actions" in input
         ? input
         : {
-            toolset: input.toolset,
-            skills: input.skills,
+            agent: input.agent,
+            packages: input.packages,
             transactionSafetyMode: input.transactionSafetyMode,
             actions: input.calls.map((call) => ({
               to: call.to,
@@ -249,16 +248,13 @@ export interface AomiOperationBuildOptions extends PipelineMutationOptions {
   chainFamily?: "evm" | "svm";
 }
 
+/** The operations an agent may run, or only one package's of them. */
 export class AomiPipelineOperationScope {
   constructor(
-    readonly raw: PipelineOperationTransport,
+    readonly raw: PipelineOperationsTransport,
     private readonly evm: AomiEvmPipeline,
     private readonly svm: AomiSvmPipeline,
   ) {}
-
-  directory() {
-    return this.raw.directory();
-  }
 
   operations() {
     return this.raw.operations();
@@ -293,7 +289,8 @@ export class AomiPipelineOperationScope {
       Object.keys(mutationOptions).length > 0 ? mutationOptions : undefined;
     const input = {
       ...this.raw.executionScope,
-      operation: descriptor.href,
+      // The agent goes on the Build's own query, not in the operation path.
+      operation: descriptor.href.split("?")[0]!,
       arguments: args,
     };
     return chainFamily === "svm"
@@ -302,28 +299,16 @@ export class AomiPipelineOperationScope {
   }
 }
 
-export class AomiPipelineSkillScope extends AomiPipelineOperationScope {
-  constructor(
-    readonly skillRaw: PipelineSkillTransport,
-    evm: AomiEvmPipeline,
-    svm: AomiSvmPipeline,
-  ) {
-    super(skillRaw, evm, svm);
-  }
-
-  instructions(): Promise<string> {
-    return this.skillRaw.instructions();
-  }
+/** Who a call runs as: `agent`, `publisher/name` (none is `aomi/main`),
+ * and optionally only `package`'s operations. */
+export interface AomiPipelineScope {
+  agent?: string;
+  package?: string;
 }
-
-/** The toolset a build runs in when none is named, like Auto in the portal. */
-const DEFAULT_AGENT = "default";
 
 export class AomiPipeline {
   readonly evm: AomiEvmPipeline;
   readonly svm: AomiSvmPipeline;
-  /** The skill catalog. */
-  readonly skills: { list(): Promise<PipelineDirectory> };
 
   constructor(
     readonly raw: PipelineTransport,
@@ -332,21 +317,24 @@ export class AomiPipeline {
   ) {
     this.evm = new AomiEvmPipeline(raw.evm, client, capabilities);
     this.svm = new AomiSvmPipeline(raw.svm, client, capabilities);
-    this.skills = { list: () => raw.skills.list() };
   }
 
-  /** Operations of `toolset`, the default toolset unless named. */
-  operations(options: { toolset?: string } = {}): Promise<PipelineDirectory> {
-    return this.toolset(options.toolset ?? DEFAULT_AGENT).operations();
+  /** The packages on for `agent`. */
+  packages(options: { agent?: string } = {}): Promise<PipelineDirectory> {
+    return this.raw.agent(options.agent).packages();
+  }
+
+  operations(options: AomiPipelineScope = {}): Promise<PipelineDirectory> {
+    return this.scope(options).operations();
   }
 
   invoke<T = unknown>(
     name: string,
     args: Record<string, unknown>,
-    options: PipelineInvokeOptions & { toolset?: string } = {},
+    options: PipelineInvokeOptions & AomiPipelineScope = {},
   ): Promise<T> {
-    const { toolset, ...invokeOptions } = options;
-    return this.toolset(toolset ?? DEFAULT_AGENT).invoke<T>(
+    const { agent, package: id, ...invokeOptions } = options;
+    return this.scope({ agent, package: id }).invoke<T>(
       name,
       args,
       invokeOptions,
@@ -355,21 +343,16 @@ export class AomiPipeline {
 
   /**
    * Stage and simulate one operation. Nothing is signed until `commit()`.
-   * EVM or Solana follows from the operation; `toolset` defaults to the default
-   * toolset.
+   * EVM or Solana follows from the operation.
    */
   async build(
     name: string,
     args: Record<string, unknown>,
-    options: AomiOperationBuildOptions & { toolset?: string } = {},
+    options: AomiOperationBuildOptions & AomiPipelineScope = {},
   ): Promise<Build> {
-    const { toolset, ...buildOptions } = options;
+    const { agent, package: id, ...buildOptions } = options;
     return new Build(
-      await this.toolset(toolset ?? DEFAULT_AGENT).build(
-        name,
-        args,
-        buildOptions,
-      ),
+      await this.scope({ agent, package: id }).build(name, args, buildOptions),
       (result) => {
         const controller =
           result.family === "svm"
@@ -382,16 +365,16 @@ export class AomiPipeline {
     );
   }
 
-  toolset(name: string): AomiPipelineOperationScope {
+  scope({
+    agent,
+    package: id,
+  }: AomiPipelineScope = {}): AomiPipelineOperationScope {
+    const raw = this.raw.agent(agent);
     return new AomiPipelineOperationScope(
-      this.raw.toolset(name),
+      id ? raw.package(id) : raw,
       this.evm,
       this.svm,
     );
-  }
-
-  skill(name: string): AomiPipelineSkillScope {
-    return new AomiPipelineSkillScope(this.raw.skill(name), this.evm, this.svm);
   }
 }
 

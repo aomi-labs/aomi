@@ -58,8 +58,10 @@ export interface PipelineExecutionScope {
    * omitted, the backend uses the thread's saved policy, else the account
    * default. */
   transactionSafetyMode?: TransactionSafetyMode;
-  toolset?: string;
-  skills?: string[];
+  /** The agent the Build runs as, `publisher/name`; none is `aomi/main`. */
+  agent?: string;
+  /** Packages, `publisher/name`, active for the Build beside the agent's. */
+  packages?: string[];
 }
 
 export type PipelineOperationBuildInput<
@@ -71,13 +73,10 @@ export type PipelineOperationBuildInput<
   );
 
 export interface PipelineBuildOrigin {
-  toolset: string;
-  skills?: string[];
+  agent: string;
+  packages?: string[];
   operations: PipelineOperationInvocation[];
 }
-
-/** @deprecated Use PipelineBuildOrigin. */
-export type PipelineBuildProvenance = PipelineBuildOrigin;
 
 export interface PipelineMutationOptions {
   /** Request-boundary override; later omission inherits the sealed Build mode. */

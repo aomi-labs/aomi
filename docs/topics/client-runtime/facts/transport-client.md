@@ -40,7 +40,10 @@ binding. They do not accept a numeric target query.
 credentials and returns `{ toolsets, packages }`. Package cards carry Library
 state for that account. `resolveAgentKey(key)` sends only the explicit
 `Aomi-Agent-Key` header to `/api/agents/resolve` and returns one `AgentCard`.
-Pipeline discovery and calls use `/v1/pipeline/toolsets` and `toolset` fields.
+Pipeline discovery and calls name an agent with `?agent=publisher/name` (none
+is `aomi/main`): `pipeline.agent(slug?)` lists its core operations, operations
+and packages; `.package(id)` narrows to one package and reads its skill files.
+A Build is simulated and committed as the agent its `origin.agent` seals.
 
 ## Cross-Package Role
 

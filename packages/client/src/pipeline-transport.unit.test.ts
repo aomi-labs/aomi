@@ -15,25 +15,34 @@ describe("PipelineTransport", () => {
       guest: false,
     }).pipeline;
 
+    const main = pipeline.agent();
+    const acme = pipeline.agent("acme/prices");
     await pipeline.root();
-    await pipeline.toolsets.list();
-    await pipeline.toolset("svm reads").directory();
-    await pipeline.toolset("svm reads").operations();
-    await pipeline.toolset("svm reads").operation("get balance");
-    await pipeline.skills.list();
-    await pipeline.skill("safe reads").directory();
-    await pipeline.skill("safe reads").instructions();
+    await main.operations();
+    await main.core();
+    await acme.operations();
+    await acme.operation("get balance");
+    await acme.packages();
+    await acme.package("acme/feeds").directory();
+    await acme.package("acme/feeds").operations();
+    await acme.package("acme/feeds").skill("prices.md");
 
     expect(fetch.mock.calls.map(([url]) => url)).toEqual([
       "https://portal.example/v1/pipeline",
-      "https://portal.example/v1/pipeline/toolsets",
-      "https://portal.example/v1/pipeline/toolsets/svm%20reads",
-      "https://portal.example/v1/pipeline/toolsets/svm%20reads/operations",
-      "https://portal.example/v1/pipeline/toolsets/svm%20reads/operations/get%20balance",
-      "https://portal.example/v1/pipeline/skills",
-      "https://portal.example/v1/pipeline/skills/safe%20reads",
-      "https://portal.example/v1/pipeline/skills/safe%20reads/SKILL.md",
+      "https://portal.example/v1/pipeline/operations",
+      "https://portal.example/v1/pipeline/core",
+      "https://portal.example/v1/pipeline/operations?agent=acme%2Fprices",
+      "https://portal.example/v1/pipeline/operations/get%20balance?agent=acme%2Fprices",
+      "https://portal.example/v1/pipeline/packages?agent=acme%2Fprices",
+      "https://portal.example/v1/pipeline/packages/acme%2Ffeeds?agent=acme%2Fprices",
+      "https://portal.example/v1/pipeline/packages/acme%2Ffeeds/operations?agent=acme%2Fprices",
+      "https://portal.example/v1/pipeline/packages/acme%2Ffeeds/skills/prices.md?agent=acme%2Fprices",
     ]);
+    expect(acme.package("acme/feeds").executionScope).toEqual({
+      agent: "acme/prices",
+      packages: ["acme/feeds"],
+    });
+    expect(main.executionScope).toEqual({});
   });
 
   it("surfaces stable policy errors and never retries invocation", async () => {
@@ -57,7 +66,7 @@ describe("PipelineTransport", () => {
 
     await expect(
       pipeline.invoke(
-        "/toolsets/public-swap/operations/write_tool",
+        "/packages/acme%2Fswap/operations/write_tool",
         { value: 1 },
         { idempotencyKey: "pipeline-write-1", validate: false },
       ),
@@ -84,7 +93,7 @@ describe("PipelineTransport", () => {
           kind: "operation",
           name: "balance",
           method: "POST",
-          href: "/v1/pipeline/toolsets/portfolio/operations/balance",
+          href: "/v1/pipeline/operations/balance?agent=acme%2Fportfolio",
           inputSchema: {
             type: "object",
             required: ["owner"],
@@ -100,12 +109,12 @@ describe("PipelineTransport", () => {
     }).pipeline;
 
     await expect(
-      pipeline.toolset("portfolio").invoke("balance", { owner: "wallet" }),
+      pipeline.agent("acme/portfolio").invoke("balance", { owner: "wallet" }),
     ).resolves.toEqual({ balance: 1 });
 
     expect(fetch.mock.calls.map(([url]) => url)).toEqual([
-      "https://portal.example/v1/pipeline/toolsets/portfolio/operations/balance",
-      "https://portal.example/v1/pipeline/toolsets/portfolio/operations/balance",
+      "https://portal.example/v1/pipeline/operations/balance?agent=acme%2Fportfolio",
+      "https://portal.example/v1/pipeline/operations/balance?agent=acme%2Fportfolio",
     ]);
     expect(fetch.mock.calls[1]?.[1]?.method).toBe("POST");
   });
@@ -119,7 +128,7 @@ describe("PipelineTransport", () => {
 
     await expect(
       pipeline.invoke(
-        "/toolsets/default/operations/tool",
+        "/operations/tool",
         {},
         { idempotencyKey: " ", validate: false },
       ),
@@ -182,7 +191,7 @@ describe("EVM request transaction safety", () => {
       version: 2,
       status: "staged",
       actions: [],
-      origin: { toolset: "test", operations: [] },
+      origin: { agent: "acme/test", operations: [] },
       expiresAt: 1,
       digest: "digest",
       attestation: "sealed",
@@ -198,5 +207,41 @@ describe("EVM request transaction safety", () => {
       transactionSafetyMode: "balanced",
     });
     expect(build.transactionSafetyMode).toBe("strict");
+    expect(fetch.mock.calls[0][0]).toBe(
+      "https://portal.example/v1/pipeline/evm/simulate?agent=acme%2Ftest",
+    );
+  });
+
+  it("names the Build's agent on the query, never in the body", async () => {
+    const fetch = vi.fn().mockImplementation(async () => Response.json({}));
+    const pipeline = new AomiClient({
+      baseUrl: "https://portal.example",
+      fetch,
+      guest: false,
+    }).pipeline;
+    await pipeline.evm.stage({ agent: "acme/test", actions: [] });
+    await pipeline.svm.build({
+      agent: "acme/test",
+      packages: ["acme/feeds"],
+      operation: "/v1/pipeline/operations/read",
+      arguments: {},
+    });
+    const sent = (fetch.mock.calls as [string, RequestInit][]).map(
+      ([url, init]) => [url, JSON.parse(init.body as string)],
+    );
+    expect(sent).toEqual([
+      [
+        "https://portal.example/v1/pipeline/evm/stage?agent=acme%2Ftest",
+        { actions: [] },
+      ],
+      [
+        "https://portal.example/v1/pipeline/svm/build?agent=acme%2Ftest",
+        {
+          packages: ["acme/feeds"],
+          operation: "/v1/pipeline/operations/read",
+          arguments: {},
+        },
+      ],
+    ]);
   });
 });

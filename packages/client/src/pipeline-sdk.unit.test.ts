@@ -49,10 +49,10 @@ const evmStaged: EvmStagedBuild = {
     },
   ],
   origin: {
-    toolset: "default",
+    agent: "aomi/main",
     operations: [
       {
-        operation: "/v1/pipeline/toolsets/default/operations/evm_stage_tx",
+        operation: "/v1/pipeline/operations/evm_stage_tx",
         arguments: {},
       },
     ],
@@ -128,10 +128,10 @@ const svmStaged: SvmStagedBuild = {
     },
   ],
   origin: {
-    toolset: "default",
+    agent: "aomi/main",
     operations: [
       {
-        operation: "/v1/pipeline/toolsets/default/operations/svm_stage_ix",
+        operation: "/v1/pipeline/operations/svm_stage_ix",
         arguments: {},
       },
     ],
@@ -160,9 +160,10 @@ const svmSimulated: SvmSimulatedBuild = {
 describe("Pipeline SDK lifecycle", () => {
   it("sends portable EVM values through typed stage, simulate, and commit", async () => {
     const fetch = vi.fn(async (url: string, init?: RequestInit) => {
-      if (url.endsWith("/stage")) return Response.json(evmStaged);
-      if (url.endsWith("/simulate")) return Response.json(evmSimulated);
-      if (url.endsWith("/commit")) {
+      const { pathname } = new URL(url);
+      if (pathname.endsWith("/stage")) return Response.json(evmStaged);
+      if (pathname.endsWith("/simulate")) return Response.json(evmSimulated);
+      if (pathname.endsWith("/commit")) {
         return Response.json({
           family: "evm",
           status: "committed",
@@ -215,8 +216,8 @@ describe("Pipeline SDK lifecycle", () => {
     expect(new Set(keys).size).toBe(3);
     expect(fetch.mock.calls.map(([url]) => url)).toEqual([
       "https://api.example/v1/pipeline/evm/stage",
-      "https://api.example/v1/pipeline/evm/simulate",
-      "https://api.example/v1/pipeline/evm/commit",
+      "https://api.example/v1/pipeline/evm/simulate?agent=aomi%2Fmain",
+      "https://api.example/v1/pipeline/evm/commit?agent=aomi%2Fmain",
     ]);
     expect(JSON.parse(fetch.mock.calls[0][1]?.body as string)).toMatchObject({
       actions: [{ value: "0", chain_id: 1 }],
@@ -234,8 +235,9 @@ describe("Pipeline SDK lifecycle", () => {
 
   it("preserves SVM instruction semantics through the fluent lifecycle", async () => {
     const fetch = vi.fn(async (url: string, _init?: RequestInit) => {
-      if (url.endsWith("/stage")) return Response.json(svmStaged);
-      if (url.endsWith("/simulate")) return Response.json(svmSimulated);
+      const { pathname } = new URL(url);
+      if (pathname.endsWith("/stage")) return Response.json(svmStaged);
+      if (pathname.endsWith("/simulate")) return Response.json(svmSimulated);
       throw new Error(`Unexpected request ${url}`);
     });
     const aomi = new Aomi({
@@ -284,8 +286,7 @@ describe("Pipeline SDK lifecycle", () => {
       guest: false,
     });
     const staged = await aomi.pipeline.evm.stage({
-      toolset: "default",
-      skills: ["transfers"],
+      packages: ["acme/transfers"],
       chainId: 8453,
       description: "Batch transfer",
       calls: [
@@ -295,8 +296,7 @@ describe("Pipeline SDK lifecycle", () => {
     });
 
     expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
-      toolset: "default",
-      skills: ["transfers"],
+      packages: ["acme/transfers"],
       actions: [
         {
           to: "0x1111",
@@ -364,7 +364,7 @@ describe("Pipeline SDK lifecycle", () => {
       guest: false,
     }).pipeline;
     const input = {
-      operation: "/v1/pipeline/toolsets/default/operations/tool",
+      operation: "/v1/pipeline/operations/tool",
       arguments: {},
     };
     const options = {
@@ -394,7 +394,7 @@ describe("Pipeline SDK lifecycle", () => {
     }).pipeline;
     const options = { transactionSafetyMode: "strict" as const };
     const input = {
-      operation: "/v1/pipeline/toolsets/default/operations/tool",
+      operation: "/v1/pipeline/operations/tool",
       arguments: {},
     };
     await pipeline.svm.build(input, options);
@@ -425,7 +425,7 @@ describe("Pipeline SDK lifecycle", () => {
       name: "supply",
       description: "Supply an asset",
       method: "POST",
-      href: "/v1/pipeline/toolsets/aave/operations/supply",
+      href: "/v1/pipeline/operations/supply?agent=acme%2Faave",
       chainFamily: "evm",
       inputSchema: {
         type: "object",
@@ -448,18 +448,18 @@ describe("Pipeline SDK lifecycle", () => {
     }).pipeline;
 
     await expect(
-      pipeline.toolset("aave").invoke("supply", {
+      pipeline.agent("acme/aave").invoke("supply", {
         asset: "USDC",
         amount: "100",
       }),
     ).resolves.toEqual({ accepted: true });
     await expect(
-      pipeline.invoke("/toolsets/aave/operations/supply", { asset: "USDC" }),
+      pipeline.invoke(descriptor.href, { asset: "USDC" }),
     ).rejects.toBeInstanceOf(PipelineSchemaError);
 
     expect(fetch).toHaveBeenCalledTimes(3);
     expect(fetch.mock.calls[1][0]).toBe(
-      "https://api.example/v1/pipeline/toolsets/aave/operations/supply",
+      "https://api.example/v1/pipeline/operations/supply?agent=acme%2Faave",
     );
     expect(JSON.parse(fetch.mock.calls[1][1]?.body as string)).toEqual({
       asset: "USDC",
@@ -467,16 +467,16 @@ describe("Pipeline SDK lifecycle", () => {
     });
   });
 
-  it("browses directories and authoritative skill instructions", async () => {
+  it("browses directories and a package's skill file", async () => {
     const directory = {
       kind: "directory",
       path: "/v1/pipeline",
       entries: [
-        { name: "toolsets", kind: "directory", href: "/v1/pipeline/toolsets" },
+        { name: "packages", kind: "directory", href: "/v1/pipeline/packages" },
       ],
     };
     const fetch = vi.fn(async (url: string) =>
-      url.endsWith("/SKILL.md")
+      url.includes("/skills/")
         ? new Response("# Safe lending", {
             headers: { "content-type": "text/markdown" },
           })
@@ -489,32 +489,32 @@ describe("Pipeline SDK lifecycle", () => {
     }).pipeline;
 
     await expect(pipeline.root()).resolves.toEqual(directory);
-    await expect(pipeline.toolsets.list()).resolves.toEqual(directory);
-    await expect(pipeline.toolset("aave").operations()).resolves.toEqual(
-      directory,
-    );
-    await expect(pipeline.skill("safe lending").instructions()).resolves.toBe(
-      "# Safe lending",
-    );
+    await expect(pipeline.agent().packages()).resolves.toEqual(directory);
+    await expect(
+      pipeline.agent().package("acme/aave").operations(),
+    ).resolves.toEqual(directory);
+    await expect(
+      pipeline.agent().package("acme/aave").skill("safe lending.md"),
+    ).resolves.toBe("# Safe lending");
 
     expect(fetch.mock.calls.map(([url]) => url)).toEqual([
       "https://api.example/v1/pipeline",
-      "https://api.example/v1/pipeline/toolsets",
-      "https://api.example/v1/pipeline/toolsets/aave/operations",
-      "https://api.example/v1/pipeline/skills/safe%20lending/SKILL.md",
+      "https://api.example/v1/pipeline/packages",
+      "https://api.example/v1/pipeline/packages/acme%2Faave/operations",
+      "https://api.example/v1/pipeline/packages/acme%2Faave/skills/safe%20lending.md",
     ]);
     expect(new Headers(fetch.mock.calls[3][1]?.headers).get("accept")).toBe(
       "text/markdown",
     );
   });
 
-  it("provides the golden toolset Build path and raw escape hatch", async () => {
+  it("provides the golden package Build path and raw escape hatch", async () => {
     const descriptor = {
       kind: "operation",
       name: "supply",
       description: "Supply USDC",
       method: "POST",
-      href: "/v1/pipeline/toolsets/aave/operations/supply",
+      href: "/v1/pipeline/packages/acme%2Faave/operations/supply",
       chainFamily: "evm",
       inputSchema: {
         type: "object",
@@ -528,7 +528,7 @@ describe("Pipeline SDK lifecycle", () => {
     const fetch = vi.fn(async (url: string) => {
       if (url.includes("/operations/supply")) return Response.json(descriptor);
       if (url.endsWith("/evm/build")) return Response.json(evmSimulated);
-      if (url.endsWith("/evm/commit")) {
+      if (url.endsWith("/evm/commit?agent=aomi%2Fmain")) {
         return Response.json({
           family: "evm",
           status: "committed",
@@ -549,7 +549,7 @@ describe("Pipeline SDK lifecycle", () => {
     });
 
     const build = await aomi.pipeline
-      .toolset("aave")
+      .scope({ package: "acme/aave" })
       .build("supply", { asset: "USDC", amount: "100" });
 
     expect(build).toBeInstanceOf(EvmBuild);
@@ -565,7 +565,7 @@ describe("Pipeline SDK lifecycle", () => {
     });
     expect(aomi.raw).toBeInstanceOf(AomiClient);
     expect(JSON.parse(fetch.mock.calls[1][1]?.body as string)).toEqual({
-      toolset: "aave",
+      packages: ["acme/aave"],
       operation: descriptor.href,
       arguments: { asset: "USDC", amount: "100" },
     });
@@ -589,9 +589,10 @@ describe("Pipeline SDK lifecycle", () => {
     });
     const sendCalls = vi.fn().mockResolvedValue({ hashes: ["0xsubmitted"] });
     const fetch = vi.fn(async (url: string) => {
-      if (url.endsWith("/stage")) return Response.json(evmStaged);
-      if (url.endsWith("/simulate")) return Response.json(evmSimulated);
-      if (url.endsWith("/commit")) {
+      const { pathname } = new URL(url);
+      if (pathname.endsWith("/stage")) return Response.json(evmStaged);
+      if (pathname.endsWith("/simulate")) return Response.json(evmSimulated);
+      if (pathname.endsWith("/commit")) {
         return Response.json({
           family: "evm",
           status: "committed",

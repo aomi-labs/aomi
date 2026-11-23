@@ -710,8 +710,7 @@ answer({});
       JSON.stringify({ guest: { baseUrl: CHAT, token: "guest-token" } }),
     );
     process.env.AOMI_BACKEND_URL = CHAT;
-    const operation =
-      "/v1/pipeline/toolsets/default/operations/evm_get_contract";
+    const operation = "/v1/pipeline/operations/evm_get_contract";
     const found = {
       found: true,
       count: 1,

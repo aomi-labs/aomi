@@ -7,6 +7,7 @@ import type {
   EvmStageInput,
   EvmStagedBuild,
   PipelineCommitOptions,
+  PipelineBuildOrigin,
   PipelineDirectory,
   PipelineExecutionScope,
   PipelineFilesystemResource,
@@ -32,11 +33,13 @@ export class PipelineApiError extends AomiApiError {
 
 /** One chain family's Build routes. Each mutation sends the request's
  * transactionSafetyMode override when given; otherwise the sealed Build mode
- * (or, before a Build exists, the account default) applies. */
+ * (or, before a Build exists, the account default) applies. A Build runs as
+ * the agent its input names, and is simulated and committed as the agent its
+ * origin seals. */
 class ChainPipelineTransport<
-  StageInput extends object,
-  Staged,
-  Simulated extends { digest: string },
+  StageInput extends PipelineExecutionScope,
+  Staged extends { origin: PipelineBuildOrigin },
+  Simulated extends { digest: string; origin: PipelineBuildOrigin },
   Committed,
 > {
   constructor(
@@ -45,20 +48,20 @@ class ChainPipelineTransport<
   ) {}
 
   build(
-    input: PipelineOperationBuildInput,
+    { agent, ...input }: PipelineOperationBuildInput,
     options: PipelineMutationOptions = {},
   ): Promise<Simulated> {
-    return this.post("build", mutationHeaders(options), {
+    return this.post("build", agent, mutationHeaders(options), {
       ...jsonBody(input),
       ...safetyMode(options),
     });
   }
 
   stage(
-    input: StageInput,
+    { agent, ...input }: StageInput,
     options: PipelineMutationOptions = {},
   ): Promise<Staged> {
-    return this.post("stage", mutationHeaders(options), {
+    return this.post("stage", agent, mutationHeaders(options), {
       ...jsonBody(input),
       ...safetyMode(options),
     });
@@ -68,7 +71,7 @@ class ChainPipelineTransport<
     build: Staged,
     options: PipelineMutationOptions = {},
   ): Promise<Simulated> {
-    return this.post("simulate", mutationHeaders(options), {
+    return this.post("simulate", build.origin.agent, mutationHeaders(options), {
       build: jsonBody(build),
       ...safetyMode(options),
     });
@@ -78,21 +81,24 @@ class ChainPipelineTransport<
     build: Simulated,
     options: PipelineCommitOptions = {},
   ): Promise<Committed> {
-    return this.post("commit", commitHeaders(build.digest, options), {
-      build: jsonBody(build),
-      ...safetyMode(options),
-    });
+    return this.post(
+      "commit",
+      build.origin.agent,
+      commitHeaders(build.digest, options),
+      { build: jsonBody(build), ...safetyMode(options) },
+    );
   }
 
   private post<T>(
     step: "build" | "stage" | "simulate" | "commit",
+    agent: string | undefined,
     headers: HeadersInit,
     body: Record<string, unknown>,
   ): Promise<T> {
     return json(
       this.requestResponse,
       "POST",
-      `/v1/pipeline/${this.family}/${step}`,
+      asAgent(`/v1/pipeline/${this.family}/${step}`, agent),
       { headers, body },
     );
   }
@@ -126,35 +132,38 @@ function safetyMode(options: PipelineMutationOptions) {
     : { transactionSafetyMode: options.transactionSafetyMode };
 }
 
-export class PipelineOperationTransport {
-  readonly href: string;
+/** `path` as `agent`, `publisher/name`; none is `aomi/main`. */
+function asAgent(path: string, agent?: string): string {
+  return agent ? `${path}?agent=${encodeURIComponent(agent)}` : path;
+}
+
+/** The operations an agent may run, or only one package's of them. */
+export class PipelineOperationsTransport {
   readonly executionScope: PipelineExecutionScope;
 
   constructor(
-    private readonly requestResponse: RequestResponse,
-    scope: "toolsets" | "skills",
-    owner: string,
+    protected readonly requestResponse: RequestResponse,
+    /** The scope's path, without the agent. */
+    readonly href: string,
+    readonly agent?: string,
+    packageId?: string,
   ) {
-    const name = required("name", owner);
-    this.href = `/v1/pipeline/${scope}/${encodeURIComponent(name)}`;
-    this.executionScope =
-      scope === "toolsets" ? { toolset: name } : { skills: [name] };
+    this.executionScope = {
+      ...(agent ? { agent } : {}),
+      ...(packageId ? { packages: [packageId] } : {}),
+    };
   }
 
-  directory(): Promise<PipelineDirectory> {
-    return json(this.requestResponse, "GET", this.href);
+  protected at(path: string): string {
+    return asAgent(`${this.href}${path}`, this.agent);
   }
 
   operations(): Promise<PipelineDirectory> {
-    return json(this.requestResponse, "GET", `${this.href}/operations`);
+    return json(this.requestResponse, "GET", this.at("/operations"));
   }
 
   operation(name: string): Promise<PipelineOperationDescriptor> {
-    return json(
-      this.requestResponse,
-      "GET",
-      `${this.href}/operations/${encodeURIComponent(required("operation", name))}`,
-    );
+    return json(this.requestResponse, "GET", this.operationPath(name));
   }
 
   invoke<T = unknown>(
@@ -164,25 +173,65 @@ export class PipelineOperationTransport {
   ): Promise<T> {
     return invokeOperation(
       this.requestResponse,
-      `${this.href}/operations/${encodeURIComponent(required("operation", name))}`,
+      this.operationPath(name),
       args,
       options,
     );
   }
+
+  private operationPath(name: string): string {
+    return this.at(
+      `/operations/${encodeURIComponent(required("operation", name))}`,
+    );
+  }
 }
 
-export class PipelineSkillTransport extends PipelineOperationTransport {
-  constructor(
-    private readonly skillRequestResponse: RequestResponse,
-    skill: string,
-  ) {
-    super(skillRequestResponse, "skills", skill);
+/** One agent's Pipeline: its core operations, every operation and its packages. */
+export class PipelineAgentTransport extends PipelineOperationsTransport {
+  constructor(requestResponse: RequestResponse, agent?: string) {
+    super(requestResponse, "/v1/pipeline", agent);
   }
 
-  async instructions(): Promise<string> {
-    const response = await this.skillRequestResponse(
+  /** Operations of no package: the host's own. */
+  core(): Promise<PipelineDirectory> {
+    return json(this.requestResponse, "GET", this.at("/core"));
+  }
+
+  /** The packages on for this agent. */
+  packages(): Promise<PipelineDirectory> {
+    return json(this.requestResponse, "GET", this.at("/packages"));
+  }
+
+  package(id: string): PipelinePackageTransport {
+    return new PipelinePackageTransport(
+      this.requestResponse,
+      required("package", id),
+      this.agent,
+    );
+  }
+}
+
+/** One package, `publisher/name`, as an agent has it on. */
+export class PipelinePackageTransport extends PipelineOperationsTransport {
+  constructor(requestResponse: RequestResponse, id: string, agent?: string) {
+    super(
+      requestResponse,
+      `/v1/pipeline/packages/${encodeURIComponent(id)}`,
+      agent,
+      id,
+    );
+  }
+
+  /** Its skill files and operations. */
+  directory(): Promise<PipelineDirectory> {
+    return json(this.requestResponse, "GET", this.at(""));
+  }
+
+  /** One skill file's markdown, as released. */
+  async skill(file: string): Promise<string> {
+    const response = await this.requestResponse(
       "GET",
-      `${this.href}/SKILL.md`,
+      this.at(`/skills/${encodeURIComponent(required("file", file))}`),
       { headers: { accept: "text/markdown" } },
     );
     if (!response.ok) throw await pipelineError(response);
@@ -190,46 +239,14 @@ export class PipelineSkillTransport extends PipelineOperationTransport {
   }
 }
 
-export class PipelineToolsetsTransport {
-  constructor(private readonly requestResponse: RequestResponse) {}
-
-  list(): Promise<PipelineDirectory> {
-    return json(this.requestResponse, "GET", "/v1/pipeline/toolsets");
-  }
-
-  get(toolset: string): PipelineOperationTransport {
-    return new PipelineOperationTransport(
-      this.requestResponse,
-      "toolsets",
-      toolset,
-    );
-  }
-}
-
-export class PipelineSkillsTransport {
-  constructor(private readonly requestResponse: RequestResponse) {}
-
-  list(): Promise<PipelineDirectory> {
-    return json(this.requestResponse, "GET", "/v1/pipeline/skills");
-  }
-
-  get(skill: string): PipelineSkillTransport {
-    return new PipelineSkillTransport(this.requestResponse, skill);
-  }
-}
-
 /** The wire-close typed transport for every first-party Pipeline consumer. */
 export class PipelineTransport {
   readonly evm: EvmPipelineTransport;
   readonly svm: SvmPipelineTransport;
-  readonly toolsets: PipelineToolsetsTransport;
-  readonly skills: PipelineSkillsTransport;
 
   constructor(private readonly requestResponse: RequestResponse) {
     this.evm = new EvmPipelineTransport(requestResponse);
     this.svm = new SvmPipelineTransport(requestResponse);
-    this.toolsets = new PipelineToolsetsTransport(requestResponse);
-    this.skills = new PipelineSkillsTransport(requestResponse);
   }
 
   root(): Promise<PipelineDirectory> {
@@ -240,12 +257,9 @@ export class PipelineTransport {
     return json(this.requestResponse, "GET", pipelinePath(path));
   }
 
-  toolset(name: string): PipelineOperationTransport {
-    return this.toolsets.get(name);
-  }
-
-  skill(name: string): PipelineSkillTransport {
-    return this.skills.get(name);
+  /** `agent`'s Pipeline, `publisher/name`; none is `aomi/main`. */
+  agent(agent?: string): PipelineAgentTransport {
+    return new PipelineAgentTransport(this.requestResponse, agent);
   }
 
   invoke<T = unknown>(

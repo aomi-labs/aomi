@@ -15,15 +15,6 @@ import {
 } from "@aomi-labs/client";
 import { useAomi } from "@/account/transport";
 
-/** The pipeline operations a skill offers, beside the tools it injects. */
-export async function fetchSkillOperations(
-  aomi: Aomi,
-  id: string,
-): Promise<string[]> {
-  const { entries } = await aomi.pipeline.skill(id).operations();
-  return entries.map((entry) => entry.name);
-}
-
 /** The public skill catalog: credential-free, so every viewer shares it. */
 export function skillCatalogQuery(aomi: Aomi): DisplayQuery<SkillSummary[]> {
   return {

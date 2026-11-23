@@ -6,12 +6,12 @@ import type { CommitView } from "../commits";
 import type { EvmSimulatedBuild, SvmSimulatedBuild } from "../pipeline/types";
 
 const signer = "0x1111111111111111111111111111111111111111";
-const operation = (name: string) => ({
+const operation = (name: string, query: string) => ({
   kind: "operation",
   name,
   description: name,
   method: "POST",
-  href: `/v1/pipeline/toolsets/default/operations/${name}`,
+  href: `/v1/pipeline/operations/${name}${query}`,
   inputSchema: {
     type: "object",
     required: ["topic", "amount"],
@@ -42,7 +42,7 @@ const evmBuild = {
       kind: "swap",
     },
   ],
-  origin: { toolset: "default", operations: [] },
+  origin: { agent: "aomi/main", operations: [] },
   simulation,
   expiresAt: 2_000_000_000,
   digest: "sha256:build",
@@ -82,22 +82,25 @@ const request = {
 };
 
 function backend(views: CommitView[] = [view]) {
-  const calls: { method: string; path: string; body: unknown }[] = [];
+  const calls: {
+    method: string;
+    path: string;
+    search: string;
+    body: unknown;
+  }[] = [];
   const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
     const url = new URL(String(input));
     const method = init?.method ?? "GET";
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-    calls.push({ method, path: url.pathname, body });
+    calls.push({ method, path: url.pathname, search: url.search, body });
     const name = url.pathname.match(/operations\/(.+)$/)?.[1];
-    if (name && method === "GET") return Response.json(operation(name));
+    if (name && method === "GET")
+      return Response.json(operation(name, url.search));
     if (name) return Response.json({ status: "DONE" });
-    if (url.pathname === "/v1/pipeline/toolsets/default/operations")
-      return Response.json({
-        kind: "directory",
-        path: url.pathname,
-        entries: [],
-      });
-    if (url.pathname === "/v1/pipeline/skills")
+    if (
+      url.pathname === "/v1/pipeline/operations" ||
+      url.pathname === "/v1/pipeline/packages"
+    )
       return Response.json({
         kind: "directory",
         path: url.pathname,
@@ -109,6 +112,7 @@ function backend(views: CommitView[] = [view]) {
       return Response.json({
         ...evmBuild,
         actions: [],
+        origin: { agent: "acme/jupiter", operations: [] },
       } as unknown as SvmSimulatedBuild);
     if (url.pathname === "/v1/pipeline/svm/commit")
       return Response.json({
@@ -156,8 +160,8 @@ function backend(views: CommitView[] = [view]) {
   };
 }
 
-describe("aomi.pipeline without an toolset", () => {
-  it("builds in the default toolset, fills topic, and commits to one Commit", async () => {
+describe("aomi.pipeline", () => {
+  it("builds as the main agent when none is named, fills topic, and commits to one Commit", async () => {
     const { aomi, calls } = backend([
       { ...view, version: 2, state: "submitted" },
       { ...view, version: 3, state: "confirmed" },
@@ -170,14 +174,19 @@ describe("aomi.pipeline without an toolset", () => {
     expect(build.balanceChanges).toEqual(simulation.balanceChanges);
     expect(build.digest).toBe("sha256:build");
     expect(
-      calls.find((call) => call.path === "/v1/pipeline/evm/build")?.body,
-    ).toEqual({
-      toolset: "default",
-      operation: "/v1/pipeline/toolsets/default/operations/stage_lifi_swap",
-      arguments: { amount: "0.1", topic: "stage_lifi_swap" },
+      calls.find((call) => call.path === "/v1/pipeline/evm/build"),
+    ).toMatchObject({
+      search: "",
+      body: {
+        operation: "/v1/pipeline/operations/stage_lifi_swap",
+        arguments: { amount: "0.1", topic: "stage_lifi_swap" },
+      },
     });
 
     const commit = await build.commit();
+    expect(
+      calls.find((call) => call.path === "/v1/pipeline/evm/commit")?.search,
+    ).toBe("?agent=aomi%2Fmain");
     expect([commit.ref, commit.kind, commit.state]).toEqual([
       "c-1",
       "evm_tx",
@@ -189,42 +198,51 @@ describe("aomi.pipeline without an toolset", () => {
     commit.close();
   });
 
-  it("lists and invokes default-toolset operations and the skill catalog", async () => {
+  it("lists and invokes the main agent's operations and its packages", async () => {
     const { aomi, calls } = backend();
     await expect(aomi.pipeline.operations()).resolves.toMatchObject({
       kind: "directory",
     });
-    await expect(aomi.pipeline.skills.list()).resolves.toMatchObject({
+    await expect(aomi.pipeline.packages()).resolves.toMatchObject({
       kind: "directory",
     });
     await aomi.pipeline.invoke("lifi_get_status", { amount: "1" });
     expect(calls.at(-1)).toMatchObject({
       method: "POST",
-      path: "/v1/pipeline/toolsets/default/operations/lifi_get_status",
+      path: "/v1/pipeline/operations/lifi_get_status",
+      search: "",
       body: { amount: "1", topic: "lifi_get_status" },
     });
   });
 
-  it("names the toolset when forced, and opens a Solana commit under its own family", async () => {
+  it("runs as a named agent, and opens a Solana commit under its own family", async () => {
     const { aomi, calls } = backend();
     const build = await aomi.pipeline.build(
       "svm_stage_tx",
       { amount: "1" },
-      { toolset: "jupiter", transactionSafetyMode: "strict" },
+      { agent: "acme/jupiter", transactionSafetyMode: "strict" },
     );
-    expect(calls[0]?.path).toBe(
-      "/v1/pipeline/toolsets/jupiter/operations/svm_stage_tx",
-    );
+    expect(calls[0]).toMatchObject({
+      path: "/v1/pipeline/operations/svm_stage_tx",
+      search: "?agent=acme%2Fjupiter",
+    });
     expect(build.chainFamily).toBe("svm");
     expect(
-      calls.find((call) => call.path === "/v1/pipeline/svm/build")?.body,
-    ).toMatchObject({ transactionSafetyMode: "strict" });
+      calls.find((call) => call.path === "/v1/pipeline/svm/build"),
+    ).toMatchObject({
+      search: "?agent=acme%2Fjupiter",
+      body: {
+        operation: "/v1/pipeline/operations/svm_stage_tx",
+        transactionSafetyMode: "strict",
+      },
+    });
     const commit = await build.commit({
       transactionSafetyMode: "yolo",
     });
     expect(commit.ref).toBe(svmView.commit_id);
     expect(calls.at(-1)).toMatchObject({
       path: "/v1/pipeline/svm/commit",
+      search: "?agent=acme%2Fjupiter",
       body: { transactionSafetyMode: "yolo" },
     });
     await commit.refresh();

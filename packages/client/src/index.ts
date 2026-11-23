@@ -27,10 +27,9 @@ export { projectConversationEvents } from "./session/conversation";
 export {
   EvmPipelineTransport,
   PipelineApiError,
-  PipelineToolsetsTransport,
-  PipelineOperationTransport,
-  PipelineSkillTransport,
-  PipelineSkillsTransport,
+  PipelineAgentTransport,
+  PipelineOperationsTransport,
+  PipelinePackageTransport,
   PipelineTransport,
   SvmPipelineTransport,
 } from "./pipeline/transport";
@@ -56,7 +55,6 @@ export type {
   PipelineBalanceChange,
   PipelineCommitOptions,
   PipelineBuildOrigin,
-  PipelineBuildProvenance,
   PipelineExecutionScope,
   PipelineDirectory,
   PipelineDirectoryEntry,
@@ -250,10 +248,12 @@ export {
   AomiEvmPipeline,
   AomiPipeline,
   AomiPipelineOperationScope,
-  AomiPipelineSkillScope,
   AomiSvmPipeline,
 } from "./sdk/pipeline";
-export type { AomiOperationBuildOptions } from "./sdk/pipeline";
+export type {
+  AomiOperationBuildOptions,
+  AomiPipelineScope,
+} from "./sdk/pipeline";
 export { buildSiwsMessage } from "./siws";
 export type { SiwsIntent } from "./siws";
 export {

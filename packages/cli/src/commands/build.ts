@@ -314,9 +314,14 @@ export async function addContract(
   if (evm && flags.chain === undefined)
     throw usage("--chain <id> names the EVM chain to look the address up on");
   const aomi = await connect(flags);
-  const { result } = await aomi.pipeline.toolset("default").invoke<{
+  const { result } = await aomi.pipeline.invoke<{
     result: unknown;
-  }>(evm ? "evm_get_contract" : "svm_get_program", evm ? { address, chain_id: flags.chain, mode: "abi" } : { program_id: address, mode: "idl" });
+  }>(
+    evm ? "evm_get_contract" : "svm_get_program",
+    evm
+      ? { address, chain_id: flags.chain, mode: "abi" }
+      : { program_id: address, mode: "idl" },
+  );
   const dir = mkdtempSync(join(tmpdir(), "aomi-lookup-"));
   try {
     const lookup = join(dir, "lookup.json");
