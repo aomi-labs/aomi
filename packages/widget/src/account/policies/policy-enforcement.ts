@@ -254,6 +254,14 @@ export function failureText(cause: unknown): string {
             ].find((text): text is string => typeof text === "string" && !!text)
           : undefined;
   const text = (message ?? "").trim();
+  // The Solana wallet adapter's own errors carry a name and no message.
+  if (
+    !text &&
+    /^Wallet(NotSelected|NotConnected|NotReady)Error$/.test(
+      (cause as { name?: unknown } | null)?.name as string,
+    )
+  )
+    return "No Solana wallet is connected to sign this. Connect one and try again.";
   // Solana nodes refuse a transaction built against another network.
   if (/blockhash not found|block ?hash.*(expired|not found)/i.test(text))
     return "Your wallet’s Solana network doesn’t know the block this transaction was built on. Use a wallet on the same network as Aomi, or try again.";

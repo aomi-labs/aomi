@@ -215,6 +215,13 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
 });
 
 describe("failureText", () => {
+  it("names a Solana adapter error that has no message", () => {
+    const cause = new Error("");
+    cause.name = "WalletNotSelectedError";
+    expect(failureText(cause)).toMatch(/No Solana wallet is connected/);
+    expect(failureText(new Error(""))).toBe("");
+  });
+
   it("reads the message of an Error, a string and a plain wallet object", () => {
     expect(failureText(new Error("boom"))).toBe("boom");
     expect(failureText("nope")).toBe("nope");

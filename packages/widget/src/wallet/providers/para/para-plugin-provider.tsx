@@ -50,6 +50,8 @@ import {
   signParaTypedData,
   signParaSolanaMessage,
 } from "./para-message-signing";
+import { paraSvmWallet } from "./para-solana-transactions";
+import { buildSvmTransactionMethods } from "@/wallet/runtime/svm/transactions";
 import {
   defaultOAuthMethods,
   resolveParaAuthValue,
@@ -464,31 +466,76 @@ export function AomiParaPluginProvider({
       },
     };
   }, [evmRuntime, exposeParaSession, paraReviewStore, paraSession, svmWallet]);
-  const signingSvmRuntime = useMemo<SvmWalletRuntime>(
-    () => ({
+  const signingSvmRuntime = useMemo<SvmWalletRuntime>(() => {
+    const own = svmRuntime.execution;
+    /** The active Solana address when it is a Para embedded wallet. */
+    const paraAddress = (address = svmRuntime.identity(Date.now()).address) =>
+      address &&
+      exposeParaSession &&
+      paraSession &&
+      findParaSigningWallet(paraSession, address, "svm")?.id
+        ? address
+        : undefined;
+    // Para is not a wallet-adapter wallet: its transactions are signed by
+    // Para and sent through the same runtime as any other Solana wallet.
+    const viaPara = (address: string) =>
+      buildSvmTransactionMethods(paraSvmWallet(paraSession!, address), {
+        rpcHttpUrl: own.solanaRpcHttpUrl,
+        rpcWsUrl: own.solanaRpcWsUrl,
+        preferDirectSend: true,
+      });
+    const missing = () =>
+      new Error("No Solana wallet is available for signing.");
+    /** Para is signed in, so a Para Solana wallet can be the active one. */
+    const embedded = exposeParaSession && Boolean(paraSession?.signMessage);
+    type TransactionMethod =
+      | "signSolanaTransaction"
+      | "signAllSolanaTransactions"
+      | "sendSolanaTransaction"
+      | "signAndSendSolanaTransaction";
+    /** `name` on Para when it holds the active address, else the adapter's. */
+    const method = <K extends TransactionMethod>(
+      name: K,
+    ): NonNullable<SvmWalletRuntime["execution"][K]> => {
+      const address = paraAddress();
+      const found = address ? viaPara(address)[name] : own[name];
+      if (!found) throw missing();
+      return found as NonNullable<SvmWalletRuntime["execution"][K]>;
+    };
+    // A method stays absent when no wallet has it: callers read its
+    // presence as the capability.
+    const offered = <K extends TransactionMethod>(name: K) =>
+      own[name] || embedded
+        ? ((async (payload: never) =>
+            method(name)(payload)) as SvmWalletRuntime["execution"][K])
+        : undefined;
+    const transactionMethods = {
+      signSolanaTransaction: offered("signSolanaTransaction"),
+      signAllSolanaTransactions: offered("signAllSolanaTransactions"),
+      sendSolanaTransaction: offered("sendSolanaTransaction"),
+      signAndSendSolanaTransaction: offered("signAndSendSolanaTransaction"),
+    };
+    return {
       ...svmRuntime,
       execution: {
-        ...svmRuntime.execution,
+        ...own,
         signSolanaMessage: async (payload) => {
-          const address =
-            payload.signer ?? svmRuntime.identity(Date.now()).address;
-          if (
-            address &&
-            exposeParaSession &&
-            paraSession &&
-            findParaSigningWallet(paraSession, address, "svm")?.id
-          ) {
+          const address = paraAddress(payload.signer);
+          if (address) {
             if (!payload.message) throw new Error("Missing message payload");
-            return signParaSolanaMessage(paraSession, address, payload.message);
+            return signParaSolanaMessage(
+              paraSession!,
+              address,
+              payload.message,
+            );
           }
-          if (!svmRuntime.execution.signSolanaMessage)
-            throw new Error("No Solana wallet is available for signing.");
-          return svmRuntime.execution.signSolanaMessage(payload);
+          if (!own.signSolanaMessage) throw missing();
+          return own.signSolanaMessage(payload);
         },
+        ...transactionMethods,
       },
-    }),
-    [svmRuntime, exposeParaSession, paraSession],
-  );
+    };
+  }, [svmRuntime, exposeParaSession, paraSession]);
   const accountRuntime = useResolvedAccountRuntime({
     account,
     auth: authRuntime,
