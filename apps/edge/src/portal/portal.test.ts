@@ -460,6 +460,7 @@ describe("portal surface: widget sessions", () => {
       auth_source: "widget",
       scope: "agent:write",
     });
+    expect(seen[0].headers.origin).toBe(PARTNER);
     expect(seen[0].body).toBe('{"message":"hi"}');
   });
 

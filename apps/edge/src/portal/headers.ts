@@ -42,6 +42,7 @@ export const BACKEND_API_HEADERS: Required<HeaderPolicy> = {
 export const AGENT_API_HEADERS: Required<HeaderPolicy> = {
   request: new Set([
     ...BACKEND_API_HEADERS.request,
+    "origin",
     "if-none-match",
     "if-modified-since",
     "idempotency-key",
