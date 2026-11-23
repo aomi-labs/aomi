@@ -47,11 +47,13 @@
     "GET /v1/pipeline/evm/simulate",
     "GET /v1/pipeline/evm/stage",
     "GET /v1/pipeline/evm/token-holdings",
-    "GET /v1/pipeline/skills",
-    "GET /v1/pipeline/skills/{skill}",
-    "GET /v1/pipeline/skills/{skill}/SKILL.md",
-    "GET /v1/pipeline/skills/{skill}/operations",
-    "GET /v1/pipeline/skills/{skill}/operations/{operation}",
+    "GET /v1/pipeline/operations",
+    "GET /v1/pipeline/operations/{operation}",
+    "GET /v1/pipeline/packages",
+    "GET /v1/pipeline/packages/{package}",
+    "GET /v1/pipeline/packages/{package}/operations",
+    "GET /v1/pipeline/packages/{package}/operations/{operation}",
+    "GET /v1/pipeline/packages/{package}/skills/{file}",
     "GET /v1/pipeline/svm",
     "GET /v1/pipeline/svm/account",
     "GET /v1/pipeline/svm/build",
@@ -62,10 +64,6 @@
     "GET /v1/pipeline/svm/simulate",
     "GET /v1/pipeline/svm/stage",
     "GET /v1/pipeline/svm/token-holdings",
-    "GET /v1/pipeline/toolsets",
-    "GET /v1/pipeline/toolsets/{toolset}",
-    "GET /v1/pipeline/toolsets/{toolset}/operations",
-    "GET /v1/pipeline/toolsets/{toolset}/operations/{operation}",
     "PATCH /v1/agent/sessions/{sessionId}",
     "POST /v1/account/credits/funding-events",
     "POST /v1/account/credits/funding-events/{id}/cancel",
@@ -99,7 +97,8 @@
     "POST /v1/pipeline/evm/stage",
     "POST /v1/pipeline/evm/token-holdings",
     "POST /v1/pipeline/mcp",
-    "POST /v1/pipeline/skills/{skill}/operations/{operation}",
+    "POST /v1/pipeline/operations/{operation}",
+    "POST /v1/pipeline/packages/{package}/operations/{operation}",
     "POST /v1/pipeline/svm/account",
     "POST /v1/pipeline/svm/build",
     "POST /v1/pipeline/svm/commit",
@@ -111,7 +110,6 @@
     "POST /v1/pipeline/svm/simulate",
     "POST /v1/pipeline/svm/stage",
     "POST /v1/pipeline/svm/token-holdings",
-    "POST /v1/pipeline/toolsets/{toolset}/operations/{operation}",
     "POST /v1/task/build",
     "POST /v1/task/{quoteId}/result",
     "POST /v1/task/{quoteId}/status",
@@ -818,73 +816,12 @@
         ]
       }
     },
-    "/v1/pipeline/toolsets": {
+    "/v1/pipeline/operations": {
       "get": {
-        "operationId": "browsePipelineToolsets",
+        "operationId": "browsePipelineOperations",
         "parameters": [
           {
-            "$ref": "#/components/parameters/CatalogCursor"
-          },
-          {
-            "$ref": "#/components/parameters/ToolsetPageLimit"
-          }
-        ],
-        "responses": {
-          "200": {
-            "$ref": "#/components/responses/PipelineDirectory"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "aomiOAuth": ["pipeline:catalog"]
-          }
-        ]
-      }
-    },
-    "/v1/pipeline/toolsets/{toolset}": {
-      "get": {
-        "operationId": "browsePipelineToolset",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/PipelineToolset"
-          }
-        ],
-        "responses": {
-          "200": {
-            "$ref": "#/components/responses/PipelineDirectory"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "aomiOAuth": ["pipeline:catalog"]
-          }
-        ]
-      }
-    },
-    "/v1/pipeline/toolsets/{toolset}/operations": {
-      "get": {
-        "operationId": "browsePipelineToolsetOperations",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/PipelineToolset"
+            "$ref": "#/components/parameters/PipelineAgent"
           },
           {
             "$ref": "#/components/parameters/CatalogCursor"
@@ -914,15 +851,15 @@
         ]
       }
     },
-    "/v1/pipeline/toolsets/{toolset}/operations/{operation}": {
+    "/v1/pipeline/operations/{operation}": {
       "get": {
-        "operationId": "describePipelineToolsetOperation",
+        "operationId": "describePipelineOperation",
         "parameters": [
           {
-            "$ref": "#/components/parameters/PipelineToolset"
+            "$ref": "#/components/parameters/PipelineOperation"
           },
           {
-            "$ref": "#/components/parameters/PipelineOperation"
+            "$ref": "#/components/parameters/PipelineAgent"
           }
         ],
         "responses": {
@@ -946,22 +883,13 @@
         ]
       },
       "post": {
-        "operationId": "invokePipelineToolsetOperation",
+        "operationId": "invokePipelineOperation",
         "parameters": [
-          {
-            "$ref": "#/components/parameters/PipelineToolset"
-          },
           {
             "$ref": "#/components/parameters/PipelineOperation"
           },
           {
-            "name": "agent",
-            "in": "query",
-            "description": "The agent the operation runs as, `publisher/name`; omitted is `aomi/main`. Used for admission funding and backend resolution.",
-            "schema": {
-              "type": "string",
-              "pattern": "^[^/]+/[^/]+$"
-            }
+            "$ref": "#/components/parameters/PipelineAgent"
           }
         ],
         "requestBody": {
@@ -988,10 +916,125 @@
         ]
       }
     },
-    "/v1/pipeline/skills": {
+    "/v1/pipeline/packages": {
       "get": {
-        "operationId": "browsePipelineSkills",
+        "operationId": "browsePipelinePackages",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineAgent"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineDirectory"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/packages/{package}": {
+      "get": {
+        "operationId": "browsePipelinePackage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelinePackage"
+          },
+          {
+            "$ref": "#/components/parameters/PipelineAgent"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineDirectory"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/packages/{package}/skills/{file}": {
+      "get": {
+        "operationId": "readPipelinePackageSkill",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelinePackage"
+          },
+          {
+            "name": "file",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "$ref": "#/components/parameters/PipelineAgent"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The package's skill file, as released",
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/packages/{package}/operations": {
+      "get": {
+        "operationId": "browsePipelinePackageOperations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelinePackage"
+          },
+          {
+            "$ref": "#/components/parameters/PipelineAgent"
+          },
           {
             "$ref": "#/components/parameters/CatalogCursor"
           },
@@ -1020,109 +1063,18 @@
         ]
       }
     },
-    "/v1/pipeline/skills/{skill}": {
+    "/v1/pipeline/packages/{package}/operations/{operation}": {
       "get": {
-        "operationId": "browsePipelineSkill",
+        "operationId": "describePipelinePackageOperation",
         "parameters": [
           {
-            "$ref": "#/components/parameters/PipelineSkill"
-          }
-        ],
-        "responses": {
-          "200": {
-            "$ref": "#/components/responses/PipelineDirectory"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "aomiOAuth": ["pipeline:catalog"]
-          }
-        ]
-      }
-    },
-    "/v1/pipeline/skills/{skill}/SKILL.md": {
-      "get": {
-        "operationId": "readPipelineSkill",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/PipelineSkill"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Authoritative skill Markdown",
-            "content": {
-              "text/markdown": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "aomiOAuth": ["pipeline:catalog"]
-          }
-        ]
-      }
-    },
-    "/v1/pipeline/skills/{skill}/operations": {
-      "get": {
-        "operationId": "browsePipelineSkillOperations",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/PipelineSkill"
-          }
-        ],
-        "responses": {
-          "200": {
-            "$ref": "#/components/responses/PipelineDirectory"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "aomiOAuth": ["pipeline:catalog"]
-          }
-        ]
-      }
-    },
-    "/v1/pipeline/skills/{skill}/operations/{operation}": {
-      "get": {
-        "operationId": "describePipelineSkillOperation",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/PipelineSkill"
+            "$ref": "#/components/parameters/PipelinePackage"
           },
           {
             "$ref": "#/components/parameters/PipelineOperation"
+          },
+          {
+            "$ref": "#/components/parameters/PipelineAgent"
           }
         ],
         "responses": {
@@ -1146,13 +1098,16 @@
         ]
       },
       "post": {
-        "operationId": "invokePipelineSkillOperation",
+        "operationId": "invokePipelinePackageOperation",
         "parameters": [
           {
-            "$ref": "#/components/parameters/PipelineSkill"
+            "$ref": "#/components/parameters/PipelinePackage"
           },
           {
             "$ref": "#/components/parameters/PipelineOperation"
+          },
+          {
+            "$ref": "#/components/parameters/PipelineAgent"
           }
         ],
         "requestBody": {
@@ -1160,7 +1115,7 @@
         },
         "responses": {
           "200": {
-            "description": "Skill-scoped request-local operation result"
+            "description": "Request-local authoritative operation result"
           },
           "401": {
             "$ref": "#/components/responses/Error"
@@ -1753,7 +1708,11 @@
       "post": {
         "operationId": "buildevmPipeline",
         "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
-        "parameters": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineAgent"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1818,7 +1777,11 @@
       "post": {
         "operationId": "stageevmPipeline",
         "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
-        "parameters": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineAgent"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1883,7 +1846,11 @@
       "post": {
         "operationId": "simulateevmPipeline",
         "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
-        "parameters": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineAgent"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1951,6 +1918,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/PipelineAgent"
           }
         ],
         "requestBody": {
@@ -2017,7 +1987,11 @@
       "post": {
         "operationId": "buildsvmPipeline",
         "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
-        "parameters": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineAgent"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -2082,7 +2056,11 @@
       "post": {
         "operationId": "stagesvmPipeline",
         "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
-        "parameters": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineAgent"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -2147,7 +2125,11 @@
       "post": {
         "operationId": "simulatesvmPipeline",
         "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
-        "parameters": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineAgent"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -2215,6 +2197,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/PipelineAgent"
           }
         ],
         "requestBody": {
@@ -5391,16 +5376,6 @@
           "pattern": "^act_[A-Za-z0-9_-]+$"
         }
       },
-      "PipelineToolset": {
-        "name": "toolset",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 160
-        }
-      },
       "IdempotencyKey": {
         "name": "Idempotency-Key",
         "in": "header",
@@ -5421,14 +5396,25 @@
           "maxLength": 160
         }
       },
-      "PipelineSkill": {
-        "name": "skill",
+      "PipelinePackage": {
+        "name": "package",
         "in": "path",
         "required": true,
+        "description": "Package id `publisher/name`, encoded as one segment (`publisher%2Fname`).",
         "schema": {
           "type": "string",
-          "minLength": 1,
+          "minLength": 3,
           "maxLength": 160
+        }
+      },
+      "PipelineAgent": {
+        "name": "agent",
+        "in": "query",
+        "required": false,
+        "description": "The agent this read or operation is for, `publisher/name`; omitted is `aomi/main`. Discovery and execution use the same capability view of it.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[^/]+/[^/]+$"
         }
       },
       "CatalogCursor": {
@@ -5437,17 +5423,6 @@
         "required": false,
         "schema": {
           "type": "string"
-        }
-      },
-      "ToolsetPageLimit": {
-        "name": "limit",
-        "in": "query",
-        "required": false,
-        "schema": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 20,
-          "default": 20
         }
       },
       "CatalogPageLimit": {
@@ -5556,6 +5531,14 @@
           "cursor": {
             "type": ["string", "null"],
             "description": "The caller's current event cursor. When supplied, the start page carries only events after it instead of the whole history; an expired cursor falls back to the full page rather than failing the accepted turn."
+          },
+          "packages": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[^/ ]+/[^/ ]+$"
+            },
+            "description": "Packages (publisher/name) active from this turn's first pass. Each must be on for the caller in the session's agent, else 422 package_not_on."
           },
           "wallet": {
             "type": ["string", "null"],
@@ -8593,13 +8576,13 @@
           },
           "origin": {
             "type": "object",
-            "description": "Toolset, skills, and Catalog operations that assembled the actions.",
-            "required": ["toolset", "operations"],
+            "description": "The agent, activated packages and operations that assembled the actions.",
+            "required": ["agent", "operations"],
             "properties": {
-              "toolset": {
+              "agent": {
                 "type": "string"
               },
-              "skills": {
+              "packages": {
                 "type": "array",
                 "items": {
                   "type": "string"
@@ -8624,7 +8607,7 @@
           },
           "attestation": {
             "type": "string",
-            "description": "Server authentication of the Build owner, toolset scope, status, and simulation guard evidence. Older attestation versions require a new stage and simulation."
+            "description": "Server authentication of the Build owner, agent, status, and simulation guard evidence. Older attestation versions require a new stage and simulation."
           },
           "transactionSafetyMode": {
             "$ref": "#/components/schemas/TransactionSafetyMode",
@@ -10254,7 +10237,7 @@
               "agent:read": "Read owned Agent turns and sessions",
               "agent:write": "Start, continue, interrupt, update, or delete Agent sessions",
               "agent:actions:resolve": "Resolve a durable Agent Action",
-              "pipeline:catalog": "Browse public Pipeline toolsets, skills, and operations",
+              "pipeline:catalog": "Browse an agent's Pipeline packages and operations",
               "pipeline:execute": "Attempt Pipeline execution subject to Gate F policy",
               "account:transaction-safety:read": "Read owned transaction safety preferences",
               "account:transaction-safety:write": "Update owned transaction safety preferences",

@@ -4,7 +4,16 @@ import publicApi from "../../../apps/portal/openapi/aomi-agent-v1.json";
 
 describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
   it("freezes the Rust route manifest and excludes deleted chat controllers", () => {
-    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(113);
+    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(111);
+    // Phase F: an agent's operations and packages, no toolsets or skills.
+    expect(
+      publicApi["x-aomi-route-manifest"].filter((route: string) =>
+        /\/v1\/pipeline\/(toolsets|skills)\b/u.test(route),
+      ),
+    ).toEqual([]);
+    expect(publicApi["x-aomi-route-manifest"]).toContain(
+      "POST /v1/pipeline/packages/{package}/operations/{operation}",
+    );
     // The two-purchase Task API (product-mono #1356): prepare, then status
     // and result by quote.
     for (const route of [
