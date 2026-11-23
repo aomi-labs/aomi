@@ -129,7 +129,7 @@ export function UsageView() {
           <p>
             Chats and model cost are counted per agent. Tool calls, fees and
             hosting are counted per package, wherever it is used; calls in
-            other builders' agents show as totals only.
+            other builders&apos; agents show as totals only.
           </p>
         }
         actions={
