@@ -5,7 +5,9 @@ import Link from "@/ui/link";
 import type { MonthlyStatement } from "./types";
 import { useAccountOverview } from "@/account/account-overview";
 import { useUsageStatement } from "./use-usage-statement";
-import { ArrowLeft, Check, ChevronDown } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { PillDropdown } from "@/ui/aomi/pill-dropdown";
+import { Segmented } from "@/ui/aomi/segmented";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import {
   AllowanceSettlementSection,
@@ -20,7 +22,7 @@ import {
   usd,
 } from "./usage-shared";
 import { shortAddress } from "@aomi-labs/client";
-import { FilterChip } from "@/account/connections/wallet-view";
+import { NavigationTab } from "@/ui/aomi/navigation-tab";
 
 type View = "byApp" | "itemized";
 type Subject = "all" | "model" | "tool" | "onchain";
@@ -141,7 +143,7 @@ export function StatementView() {
             </div>
 
             <StatementPeriodHero totalUsd={summary.totalUsd}>
-              <Dropdown
+              <PillDropdown
                 value={statement.selectedKey}
                 options={statement.monthKeys.map((key) => ({
                   id: key,
@@ -169,24 +171,17 @@ export function StatementView() {
             />
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="border-aomi-border flex rounded-full border p-[3px]">
-                {(["byApp", "itemized"] as View[]).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setView(v)}
-                    className={`rounded-full px-3.5 py-[6px] text-xs font-medium transition-colors ${
-                      view === v
-                        ? "bg-aomi-surface-2 text-aomi-fg font-medium"
-                        : "text-aomi-muted hover:text-aomi-fg"
-                    }`}
-                  >
-                    {v === "byApp" ? "By app" : "Itemized"}
-                  </button>
-                ))}
-              </div>
+              <Segmented<View>
+                label="Statement detail"
+                value={view}
+                onChange={setView}
+                options={[
+                  { value: "byApp", label: "By app" },
+                  { value: "itemized", label: "Itemized" },
+                ]}
+              />
 
-              <Dropdown
+              <PillDropdown
                 value={appFilter}
                 options={[
                   { id: "all", label: "All apps" },
@@ -197,18 +192,18 @@ export function StatementView() {
             </div>
 
             {view === "itemized" && (
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div role="group" aria-label="Statement subject" className="flex flex-wrap items-center gap-1">
                 <span className="text-aomi-muted mr-1 text-[11px] uppercase tracking-wide">
                   Subject
                 </span>
                 {SUBJECTS.map((s) => (
-                  <FilterChip
+                  <NavigationTab
                     key={s.id}
                     active={subject === s.id}
                     onClick={() => setSubject(s.id)}
                   >
                     {s.label}
-                  </FilterChip>
+                  </NavigationTab>
                 ))}
               </div>
             )}
@@ -421,68 +416,6 @@ function ItemizedContent({
             builder statements as Aomi&apos;s take.
           </span>
         </div>
-      )}
-    </div>
-  );
-}
-
-function Dropdown({
-  value,
-  options,
-  onChange,
-}: {
-  value: string;
-  options: { id: string; label: string }[];
-  onChange: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const current = options.find((o) => o.id === value);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2/60 flex items-center gap-2 rounded-full border px-3.5 py-[7px] text-xs font-medium transition-colors"
-      >
-        {current?.label}
-        <ChevronDown
-          size={12}
-          className={`text-aomi-muted transition-transform ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-      {open && (
-        <>
-          <button
-            aria-label="Close menu"
-            type="button"
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-20 cursor-default"
-          />
-          <div className="border-aomi-overlay-border bg-aomi-raised absolute left-0 top-full z-30 mt-1.5 min-w-[160px] overflow-hidden rounded-xl border p-1 shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
-            {options.map((o) => {
-              const selected = o.id === value;
-              return (
-                <button
-                  key={o.id}
-                  type="button"
-                  onClick={() => {
-                    onChange(o.id);
-                    setOpen(false);
-                  }}
-                  className={`hover:bg-aomi-hover flex min-h-8 w-full items-center justify-between gap-3 rounded-lg px-2.5 text-left text-[13px] transition-colors ${
-                    selected
-                      ? "bg-aomi-accent-subtle text-aomi-fg font-medium"
-                      : "text-aomi-muted"
-                  }`}
-                >
-                  {o.label}
-                  {selected && <Check size={13} />}
-                </button>
-              );
-            })}
-          </div>
-        </>
       )}
     </div>
   );

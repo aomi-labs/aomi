@@ -1,29 +1,29 @@
 import { cn } from "@aomi-labs/widget";
 import { UrlLink as Link } from "@/components/url-link";
 import { useLocation } from "@tanstack/react-router";
+import type { Icon as InterfaceIcon } from "@phosphor-icons/react";
 import {
-  Activity,
-  BookOpen,
-  CircleUserRound,
-  Github,
-  FolderKanban,
-  Gauge,
-  Hammer,
-  Home,
-  KeyRound,
-  LogOut,
-  Menu,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Plug,
-  Rocket,
-  ScrollText,
-  Search,
-  Settings,
-  WalletCards,
-  X,
-  type LucideIcon,
-} from "lucide-react";
+  BookOpenIcon,
+  FolderIcon,
+  GaugeIcon,
+  GearSixIcon,
+  GithubLogoIcon,
+  HammerIcon,
+  HouseIcon,
+  KeyIcon,
+  ListIcon,
+  MagnifyingGlassIcon,
+  PlugsIcon,
+  PulseIcon,
+  RocketIcon,
+  ScrollIcon,
+  SidebarIcon,
+  SidebarSimpleIcon,
+  SignOutIcon,
+  UserCircleIcon,
+  WalletIcon,
+  XIcon,
+} from "./icons";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Aomi } from "@aomi-labs/client";
@@ -49,7 +49,7 @@ import { githubSigninUrl, launchSignOutGitHub } from "@/features/deploy/client";
 type NavItem = {
   label: string;
   href: string;
-  icon: LucideIcon;
+  icon: InterfaceIcon;
   enabled: boolean;
   requiresGitHub?: boolean;
 };
@@ -63,18 +63,18 @@ const navGroups: NavGroup[] = [
   {
     title: "Overview",
     items: [
-      { label: "Overview", href: "/overview", icon: Home, enabled: true },
+      { label: "Overview", href: "/overview", icon: HouseIcon, enabled: true },
       {
         label: "Projects",
         href: "/projects",
-        icon: FolderKanban,
+        icon: FolderIcon,
         enabled: true,
       },
     ],
   },
   {
     title: "Build",
-    items: [{ label: "Build", href: "/build", icon: Hammer, enabled: true }],
+    items: [{ label: "Build", href: "/build", icon: HammerIcon, enabled: true }],
   },
   {
     title: "Operate",
@@ -82,35 +82,35 @@ const navGroups: NavGroup[] = [
       {
         label: "Deployments",
         href: "/operate/deployments",
-        icon: Rocket,
+        icon: RocketIcon,
         enabled: true,
         requiresGitHub: true,
       },
       {
         label: "Transactions",
         href: "/operate/transactions",
-        icon: WalletCards,
+        icon: WalletIcon,
         enabled: true,
         requiresGitHub: true,
       },
       {
         label: "Observability",
         href: "/operate/observability",
-        icon: Activity,
+        icon: PulseIcon,
         enabled: true,
         requiresGitHub: true,
       },
       {
         label: "Usage",
         href: "/operate/usage",
-        icon: Gauge,
+        icon: GaugeIcon,
         enabled: true,
         requiresGitHub: true,
       },
       {
         label: "Logs",
         href: "/operate/logs",
-        icon: ScrollText,
+        icon: ScrollIcon,
         enabled: true,
         requiresGitHub: true,
       },
@@ -122,18 +122,18 @@ const navGroups: NavGroup[] = [
       {
         label: "Providers",
         href: "/providers",
-        icon: KeyRound,
+        icon: KeyIcon,
         enabled: true,
         requiresGitHub: true,
       },
       {
         label: "Integrations",
         href: "/integrations",
-        icon: Plug,
+        icon: PlugsIcon,
         enabled: true,
         requiresGitHub: true,
       },
-      { label: "Settings", href: "/settings", icon: Settings, enabled: true },
+      { label: "Settings", href: "/settings", icon: GearSixIcon, enabled: true },
     ],
   },
 ];
@@ -243,7 +243,7 @@ function AccountCard({ account }: { account: GitHubAccountState }) {
         />
       ) : (
         <span className="bg-surface-3 text-foreground flex h-7 w-7 shrink-0 items-center justify-center rounded-full">
-          <Github className="size-3.5" />
+          <GithubLogoIcon className="size-3.5" />
         </span>
       )}
       <div className="min-w-0">
@@ -319,6 +319,7 @@ function NavItemLink({
       href={platformHref(item.href, platform)}
       warmOnIntent={!active}
       onClick={onNavigate}
+      aria-current={active ? "page" : undefined}
       data-active={active ? "true" : "false"}
       className="nav-link"
       title={!expanded ? item.label : undefined}
@@ -348,7 +349,7 @@ function NavGroupList({
           {group.title}
         </div>
       ) : null}
-      <div className="space-y-0.5 px-1">
+      <div className="space-y-1 px-1">
         {group.items.map((item) => (
           <NavItemLink
             key={item.href}
@@ -469,7 +470,7 @@ function AccountMenu({
               size="sm"
             />
           ) : (
-            <CircleUserRound className="size-4" />
+            <UserCircleIcon className="size-4" />
           )
         }
       >
@@ -496,7 +497,7 @@ function AccountMenu({
             rel="noreferrer"
             className="hover:bg-accent-hover hover:text-foreground flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition"
           >
-            <Github className="size-3.5" />
+            <GithubLogoIcon className="size-3.5" />
             GitHub profile
           </a>
         ) : (
@@ -504,7 +505,7 @@ function AccountMenu({
             href={githubSigninUrl}
             className="hover:bg-accent-hover hover:text-foreground flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition"
           >
-            <Github className="size-3.5" />
+            <GithubLogoIcon className="size-3.5" />
             Sign in with GitHub
           </a>
         )}
@@ -513,7 +514,7 @@ function AccountMenu({
           preload={false}
           className="hover:bg-accent-hover hover:text-foreground flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition"
         >
-          <Settings className="size-3.5" />
+          <GearSixIcon className="size-3.5" />
           Settings
         </Link>
         <div className="bg-border -mx-1 my-1 h-px" />
@@ -523,7 +524,7 @@ function AccountMenu({
           rel="noreferrer"
           className="hover:bg-accent-hover hover:text-foreground flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition"
         >
-          <BookOpen className="size-3.5" />
+          <BookOpenIcon className="size-3.5" />
           Docs
         </a>
         <a
@@ -532,7 +533,7 @@ function AccountMenu({
           rel="noreferrer"
           className="hover:bg-accent-hover hover:text-foreground flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition"
         >
-          <Home className="size-3.5" />
+          <HouseIcon className="size-3.5" />
           Home page
         </a>
         <div className="bg-border -mx-1 my-1 h-px" />
@@ -542,7 +543,7 @@ function AccountMenu({
           disabled={!account.signedIn || signingOut}
           className="hover:bg-accent-hover hover:text-foreground flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <LogOut className="size-3.5" />
+          <SignOutIcon className="size-3.5" />
           {signingOut ? "Signing out" : "Sign out"}
         </button>
       </TopBarMenu>
@@ -614,7 +615,7 @@ function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
                 onClick={() => setExpanded(false)}
                 className="shrink-0"
               >
-                <PanelLeftClose className="size-4" />
+                <SidebarSimpleIcon className="size-4" />
               </IconButton>
             ) : null}
           </div>
@@ -625,7 +626,7 @@ function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
                 onClick={() => setExpanded(true)}
                 className="h-7 w-7"
               >
-                <PanelLeftOpen className="size-3.5" />
+                <SidebarIcon className="size-3.5" />
               </IconButton>
             </div>
           ) : null}
@@ -653,7 +654,7 @@ function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
                 label="Close menu"
                 onClick={() => setMobileOpen(false)}
               >
-                <X className="size-4" />
+                <XIcon className="size-4" />
               </IconButton>
             </div>
             <SidebarNav
@@ -673,7 +674,7 @@ function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
             onClick={() => setMobileOpen(true)}
             className="lg:hidden"
           >
-            <Menu className="size-4" />
+            <ListIcon className="size-4" />
           </IconButton>
           <div className="hidden lg:block" />
           <div className="flex items-center gap-2">
@@ -685,7 +686,7 @@ function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
               aria-label="Open command palette (⌘K)"
               title="Search (⌘K)"
             >
-              <Search className="size-3.5 shrink-0" aria-hidden />
+              <MagnifyingGlassIcon className="size-3.5 shrink-0" aria-hidden />
               <span className="hidden sm:inline">Search</span>
               <kbd className="border-border hidden rounded border px-1 py-0.5 text-[10px] sm:inline">
                 ⌘K

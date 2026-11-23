@@ -6,7 +6,9 @@
 import { Suspense, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { GitHubSessionProvider } from "@/components/control-plane/github-session-context";
-import { OperateView, type ViewKind } from "@/features/operate/operate-view";
+import { NavigationTab } from "@aomi-labs/widget/controls";
+import { OperateView, operateSections, type ViewKind } from "@/features/operate/operate-view";
+import { UsageRows } from "@/features/operate/usage-rows";
 import { AppDetailView } from "@/features/operate/app-detail-view";
 import {
   ALL_LOGS,
@@ -183,7 +185,7 @@ const OBSERVABILITY = {
       scope: "owned_applications",
     },
   ],
-  platformMetrics: [],
+  platformMetrics: [{ label: "Request latency", value: 184, unit: "ms", scope: "Platform" }],
   apps: [
     {
       applicationId: 2_936_606,
@@ -458,39 +460,43 @@ export default function DevOperatePreview() {
 
   return (
     <GitHubSessionProvider>
-      <div className="border-border mx-auto flex w-full max-w-7xl gap-2 border-b px-4 pt-4 sm:px-6 lg:px-8">
-        {KINDS.map((k) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => setKind(k)}
-            className={`rounded-t-md px-3 py-1.5 text-sm capitalize ${
-              k === kind
-                ? "bg-surface text-foreground border-border border border-b-0"
-                : "text-dim"
-            }`}
-          >
-            {k}
-          </button>
-        ))}
+      <div role="group" aria-label="Operate section" className="border-border mx-auto flex max-w-7xl gap-1 overflow-x-auto border-b px-4 py-2 sm:px-6 lg:px-8">
+        {KINDS.map(k => {
+          const { icon: Icon, title } = operateSections[k];
+          return (
+            <NavigationTab key={k} active={k === kind} onClick={() => setKind(k)}>
+              <Icon size={16} aria-hidden="true" />{title}
+            </NavigationTab>
+          );
+        })}
       </div>
       {/* Harness-only: clicking any app card opens its drill-down mock. */}
       <div
         onClickCapture={(event) => {
           if (kind !== "observability") return;
           const card = (event.target as HTMLElement).closest(
-            "div.rounded-md.border",
+            "a[aria-label], div.rounded-build-panel.border",
           );
           const name = APP_NAMES.find((appName) =>
             card?.textContent?.includes(appName),
           );
-          if (name) setDetailApp(name);
+          if (name) {
+            event.preventDefault();
+            event.stopPropagation();
+            setDetailApp(name);
+          }
         }}
       >
         <Suspense fallback={null}>
           <OperateView key={kind} kind={kind} />
         </Suspense>
       </div>
+      {kind === "usage" && (
+        <section className="operate-surface mx-auto max-w-7xl px-4 pb-8 sm:px-6 lg:px-8">
+          <h2 className="build-section-title mb-4">Daily usage</h2>
+          <UsageRows payload={{ daily: [{ periodUtcDay: "2026-07-15", application: "goal-digger", inputTokens: 6500, outputTokens: 850, creditsUsed: 0.12 }], breakdown: USAGE.breakdown }} />
+        </section>
+      )}
     </GitHubSessionProvider>
   );
 }

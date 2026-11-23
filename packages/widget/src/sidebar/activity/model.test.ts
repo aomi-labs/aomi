@@ -8,6 +8,8 @@ import {
 import {
   selectActivity,
   selectLegacyReviewAction,
+  selectPolicyChangeIds,
+  selectPolicyFilings,
   selectReviewQueue,
 } from "./model";
 
@@ -932,5 +934,49 @@ describe("discarded staged transactions", () => {
       "turn-1:evm:1",
       "turn-1:evm:3",
     ]);
+  });
+});
+
+describe("selectPolicyChangeIds", () => {
+  const propose = (
+    sequence: number,
+    waiting: object | null,
+    name = "rules_propose",
+  ) =>
+    tool(sequence, name, {
+      status: waiting ? "waiting" : "applied",
+      waiting_for_admin: waiting,
+    });
+
+  it("lists the changes the agent filed and left waiting, oldest first, once each", () => {
+    const events: Event[] = [
+      propose(1, { id: "c1" }),
+      propose(2, null),
+      propose(3, { id: "c2" }),
+      propose(4, { id: "c1" }),
+    ];
+    expect(selectPolicyChangeIds(events)).toEqual(["c1", "c2"]);
+  });
+
+  it("ignores other tools, even when they carry a waiting change", () => {
+    expect(
+      selectPolicyChangeIds([propose(1, { id: "c1" }, "rules_get")]),
+    ).toEqual([]);
+  });
+});
+
+describe("selectPolicyFilings", () => {
+  const filed = (sequence: number, wallet: string | null, name: string) =>
+    tool(sequence, name, wallet ? { agent_wallet_id: wallet } : {});
+
+  it("lists the wallet of every rules_propose and rules_tighten result, once per filing", () => {
+    const events: Event[] = [
+      filed(1, "w1", "rules_propose"),
+      filed(2, "w1", "rules_tighten"),
+      filed(3, "w2", "rules_propose"),
+      filed(4, null, "rules_propose"),
+      filed(5, "w3", "rules_get"),
+    ];
+    expect(selectPolicyFilings(events)).toEqual(["w1", "w1", "w2"]);
   });
 });

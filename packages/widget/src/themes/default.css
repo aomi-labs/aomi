@@ -1,3 +1,4 @@
+@import "../../design-tokens.css";
 @import "@assistant-ui/react-markdown/styles/dot.css";
 
 /* Internal Tailwind source. Consumers import the compiled, scoped
@@ -15,14 +16,17 @@
 .aomi-widget {
   --aui-thread-status-color: var(--aomi-accent-strong);
   --animate-aui-thread-status: none;
+  --aui-thread-status-display: none;
 }
 
 .aomi-widget:has(> [data-current-thread-status="run"]) {
+  --aui-thread-status-display: inline-block;
   --animate-aui-thread-status: auiThreadStatusPulse 2s
     cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .aomi-widget:has(> [data-current-thread-status="sign"]) {
+  --aui-thread-status-display: inline-block;
   --aui-thread-status-color: var(--aomi-warning);
 }
 
@@ -33,9 +37,11 @@
 .aui-thread-list-item[data-active] .aui-thread-status {
   background-color: var(--aui-thread-status-color);
   animation: var(--animate-aui-thread-status);
+  display: var(--aui-thread-status-display);
 }
 
 .aui-thread-list-item[data-awaiting-approval] .aui-thread-status {
+  display: inline-block;
   opacity: 1;
   background-color: var(--aomi-warning);
 }
@@ -50,6 +56,33 @@
   .aui-thread-list-item[data-active] .aui-thread-status {
     animation: none;
   }
+}
+
+
+/* Icon-only controls use the same interaction colors in toolbars and help hints. */
+@utility aomi-icon-trigger {
+  @apply inline-flex shrink-0 items-center justify-center rounded-full text-aomi-fg transition-colors focus-visible:outline-2 focus-visible:outline-aomi-ring;
+  &:enabled:is(:hover, :focus-visible, [data-state="instant-open"], [data-state="delayed-open"]) {
+    background-color: var(--aomi-hover);
+    color: var(--aomi-control-ink);
+  }
+}
+
+@utility aomi-section-stack { @apply flex flex-col; gap: var(--aomi-section-gap); }
+@utility aomi-section-body { @apply flex flex-col; gap: var(--aomi-heading-gap); }
+@utility aomi-table-band { background: var(--aomi-b3); color: var(--aomi-on-band); }
+
+/* Wallet choices use a checkmark alone. Keep keyboard focus inside the row. */
+@utility aomi-wallet-choice {
+  @apply rounded-[10px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-aomi-ring;
+}
+
+@utility aomi-action-fill {
+  background-color: var(--action-bg);
+  @media (hover: hover) {
+    &:hover { background-color: color-mix(in srgb, var(--action-bg) 92%, black); }
+  }
+  &:active { background-color: color-mix(in srgb, var(--action-bg) 84%, black); }
 }
 
 @theme inline {
@@ -122,6 +155,10 @@
   --color-aomi-accent-subtle: var(--aomi-accent-subtle);
   --color-aomi-on-accent: var(--aomi-on-accent);
   --color-aomi-hover: var(--aomi-hover);
+  --color-aomi-control-ink: var(--aomi-control-ink);
+  --color-aomi-action-ink: var(--aomi-action-ink);
+  --color-aomi-on-band: var(--aomi-on-band);
+  --color-aomi-on-band-ink: var(--aomi-on-band-ink);
   --color-aomi-pink: var(--aomi-pink);
   --color-aomi-success: var(--aomi-success);
   --color-aomi-warning: var(--aomi-warning);
@@ -150,31 +187,26 @@
    `type-*` never collides with anything. Each sets size + line-height (and
    weight where the role fixes it); a later `font-*` / `leading-*` still wins. */
 @utility type-title {
-  font-size: 1rem;
-  line-height: 1.375rem;
+  font-size: var(--aomi-level-1);
+  line-height: 1.3;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 @utility type-row {
-  font-size: 0.875rem;
+  font-size: var(--aomi-level-3);
   line-height: 1.25rem;
   font-weight: 500;
 }
 
 @utility type-section {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
+  font-size: var(--aomi-level-2);
+  line-height: 1.4;
   font-weight: 600;
 }
 
-@utility type-control {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-}
-
 @utility type-meta {
-  font-size: 0.75rem;
+  font-size: var(--aomi-caption);
   line-height: 1rem;
 }
 
@@ -257,34 +289,32 @@
      ---------------------------------------------------------------------- */
 
   /* surfaces — cool (zinc) ramp */
+  --aomi-action-primary: var(--aomi-brand-blue);
+  --aomi-action-danger-bg: #fae5e7;
+  --aomi-action-danger-fg: var(--aomi-control-ink);
   --aomi-bg: #ffffff; /* cool-0 */
-  --aomi-surface: #fafafa; /* cool-50 */
-  --aomi-surface-2: #f4f4f5; /* cool-100 */
+  --aomi-surface: var(--aomi-g1); /* cool-50 */
+  --aomi-surface-2: var(--aomi-g1); /* cool-100 */
   --aomi-raised: #ffffff; /* floating panels: menus, tooltips */
-  --aomi-border: #e4e4e7; /* cool-200 */
+  --aomi-border: var(--aomi-g1); /* cool-200 */
 
   /* text */
   --aomi-fg: #09090b; /* cool-950 — "ink" */
-  --aomi-muted: #71717a; /* cool-500 */
+  --aomi-muted: var(--aomi-g3); /* cool-500 */
 
   /* accent — sky, THE interactive accent */
   --aomi-accent: #5288c2; /* sky-500 */
   --aomi-accent-strong: #416cac; /* deep sky · active */
-  --aomi-accent-subtle: #e2eef8; /* sky-100 · selected fills */
+  --aomi-accent-subtle: var(--aomi-b2); /* sky-100 · selected fills */
   --aomi-on-accent: #ffffff;
 
   /* state + decorative + status */
-  --aomi-hover: #e9e9ec; /* cool-150 · hover fill — still quiet on menus and
+  --aomi-hover: var(--aomi-g2); /* cool-150 · hover fill — still quiet on menus and
                             list rows, but a step below surface-2 (#f4f4f5).
                             At cool-100 it *was* surface-2, so anything already
                             filled with surface-2 — the round close button, the
                             chips — had no hover feedback at all. */
   --aomi-pink: #df5d90; /* pink-500 · decorative meters/pops */
-  --aomi-success: #1f8558; /* darkened from #2e9e6b: it renders as text ("free"
-                              rows, status labels), where the lighter green was
-                              3.38:1 on white — under AA. Dark keeps the
-                              brighter value below. */
-  --aomi-warning: #d9982b;
   /* Focus: one ring for the whole system, so no surface falls back to the
      browser's default outline. */
   --aomi-ring: var(--aomi-accent);
@@ -299,7 +329,6 @@
   );
   --aomi-overlay-border: color-mix(in srgb, var(--aomi-muted) 30%, transparent);
 
-  --aomi-danger: #d2495b; /* text + outline */
   --aomi-danger-strong: #b8394a; /* fills — white on #d2495b is only 4.3:1 */
   --aomi-on-danger: #ffffff;
   --aomi-info: #416cac;
@@ -311,7 +340,7 @@
 
   /* elevation — the only two shadows (the menu and modal shadows the app
      already used) */
-  --aomi-shadow-popover: 0 16px 40px rgb(0 0 0 / 0.2);
+  --aomi-shadow-popover: 0 4px 14px rgb(0 0 0 / 0.08);
   --aomi-shadow-modal: 0 24px 70px rgb(0 0 0 / 0.08);
 }
 
@@ -359,30 +388,29 @@
      round close button all vanished. Each step below clears the one under it,
      and `border` clears all of them — on dark it carries the structure that
      fills carry on light. */
+  --aomi-action-danger-bg: #49262c;
+  --aomi-action-danger-fg: #ffb2bc;
   --aomi-bg: #09090b; /* cool-950 */
-  --aomi-surface: #18181b; /* cool-900 · recessed, mirrors light's #fafafa */
+  --aomi-surface: var(--aomi-g1); /* cool-900 · recessed, mirrors light's #fafafa */
   --aomi-raised: #202024; /* panels lift off bg, and leave room for fills */
-  --aomi-surface-2: #2e2e33; /* fills that sit ON a panel */
-  --aomi-border: #3f3f46; /* hairline · reads on bg…surface-2 alike */
+  --aomi-surface-2: var(--aomi-g1); /* fills that sit ON a panel */
+  --aomi-border: var(--aomi-g1); /* hairline · reads on bg…surface-2 alike */
 
   --aomi-fg: #fafafa;
-  --aomi-muted: #a1a1aa; /* cool-400 */
+  --aomi-muted: var(--aomi-g3); /* cool-400 */
 
   --aomi-accent: #7facd6; /* sky-400 on dark */
   --aomi-accent-strong: #5288c2;
-  --aomi-accent-subtle: #28354a; /* sky tint · must read as a selected row */
+  --aomi-accent-subtle: var(--aomi-b2); /* sky tint · must read as a selected row */
   --aomi-on-accent: #09090b;
 
-  --aomi-hover: #4a4a52; /* one step above border, so a hover fill never
+  --aomi-hover: var(--aomi-g2); /* one step above border, so a hover fill never
                             swallows the hairline of the row it lands on */
   --aomi-pink: #e77ba6; /* pink-400 — lifted for dark */
-  --aomi-success: #35b37b; /* lifted: light's darkened green is for white
-                              grounds and drops under AA on the dark panel */
-  --aomi-danger: #e2687a; /* lifted so it carries on the dark ground */
   --aomi-danger-strong: #c34255;
 
   /* Dark grounds swallow a soft tinted shadow; deeper black keeps the lift. */
-  --aomi-shadow-popover: 0 12px 32px rgb(0 0 0 / 0.5);
+  --aomi-shadow-popover: 0 4px 14px rgb(0 0 0 / 0.18);
   --aomi-shadow-modal: 0 24px 64px rgb(0 0 0 / 0.55);
 
   /* Derived tokens must be re-declared, not inherited. A `var()` inside a

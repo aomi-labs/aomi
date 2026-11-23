@@ -1,0 +1,61 @@
+/* Product interaction, type and spacing roles shared by Portal and Build. */
+:root, .light {
+  --aomi-success: #1f8558;
+  --aomi-warning: #d9982b;
+  --aomi-danger: #d2495b;
+  --aomi-g1: #f1f1f3;
+  --aomi-g2: #e6e6e9;
+  --aomi-g3: #44444d;
+  --aomi-b2: #e5edf4;
+  --aomi-b3: #56759f;
+  --aomi-brand-blue: #416cac;
+  --aomi-control-ink: #000;
+  --aomi-action-ink: #fff;
+  --aomi-on-band: #fff;
+  --aomi-on-band-ink: #000;
+  --aomi-band-padding: .5rem 1rem;
+  --aomi-primary-fill: var(--aomi-brand-blue);
+  --aomi-level-1: 1.5rem;
+  --aomi-level-2: 1.125rem;
+  --aomi-level-3: .875rem;
+  --aomi-caption: .8125rem;
+  --aomi-caption-gap: .25rem;
+  --aomi-heading-gap: 1rem;
+  --aomi-section-gap: 1.5rem;
+  --aomi-row-padding: .75rem 1rem;
+}
+.dark {
+  --aomi-success: #35b37b;
+  --aomi-danger: #e2687a;
+  --aomi-g1: #2e2e33;
+  --aomi-g2: #4a4a52;
+  --aomi-g3: #c1c1ca;
+  --aomi-b2: #28354a;
+  --aomi-control-ink: #fafafa;
+}
+
+@utility aomi-nav-row {
+  &:hover,
+  &:focus-visible {
+    background-color: var(--aomi-g2);
+  }
+
+  &[data-active],
+  &[aria-pressed="true"],
+  &[aria-checked="true"] {
+    background-color: var(--aomi-b2);
+  }
+}
+
+@utility aomi-menu-panel {
+  @apply rounded-[16px] border border-aomi-border bg-aomi-raised text-aomi-fg shadow-popover;
+}
+
+@utility aomi-menu-row {
+  @apply rounded-[10px] hover:bg-aomi-hover focus-visible:bg-aomi-hover;
+}
+
+@utility type-control {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}

@@ -1,7 +1,8 @@
 /**
- * An agent wallet's rules: what the backend checks on every agent signature
- * (allowed apps, a daily limit per asset, an end date, sends only to your
- * wallets). A change that only takes power away applies at once; one that
+ * An agent wallet's rules: what the backend checks on every agent signature.
+ * A mode (whitelist or blacklist), a list of rules (a token, a total amount,
+ * where it may go and until when), and a switch for sends only to your linked
+ * wallets. A change that only takes power away applies at once; one that
  * gives power, or changes the admin, waits for the wallet's admin.
  *
  * Hand-written wire types until the generated client covers them:
@@ -11,6 +12,10 @@
  *   - `GET  /v1/account/rule-changes/:id`            -> `AomiRuleChange`
  *   - `POST /v1/account/rule-changes/:id/approve`    -> `AomiWalletRules`
  *   - `POST /v1/account/rule-changes/:id/decline`    -> `AomiWalletRules`
+ *   - `POST /v1/account/agent-wallets/:id/rules/enforcement/:provider/prepare`
+ *     -> `AomiRulesAction | null`
+ *   - `POST /v1/account/agent-wallets/:id/rules/enforcement/:provider/confirm`
+ *     -> `AomiWalletRules`
  * Writes are for the owner's own session: the portal or a CLI login.
  */
 import {
@@ -26,41 +31,66 @@ import type {
 } from "../types";
 import { walletRequest, type RequestResponse } from "./wallets";
 
+/** Where a rule's money goes. */
+export type AomiRuleTo =
+  /** Any listed app on the asset's chain. Never a plain send. */
+  | { kind: "any_protocol" }
+  /** One app, by its catalog id. */
+  | { kind: "protocol"; id: string }
+  /** A plain send to this address. */
+  | { kind: "address"; address: string };
+
 /**
- * A spending limit on one asset per UTC day. `amount` is in base units, a
- * decimal string that can exceed 2^53. `symbol` and `decimals` are filled by
- * the server for display (`symbol` is null for a token it does not know); a
- * write does not send them.
+ * At most `amount` (base units, may exceed 2^53) of `asset` may ever go to
+ * `to`; `"0"` blocks it. `id`, `active_from`, `symbol` and `decimals` are
+ * server-filled and never written.
  */
-export type AomiRuleLimit = {
+export type AomiRule = {
+  /** The rule's key, `<asset>@<to>`. */
+  id?: string;
   /**
    * `eip155:<chainId>/native`, `eip155:<chainId>/erc20:<0x address>`,
    * `solana:mainnet-beta/native` or `solana:mainnet-beta/token:<mint>`.
    */
   asset: string;
   amount: string;
+  to: AomiRuleTo;
+  /** Unix seconds. */
+  active_from?: number;
+  /** Unix seconds; absent means no end. An ended rule stays in the list. */
+  active_until?: number;
   symbol?: string | null;
   decimals?: number | null;
 };
 
-/** What the agent may sign with a wallet; each field is one rule. */
+const MODES = ["whitelist", "blacklist"] as const;
+
+/** `blacklist`: all allowed unless a rule caps it. `whitelist`: only what rules list. */
+export type AomiRulesMode = (typeof MODES)[number];
+
+/** What the agent may sign with a wallet. */
 export type AomiRuleSet = {
-  /** The apps the agent may use; null allows any app. */
-  apps: string[] | null;
-  /** A token with no limit can't be spent once any limit is set. */
-  limits: AomiRuleLimit[];
-  /** The agent may sign until then (unix seconds); null is no end date. */
-  not_after: number | null;
-  /** Sends only go to the account's own wallets. */
-  owner_only: boolean;
+  mode: AomiRulesMode;
+  rules: AomiRule[];
+  /** Sends only go to the account's own linked wallets. */
+  linked_only: boolean;
 };
 
-/** False for a wallet whose every rule is off. */
+/** False for a wallet that is unrestricted. */
 export const hasRules = (rules: AomiRuleSet): boolean =>
-  rules.apps !== null ||
-  rules.limits.length > 0 ||
-  rules.not_after !== null ||
-  rules.owner_only;
+  rules.mode === "whitelist" || rules.rules.length > 0 || rules.linked_only;
+
+/** A rule's key as the server writes it: `<asset>@<to>`. */
+export function ruleKey(rule: Pick<AomiRule, "asset" | "to">): string {
+  const { to } = rule;
+  const where =
+    to.kind === "any_protocol"
+      ? "any"
+      : to.kind === "protocol"
+        ? `protocol:${to.id}`
+        : `address:${to.address.startsWith("0x") ? to.address.toLowerCase() : to.address}`;
+  return `${rule.asset}@${where}`;
+}
 
 /**
  * Who may loosen a wallet's rules. `aomi_managed`: the owner approves in the
@@ -72,15 +102,6 @@ export type AomiRulesAdminWallet = {
   kind: "wallet";
   family: AomiWalletFamily;
   address: string;
-};
-
-/** What a limited asset has spent in the current window, in base units. */
-export type AomiRuleUsage = {
-  asset: string;
-  used: string;
-  cap: string;
-  symbol: string | null;
-  decimals: number | null;
 };
 
 const CHANGE_STATES = [
@@ -115,68 +136,118 @@ export type AomiRuleChange = {
 
 const ENFORCEMENT_STATES = ["off", "on", "behind", "unverified"] as const;
 
-/** The rules a provider holds. The rest stay with Aomi alone. */
-export type AomiRulesCovers = {
-  /** App ids. */
-  apps: string[];
-  /** Asset ids of the limits. */
-  limits: string[];
-  not_after: boolean;
-  owner_only: boolean;
-};
-
 /**
- * One on-chain provider that can hold a wallet's rules, and whether it does.
- * A client shows it and signs what its steps hand back; it never needs to
- * know which provider it is.
+ * One on-chain provider's hold on one rule (one deployment each). A removed
+ * rule still deployed on chain keeps an entry under its old id.
  */
 export type AomiRulesEnforcement = {
+  /** The rule's key (`AomiRule.id`) the entry is about. */
+  rule: string;
   /** The id the enforcement steps take. */
   provider: string;
   /** The name to show. */
   name: string;
-  /**
-   * The chain it holds the rules on, as the rules' asset ids write it
-   * (`solana:mainnet-beta`). A provider on several chains has one entry each.
-   */
+  /** As asset ids write it (`solana:mainnet-beta`, `eip155:8453`). */
   network: string;
   /**
-   * `behind`: the chain holds something else than the rules ask for.
+   * `behind`: the chain holds something else (older, removed or ended rule).
    * `unverified`: the chain could not be read.
    */
   state: (typeof ENFORCEMENT_STATES)[number];
-  covers: AomiRulesCovers;
-  /** What the chain will still let through, in base units by asset id. */
-  left: Record<string, string>;
-  /** Why the rules cannot go on chain, or what is wrong there. */
-  note: string | null;
-  /** There is something to sign: the first time, or an update. */
+  /** There is something to deploy, replace or take off. */
   ready: boolean;
-  /** The owner's wallet that signs; its address once the rules are on chain. */
+  /** Base units still allowed on chain; null when nothing is on chain. */
+  left: string | null;
+  /** Unix seconds; an estimate a little after the rule's own end. */
+  expires_at: number | null;
+  /** The address that holds the funds the rule spends. */
+  account: string | null;
+  /** Null for a rule held by a signed grant: nothing is deployed. */
+  deployment_tx: string | null;
+  /** Why the provider cannot hold the rule, or what is wrong. */
+  note: string | null;
+  /** The owner's wallet that signs; its address once a rule is on chain. */
   signer: { family: AomiWalletFamily; address: string | null };
 };
 
 /**
- * What the owner's wallet does next, tagged by `kind`. The one kind today is
- * a transaction to sign and send; a kind this client does not know fails to
- * parse rather than being guessed at.
+ * A provider/network enabled here that could hold the wallet's rules, rule
+ * or not; a picker reads it before `enforcement` has entries.
  */
-export type AomiRulesAction = {
-  kind: "transaction";
-  /** The entry's `network`; its chain family says how the bytes are encoded. */
+export type AomiRulesProvider = {
+  /** The id the enforcement steps take. */
+  provider: string;
+  /** The name to show. */
+  name: string;
+  /** The chain, as `AomiRulesEnforcement.network` writes it. */
   network: string;
-  unsigned_base64: string;
+  /** The minimum held on chain; `total_and_period` leaves `to` to Aomi. */
+  holds: "total_and_period" | "total_period_and_destination";
+  /** What else it holds, or what it leaves to Aomi. */
+  note: string | null;
 };
 
+/** The EIP-712 data an owner's EVM wallet signs. */
+export type AomiRulesTypedData = {
+  domain: Record<string, unknown>;
+  types: Record<string, { name: string; type: string }[]>;
+  primaryType: string;
+  /** Integers above 2^53 arrive as decimal strings; convert before signing. */
+  message: Record<string, unknown>;
+};
+
+/**
+ * What the owner's wallet does next. An unknown `kind`, or a `network` other
+ * than the one asked for, fails to parse.
+ */
+export type AomiRulesAction =
+  /** Sign this transaction and send it; `confirm` then reads the chain. */
+  | {
+      kind: "transaction";
+      /** The entry's `network`; its chain family says how the bytes are encoded. */
+      network: string;
+      unsigned_base64: string;
+    }
+  /** Sign this EIP-712 data and send nothing; `confirm` takes the signature. */
+  | {
+      kind: "typed_data";
+      /** `eip155:<chainId>`, the entry's `network`. */
+      network: string;
+      typed_data: AomiRulesTypedData;
+    }
+  /** Send this plain EVM transaction from the owner's wallet and pay its gas; `confirm` takes no signature. */
+  | {
+      kind: "evm_transaction";
+      /** `eip155:<chainId>`, the entry's `network`. */
+      network: string;
+      /** The 20-byte address the transaction goes to, `0x` hex. */
+      to: string;
+      /** The calldata, `0x` hex. */
+      data: string;
+      /** The value in wei, a `0x` hex quantity. */
+      value: string;
+    };
+
+/** What a step asks of a provider, for one rule. */
 export type AomiRulesEnforceRequest = {
   /** The entry's `network`. */
   network: string;
+  /** The entry's `rule`: the rule to put on chain, update there, or remove. */
+  rule: string;
   /** The rules' revision as the owner saw them. */
   revision: number;
-  /** The owner's wallet that signs; needed the first time only. */
+  /** The owner's wallet that signs; needed for the wallet's first rule only. */
   owner?: string;
-  /** Take the rules off the chain. */
+  /** Take a rule that is still in force off the chain. */
   remove?: boolean;
+};
+
+/**
+ * `signature` (0x hex) is required for `typed_data`, optional and only
+ * recorded for `transaction`, and absent for `evm_transaction`.
+ */
+export type AomiRulesConfirmRequest = AomiRulesEnforceRequest & {
+  signature?: string;
 };
 
 export type AomiWalletRules = {
@@ -190,12 +261,13 @@ export type AomiWalletRules = {
   admin: AomiRulesAdmin;
   /** Unix seconds while the agent stopped the wallet for today. */
   stopped_until: number | null;
-  usage: AomiRuleUsage[];
-  /** Unix seconds: when the daily windows reset (the next 00:00 UTC). */
-  window_ends_at: number | null;
   pending: AomiRuleChange | null;
+  /** Who enforces each rule, by rule key: `Aomi` first, then each provider. */
+  enforced_by: Record<string, string[]>;
   /** The on-chain providers that can hold these rules; Aomi always checks. */
   enforcement: AomiRulesEnforcement[];
+  /** One per provider and network; empty from an older backend. */
+  providers: AomiRulesProvider[];
   /** The account's own wallets that may become the admin. */
   admin_wallets: AomiRulesAdminWallet[];
 };
@@ -238,8 +310,11 @@ export type AomiRulesCatalog = {
 export const RULES_ERROR_CODES = {
   appUnknown: "rules_app_unknown",
   assetInvalid: "rules_asset_invalid",
-  amountInvalid: "rules_amount_invalid",
+  /** A rule's address is not one of its asset's chain. */
+  addressInvalid: "rules_address_invalid",
   duplicate: "rules_duplicate",
+  /** A new or changed rule's `active_until` is not in the future. */
+  periodInvalid: "rules_period_invalid",
   adminWalletNotLinked: "rules_admin_wallet_not_linked",
   connectionInvalid: "rules_connection_invalid",
   walletNotFound: "agent_wallet_not_found",
@@ -250,6 +325,22 @@ export const RULES_ERROR_CODES = {
   changed: "rules_changed",
   /** The chain does not show the signed transaction yet: confirm again. */
   chainNotSettled: "chain_not_settled",
+  /** The provider cannot hold the rule (`note` on its entry says why). */
+  notEnforceable: "rules_not_enforceable",
+  /** A step's `rule` is neither a rule of the wallet nor on chain. */
+  ruleNotFound: "rule_not_found",
+  /** A removal for a rule that has nothing on chain. */
+  bindingNotFound: "binding_not_found",
+  /** No provider by that id and `network` holds this wallet's rules. */
+  providerNotFound: "policy_provider_not_found",
+  /** The rule needs more programs than one transaction can carry. */
+  deploymentTooLarge: "deployment_too_large",
+  /** `confirm` for a `typed_data` action came without its `signature`. */
+  stepSignatureRequired: "signature_required",
+  /** The `signature` is not the owner wallet's over exactly what `prepare` returned. */
+  stepSignatureInvalid: "signature_invalid",
+  /** A `signature` came for a `transaction` action that cannot take one. */
+  stepSignatureUnexpected: "signature_unexpected",
   changePending: "rules_change_pending",
   /** The admin is a wallet: only its signature approves. */
   signatureRequired: "rules_signature_required",
@@ -308,7 +399,29 @@ function parseAdmin(value: unknown): AomiRulesAdmin {
   throw invalid(`unsupported admin: ${String(kind)}`);
 }
 
-const RULE_FIELDS = ["apps", "limits", "not_after", "owner_only"];
+const RULE_FIELDS = ["mode", "rules", "linked_only"];
+
+/** A rule's optional unix-seconds field: left out when the server sent none. */
+function period<Field extends "active_from" | "active_until">(
+  value: unknown,
+  field: Field,
+): Partial<Record<Field, number>> {
+  if (value === undefined || value === null) return {};
+  return { [field]: unixSeconds(value, `rule.${field}`) } as Record<
+    Field,
+    number
+  >;
+}
+
+function parseTo(value: unknown): AomiRuleTo {
+  const record = asRecord(value);
+  const kind = record?.kind;
+  if (kind === "any_protocol") return { kind };
+  if (kind === "protocol") return { kind, id: text(record?.id, "rule.to.id") };
+  if (kind === "address")
+    return { kind, address: text(record?.address, "rule.to.address") };
+  throw invalid(`unsupported rule destination: ${String(kind)}`);
+}
 
 /**
  * The rule set; a missing one reads as no rules. A field this SDK does not
@@ -321,28 +434,27 @@ export function parseRuleSet(value: unknown): AomiRuleSet {
     (field) => !RULE_FIELDS.includes(field),
   );
   if (unknown) throw invalid(`unsupported rule: ${unknown}`);
-  const { apps, not_after, owner_only } = record;
-  if (owner_only !== undefined && typeof owner_only !== "boolean")
-    throw invalid("rules.owner_only must be a boolean");
+  const { mode, linked_only } = record;
+  if (mode !== undefined && !MODES.some((known) => known === mode))
+    throw invalid(`unsupported mode: ${String(mode)}`);
+  if (linked_only !== undefined && typeof linked_only !== "boolean")
+    throw invalid("rules.linked_only must be a boolean");
   return {
-    apps:
-      apps === undefined || apps === null
-        ? null
-        : list(apps, "rules.apps").map((app) => text(app, "rules.apps")),
-    limits: list(record.limits, "rules.limits").map((entry) => {
-      const limit = asRecord(entry);
-      return {
-        asset: text(limit?.asset, "limit.asset"),
-        amount: amount(limit?.amount, "limit.amount"),
-        symbol: stringValue(limit?.symbol) ?? null,
-        decimals: decimalsOf(limit?.decimals),
+    mode: mode === "whitelist" ? "whitelist" : "blacklist",
+    rules: list(record.rules ?? [], "rules.rules").map((entry) => {
+      const rule = asRecord(entry);
+      const parsed: AomiRule = {
+        asset: text(rule?.asset, "rule.asset"),
+        amount: amount(rule?.amount, "rule.amount"),
+        to: parseTo(rule?.to),
+        ...period(rule?.active_from, "active_from"),
+        ...period(rule?.active_until, "active_until"),
+        symbol: stringValue(rule?.symbol) ?? null,
+        decimals: decimalsOf(rule?.decimals),
       };
+      return { ...parsed, id: stringValue(rule?.id) ?? ruleKey(parsed) };
     }),
-    not_after:
-      not_after === undefined || not_after === null
-        ? null
-        : unixSeconds(not_after, "rules.not_after"),
-    owner_only: owner_only === true,
+    linked_only: linked_only === true,
   };
 }
 
@@ -371,39 +483,125 @@ export function parseRuleChange(value: unknown): AomiRuleChange {
   };
 }
 
+function optionalSeconds(value: unknown, field: string): number | null {
+  return value === undefined || value === null
+    ? null
+    : unixSeconds(value, field);
+}
+
 function parseEnforcement(value: unknown): AomiRulesEnforcement {
   const record = asRecord(value);
-  const covers = asRecord(record?.covers);
   const signer = asRecord(record?.signer);
   const state = ENFORCEMENT_STATES.find((known) => known === record?.state);
   if (!state)
     throw invalid(`unsupported enforcement state: ${String(record?.state)}`);
-  const names = (entries: unknown, field: string) =>
-    list(entries ?? [], field).map((entry) => text(entry, field));
   return {
+    rule: text(record?.rule, "enforcement.rule"),
     provider: text(record?.provider, "enforcement.provider"),
     name: text(record?.name, "enforcement.name"),
     network: text(record?.network, "enforcement.network"),
     state,
-    covers: {
-      apps: names(covers?.apps, "enforcement.covers.apps"),
-      limits: names(covers?.limits, "enforcement.covers.limits"),
-      not_after: covers?.not_after === true,
-      owner_only: covers?.owner_only === true,
-    },
-    left: Object.fromEntries(
-      Object.entries(asRecord(record?.left) ?? {}).map(([asset, left]) => [
-        asset,
-        amount(left, "enforcement.left"),
-      ]),
-    ),
-    note: stringValue(record?.note) ?? null,
     ready: record?.ready === true,
+    left:
+      record?.left === undefined || record.left === null
+        ? null
+        : amount(record.left, "enforcement.left"),
+    expires_at: optionalSeconds(record?.expires_at, "enforcement.expires_at"),
+    account: stringValue(record?.account) ?? null,
+    deployment_tx: stringValue(record?.deployment_tx) ?? null,
+    note: stringValue(record?.note) ?? null,
     signer: {
       family: family(signer?.family),
       address: stringValue(signer?.address) ?? null,
     },
   };
+}
+
+function parseProvider(value: unknown): AomiRulesProvider {
+  const record = asRecord(value);
+  const holds = record?.holds;
+  if (holds !== "total_and_period" && holds !== "total_period_and_destination")
+    throw invalid(`unsupported provider holds: ${String(holds)}`);
+  return {
+    provider: text(record?.provider, "providers.provider"),
+    name: text(record?.name, "providers.name"),
+    network: text(record?.network, "providers.network"),
+    holds,
+    note: stringValue(record?.note) ?? null,
+  };
+}
+
+function parseTypedData(value: unknown): AomiRulesTypedData {
+  const record = asRecord(value);
+  const types = asRecord(record?.types);
+  const domain = asRecord(record?.domain);
+  const message = asRecord(record?.message);
+  if (!record || !types || !domain || !message)
+    throw invalid("action.typed_data needs a domain, types and a message");
+  return {
+    domain,
+    types: Object.fromEntries(
+      Object.entries(types).map(([name, fields]) => [
+        name,
+        list(fields, `action.typed_data.types.${name}`).map((entry) => {
+          const field = asRecord(entry);
+          return {
+            name: text(field?.name, "action.typed_data field name"),
+            type: text(field?.type, "action.typed_data field type"),
+          };
+        }),
+      ]),
+    ),
+    primaryType: text(record.primaryType, "action.typed_data.primaryType"),
+    message,
+  };
+}
+
+const EVM_NETWORK = /^eip155:[1-9][0-9]*$/;
+const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+const HEX_DATA = /^0x(?:[0-9a-fA-F]{2})*$/;
+const HEX_QUANTITY = /^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$/;
+
+function hex(value: unknown, field: string, pattern: RegExp, what: string) {
+  const found = text(value, field);
+  if (!pattern.test(found)) throw invalid(`${field} must be ${what}`);
+  return found;
+}
+
+function parseEvmTransaction(
+  action: Record<string, unknown>,
+  network: string,
+): Extract<AomiRulesAction, { kind: "evm_transaction" }> {
+  if (!EVM_NETWORK.test(network))
+    throw invalid("action.network must be eip155:<chain id>");
+  return {
+    kind: "evm_transaction",
+    network,
+    to: hex(action.to, "action.to", EVM_ADDRESS, "a 20-byte 0x address"),
+    data: hex(action.data, "action.data", HEX_DATA, "0x hex bytes"),
+    value: hex(action.value, "action.value", HEX_QUANTITY, "a 0x hex quantity"),
+  };
+}
+
+function parseAction(value: unknown): AomiRulesAction {
+  const action = asRecord(value);
+  const kind = action?.kind;
+  if (
+    !action ||
+    (kind !== "transaction" &&
+      kind !== "typed_data" &&
+      kind !== "evm_transaction")
+  )
+    throw invalid(`unsupported action: ${String(kind)}`);
+  const network = text(action.network, "action.network");
+  if (kind === "evm_transaction") return parseEvmTransaction(action, network);
+  return kind === "transaction"
+    ? {
+        kind,
+        network,
+        unsigned_base64: text(action.unsigned_base64, "action.unsigned_base64"),
+      }
+    : { kind, network, typed_data: parseTypedData(action.typed_data) };
 }
 
 export function parseWalletRules(value: unknown): AomiWalletRules {
@@ -419,22 +617,21 @@ export function parseWalletRules(value: unknown): AomiWalletRules {
     ),
     admin: parseAdmin(record.admin),
     stopped_until: numberOrNull(record.stopped_until),
-    usage: list(record.usage, "usage").map((entry) => {
-      const usage = asRecord(entry);
-      return {
-        asset: text(usage?.asset, "usage.asset"),
-        used: amount(usage?.used, "usage.used"),
-        cap: amount(usage?.cap, "usage.cap"),
-        symbol: stringValue(usage?.symbol) ?? null,
-        decimals: decimalsOf(usage?.decimals),
-      };
-    }),
-    window_ends_at: numberOrNull(record.window_ends_at),
     pending: asRecord(record.pending) ? parseRuleChange(record.pending) : null,
+    enforced_by: Object.fromEntries(
+      Object.entries(asRecord(record.enforced_by) ?? {}).map(
+        ([rule, names]) => [
+          rule,
+          list(names, "enforced_by").map((name) => text(name, "enforced_by")),
+        ],
+      ),
+    ),
     // A backend from before on-chain providers sends none.
     enforcement: list(record.enforcement ?? [], "enforcement").map(
       parseEnforcement,
     ),
+    // A backend from before the picker's hint sends none.
+    providers: list(record.providers ?? [], "providers").map(parseProvider),
     admin_wallets: list(record.admin_wallets, "admin_wallets").map(
       parseAdminWallet,
     ),
@@ -469,19 +666,23 @@ export function parseRulesCatalog(value: unknown): AomiRulesCatalog {
   };
 }
 
-/** The rule set as a write sends it: no server-filled display fields. */
+/** The rule set as a write sends it: no server-filled fields. */
 const wireRules = (rules: AomiRuleSet): AomiRuleSet => ({
-  apps: rules.apps,
-  limits: rules.limits.map(({ asset, amount }) => ({ asset, amount })),
-  not_after: rules.not_after,
-  owner_only: rules.owner_only,
+  mode: rules.mode,
+  rules: rules.rules.map(({ asset, amount, to, active_until }) => ({
+    asset,
+    amount,
+    to,
+    ...(typeof active_until === "number" ? { active_until } : {}),
+  })),
+  linked_only: rules.linked_only,
 });
 
 /** An agent wallet's rules, the catalog they pick from, and rule changes. */
 export class AccountRulesTransport {
   constructor(private readonly requestResponse: RequestResponse) {}
 
-  /** The wallet's rules, today's usage, its admin and any waiting change. */
+  /** The wallet's rules, its admin and any waiting change. */
   async get(
     agentWalletId: string,
     options: { signal?: AbortSignal } = {},
@@ -558,9 +759,8 @@ export class AccountRulesTransport {
   }
 
   /**
-   * What the owner's wallet does to put the rules on chain with `provider`,
-   * to update them there, or to `remove` them. Null when the chain already
-   * holds them: confirm straight away.
+   * The owner's next step to deploy, replace or `remove` `request.rule` with
+   * `provider`. Null when the chain already matches: confirm straight away.
    */
   async prepareEnforcement(
     agentWalletId: string,
@@ -574,26 +774,19 @@ export class AccountRulesTransport {
         { body: request },
       ),
     );
-    const action = asRecord(record?.action);
-    if (!action) return null;
-    if (action.kind !== "transaction")
-      throw invalid(`unsupported action: ${String(action.kind)}`);
-    return {
-      kind: "transaction",
-      network: text(action.network, "action.network"),
-      unsigned_base64: text(action.unsigned_base64, "action.unsigned_base64"),
-    };
+    return asRecord(record?.action) ? parseAction(record?.action) : null;
   }
 
   /**
    * Have the backend read the chain after the owner's wallet did what
-   * `prepareEnforcement` answered. Answers the rules with the provider's new state;
-   * `chain_not_settled` means its node does not show the transaction yet.
+   * `prepareEnforcement` answered (`typed_data` needs its `signature`).
+   * `chain_not_settled`, or unchanged rules after an `evm_transaction`, mean
+   * the node does not show it yet: confirm again.
    */
   async confirmEnforcement(
     agentWalletId: string,
     provider: string,
-    request: AomiRulesEnforceRequest,
+    request: AomiRulesConfirmRequest,
   ): Promise<AomiWalletRules> {
     const record = asRecord(
       await this.request(

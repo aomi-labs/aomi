@@ -36,5 +36,4 @@ resolve() {
   return 1
 }
 
-resolve "Preview – chat-portal" portal_url
 resolve "Preview – aomi-build" build_url

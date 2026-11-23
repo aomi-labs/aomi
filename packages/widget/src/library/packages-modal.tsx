@@ -3,7 +3,7 @@
 import { usePrivateApps } from "@aomi-labs/react";
 import { useShellAomi } from "@/account/transport";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Library } from "lucide-react";
+import { ArrowLeftIcon, BooksIcon } from "@/icons/ui-icons";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { useAomiWalletKit } from "@/wallet/context";
 import { AomiButton } from "@/ui/aomi/button";
@@ -218,7 +218,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       <ModalSidebar
         title="Library"
         titleId="library-title"
-        icon={Library}
+        icon={BooksIcon}
         className={mobileDetailOpen ? "max-md:hidden" : undefined}
       >
         <ModalNav label="Library sections" className="mt-2 md:mt-3">
@@ -388,7 +388,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
           }}
           className="border-aomi-border type-control flex shrink-0 items-center gap-2 border-b px-4 py-4 pr-14 md:hidden"
         >
-          <ArrowLeft className="size-4" />
+          <ArrowLeftIcon className="size-4" />
           Back to library
         </button>
         {actionError && mobileDetailOpen ? (

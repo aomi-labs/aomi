@@ -46,6 +46,16 @@ Frontend owners: @CeciliaZ030 and @arixoneth.
 
 ## Shared UI and host policy
 
+Widget and Portal action buttons use `AomiButton`. For links and slotted triggers inside the widget, use `aomiButton`. Primary actions use deep blue, secondary actions use a neutral fill, and destructive actions use `danger` for entry and `danger-fill` for confirmation. Action buttons have an 8 px radius.
+
+Dropdowns use the shared `PopoverContent` surface or `aomi-menu-panel` for inline pickers. Use `aomi-menu-row` for neutral hover and `aomi-wallet-choice` for default-wallet triggers and choices. Wallet choices show a blue selection check and a keyboard focus outline.
+
+Widget interface icons use Phosphor Regular from `@/icons/ui-icons`. To add a glyph, find its name in the [Phosphor catalog](https://phosphoricons.com/) and re-export its individual React icon module in that file. Use the catalog for UI symbols and the existing brand maps for wallet, chain, and provider identities. Icon-only actions use `aomi-icon-trigger` with an accessible name and the shared tooltip. Explanatory question marks use `HelpHint`, which supports tap, hover, and keyboard focus.
+
+Widget navigation tabs and single-choice filter rows use `NavigationTab` from `@/ui/aomi/navigation-tab` with a 4px gap between items. It shares hover and selected colors with sidebar threads.
+
+Widget segmented controls use `Segmented` from `@/ui/aomi/segmented`. Pass the group label, options, value, and change handler. The component owns sizing, selection styling, and keyboard navigation.
+
 `@aomi-labs/widget/host-composition` is the intentional contract for
 first-party hosts that assemble `AomiFrame`. Keep the entrypoint curated: add a
 shared export because a host needs the shared implementation, not as a shortcut
@@ -110,6 +120,12 @@ the relevant browser contracts; publishable package changes select packed
 consumer compatibility. Plain documentation and historical work-log changes do
 not run product builds. Landing content under `apps/landing/content` is product
 input and still selects Landing.
+
+The advisory PR smoke checks Cloudflare staging Chat and the immutable Build
+preview for the PR SHA. The required Portal browser contracts exercise the PR's
+Portal build. The nightly fallback smoke checks both canonical staging hosts.
+Production Chat's page Worker rolls back through the product-mono Edge release
+workflow. The frontend Vercel rollback covers Build, Base and Landing.
 
 Lockfiles, root build configuration, shared source, selector changes, unknown
 paths, unavailable comparisons, and every production candidate default to the
@@ -194,3 +210,18 @@ consumer sources unchanged; no fixture rewriting or compiler-error exceptions
 are introduced. Retired widget paths/props, the SDK wallet option, CLI aliases
 and old session files are outside this release's contract. Boundary, auth,
 account isolation and package-install checks remain required.
+
+Portal and Build share the interaction palette and layout scale in `@aomi-labs/widget/design-tokens.css`. Use G1 for neutral controls, labels and outlines, G2 for hover, G3 for secondary copy, B2 for navigation selection, and B3 with white ink for table group headers and summary footers. Segmented controls have a white selected segment. On-band actions use white with black ink. Primary actions use brand blue with white text and icons in both themes. Keep color literals in the shared palette. Use semantic theme aliases in feature code.
+
+Use level 1 for page titles and primary amounts (24px), level 2 for section titles (18px), level 3 for row labels (14px), and captions for supporting text (13px). Use the section stack and section body layouts for 24px between sections and 16px below headings. Rows have 12px vertical and 16px horizontal inset, with 4px between label and detail. Align inline amounts and qualifiers on their text baselines.
+
+| Role | Widget class or component |
+| --- | --- |
+| Page title or main amount / section / row / supporting copy | `type-title` / `type-section` / `type-row` / `type-meta` |
+| Sections / heading followed by content | `aomi-section-stack` / `aomi-section-body` |
+| G1 fill / outline, G2 hover, G3 secondary ink | `bg-aomi-surface-2` / `border-aomi-border`, `hover:bg-aomi-hover`, `text-aomi-muted` |
+| Selected navigation, segmented choices | `NavigationTab`, `Segmented` |
+| B3 table group / footer action | `aomi-table-band`, `AomiButton variant="on-band"` |
+| Neutral, primary and destructive actions | `AomiButton` with the corresponding variant |
+
+Build imports `NavigationTab`, `PillDropdown`, and `AomiButton` from `@aomi-labs/widget/controls`. Use `aomiButton` to give a link the same action styling. Operate cards and table frames share the 12px panel radius.

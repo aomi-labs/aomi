@@ -195,7 +195,7 @@ function FamilySlot({
           setOpen(false);
           if (!row.active) onActivate?.(row);
         }}
-        className="hover:bg-aomi-hover focus:bg-aomi-hover group flex w-full items-center gap-2.5 rounded-[8px] px-2 py-1.5 text-left outline-none"
+        className="aomi-wallet-choice group flex w-full items-center gap-2.5 px-2 py-1.5 text-left"
       >
         <BrandMark
           brand={appName(row)}
@@ -218,13 +218,13 @@ function FamilySlot({
           </span>
         </span>
         {row.active ? (
-          <Check className="text-aomi-success size-4 shrink-0" />
+          <Check className="text-aomi-accent-strong size-4 shrink-0" />
         ) : row.activating ? (
           <PendingMark className="mx-px" />
         ) : hint ? (
           <span
             data-hint
-            className="type-meta text-aomi-muted pointer-fine:inline hidden shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+            className="type-meta text-aomi-muted hidden shrink-0 pointer-fine:inline"
           >
             {hint}
           </span>
@@ -239,7 +239,7 @@ function FamilySlot({
           type="button"
           aria-label={`${tag} default wallet: ${rowTitle(current).title}`}
           disabled={disabled}
-          className="hover:bg-aomi-hover focus-visible:bg-aomi-hover flex min-w-0 items-center gap-2 px-3.5 py-2.5 text-left outline-none transition-colors"
+          className="aomi-wallet-choice flex min-w-0 items-center gap-2 px-3.5 py-2.5 text-left"
         >
           <span className="flex min-w-0 flex-1 flex-col gap-1">
             <span className="type-meta text-aomi-muted flex items-center gap-1.5">
@@ -273,7 +273,7 @@ function FamilySlot({
         aria-label={`${tag} wallets`}
         align="start"
         sideOffset={4}
-        className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-card shadow-popover z-[90] w-[min(20rem,calc(100vw-2rem))] border p-1"
+        className="z-[90] w-[min(20rem,calc(100vw-2rem))]"
       >
         {/* About three and a half rows, then the model picker's thin scrollbar; Add a
             wallet stays pinned below. */}
@@ -299,7 +299,7 @@ function FamilySlot({
                 setOpen(false);
                 onAddWallet();
               }}
-              className="hover:bg-aomi-hover focus:bg-aomi-hover type-control flex w-full items-center gap-2.5 rounded-[8px] px-2 py-1.5 text-left outline-none"
+              className="aomi-menu-row type-control flex w-full items-center gap-2.5 px-2 py-1.5 text-left outline-none"
             >
               <span className="flex size-7 shrink-0 items-center justify-center">
                 <Plus className="text-aomi-muted size-4" />

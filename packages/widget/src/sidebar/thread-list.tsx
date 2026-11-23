@@ -51,7 +51,7 @@ export const ThreadList: FC = () => {
   return (
     <ThreadListPrimitive.Root
       data-testid={testIds.threadList}
-      className="aui-root aui-thread-list-root flex w-full flex-1 list-none flex-col items-stretch gap-0.5 px-2"
+      className="aui-root aui-thread-list-root flex w-full flex-1 list-none flex-col items-stretch gap-1 px-2"
     >
       <ThreadListNew />
       <ThreadListItems />
@@ -66,8 +66,8 @@ const ThreadListNew: FC = () => {
       <Button
         data-testid={testIds.newChat}
         onClick={closeMobileSidebar}
-        className="aui-thread-list-new border-aomi-border bg-aomi-raised hover:border-aomi-muted/60 hover:bg-aomi-raised flex items-center justify-start gap-2 rounded-[12px] border px-3 py-[9px] text-start text-sm font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors max-md:h-11 max-md:text-[15px]"
-        variant="ghost"
+        className="aui-thread-list-new justify-start px-3 py-[9px] text-start max-md:h-11 max-md:text-[15px]"
+        variant="secondary"
       >
         <PlusIcon className="size-4" />
         New chat
@@ -219,7 +219,7 @@ const ThreadListItem: FC = () => {
         metadata?.awaitingApproval?.length ? "" : undefined
       }
       data-testid={testIds.threadItem}
-      className="aui-thread-list-item group/thread hover:bg-aomi-hover/60 focus-visible:bg-aomi-hover/60 data-active:bg-aomi-accent-subtle data-active:ring-aomi-accent/20 data-active:ring-1 data-active:ring-inset flex w-full min-w-0 flex-wrap items-center rounded-[12px] pr-2 transition-all focus-visible:outline-none"
+      className="aui-thread-list-item group/thread aomi-nav-row flex w-full min-w-0 flex-wrap items-center rounded-[12px] pr-2 transition-all focus-visible:outline-none"
       onPointerEnter={cancelClose}
       onPointerLeave={scheduleClose}
     >
@@ -277,12 +277,10 @@ const ThreadListItem: FC = () => {
             onClick={closeMobileSidebar}
             className="aui-thread-list-item-trigger flex min-w-0 flex-1 items-center gap-2 py-2 pl-3 pr-1 text-start max-md:py-2.5"
           >
-            {/* Sky dot marks the active session; it blinks while Aomi works
-                and turns amber while a wallet request waits on the user. Any
-                chat with a trade waiting for approval keeps an amber dot. */}
+            {/* Amber marks a wallet request awaiting approval. */}
             <span
               aria-hidden="true"
-              className="aui-thread-status group-data-active/thread:opacity-100 size-1.5 shrink-0 rounded-full opacity-0"
+              className="aui-thread-status hidden size-1.5 shrink-0 rounded-full bg-aomi-warning"
             />
             <ThreadListItemTitle />
             {/* At the row's end, always visible; the ⋯ that opens on hover
@@ -404,7 +402,7 @@ const ThreadListItemMenu: FC<{
         side="bottom"
         sideOffset={6}
         alignOffset={0}
-        className="aui-thread-list-item-menu-content border-aomi-overlay-border bg-aomi-raised w-44 rounded-xl border p-1.5"
+        className="aui-thread-list-item-menu-content space-y-1 w-44 p-1.5"
         onClick={(event) => event.stopPropagation()}
         onPointerEnter={onContentPointerEnter}
         onPointerLeave={onContentPointerLeave}
@@ -413,7 +411,7 @@ const ThreadListItemMenu: FC<{
           <button
             type="button"
             disabled={!saved}
-            className="aui-thread-list-item-menu-item text-aomi-fg hover:bg-aomi-hover focus-visible:bg-aomi-hover flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
+            className="aui-thread-list-item-menu-item text-aomi-fg aomi-menu-row flex w-full items-center gap-2.5 px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
             data-testid={testIds.rename}
             onClick={onRename}
           >
@@ -429,7 +427,7 @@ const ThreadListItemMenu: FC<{
             type="button"
             disabled={!saved}
             data-testid={testIds.archive}
-            className="aui-thread-list-item-menu-item text-aomi-danger hover:bg-aomi-hover focus-visible:bg-aomi-hover flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
+            className="aui-thread-list-item-menu-item text-aomi-danger aomi-menu-row flex w-full items-center gap-2.5 px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
             onClick={(event) => {
               event.stopPropagation();
               onOpenChange(false);

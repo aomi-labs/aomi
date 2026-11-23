@@ -67,7 +67,7 @@ export function CapabilityPicker({
     <div
       ref={containerRef}
       style={{ maxHeight: height }}
-      className={`border-aomi-border bg-aomi-raised text-aomi-fg animate-in-pop absolute left-0 z-50 flex w-full flex-col overflow-hidden rounded-2xl border p-2 shadow-[0_18px_50px_rgba(0,0,0,0.22)] ${above ? "bottom-full mb-8" : "top-full mt-2"}`}
+      className={`aomi-menu-panel animate-in-pop absolute left-0 z-50 flex w-full flex-col overflow-hidden p-2 ${above ? "bottom-full mb-8" : "top-full mt-2"}`}
     >
       {hasItems ? (
         <div
@@ -102,7 +102,7 @@ export function CapabilityPicker({
                         onMouseDown={(event) => event.preventDefault()}
                         onPointerMove={() => onHighlight(index)}
                         onClick={() => onSelect(item)}
-                        className="disabled:opacity-40 disabled:cursor-not-allowed hover:bg-aomi-surface-2 aria-selected:bg-aomi-surface-2 flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors"
+                        className="disabled:opacity-40 disabled:cursor-not-allowed aomi-menu-row aria-selected:bg-aomi-hover flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors"
                       >
                         <span className="text-aomi-muted flex size-7 shrink-0 items-center justify-center">
                           <item.Icon className="size-3.5" />

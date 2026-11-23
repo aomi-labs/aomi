@@ -10,13 +10,14 @@ import {
   type ComponentType,
 } from "react";
 import {
-  CreditCard,
-  Plug,
-  Settings2,
-  ShieldCheck,
-  SlidersHorizontal,
-  UserRound,
-} from "lucide-react";
+  CreditCardIcon,
+  GearSixIcon,
+  PlugsIcon,
+  ScrollIcon,
+  ShieldCheckIcon,
+  SlidersHorizontalIcon,
+  UserCircleIcon,
+} from "@/icons/ui-icons";
 import { useAomiWalletKit } from "@/wallet/context";
 import { AomiButton } from "@/ui/aomi/button";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
@@ -31,7 +32,10 @@ import { GeneralSettings } from "./general-settings";
 import { BillingSettings } from "@/account/usage/billing-settings";
 import { PolicyPage } from "@/account/policy/policy-page";
 import { useAomiSession, type AomiSessionStatus } from "./aomi-session-bridge";
-/** Tab ids are stable deep-link keys; "policy" is labelled Safety. */
+/**
+ * Tab ids are stable deep-link keys; "policy" is labelled Safety and
+ * "policies" holds the agent wallets' policies.
+ */
 import { SettingsNavContext, type SettingsTab } from "./settings-events";
 
 // Load with their tab, off the host bundle.
@@ -45,44 +49,48 @@ const ConnectionsSettings = lazy(() =>
     default: module.ConnectionsSettings,
   })),
 );
+const PoliciesSettings = lazy(() =>
+  import("@/account/policies/policies-settings").then((module) => ({
+    default: module.PoliciesSettings,
+  })),
+);
 
 export type { SettingsTab };
 
 const NAV: {
   id: SettingsTab;
   label: string;
-  description: string;
   Icon: ComponentType<{ className?: string }>;
 }[] = [
   {
     id: "general",
     label: "General",
-    description: "Appearance, defaults, and account overview",
-    Icon: SlidersHorizontal,
+    Icon: SlidersHorizontalIcon,
   },
   {
     id: "account",
     label: "Account",
-    description: "Wallets and sign-in methods",
-    Icon: UserRound,
+    Icon: UserCircleIcon,
   },
   {
     id: "connections",
     label: "Connections",
-    description: "Apps, bots and terminals that use your account",
-    Icon: Plug,
+    Icon: PlugsIcon,
+  },
+  {
+    id: "policies",
+    label: "Policies",
+    Icon: ScrollIcon,
   },
   {
     id: "policy",
     label: "Safety",
-    description: "Guard policy for new chats",
-    Icon: ShieldCheck,
+    Icon: ShieldCheckIcon,
   },
   {
     id: "usage",
     label: "Billing",
-    description: "Plan, balance, usage and payments",
-    Icon: CreditCard,
+    Icon: CreditCardIcon,
   },
 ];
 
@@ -249,6 +257,10 @@ export function SettingsModal({
               <Suspense fallback={<LoadingPane label="Loading connections" />}>
                 <ConnectionsSettings />
               </Suspense>
+            ) : id === "policies" ? (
+              <Suspense fallback={<LoadingPane label="Loading policies" />}>
+                <PoliciesSettings active={tab === "policies"} />
+              </Suspense>
             ) : id === "usage" ? (
               <BillingSettings initialTopUp={initialTopUp} />
             ) : (
@@ -267,7 +279,11 @@ export function SettingsModal({
       closeLabel="Close settings"
       onClose={onClose}
     >
-      <ModalSidebar title="Settings" titleId="settings-title" icon={Settings2}>
+      <ModalSidebar
+        title="Settings"
+        titleId="settings-title"
+        icon={GearSixIcon}
+      >
         <ModalNav label="Settings sections" className="mt-2 md:mt-3">
           {NAV.filter((item) => !accountOnly || item.id === "account").map(
             ({ id, label, Icon }) => (
@@ -284,10 +300,7 @@ export function SettingsModal({
       </ModalSidebar>
 
       <section className="flex min-h-0 min-w-0 flex-col">
-        <ModalHeader
-          title={activeNav.label}
-          description={activeNav.description}
-        />
+        <ModalHeader title={activeNav.label} />
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <SettingsNavContext.Provider value={accountOnly ? null : selectTab}>
             {renderContent()}

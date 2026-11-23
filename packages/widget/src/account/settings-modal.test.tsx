@@ -57,6 +57,12 @@ vi.mock("@/account/connections/connections-settings", () => ({
   ConnectionsSettings: () => <div>Connections content</div>,
 }));
 
+vi.mock("@/account/policies/policies-settings", () => ({
+  PoliciesSettings: ({ active }: { active?: boolean }) => (
+    <div data-active={String(active)}>Policies content</div>
+  ),
+}));
+
 describe("SettingsModal directory shell", () => {
   afterEach(() => {
     session.status = "ready";
@@ -115,8 +121,8 @@ describe("SettingsModal directory shell", () => {
     );
     expect(dialog).toHaveClass("md:rounded-shell", "md:shadow-modal");
     expect(
-      screen.getByText("Appearance, defaults, and account overview"),
-    ).toBeTruthy();
+      screen.queryByText("Appearance, defaults, and account overview"),
+    ).toBeNull();
   });
 
   it("switches sections from both the sidebar and in-content actions", async () => {
@@ -124,21 +130,57 @@ describe("SettingsModal directory shell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Account" }));
     expect(await screen.findByText("Account content")).toBeTruthy();
-    expect(screen.getByText("Wallets and sign-in methods")).toBeTruthy();
+    expect(screen.queryByText("Wallets and sign-in methods")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));
     fireEvent.click(screen.getByRole("button", { name: "Safety" }));
     expect(screen.getByText("Policy content")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Safety" })).toBeTruthy();
-    expect(screen.getByText("Guard policy for new chats")).toBeTruthy();
+    expect(screen.queryByText("Guard policy for new chats")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Connections" }));
     expect(await screen.findByText("Connections content")).toBeTruthy();
+    expect(
+      screen.queryByText("Apps, bots and terminals that use your account"),
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));
     fireEvent.click(screen.getByRole("button", { name: "View billing" }));
     expect(screen.getByText("Billing content")).toBeTruthy();
-    expect(screen.getByText("Plan, balance, usage and payments")).toBeTruthy();
+    expect(screen.queryByText("Plan, balance, usage and payments")).toBeNull();
+  });
+
+  it("lists Policies after Connections, apart from Safety, and tells it when it is in front", async () => {
+    render(<SettingsModal onClose={vi.fn()} />);
+    const nav = screen.getByRole("navigation", { name: "Settings sections" });
+    expect(
+      Array.from(nav.querySelectorAll("button")).map(
+        (button) => button.textContent,
+      ),
+    ).toEqual([
+      "General",
+      "Account",
+      "Connections",
+      "Policies",
+      "Safety",
+      "Billing",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Policies" }));
+    expect(screen.getByRole("heading", { name: "Policies" })).toBeTruthy();
+    expect(
+      screen.queryByText("What your agent wallets may spend, and where"),
+    ).toBeNull();
+    expect(await screen.findByText("Policies content")).toHaveAttribute(
+      "data-active",
+      "true",
+    );
+    // Safety keeps its own page; a visited tab stays mounted behind it.
+    fireEvent.click(screen.getByRole("button", { name: "Safety" }));
+    expect(screen.getByText("Policy content")).toBeTruthy();
+    expect(screen.getByText("Policies content")).toHaveAttribute(
+      "data-active",
+      "false",
+    );
   });
 
   it("gives every tab the same reading column", () => {

@@ -1,3 +1,4 @@
+import { AomiButton } from "@aomi-labs/widget/host-composition";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "@/lib/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -219,8 +220,9 @@ export function OAuthBootstrapClient() {
                 )}
               </div>
             )}
-            <button
-              className="bg-foreground text-background mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-60"
+            <AomiButton
+              variant="primary"
+              className="mt-6 h-11 w-full"
               disabled={pending || !preview}
               onClick={() => void confirm("widget")}
               type="button"
@@ -229,31 +231,31 @@ export function OAuthBootstrapClient() {
               {preview
                 ? `Use ${preview.widget.name} on Aomi`
                 : "Checking accounts…"}
-            </button>
+            </AomiButton>
             {mismatch && (
               <>
-                <button
+                <AomiButton
                   type="button"
                   disabled={pending}
                   onClick={() => void confirm("portal")}
-                  className="border-border mt-3 flex h-11 w-full items-center justify-center rounded-md border px-4 text-sm font-medium disabled:opacity-60"
+                  className="mt-3 h-11 w-full"
                 >
                   Continue as {preview.portal!.name}
-                </button>
+                </AomiButton>
                 <p className="text-muted-foreground mt-3 text-sm">
                   This authorizes the app to use your portal account. Existing
                   campaigns remain with their original account.
                 </p>
               </>
             )}
-            <button
+            <AomiButton
               type="button"
               disabled={pending}
               onClick={() => window.close()}
               className="mt-3 h-11 w-full text-sm disabled:opacity-60"
             >
               Cancel
-            </button>
+            </AomiButton>
           </>
         ) : (
           <p className="text-muted-foreground mt-3 text-sm">

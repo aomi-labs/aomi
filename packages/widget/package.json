@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/widget",
-  "version": "5.1.9",
+  "version": "5.1.11",
   "description": "Embeddable Aomi chat UI and wallet provider islands.",
   "license": "MIT",
   "repository": {
@@ -40,6 +40,10 @@
       "types": "./dist/providers/privy.d.ts",
       "import": "./dist/providers/privy.js"
     },
+    "./design-tokens.css": {
+      "types": "./dist/styles.d.ts",
+      "default": "./design-tokens.css"
+    },
     "./styles.css": {
       "types": "./dist/styles.d.ts",
       "default": "./dist/styles.css"
@@ -47,10 +51,15 @@
     "./checkout": {
       "types": "./dist/checkout.d.ts",
       "import": "./dist/checkout.js"
+    },
+    "./controls": {
+      "types": "./dist/controls.d.ts",
+      "import": "./dist/controls.js"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "design-tokens.css"
   ],
   "scripts": {
     "build": "tsup && tsc --project tsconfig.types.json && node scripts/build-package-types.mjs && node scripts/build-package-css.mjs",
@@ -66,6 +75,7 @@
     "@assistant-ui/react": "0.14.26",
     "@assistant-ui/react-markdown": "0.14.5",
     "@assistant-ui/tap": "0.9.3",
+    "@phosphor-icons/react": "2.1.10",
     "@radix-ui/react-accordion": "^1.2.3",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-collapsible": "^1.1.12",

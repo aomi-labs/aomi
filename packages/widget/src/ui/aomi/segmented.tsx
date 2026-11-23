@@ -19,7 +19,6 @@ export function Segmented<T extends string>({
   value,
   onChange,
   options,
-  size = "md",
   fullWidth = false,
   disabled = false,
   className,
@@ -29,8 +28,6 @@ export function Segmented<T extends string>({
   value: T;
   onChange: (value: T) => void;
   options: readonly SegmentedOption<T>[];
-  /** md = h-8 track (default), sm = h-7. */
-  size?: "sm" | "md";
   /** Stretch across the container with equal-width segments. */
   fullWidth?: boolean;
   disabled?: boolean;
@@ -103,12 +100,11 @@ export function Segmented<T extends string>({
             onClick={() => select(index)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
-              "flex items-center justify-center whitespace-nowrap rounded-lg px-[11px] text-[12px] font-medium leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-              size === "sm" ? "h-[22px]" : "h-[26px]",
+              "flex h-[26px] items-center justify-center whitespace-nowrap rounded-lg px-[11px] type-control font-medium leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-40",
               fullWidth && "flex-1",
               checked
-                ? "bg-aomi-raised text-aomi-fg ring-aomi-border ring-1"
-                : "text-aomi-muted hover:text-aomi-fg",
+                ? "bg-aomi-on-band text-aomi-on-band-ink"
+                : "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg",
             )}
           >
             {option.label}

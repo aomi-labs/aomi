@@ -1,8 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/cn";
-import type { ReactNode } from "react";
-import { CircleHelp } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { QuestionIcon } from "@/icons/ui-icons";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
 
@@ -63,21 +63,29 @@ export function SectionHeader({
 
 /** A small (?) button that explains `label` in a tooltip. */
 export function HelpHint({ label, text }: { label: string; text: string }) {
+  const [open, setOpen] = useState(false);
   return (
-    <Tooltip>
+    <Tooltip open={open} onOpenChange={setOpen}>
       <TooltipTrigger asChild>
         <button
           type="button"
           aria-label={`About ${label}`}
-          className="border-aomi-border text-aomi-muted hover:text-aomi-fg flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors"
+          className="aomi-icon-trigger size-8"
+          onClick={(event) => {
+            // Radix normally closes tooltips on activation. Help also opens on tap.
+            event.preventDefault();
+            setOpen(true);
+          }}
         >
-          <CircleHelp size={12} />
+          <QuestionIcon size={17} />
         </button>
       </TooltipTrigger>
       <TooltipContent
         side="top"
+        align="start"
         sideOffset={6}
-        className="bg-aomi-fg text-aomi-bg z-[90] max-w-64 text-pretty"
+        collisionPadding={8}
+        className="z-[90] max-w-[min(16rem,calc(100vw-1rem))] rounded-xl text-pretty"
       >
         {text}
       </TooltipContent>

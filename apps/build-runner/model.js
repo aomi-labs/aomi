@@ -12,5 +12,10 @@ export async function modelRequest(request, env, run, send = fetch) {
   const headers = new Headers({ authorization: "Bearer " + token, "content-type": "application/json" });
   if (claude) headers.set("anthropic-version", "2023-06-01");
   const origin = claude ? "https://openrouter.ai/api" : "https://api.openai.com";
-  return send(origin + path, { method: "POST", body: request.body, headers, redirect: "error" });
+  // Workers subrequests accept only follow or manual. Never follow an inference redirect with credentials.
+  const response = await send(origin + path, { method: "POST", body: request.body, headers, redirect: "manual" });
+  if (response.status >= 300 && response.status < 400) {
+    return new Response("Model provider redirect refused", { status: 502 });
+  }
+  return response;
 }
