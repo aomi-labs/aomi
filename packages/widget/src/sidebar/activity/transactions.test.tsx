@@ -100,15 +100,12 @@ describe("transaction network chip", () => {
 });
 
 describe("transaction card title", () => {
-  it("two_line_label_renders_title_and_details", () => {
+  it("two_line_label_shows_only_the_title_and_keeps_details_on_hover", () => {
     const label =
       "Aave supply\npool.supply(asset: usdc, amount: 1000000, onBehalfOf: wallet, referralCode: 0); integers in base units";
     renderTransaction({ family: "evm", chainId: 8453, label, kind: "call" });
     const heading = screen.getByTitle(/^Aave supply/);
     expect(heading.title).toBe(label);
-    expect(heading.children[0]).toHaveTextContent(/^Aave supply$/);
-    expect(heading.children[1]).toHaveTextContent(
-      /^pool\.supply\(asset: usdc, amount: 1000000, onBehalfOf: wallet, referralCode: 0\); integers in base units$/,
-    );
+    expect(heading).toHaveTextContent(/^Aave supply$/);
   });
 });
