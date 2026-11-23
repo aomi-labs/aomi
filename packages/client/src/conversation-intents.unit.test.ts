@@ -110,7 +110,7 @@ async function setup(initialState: "complete" | "interrupted" = "complete") {
   );
   const session = new Session(client, {
     sessionId,
-    target: { mode: "direct", agent: "publisher/original" },
+    target: { agent: "publisher/original" },
     model: "original-model",
     clientId: "original-client",
   });
@@ -123,11 +123,10 @@ describe("ClientSession durable conversation intents", () => {
     const { session, start } = await setup();
     start.mockResolvedValue(acceptedBranch("edit"));
     session.syncRuntimeOptions({
-      target: { mode: "direct", agent: " acme/assistant " },
+      target: { agent: " acme/assistant " },
     });
     await session.sendAsync(revisedText, { edit: "original-request" });
     expect(start.mock.calls[0]![0]).toMatchObject({
-      mode: "direct",
       agent: "acme/assistant",
     });
   });
@@ -236,7 +235,7 @@ describe("ClientSession durable conversation intents", () => {
       session.sendAsync(revisedText, { edit: "original-request" }),
     ).rejects.toThrow("Response unavailable");
     session.syncRuntimeOptions({
-      target: { mode: "auto" },
+      target: {},
       model: "different-model",
       clientId: "different-client",
     });
@@ -246,7 +245,6 @@ describe("ClientSession durable conversation intents", () => {
     expect(start.mock.calls[1]![0]).toMatchObject({
       edit: "original-request",
       message: revisedText,
-      mode: "direct",
       agent: "publisher/original",
       model: "original-model",
       clientId: "original-client",

@@ -38,10 +38,8 @@ function directAgentKey(target: DirectRoutingAgent): string {
   return target.agent;
 }
 
-export function toAgentTarget(
-  target: DirectRoutingAgent,
-): Extract<AgentTarget, { mode: "direct" }> {
-  return { mode: "direct", ...target };
+export function toAgentTarget(target: DirectRoutingAgent): AgentTarget {
+  return { ...target };
 }
 
 export function sameDirectRoutingAgent(

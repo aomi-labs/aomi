@@ -225,7 +225,7 @@ describe("ClientSession Agent transport", () => {
     session.close();
   });
 
-  it("serializes Auto and Direct targets without rewriting legacy agent callers", async () => {
+  it("serializes a named agent, and nothing for aomi/main", async () => {
     const api = client();
     const start = vi
       .spyOn(api.agent, "start")
@@ -234,23 +234,10 @@ describe("ClientSession Agent transport", () => {
       );
     const cases = [
       { options: {}, expected: {} },
+      { options: { target: {} }, expected: {} },
       {
-        options: { target: { mode: "auto" as const } },
-        expected: { mode: "auto" },
-      },
-      {
-        options: { target: { mode: "direct" as const } },
-        expected: { mode: "direct" },
-      },
-      {
-        options: {
-          target: { mode: "direct" as const, agent: "partner/venue" },
-        },
-        expected: { mode: "direct", agent: "partner/venue" },
-      },
-      {
-        options: { target: { mode: "auto" as const, agent: "partner/venue" } },
-        expected: { mode: "auto", agent: "partner/venue" },
+        options: { target: { agent: " partner/venue " } },
+        expected: { agent: "partner/venue" },
       },
     ];
 
@@ -270,21 +257,20 @@ describe("ClientSession Agent transport", () => {
     }
   });
 
-  it("clears a prior agent identity when switching to the default Direct runtime", async () => {
+  it("clears a prior agent identity when switching to aomi/main", async () => {
     const api = client();
     const start = vi.spyOn(api.agent, "start").mockResolvedValue(page());
     const session = new Session(api, {
       sessionId: "session-agent",
-      target: { mode: "direct", agent: "partner/venue" },
+      target: { agent: "partner/venue" },
     });
-    session.syncRuntimeOptions({ target: { mode: "direct" } });
+    session.syncRuntimeOptions({ target: {} });
     await session.sendAsync("hello");
     expect(start).toHaveBeenCalledWith(
       {
         sessionId: "session-agent",
         clientId: expect.any(String),
         message: "hello",
-        mode: "direct",
       },
       expect.anything(),
     );
@@ -313,7 +299,7 @@ describe("ClientSession Agent transport", () => {
     );
     const session = new Session(api, {
       sessionId: "session-agent",
-      target: { mode: "direct", agent: "aomi/main" },
+      target: { agent: "aomi/main" },
     });
     const snapshots: number[][] = [];
     const unsubscribe = session.subscribe(() => {
@@ -336,7 +322,6 @@ describe("ClientSession Agent transport", () => {
       expect.objectContaining({
         sessionId: "session-agent",
         message: "hello",
-        mode: "direct",
         agent: "aomi/main",
       }),
       { idempotencyKey: expect.stringMatching(/^idem_[a-f0-9]{32}$/) },
@@ -687,14 +672,14 @@ it("sends a message's agent key only in its header and never on later messages",
   });
   const session = new Session(api, {
     sessionId: "keys",
-    target: { mode: "direct", agent: "partner/one" },
+    target: { agent: "partner/one" },
   });
   await session.sendAsync("one", { apiKey: "key-one" });
   session.syncRuntimeOptions({
-    target: { mode: "direct", agent: "partner/two" },
+    target: { agent: "partner/two" },
   });
   await session.sendAsync("two", { apiKey: "key-two" });
-  session.syncRuntimeOptions({ target: { mode: "auto" } });
+  session.syncRuntimeOptions({ target: {} });
   await session.sendAsync("public");
   expect(
     calls.map((call) => new Headers(call.headers).get("aomi-agent-key")),

@@ -1497,7 +1497,7 @@ function normalizeTarget(
 ): AgentTarget | undefined {
   if (!target) return undefined;
   const agent = normalizeOptionalString(target.agent);
-  return { mode: target.mode ?? "auto", ...(agent ? { agent } : {}) };
+  return agent ? { agent } : {};
 }
 
 function isDefinitiveStartRejection(error: unknown): boolean {

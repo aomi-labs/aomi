@@ -1,8 +1,10 @@
 import type { AgentRunOptions, AgentTarget, SessionOptions } from "./";
-const auto: AgentTarget = { mode: "auto" };
-const direct: AgentTarget = { mode: "direct", agent: "publisher/name" };
-const session: SessionOptions = { target: direct };
-const run: AgentRunOptions = { target: auto };
+const main: AgentTarget = {};
+const named: AgentTarget = { agent: "publisher/name" };
+const session: SessionOptions = { target: named };
+const run: AgentRunOptions = { target: main };
 // @ts-expect-error Slugs are strings.
-const invalid: AgentTarget = { mode: "direct", agent: 42 };
-void [session, run, invalid];
+const invalid: AgentTarget = { agent: 42 };
+// @ts-expect-error Turns name an agent; there is no mode.
+const moded: AgentTarget = { mode: "direct" };
+void [session, run, invalid, moded];

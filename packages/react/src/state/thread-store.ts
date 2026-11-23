@@ -1,5 +1,8 @@
 import type { SetStateAction } from "react";
-import { safeEnv, type AgentMode, type ThreadOrigin } from "@aomi-labs/client";
+import { safeEnv, type ThreadOrigin } from "@aomi-labs/client";
+
+/** The picker's choice: `aomi/main` (auto) or the named `agent` (direct). */
+export type AgentMode = "auto" | "direct";
 
 import type { ThreadContext } from "../contexts/thread-context";
 import { generateUUID } from "../utils/client-session";

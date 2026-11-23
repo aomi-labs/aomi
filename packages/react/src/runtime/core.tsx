@@ -216,12 +216,11 @@ export function AomiRuntimeCore({
       // Direct agent in control, so scoping to it could reject the right key.
       const control =
         threadContextRef.current.getThreadMetadata(threadId)?.control;
-      const target =
-        agentTarget?.mode === "direct"
-          ? agentTarget
-          : !agentTarget && control?.agentMode === "direct"
-            ? control
-            : undefined;
+      const target = agentTarget?.agent
+        ? agentTarget
+        : !agentTarget && control?.agentMode === "direct"
+          ? control
+          : undefined;
       const failure = describeSendFailure(
         error,
         Boolean(sessionManager.get(threadId)?.getSnapshot().isStartUncertain),

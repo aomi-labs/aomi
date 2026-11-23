@@ -281,7 +281,7 @@ describe("host-owned routing", () => {
     render(<Harness />);
     await act(async () => {});
     expect(fixture.onAgentTargetSelect).toHaveBeenCalledWith(
-      { agent: "aomi/main", mode: "direct" },
+      { agent: "aomi/main" },
       { persist: false },
     );
   });

@@ -711,7 +711,8 @@ export class AomiClient {
     sessionId: string,
     rig: string,
     options?: {
-      toolset?: string;
+      /** `publisher/name`; none is `aomi/main`. */
+      agent?: string;
       apiKey?: string;
       clientId?: string;
     },
@@ -724,7 +725,7 @@ export class AomiClient {
     const apiKey = options?.apiKey ?? this.apiKey;
     const url = buildApiUrl(this.baseUrl, "/api/thread/model", {
       rig,
-      toolset: options?.toolset,
+      agent: options?.agent,
       client_id: options?.clientId,
     });
 

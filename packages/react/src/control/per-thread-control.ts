@@ -16,7 +16,8 @@
 import { createScopedStorage, type ScopedStorage } from "@aomi-labs/client";
 import { useCallback, useEffect } from "react";
 import type { MutableRefObject } from "react";
-import type { AgentMode, AgentTarget } from "@aomi-labs/client";
+import type { AgentTarget } from "@aomi-labs/client";
+import type { AgentMode } from "../state/thread-store";
 import {
   initThreadControl,
   type ThreadControlState,
@@ -35,7 +36,7 @@ type StoredModelPreference = {
   model: string | null;
 };
 
-type DirectAgentTarget = Extract<AgentTarget, { mode: "direct" }>;
+type DirectAgentTarget = AgentTarget;
 type AgentModeSelectionOptions = { persist?: boolean };
 
 function readStoredAgentMode(storage: ScopedStorage): AgentMode {
@@ -197,9 +198,8 @@ export function usePerThreadControlImpl({
   );
 
   const getCurrentThreadTarget = useCallback((): AgentTarget => {
-    const mode = getCurrentThreadAgentMode();
     const agent = getCurrentThreadControl().agent;
-    return { mode, ...(agent ? { agent } : {}) };
+    return getCurrentThreadAgentMode() === "direct" && agent ? { agent } : {};
   }, [getCurrentThreadAgentMode, getCurrentThreadControl]);
 
   const onAgentTargetSelect = useCallback(
@@ -249,7 +249,7 @@ export function usePerThreadControlImpl({
 
   const onAgentSelect = useCallback(
     (agent: string) => {
-      onAgentTargetSelect({ mode: "direct", agent });
+      onAgentTargetSelect({ agent });
     },
     [onAgentTargetSelect],
   );

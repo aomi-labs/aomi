@@ -837,10 +837,7 @@ describe("PortalAomiFrame account bootstrap", () => {
     );
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-agent-target",
-      JSON.stringify({
-        mode: "direct",
-        agent: "aomi/goal-digger",
-      }),
+      JSON.stringify({ agent: "aomi/goal-digger" }),
     );
     expect(JSON.parse(screen.getByTestId("composer").dataset.routing!)).toEqual(
       {

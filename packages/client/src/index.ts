@@ -91,7 +91,6 @@ export type {
 } from "./pipeline/types";
 export type {
   Action,
-  AgentMode,
   AgentTarget,
   ActionRequest,
   ActionResult,

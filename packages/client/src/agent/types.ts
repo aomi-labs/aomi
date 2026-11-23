@@ -22,10 +22,8 @@ export type ActionRequest = Schemas["ActionRequest"];
 export type ActionResult = Schemas["ActionResult"];
 export type UserState = Schemas["UserState"];
 export type StartTurnIntent = Schemas["StartTurnIntent"];
-export type AgentMode = "auto" | "direct";
-export type AgentTarget =
-  | { mode?: "auto"; agent?: string }
-  | { mode: "direct"; agent?: string };
+/** The agent a session runs as, `publisher/name`; none is `aomi/main`. */
+export type AgentTarget = { agent?: string };
 export type InterruptIntent = Schemas["InterruptIntent"];
 export type RespondToActionIntent = Schemas["RespondToActionIntent"];
 export type Session = Schemas["Session"];

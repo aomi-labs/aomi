@@ -6,8 +6,7 @@ export function privateAgentKey(
   getKey: (slug: string) => string | undefined,
   isPrivate: (slug: string) => boolean = () => false,
 ): string | undefined {
-  if (target.mode === "direct")
-    return target.agent ? getKey(target.agent) : undefined;
+  if (target.agent) return getKey(target.agent);
   const agents = new Set(
     extractCapabilityHints(text ?? "")
       .filter((hint) => hint.kind === "agent" && hint.id.startsWith("agent:"))

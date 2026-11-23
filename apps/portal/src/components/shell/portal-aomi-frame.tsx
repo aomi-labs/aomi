@@ -517,9 +517,7 @@ export function PortalAomiFrame() {
           backendUrl={backendUrl}
           agent={lockedAgent}
           displayPersistence="account"
-          agentTarget={
-            lockedTarget ? { mode: "direct", ...lockedTarget } : undefined
-          }
+          agentTarget={lockedTarget ? { ...lockedTarget } : undefined}
           accountSessionAvailable={Boolean(account)}
           // The host restores saved chats from the URL through ThreadUrlBootstrap.
           // Without a thread URL, open the new-chat starting screen.

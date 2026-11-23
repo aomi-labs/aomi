@@ -495,23 +495,19 @@ describe("ControlContextProvider", () => {
     });
   });
 
-  it("defaults fresh threads to Auto and preserves an id-only Direct target", () => {
+  it("defaults fresh threads to aomi/main and names a picked agent", () => {
     const threadMetadata = createThreadMetadata();
     const { getControl } = renderControlContext({}, threadMetadata);
 
-    expect(getControl().getCurrentThreadTarget()).toEqual({ mode: "auto" });
+    expect(getControl().getCurrentThreadTarget()).toEqual({});
 
     act(() => {
-      getControl().onAgentTargetSelect({
-        mode: "direct",
-        agent: "publisher/agent",
-      });
+      getControl().onAgentTargetSelect({ agent: "publisher/agent" });
     });
     expect(createScopedStorage({ backendUrl: "" }).get("agentMode")).toBe(
       "direct",
     );
     expect(getControl().getCurrentThreadTarget()).toEqual({
-      mode: "direct",
       agent: "publisher/agent",
     });
 
@@ -524,9 +520,6 @@ describe("ControlContextProvider", () => {
     expect(getControl().getPreferredThreadControl()).toMatchObject({
       agentMode: "auto",
     });
-    expect(getControl().getCurrentThreadTarget()).toEqual({
-      mode: "auto",
-      agent: "publisher/agent",
-    });
+    expect(getControl().getCurrentThreadTarget()).toEqual({});
   });
 });
