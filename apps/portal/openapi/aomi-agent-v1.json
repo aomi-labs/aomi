@@ -3336,7 +3336,7 @@
     "/v1/account/packages/{packageId}": {
       "delete": {
         "operationId": "removeAccountPackage",
-        "description": "Take out a package the account added with a code: its access, choice and keys end",
+        "description": "Take out a package the account added with a code: its access and keys end and it is off",
         "parameters": [
           {
             "name": "packageId",
@@ -3351,7 +3351,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Take out a package the account added with a code: its access, choice and keys end",
+            "description": "Take out a package the account added with a code: its access and keys end and it is off",
             "content": {
               "application/json": {
                 "schema": {
@@ -3373,7 +3373,7 @@
         },
         "security": [
           {
-            "aomiOAuth": ["account:packages:write"]
+            "aomiOAuth": ["account:packages:write", "account:credentials:write"]
           }
         ]
       }
