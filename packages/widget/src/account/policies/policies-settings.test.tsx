@@ -82,8 +82,8 @@ const SOL_RULE = `${SOL}@protocol:jupiter`;
 const FRIEND = "0x00000000000000000000000000000000000000aa";
 const VAULT = "0x00000000000000000000000000000000000000a1";
 const WALLET = { id: "g-trading", name: "Trading wallet" };
-const STEP = `/v1/account/agent-wallets/${WALLET.id}/rules/enforcement/vault`;
-const GRANT_STEP = `/v1/account/agent-wallets/${WALLET.id}/rules/enforcement/metamask`;
+const STEP = `/v1/account/agent-wallets/${WALLET.id}/policy/enforcement/vault`;
+const GRANT_STEP = `/v1/account/agent-wallets/${WALLET.id}/policy/enforcement/metamask`;
 const NETWORK_REFUSED =
   "Aomi asked for a signature on another network than this policy's. Nothing was signed.";
 const DECLINED = "Signature declined. Nothing changed.";
@@ -304,7 +304,7 @@ beforeEach(() => {
       if (reply) return reply;
       if (url.pathname === "/v1/account/agent-wallets")
         return Response.json({ pause_all: false, wallets });
-      if (url.pathname === "/v1/account/rules/catalog")
+      if (url.pathname === "/v1/account/policy/catalog")
         return Response.json(catalog);
       return Response.json(rules);
     }),
@@ -433,12 +433,45 @@ describe("Settings › Policies", () => {
     // An archived wallet is neither shown nor read.
     expect(screen.queryByRole("region", { name: "Old policies" })).toBeNull();
     expect(calls.some((call) => call.path.includes("g-old"))).toBe(false);
-    expect(reads("/rules/catalog")).toHaveLength(1);
+    expect(reads("/policy/catalog")).toHaveLength(1);
+  });
+
+  it("opens on the policy a link points at: in view and marked, and the wallet alone when the policy is gone", async () => {
+    const scrolled: Element[] = [];
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled.push(this);
+    };
+    const linkedTo = async (policy?: string) => {
+      scrolled.length = 0;
+      const view = render(
+        <PoliciesSettings focus={{ wallet: WALLET.id, policy }} />,
+        { wrapper: AccountOverviewFixture },
+      );
+      await waitFor(() => expect(scrolled).toHaveLength(1));
+      const card = screen.getByRole("region", {
+        name: "Trading wallet policies",
+      });
+      const marked = [...card.querySelectorAll("[data-policy-linked]")];
+      view.unmount();
+      return { card, marked };
+    };
+    const one = await linkedTo(USDC_RULE);
+    expect(one.marked).toEqual([scrolled[0]]);
+    expect(scrolled[0]).toHaveAttribute("data-policy");
+    expect(scrolled[0]).toHaveClass("bg-aomi-hover");
+    const gone = await linkedTo("eip155:8453/native@any");
+    expect(gone.marked).toEqual([]);
+    expect(scrolled[0]).toBe(gone.card);
+    // No link: nothing moves and nothing is marked.
+    await renderPolicies();
+    expect(scrolled).toHaveLength(1);
+    expect(document.querySelector("[data-policy-linked]")).toBeNull();
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
   });
 
   it("offers Try again when a wallet's policies cannot be read, and says when there is no wallet", async () => {
     respond = (_method, path) =>
-      path.endsWith("/rules") ? refused("internal_error", 500) : undefined;
+      path.endsWith("/policy") ? refused("internal_error", 500) : undefined;
     await mount();
     await see("Couldn’t load the policies.");
     respond = () => undefined;
@@ -459,7 +492,7 @@ describe("Settings › Policies", () => {
     rules = body({ pending: change() });
     view.rerender(<PoliciesSettings active />);
     expect(await changeCard()).toBeInTheDocument();
-    expect(reads("/rules")).toHaveLength(2);
+    expect(reads("/policy")).toHaveLength(2);
   });
 
   it("turns the two switches into the mode and the sends flag, each as the full set, and rereads on a conflict", async () => {
@@ -472,6 +505,8 @@ describe("Settings › Policies", () => {
       rules: [HELD],
       linked_only: false,
     });
+    // With the revision it was built from, so a concurrent edit is refused.
+    expect(writes()[0]!.body).toMatchObject({ revision: 3 });
     await see("Saved.");
     await flip("Only allow transfers to linked wallet");
     expect(sentRules(1)).toEqual({
@@ -480,10 +515,12 @@ describe("Settings › Policies", () => {
       linked_only: true,
     });
     onPost(() => refused("rules_changed", 409));
-    const before = reads("/rules").length;
+    const before = reads("/policy").length;
     await flip("Only allow policy-defined actions");
     await see("The policies changed. Review them again.");
-    await waitFor(() => expect(reads("/rules").length).toBeGreaterThan(before));
+    await waitFor(() =>
+      expect(reads("/policy").length).toBeGreaterThan(before),
+    );
   });
 
   it("shows a whitelist as the switch turned on, and a wallet the agent stopped", async () => {
@@ -719,7 +756,7 @@ describe("Settings › Policies", () => {
   it("offers Try again in the picker when the catalog cannot be read", async () => {
     let fail = true;
     respond = (_method, path) =>
-      path.endsWith("/rules/catalog") && fail
+      path.endsWith("/policy/catalog") && fail
         ? refused("internal_error", 500)
         : undefined;
     await renderPolicies();
@@ -786,6 +823,7 @@ describe("Settings › Policies", () => {
       await click("Save", card);
       expect(writes()[0]!.body).toEqual({
         admin: { kind: "wallet", family: "evm", address: ADMIN },
+        revision: 3,
       });
       // A new authority is itself a change that waits.
       has(await changeCard(), line);
@@ -813,7 +851,10 @@ describe("Settings › Policies", () => {
       expect(radio(/0xAbCd…Ef12/)).toBeChecked();
       fireEvent.click(radio("Self-approval"));
       await click("Save", card);
-      expect(writes()[0]!.body).toEqual({ admin: { kind: "aomi_managed" } });
+      expect(writes()[0]!.body).toEqual({
+        admin: { kind: "aomi_managed" },
+        revision: 3,
+      });
     });
   });
 
@@ -1146,13 +1187,13 @@ describe("Settings › Policies", () => {
       await sign();
       await see(DECLINED);
       expect(writes()).toHaveLength(1);
-      const before = reads("/rules").length;
+      const before = reads("/policy").length;
       refuseStep(GRANT_STEP);
       await sign();
       await see(NOT_ENFORCEABLE);
       expect(kit.signTypedData).toHaveBeenCalledTimes(1);
       await waitFor(() =>
-        expect(reads("/rules").length).toBeGreaterThan(before),
+        expect(reads("/policy").length).toBeGreaterThan(before),
       );
     });
 
@@ -1445,7 +1486,7 @@ describe("Settings › Policies", () => {
             await send();
             await act(() => vi.advanceTimersByTimeAsync(15_000));
             await see(
-              /Your transaction was sent, but Aomi doesn’t see it on the chain yet/,
+              /Your transaction 0x\w+ was sent, but Aomi doesn’t see it on the chain yet/,
               removedRows()[0],
             );
             expect(removedRows()).toHaveLength(1);
@@ -1465,7 +1506,7 @@ describe("Settings › Policies", () => {
           await send();
           await see("wallet_sequential_transaction_reverted", removedRows()[0]);
           expect(writes()).toHaveLength(1);
-          await waitFor(() => expect(reads("/rules")).toHaveLength(2));
+          await waitFor(() => expect(reads("/policy")).toHaveLength(2));
           kit.sendTransaction.mockRejectedValueOnce(declined());
           await send();
           await see(DECLINED, removedRows()[0]);
@@ -1543,9 +1584,12 @@ describe("Settings › Policies", () => {
           (kit as { sendTransaction?: unknown }).sendTransaction = undefined;
           try {
             await renderPolicies();
+            has(
+              removedRows()[0],
+              "This wallet can’t send transactions here. Connect another EVM wallet to send it.",
+            );
             await send();
-            await see("This wallet can't send that.");
-            expect(writes()).toHaveLength(2);
+            expect(writes()).toHaveLength(1);
           } finally {
             kit.sendTransaction = original;
           }
@@ -1557,7 +1601,7 @@ describe("Settings › Policies", () => {
   describe("a waiting change", () => {
     const approveCall = (body: object = {}) => ({
       method: "POST",
-      path: "/v1/account/rule-changes/ch-1/approve",
+      path: "/v1/account/policy-changes/ch-1/approve",
       body,
     });
     const adminChange = (sign_message: string, extra: object = {}) =>
@@ -1586,7 +1630,7 @@ describe("Settings › Policies", () => {
         "Trading wallet · Aomi asks: USDC on Base: 200 → 400",
         "23 h left",
       );
-      expect(document.querySelector("[data-rule-change]")).toBeNull();
+      expect(document.querySelector("[data-policy-change]")).toBeNull();
       fireEvent.click(within(line).getByRole("button", { name: "Review" }));
       fireEvent.click(
         within(await changeCard()).getByRole("button", { name: "Later" }),
@@ -1597,7 +1641,7 @@ describe("Settings › Policies", () => {
       expect(writes()).toEqual([
         {
           method: "POST",
-          path: "/v1/account/rule-changes/ch-1/decline",
+          path: "/v1/account/policy-changes/ch-1/decline",
           body: {},
         },
       ]);
@@ -1620,7 +1664,7 @@ describe("Settings › Policies", () => {
       await see("Approved.");
       has(rows()[0], "Up to 400 USDC on Uniswap");
       expect(writes()).toEqual([approveCall()]);
-      expect(document.querySelector("[data-rule-change]")).toBeNull();
+      expect(document.querySelector("[data-policy-change]")).toBeNull();
     });
 
     it("stops offering a decision the moment the change expires", async () => {
@@ -1723,16 +1767,16 @@ describe("Settings › Policies", () => {
       await see("For a policy change, sign in again.");
       fireEvent.click(button("Sign in again"));
       await waitFor(() => expect(kit.signOutAccount).toHaveBeenCalledTimes(1));
-      expect(document.querySelector("[data-rule-change]")).toBeTruthy();
-      const before = reads("/rules").length;
+      expect(document.querySelector("[data-policy-change]")).toBeTruthy();
+      const before = reads("/policy").length;
       onPost(() => {
         rules = body();
         return refused("rules_change_not_open", 409);
       });
       fireEvent.click(button("Approve"));
       await see("That change was already decided.");
-      expect(document.querySelector("[data-rule-change]")).toBeNull();
-      expect(reads("/rules")).toHaveLength(before + 1);
+      expect(document.querySelector("[data-policy-change]")).toBeNull();
+      expect(reads("/policy")).toHaveLength(before + 1);
     });
   });
 });

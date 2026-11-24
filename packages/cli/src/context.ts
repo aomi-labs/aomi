@@ -1,9 +1,11 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
+import { createInterface } from "node:readline/promises";
 import {
   Aomi,
   AomiError,
+  AomiPolicySentError,
   CLIENT_TYPE_TS_CLI,
   createGuestSessionProvider,
   normalizeSolanaCluster,
@@ -11,11 +13,18 @@ import {
   UserState,
   wallet,
   type AomiAuthStrategy,
+  type AomiPolicySigner,
   type AgentTarget,
   type SvmCluster,
 } from "@aomi-labs/client";
 import { viemSigner } from "@aomi-labs/client/viem";
-import { createWalletClient, http, type Chain } from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  type Chain,
+  type Hex,
+} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import * as chains from "viem/chains";
 import { grants, loadState, updateState, type CliState } from "./state";
@@ -133,6 +142,13 @@ const solanaKeyOf = (flags: ConnectFlags) =>
   undefined;
 
 /**
+ * The EVM key `connect` gave each client. A policy transaction is sent with
+ * it, never with a key read again later: the saved one can change while the
+ * owner is asked, and what was checked and shown is this one.
+ */
+const EVM_KEYS = new WeakMap<Aomi, Hex>();
+
+/**
  * One `Aomi` for the command: signed in with `--private-key` (SIWE) or
  * `--solana-private-key` (SIWS), else with the device grant from
  * `aomi login`, else as a guest. The signer is the keys from the flags or
@@ -173,18 +189,94 @@ export async function connect(
     apiKey: flags.apiKey ?? process.env.AOMI_API_KEY,
     ...(signer.evm || signer.svm ? { signer } : {}),
   };
+  const made = (options: ConstructorParameters<typeof Aomi>[0]) => {
+    const aomi = new Aomi(options);
+    if (evmKey) EVM_KEYS.set(aomi, evmKey);
+    return aomi;
+  };
   if (key)
-    return new Aomi({
+    return made({
       ...common,
       auth: wallet(privateKeyToAccount(key), {
         chainId: flags.chain ?? state.chain,
       }),
     });
   if (solanaKey && signer.svm)
-    return new Aomi({ ...common, auth: wallet(signer.svm) });
+    return made({ ...common, auth: wallet(signer.svm) });
   if (await signedIn(baseUrl))
-    return new Aomi({ ...common, auth: await deviceAuth(baseUrl, onCode) });
-  return new Aomi({ ...common, guest: persistedGuest(baseUrl, state) });
+    return made({ ...common, auth: await deviceAuth(baseUrl, onCode) });
+  return made({ ...common, guest: persistedGuest(baseUrl, state) });
+}
+
+/**
+ * The local keys as the wallet that puts a policy on chain: the EVM key signs
+ * typed data and sends a transaction itself, the Solana key signs and
+ * broadcasts. A family with no key has no method.
+ */
+export function policySigner(
+  aomi: Aomi,
+  flags: ConnectFlags,
+): AomiPolicySigner {
+  const { evm, svm } = aomi.wallet ?? {};
+  const key = EVM_KEYS.get(aomi);
+  const { signTypedData } = evm ?? {};
+  const { signTransaction, broadcastTransaction } = svm ?? {};
+  return {
+    evmAddress: evm?.address,
+    solanaAddress: svm?.address,
+    ...(signTypedData
+      ? {
+          signTypedData: async ({ typedData, chainId }) => {
+            const signed = await signTypedData({ typedData, chainId });
+            return typeof signed === "string" ? signed : signed.signature;
+          },
+        }
+      : {}),
+    ...(key
+      ? {
+          sendEvmTransaction: async ({ chainId, to, data, value }) => {
+            const on = {
+              chain: chainOf(chainId),
+              transport: http(flags.rpcUrl),
+            };
+            const hash = await createWalletClient({
+              account: privateKeyToAccount(key),
+              ...on,
+            }).sendTransaction({
+              to: to as Hex,
+              data: data as Hex,
+              value: BigInt(value),
+            });
+            // It is sent: with no receipt in time, the hash still goes back
+            // and Aomi's read of the chain says whether it landed.
+            const receipt = await createPublicClient(on)
+              .waitForTransactionReceipt({ hash })
+              .catch(() => null);
+            if (receipt && receipt.status !== "success")
+              throw new AomiPolicySentError(
+                hash,
+                new CliError(`The transaction reverted: ${hash}`),
+              );
+            return hash;
+          },
+        }
+      : {}),
+    ...(signTransaction && broadcastTransaction
+      ? {
+          sendSolanaTransaction: async ({ unsignedBase64, cluster }) => {
+            const signed = await signTransaction({
+              transactionBase64: unsignedBase64,
+              cluster,
+            });
+            const raw =
+              typeof signed === "string" ? signed : signed.signedTransaction;
+            if (!raw)
+              throw new CliError("The local signer returned no transaction");
+            return broadcastTransaction(raw, cluster);
+          },
+        }
+      : {}),
+  };
 }
 
 /** The guest bearer outlives the process, so its threads stay reachable. */
@@ -309,6 +401,30 @@ export function openUrl(url: string): void {
 export const out = (line = ""): void => void process.stdout.write(`${line}\n`);
 export const err = (line = ""): void => void process.stderr.write(`${line}\n`);
 export const json = (value: unknown): void => out(JSON.stringify(value));
+
+/** Rows as aligned columns; the first row is the header. */
+export function table(rows: string[][]): string[] {
+  const widths = rows[0]!.map((_, column) =>
+    Math.max(...rows.map((row) => row[column]!.length)),
+  );
+  return rows.map((row) =>
+    row
+      .map((cell, column) => cell.padEnd(widths[column]!))
+      .join("  ")
+      .trimEnd(),
+  );
+}
+
+/** Ask on stderr; outside a terminal the command needs `--yes`. */
+export async function confirm(question: string): Promise<boolean> {
+  if (!process.stdin.isTTY) throw usage("Pass --yes outside a terminal");
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    return /^y(es)?$/i.test((await rl.question(`${question} [y/N] `)).trim());
+  } finally {
+    rl.close();
+  }
+}
 
 /** One line: the error, the server's reason, and what to do. */
 export function messageOf(error: unknown): string {

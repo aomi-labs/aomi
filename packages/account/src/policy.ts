@@ -455,13 +455,13 @@ export const PORTAL_SESSION = "portal_session";
 
 /**
  * The owner's own signed-in session: the portal cookie or a CLI session
- * bearer, never a guest, a widget or an OAuth client. Wallet rule changes;
+ * bearer, never a guest, a widget or an OAuth client. Wallet policy changes;
  * the backend checks the same thing on the bearer's `auth_source`.
  */
 export const OWNER_SESSION = "owner_session";
 
 /**
- * How recent a portal sign-in must be to approve a rule change with a click.
+ * How recent a portal sign-in must be to approve a policy change with a click.
  * A wallet signature in the body proves the admin instead.
  */
 export const FRESH_LOGIN_SECONDS = 10 * 60;
@@ -557,7 +557,8 @@ const FUNDING = "\\/v1\\/account\\/credits\\/funding-events";
  * withdraw), pause-all, each connection's label and agent wallets, and linking
  * a platform account with a one-time code. Served by the backend under /v1.
  * Reads take the scope api-server asks of OAuth clients; writes are for a
- * portal session only, except wallet rules, which a CLI session also changes.
+ * portal session only, except wallet policies, which a CLI session also
+ * changes, and a policy proposal, which an OAuth agent:write client files.
  */
 const wallets = (
   path: RegExp,
@@ -720,38 +721,46 @@ export const ROUTES: readonly Route[] = [
   wallets(/^\/v1\/account\/agent-wallets\/[^/]+\/withdraw$/, {
     POST: PORTAL_SESSION,
   }),
-  // Wallet rules: anyone with agent:read sees them, only the owner's own
+  // Wallet policies: anyone with agent:read sees them, only the owner's own
   // session changes them, and a click-approval needs a recent portal sign-in.
+  // Each path also answers to its `/rules` name, which the backend still
+  // serves, for a client on an SDK from before `/policy`.
   wallets(
-    /^\/v1\/account\/agent-wallets\/[^/]+\/rules$/,
+    /^\/v1\/account\/agent-wallets\/[^/]+\/(?:policy|rules)$/,
     { GET: "agent:read", POST: OWNER_SESSION },
-    { operation: "account.rules" },
+    { operation: "account.policy" },
   ),
-  // The same rules on chain: the owner's wallet signs, so the chain decides.
+  // The same policies on chain: the owner's wallet signs, so the chain decides.
   wallets(
-    /^\/v1\/account\/agent-wallets\/[^/]+\/rules\/enforcement\/[a-z]+\/(?:prepare|confirm)$/,
+    /^\/v1\/account\/agent-wallets\/[^/]+\/(?:policy|rules)\/enforcement\/[a-z]+\/(?:prepare|confirm)$/,
     { POST: OWNER_SESSION },
-    { operation: "account.rules" },
+    { operation: "account.policy" },
+  ),
+  // An agent client asks for a change; the backend files it for the owner.
+  wallets(
+    /^\/v1\/account\/agent-wallets\/[^/]+\/policy\/propose$/,
+    { POST: "agent:write" },
+    { operation: "account.policy" },
   ),
   wallets(
-    /^\/v1\/account\/rules\/catalog$/,
+    /^\/v1\/account\/(?:policy|rules)\/catalog$/,
     { GET: "agent:read" },
-    { operation: "account.rules" },
+    { operation: "account.policy" },
   ),
   wallets(
-    /^\/v1\/account\/rule-changes\/[^/]+$/,
+    /^\/v1\/account\/(?:policy|rule)-changes\/[^/]+$/,
     { GET: "agent:read" },
-    { operation: "account.rules" },
+    { operation: "account.policy" },
   ),
   wallets(
-    /^\/v1\/account\/rule-changes\/[^/]+\/approve$/,
+    /^\/v1\/account\/(?:policy|rule)-changes\/[^/]+\/approve$/,
     { POST: OWNER_SESSION },
-    { operation: "account.rules", freshLogin: true },
+    { operation: "account.policy", freshLogin: true },
   ),
   wallets(
-    /^\/v1\/account\/rule-changes\/[^/]+\/decline$/,
+    /^\/v1\/account\/(?:policy|rule)-changes\/[^/]+\/decline$/,
     { POST: OWNER_SESSION },
-    { operation: "account.rules" },
+    { operation: "account.policy" },
   ),
   wallets(/^\/v1\/account\/pause-all$/, { PUT: PORTAL_SESSION }),
   wallets(/^\/v1\/account\/connection-settings\/[^/]+$/, {

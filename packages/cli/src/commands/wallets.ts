@@ -1,23 +1,18 @@
 import type { AomiAccountWallet } from "@aomi-labs/client";
 import { privateKeyToAccount } from "viem/accounts";
-import { connect, json, out, usage, type ConnectFlags } from "../context";
+import {
+  connect,
+  json,
+  out,
+  table,
+  usage,
+  type ConnectFlags,
+} from "../context";
 import { loadState, updateState } from "../state";
 
 type Flags = ConnectFlags & { json?: boolean };
 const solana = async () =>
   (await import("@aomi-labs/client/solana")).solanaSigner;
-
-function table(rows: string[][]): string[] {
-  const widths = rows[0]!.map((_, column) =>
-    Math.max(...rows.map((row) => row[column]!.length)),
-  );
-  return rows.map((row) =>
-    row
-      .map((cell, column) => cell.padEnd(widths[column]!))
-      .join("  ")
-      .trimEnd(),
-  );
-}
 
 /** How a wallet signs what the agent prepares, in a few words. */
 export function signsWith(wallet: AomiAccountWallet): string {

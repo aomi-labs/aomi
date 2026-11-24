@@ -78,7 +78,11 @@ export { useSvmWalletBinding } from "./wallet/use-svm-wallet-binding";
 
 // Account, settings and Library
 export { ShellTransportProvider } from "./account/transport";
-export { SettingsModal, type SettingsTab } from "./account/settings-modal";
+export {
+  SettingsModal,
+  type PolicyFocus,
+  type SettingsTab,
+} from "./account/settings-modal";
 export { HeaderControls } from "./frame/header-controls";
 export { useAccountSnapshot } from "./account/account-snapshot";
 export { useRuntimeAccount } from "./frame/runtime-account";
@@ -93,10 +97,10 @@ export {
   type TelegramLinkPanelProps,
 } from "./account/telegram-link";
 export {
-  RuleChangeCard,
-  RuleChangePanel,
-  type RuleChangePanelProps,
-} from "./account/rules/rule-change-card";
+  PolicyChangeCard,
+  PolicyChangePanel,
+  type PolicyChangePanelProps,
+} from "./account/policies/policy-change-card";
 export {
   Chip,
   MatrixTable,

@@ -1140,17 +1140,17 @@ describe("portal surface: wallets, agent wallets and connection ask modes", () =
   });
 });
 
-describe("portal surface: wallet rules", () => {
-  const READS = ["/v1/account/agent-wallets/g-1/rules", "/v1/account/rules/catalog", "/v1/account/rule-changes/ch-1"];
+describe("portal surface: wallet policies", () => {
+  const READS = ["/v1/account/agent-wallets/g-1/policy", "/v1/account/policy/catalog", "/v1/account/policy-changes/ch-1"];
   const WRITES = [
-    "/v1/account/agent-wallets/g-1/rules",
-    "/v1/account/agent-wallets/g-1/rules/enforcement/swig/prepare",
-    "/v1/account/agent-wallets/g-1/rules/enforcement/swig/confirm",
-    "/v1/account/rule-changes/ch-1/approve",
-    "/v1/account/rule-changes/ch-1/decline",
+    "/v1/account/agent-wallets/g-1/policy",
+    "/v1/account/agent-wallets/g-1/policy/enforcement/swig/prepare",
+    "/v1/account/agent-wallets/g-1/policy/enforcement/swig/confirm",
+    "/v1/account/policy-changes/ch-1/approve",
+    "/v1/account/policy-changes/ch-1/decline",
   ];
   const approve = (headers: Record<string, string>, body: unknown) =>
-    portal("/v1/account/rule-changes/ch-1/approve", {
+    portal("/v1/account/policy-changes/ch-1/approve", {
       method: "POST",
       origin: "authorization" in headers ? undefined : PORTAL,
       headers: { ...headers, "content-type": "application/json" },
@@ -1180,9 +1180,34 @@ describe("portal surface: wallet rules", () => {
       const refused = await call(name, "POST", path);
       expect([name, refused.status, await refused.json()]).toEqual([name, 403, { error: "owner_session_required" }]);
     }
-    // An OAuth grant never reaches a rule change.
+    // An OAuth grant never reaches a policy change.
     expect((await call("OAuth user", "POST", path)).status).toBe(401);
     expect(seen).toHaveLength(2);
+  });
+
+  it("still routes the /rules names a client on an older SDK calls", async () => {
+    for (const path of ["/v1/account/agent-wallets/g-1/rules", "/v1/account/rules/catalog", "/v1/account/rule-changes/ch-1"])
+      expect((await call("CLI session", "GET", path)).status).toBe(200);
+    for (const path of [
+      "/v1/account/agent-wallets/g-1/rules",
+      "/v1/account/agent-wallets/g-1/rules/enforcement/swig/confirm",
+      "/v1/account/rule-changes/ch-1/decline",
+    ]) {
+      expect((await call("CLI session", "POST", path)).status).toBe(200);
+      expect((await call("widget user", "POST", path)).status).toBe(403);
+    }
+    expect(seen).toHaveLength(6);
+  });
+
+  it("lets an agent:write grant propose a change, and never an agent:read one", async () => {
+    const path = "/v1/account/agent-wallets/g-1/policy/propose";
+    expect((await call("OAuth user", "POST", path)).status).toBe(200);
+    expect(seen[0]).toMatchObject({ url: `${BACKEND}${path}`, method: "POST" });
+    const readOnly = await oauthToken({ sub: "user", scope: "agent:read", aud: `${PORTAL}/v1/agent` });
+    const refused = await portal(path, { method: "POST", headers: { authorization: `Bearer ${readOnly}`, "content-type": "application/json" }, body: "{}" });
+    expect(refused.status).toBe(403);
+    expect((await call("OAuth user", "GET", path)).status).toBe(404);
+    expect(seen).toHaveLength(1);
   });
 
   it("forwards the approval body and its signature unchanged", async () => {
@@ -1225,16 +1250,16 @@ describe("portal surface: wallet rules", () => {
     expect((await approve({ cookie: "session=user" }, { signature: "0xsigned" })).status).toBe(200);
     expect((await approve({ authorization: "Bearer user" }, { signature: "0xsigned" })).status).toBe(200);
     // Declining and filing a change take power away or wait for the admin: any age.
-    expect((await call("portal user", "POST", "/v1/account/rule-changes/ch-1/decline")).status).toBe(200);
-    expect((await call("portal user", "POST", "/v1/account/agent-wallets/g-1/rules")).status).toBe(200);
+    expect((await call("portal user", "POST", "/v1/account/policy-changes/ch-1/decline")).status).toBe(200);
+    expect((await call("portal user", "POST", "/v1/account/agent-wallets/g-1/policy")).status).toBe(200);
     expect(seen).toHaveLength(4);
   });
 
   it.each([
-    ["PUT", "/v1/account/agent-wallets/g-1/rules"],
-    ["POST", "/v1/account/rules/catalog"],
-    ["POST", "/v1/account/rule-changes/ch-1"],
-    ["GET", "/v1/account/rule-changes/ch-1/approve"],
+    ["PUT", "/v1/account/agent-wallets/g-1/policy"],
+    ["POST", "/v1/account/policy/catalog"],
+    ["POST", "/v1/account/policy-changes/ch-1"],
+    ["GET", "/v1/account/policy-changes/ch-1/approve"],
   ] as const)("answers %s %s with 404 before identifying the caller", async (method, path) => {
     expect((await call("portal user", method, path)).status).toBe(404);
     expect(seen).toHaveLength(0);

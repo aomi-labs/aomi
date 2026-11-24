@@ -3,18 +3,19 @@ import type { AomiPolicyEnforcement } from "@aomi-labs/client";
 import {
   activePolicyCount,
   dayFromToday,
-  draftRules,
+  draftPolicies,
   endOfLocalDay,
   localDay,
   periodLine,
   policyAmount,
   policyCatalog,
   policyProviders,
+  NEEDS_WHITELIST,
   policyRows,
   policyToPhrase,
   removalSummary,
   removedPolicies,
-  ruleEnforcement,
+  policyEnforcement,
 } from "./policy-model";
 
 const BASE_USDC =
@@ -69,7 +70,10 @@ const metamask = (asset: string, extra: Partial<AomiPolicyEnforcement> = {}) =>
     signer: { family: "evm", address: null },
     ...extra,
   });
-const wallet = (rules: object[], enforcement: AomiPolicyEnforcement[] = []) => ({
+const wallet = (
+  rules: object[],
+  enforcement: AomiPolicyEnforcement[] = [],
+) => ({
   rules: { mode: "whitelist" as const, rules, linked_only: false } as never,
   enforcement,
 });
@@ -93,7 +97,7 @@ describe("policy rows", () => {
     ]);
     expect(result).toHaveLength(3);
     expect(result[0]).toMatchObject({
-      ruleIds: [`${BASE_USDC}@any`, `${OP_USDC}@any`],
+      policyIds: [`${BASE_USDC}@any`, `${OP_USDC}@any`],
       symbol: "USDC",
       amount: "1,000",
       chains: [
@@ -110,6 +114,29 @@ describe("policy rows", () => {
     expect(periodLine(result[2]!)).toBe(
       "Active period: 11/11/2026 – 11/12/2026",
     );
+  });
+
+  it("says why nothing holds a policy on chain in blacklist mode, where a provider serves its chain", () => {
+    const held = {
+      ...wallet([rule(SOL), rule(BASE_USDC)]),
+      rules: {
+        mode: "blacklist",
+        rules: [rule(SOL), rule(BASE_USDC)],
+        linked_only: false,
+      } as never,
+      providers: [
+        {
+          provider: "swig",
+          name: "Swig",
+          network: SOL.split("/")[0]!,
+          holds: "total_period_and_destination" as const,
+          note: null,
+        },
+      ],
+    };
+    const [sol, usdc] = policyRows(held, null, NOW);
+    expect(sol!.enforcement).toEqual({ name: null, note: NEEDS_WHITELIST });
+    expect(usdc!.enforcement).toEqual({ name: null });
   });
 
   it("keeps an ended rule, says when it ended, and does not count it", () => {
@@ -178,7 +205,7 @@ describe("a rule's on-chain enforcement", () => {
       },
     ],
   ] as const)("reads entries %#", (entries, expected) => {
-    expect(ruleEnforcement(sol, entries as never)).toEqual(expected);
+    expect(policyEnforcement(sol, entries as never)).toEqual(expected);
   });
 
   const SOLSCAN = "https://solscan.io";
@@ -212,14 +239,14 @@ describe("a rule's on-chain enforcement", () => {
   ] as const)(
     "links the deployment, else the account %#",
     (target, entry, href) => {
-      expect(ruleEnforcement(target, [entry as never]).href).toBe(href);
+      expect(policyEnforcement(target, [entry as never]).href).toBe(href);
     },
   );
 
   it("says what is left of the total, in the token's own units, when the chain reports it", () => {
     const SOL_UNITS = { symbol: "SOL", decimals: 9 };
     const left = (entry: AomiPolicyEnforcement, units?: typeof SOL_UNITS) =>
-      ruleEnforcement(sol, [entry], units).left;
+      policyEnforcement(sol, [entry], units).left;
     expect(left(provider({ state: "on", left: "400000000" }), SOL_UNITS)).toBe(
       "0.4 SOL left",
     );
@@ -238,13 +265,13 @@ describe("a rule's on-chain enforcement", () => {
   it("shows the chain's end only when it is more than a day from the policy's own", () => {
     const ends = rule(SOL, { active_until: DEC_11 });
     const chainEnd = (expires_at: number) =>
-      ruleEnforcement(ends, [provider({ state: "on", expires_at })]).chainEnd;
+      policyEnforcement(ends, [provider({ state: "on", expires_at })]).chainEnd;
     expect(chainEnd(DEC_11 + 14 * 3600)).toBeUndefined();
     expect(chainEnd(DEC_11 - 3600)).toBeUndefined();
     expect(chainEnd(DEC_11 + 2 * 86_400)).toBe(localDay(DEC_11 + 2 * 86_400));
     // A rule with no end of its own that the chain ends.
     expect(
-      ruleEnforcement(sol, [provider({ state: "on", expires_at: DEC_11 })])
+      policyEnforcement(sol, [provider({ state: "on", expires_at: DEC_11 })])
         .chainEnd,
     ).toBe("2026-12-11");
   });
@@ -532,7 +559,7 @@ describe("the picker's catalog and draft", () => {
     expect(localDay(end + 1)).toBe("2026-12-12");
     const to = { kind: "protocol", id: "uniswap" };
     expect(
-      draftRules({
+      draftPolicies({
         symbol: "USDC",
         amount: "12.5",
         chains: usdc!.chains,
@@ -547,7 +574,7 @@ describe("the picker's catalog and draft", () => {
 
   it("sends no end for always on, and refuses more digits than the token holds", () => {
     const draft = (symbol: string, amount: string, chains = usdc!.chains) =>
-      draftRules({
+      draftPolicies({
         symbol,
         amount,
         chains,

@@ -27,7 +27,7 @@ function scope(aomi: Awaited<ReturnType<typeof connect>>, flags: Flags) {
 }
 
 /** A JSON object, a file, @file, or - for stdin. */
-async function readArgs(input?: string): Promise<Record<string, unknown>> {
+export async function readArgs(input?: string): Promise<Record<string, unknown>> {
   if (!input) return {};
   const text =
     input === "-"

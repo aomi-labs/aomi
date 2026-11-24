@@ -1,4 +1,3 @@
-import { createInterface } from "node:readline/promises";
 import {
   CommitApprovalForbiddenError,
   CommitExpiredError,
@@ -12,6 +11,7 @@ import {
 } from "@aomi-labs/client";
 import {
   CliError,
+  confirm,
   connect,
   err,
   json,
@@ -137,16 +137,6 @@ export async function review(flags: Flags, ref: string): Promise<void> {
     else reviewLines(handle.view, handle.review).forEach((line) => out(line));
   } finally {
     handle.close();
-  }
-}
-
-async function confirm(question: string): Promise<boolean> {
-  if (!process.stdin.isTTY) throw usage("Pass --yes outside a terminal");
-  const rl = createInterface({ input: process.stdin, output: process.stderr });
-  try {
-    return /^y(es)?$/i.test((await rl.question(`${question} [y/N] `)).trim());
-  } finally {
-    rl.close();
   }
 }
 

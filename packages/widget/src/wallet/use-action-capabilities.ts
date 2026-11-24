@@ -25,6 +25,7 @@ import { useWidgetStorage } from "@/lib/widget-storage";
 import type { ScopedStorage } from "@aomi-labs/client";
 import { useAomiWalletKit } from "./context";
 import { agentFamilies } from "./composer/wallet-state";
+import { canSendSolana, sendSolana } from "./runtime/svm/transactions";
 import { createPublicClient, http } from "viem";
 
 export function useCommitCapabilities(): CommitCapabilities {
@@ -246,9 +247,9 @@ function svmWallet(wallet: ReturnType<typeof useAomiWalletKit>): SvmWallet {
           }));
         }
       : undefined,
-    signAndSendTransaction: canSendSvm(wallet)
+    signAndSendTransaction: canSendSolana(wallet)
       ? async ({ transactionBase64, cluster }) => {
-          const result = await sendSvm(
+          const result = await sendSolana(
             wallet,
             payload(transactionBase64, cluster),
           );
@@ -300,38 +301,6 @@ async function switchSvm(
     );
   }
   await wallet.selectNetwork({ family: "svm", networkId: target.id });
-}
-
-function canSendSvm(wallet: ReturnType<typeof useAomiWalletKit>): boolean {
-  return Boolean(
-    wallet.signAndSendSolanaTransaction ||
-    wallet.sendSolanaTransaction ||
-    (wallet.signSolanaTransaction && wallet.solanaRpcHttpUrl),
-  );
-}
-
-async function sendSvm(
-  wallet: ReturnType<typeof useAomiWalletKit>,
-  payload: WalletSolanaSignPayload,
-): Promise<{ signature: string; signedTx?: string }> {
-  if (wallet.signAndSendSolanaTransaction) {
-    return wallet.signAndSendSolanaTransaction(payload);
-  }
-  if (wallet.sendSolanaTransaction)
-    return wallet.sendSolanaTransaction(payload);
-  if (wallet.signSolanaTransaction && wallet.solanaRpcHttpUrl) {
-    const signed = await wallet.signSolanaTransaction(payload);
-    const connection = new SolanaConnection(
-      wallet.solanaRpcHttpUrl,
-      "confirmed",
-    );
-    const signature = await connection.sendRawTransaction(
-      decodeBase64(signed.signedTx),
-    );
-    await connection.confirmTransaction(signature, "confirmed");
-    return { signature, signedTx: signed.signedTx };
-  }
-  throw new Error("Solana wallet provider is not ready");
 }
 
 function extractPayerSignature(signedTransaction: string): string {

@@ -6,9 +6,9 @@ import { ArrowUp, Minus } from "lucide-react";
 import {
   shortAddress,
   type AccountTransport,
-  type AomiRuleChange,
-  type AomiRulesAdminWallet,
-  type AomiWalletRules,
+  type AomiPolicyChange,
+  type AomiPolicyAdminWallet,
+  type AomiWalletPolicies,
 } from "@aomi-labs/client";
 import { AomiButton } from "@/ui/aomi/button";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
@@ -23,27 +23,27 @@ import { signOutAndDisconnect } from "@/wallet/account/sign-out";
 import { utf8ToBase64 } from "@/wallet/account/encoding";
 import type { AomiWalletKit } from "@/wallet/types";
 import {
-  rulesErrorCode,
-  rulesFailure,
+  policyErrorCode,
+  policyFailure,
   sameWallet,
   timeUntil,
-} from "./rules-model";
+} from "./policy-format";
 
-/** The client a rule change is read and decided with. */
-export type RulesClient = { account: Pick<AccountTransport, "rules"> };
+/** The client a policy change is read and decided with. */
+export type PolicyClient = { account: Pick<AccountTransport, "policy"> };
 
-const familyName = (family: AomiRulesAdminWallet["family"]) =>
+const familyName = (family: AomiPolicyAdminWallet["family"]) =>
   family === "evm" ? "EVM" : "Solana";
 
 /** The address connected here for a wallet family, if any. */
 export const connectedAddress = (
   kit: Pick<AomiWalletKit, "identity">,
-  family: AomiRulesAdminWallet["family"],
+  family: AomiPolicyAdminWallet["family"],
 ) => (family === "evm" ? kit.identity.address : kit.identity.svmAddress);
 
 /** The signer's name among the account's wallets, else its short address. */
 export function walletName(
-  wallet: AomiRulesAdminWallet,
+  wallet: AomiPolicyAdminWallet,
   kit: Pick<AomiWalletKit, "wallets">,
 ): string {
   const row = kit.wallets.find((entry) =>
@@ -58,7 +58,7 @@ export function walletName(
  * signer, else what to tell the user.
  */
 function signerProblem(
-  signer: AomiRulesAdminWallet,
+  signer: AomiPolicyAdminWallet,
   kit: AomiWalletKit,
 ): string | null {
   const connected = connectedAddress(kit, signer.family);
@@ -74,7 +74,7 @@ function signerProblem(
 
 /** Ask the connected wallet of the signer's family to sign the exact text. */
 async function signChange(
-  signer: AomiRulesAdminWallet,
+  signer: AomiPolicyAdminWallet,
   message: string,
   kit: AomiWalletKit,
 ): Promise<string> {
@@ -93,12 +93,12 @@ async function signChange(
 }
 
 /**
- * One waiting rule change, shown as a "Policy change": its lines (a line that
+ * One waiting policy change: its lines (a line that
  * gives the agent power is marked), when it expires, Decline, and Approve or,
  * when a wallet is the admin, Sign in wallet. Used in Settings › Policies and
- * on `/rules/:id`.
+ * on `/policy/:id`.
  */
-export function RuleChangeCard({
+export function PolicyChangeCard({
   change,
   client,
   onDecided,
@@ -106,11 +106,14 @@ export function RuleChangeCard({
   onLater,
   className,
 }: {
-  change: AomiRuleChange;
-  client: RulesClient;
-  /** The change was approved or declined; `rules` is the wallet after it. */
-  onDecided: (rules: AomiWalletRules, outcome: "approved" | "declined") => void;
-  /** The change is no longer open, or the rules moved: read them again. */
+  change: AomiPolicyChange;
+  client: PolicyClient;
+  /** The change was approved or declined; `policies` is the wallet after it. */
+  onDecided: (
+    policies: AomiWalletPolicies,
+    outcome: "approved" | "declined",
+  ) => void;
+  /** The change is no longer open, or the policies moved: read them again. */
   onStale: () => void;
   /** Close the card and leave the change waiting. */
   onLater?: () => void;
@@ -158,7 +161,7 @@ export function RuleChangeCard({
 
   const run = async (
     step: "approve" | "decline",
-    send: () => Promise<AomiWalletRules>,
+    send: () => Promise<AomiWalletPolicies>,
   ) => {
     if (busy) return;
     setBusy(step);
@@ -166,17 +169,17 @@ export function RuleChangeCard({
     setStale(false);
     signed.current = false;
     try {
-      const rules = await send();
-      onDecided(rules, step === "approve" ? "approved" : "declined");
+      const policies = await send();
+      onDecided(policies, step === "approve" ? "approved" : "declined");
     } catch (caught) {
       if (!mounted.current) return;
-      const code = rulesErrorCode(caught);
+      const code = policyErrorCode(caught);
       if (code === "login_stale") setStale(true);
       else if (code === "rules_change_not_open" || code === "rules_changed") {
-        setError(rulesFailure(caught, ""));
+        setError(policyFailure(caught, ""));
         onStale();
       } else if (code)
-        setError(rulesFailure(caught, "Couldn’t do that. Try again."));
+        setError(policyFailure(caught, "Couldn’t do that. Try again."));
       else if (signed.current)
         setError(
           "Your wallet signed, but the change couldn’t be sent. Check the policies before trying again.",
@@ -192,17 +195,17 @@ export function RuleChangeCard({
 
   const approve = () =>
     run("approve", async () => {
-      if (!signer) return client.account.rules.approveChange(change.id);
+      if (!signer) return client.account.policy.approveChange(change.id);
       if (!change.sign_message) throw new Error("No message to sign");
       const signature = await signChange(signer, change.sign_message, kit);
       signed.current = true;
-      return client.account.rules.approveChange(change.id, { signature });
+      return client.account.policy.approveChange(change.id, { signature });
     });
 
   return (
     <section
       aria-label={`Policy change for ${change.wallet_name}`}
-      data-rule-change={change.id}
+      data-policy-change={change.id}
       className={cn(listGroupClass, "flex flex-col gap-3 p-3.5", className)}
     >
       <div className="flex items-baseline justify-between gap-3">
@@ -224,7 +227,7 @@ export function RuleChangeCard({
       {stale ? (
         <div
           role="alert"
-          className="rounded-[16px] bg-aomi-warning/15 type-meta flex items-center justify-between gap-3 px-3 py-2"
+          className="bg-aomi-warning/15 type-meta flex items-center justify-between gap-3 rounded-[16px] px-3 py-2"
         >
           <span>For a policy change, sign in again.</span>
           <AomiButton
@@ -255,7 +258,7 @@ export function RuleChangeCard({
           disabled={busy !== null || !left}
           onClick={() =>
             void run("decline", () =>
-              client.account.rules.declineChange(change.id),
+              client.account.policy.declineChange(change.id),
             )
           }
         >
@@ -281,7 +284,7 @@ export function RuleChangeCard({
 }
 
 /** A change's lines; one that loosens gets a red up arrow. */
-function ChangeLines({ change }: { change: AomiRuleChange }) {
+function ChangeLines({ change }: { change: AomiPolicyChange }) {
   return (
     <ul className="type-control flex flex-col gap-1.5">
       {change.lines.map((line, index) => (
@@ -311,7 +314,7 @@ function ChangeLines({ change }: { change: AomiRuleChange }) {
 }
 
 const DECIDED: Record<
-  Exclude<AomiRuleChange["state"], "awaiting_admin">,
+  Exclude<AomiPolicyChange["state"], "awaiting_admin">,
   { title: string; detail: string }
 > = {
   applied: { title: "Approved", detail: "The new policies are in force." },
@@ -326,9 +329,9 @@ const DECIDED: Record<
   },
 };
 
-export type RuleChangePanelProps = {
+export type PolicyChangePanelProps = {
   /** The owner's session client; other credentials can read but not decide. */
-  client: RulesClient;
+  client: PolicyClient;
   /** The change id from the page URL. */
   changeId: string;
   onClose: () => void;
@@ -336,18 +339,18 @@ export type RuleChangePanelProps = {
 
 type PanelState =
   | { step: "loading" }
-  | { step: "ready"; change: AomiRuleChange }
+  | { step: "ready"; change: AomiPolicyChange }
   | { step: "failed"; title: string; detail?: string };
 
 /**
- * The `/rules/:id` page's sheet: the change's card while it waits, else how
+ * The `/policy/:id` page's sheet: the change's card while it waits, else how
  * it ended.
  */
-export function RuleChangePanel({
+export function PolicyChangePanel({
   client,
   changeId,
   onClose,
-}: RuleChangePanelProps) {
+}: PolicyChangePanelProps) {
   const [state, setState] = useState<PanelState>({ step: "loading" });
   const [reload, setReload] = useState(0);
 
@@ -359,14 +362,14 @@ export function RuleChangePanel({
         ? { step: "loading" }
         : current,
     );
-    client.account.rules.getChange(changeId).then(
+    client.account.policy.getChange(changeId).then(
       (change) => {
         if (!stale) setState({ step: "ready", change });
       },
       (error: unknown) => {
         if (stale) return;
         setState(
-          rulesErrorCode(error) === "rules_change_not_found"
+          policyErrorCode(error) === "rules_change_not_found"
             ? {
                 step: "failed",
                 title: "This change doesn’t exist",
@@ -412,7 +415,7 @@ export function RuleChangePanel({
         : "You asked to change this wallet's policies.",
     };
     body = (
-      <RuleChangeCard
+      <PolicyChangeCard
         change={change}
         client={client}
         className="w-full"
@@ -456,7 +459,7 @@ export function RuleChangePanel({
       />
       <section
         aria-label="Policy change"
-        data-rule-change-panel={
+        data-policy-change-panel={
           state.step === "ready" ? state.change.state : state.step
         }
         className="flex min-h-0 flex-col items-center gap-4 overflow-y-auto px-5 pb-5"

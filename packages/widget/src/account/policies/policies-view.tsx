@@ -1,7 +1,14 @@
 "use client";
 
 import { cn } from "@/lib/cn";
-import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
+import { toBaseUnits } from "@aomi-labs/client";
 import {
   ArrowRight,
   Blocks,
@@ -18,7 +25,7 @@ import { getAppIcon } from "@/icons/app-map";
 import { getChainIcon } from "@/icons/chain-map";
 import { BrandMark } from "@/account/account-management/controls";
 import { AGENT_WALLET } from "@/account/account-management/wallet-model";
-import { toBaseUnits, validAddress } from "@/account/rules/rules-model";
+import { validAddress } from "@/account/policies/policy-format";
 import { AomiButton, aomiButton } from "@/ui/aomi/button";
 import { ListGroup } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
@@ -78,8 +85,18 @@ export type PolicyDeploy = {
   error?: string | null;
 };
 
+/** The row a link pointed at: scrolled into view once it is there. */
+function useLinkedRow<Row extends HTMLElement>(focused: boolean) {
+  const row = useRef<Row>(null);
+  useEffect(() => {
+    if (focused) row.current?.scrollIntoView?.({ block: "center" });
+  }, [focused]);
+  return row;
+}
+
 export function WalletPolicyCard({
   wallet,
+  focus,
   catalog,
   providers = {},
   saving = false,
@@ -97,6 +114,11 @@ export function WalletPolicyCard({
   vaults,
 }: {
   wallet: WalletPolicies;
+  /**
+   * A link pointed at this wallet: the id of the policy to bring into view
+   * and mark, or `""` for the wallet alone.
+   */
+  focus?: string;
   /** Null until read. */
   catalog: PolicyCatalog | null;
   providers?: PolicyProviders;
@@ -120,8 +142,18 @@ export function WalletPolicyCard({
 }) {
   const [adding, setAdding] = useState(false);
   useEffect(() => setAdding(false), [epoch]);
+  const linked = (policy: Policy | RemovedPolicy) =>
+    focus !== undefined &&
+    ("policyIds" in policy
+      ? policy.policyIds.includes(focus)
+      : policy.id === focus);
+  const section = useLinkedRow<HTMLElement>(
+    focus !== undefined &&
+      ![...wallet.policies, ...(wallet.removed ?? [])].some(linked),
+  );
   return (
     <section
+      ref={section}
       aria-label={`${wallet.name} policies`}
       data-wallet-policies={wallet.id}
     >
@@ -189,6 +221,7 @@ export function WalletPolicyCard({
           <PolicyRow
             key={policy.id}
             policy={policy}
+            focused={linked(policy)}
             saving={saving}
             deploy={deploy(policy)}
             onRemove={() => onRemove(policy)}
@@ -204,6 +237,7 @@ export function WalletPolicyCard({
           <RemovedPolicyRow
             key={policy.key}
             policy={policy}
+            focused={linked(policy)}
             takeOff={takeOff?.(policy)}
           />
         ))}
@@ -279,12 +313,15 @@ export function ChainMark({ chain }: { chain: PolicyChain }) {
 /** One policy row; an ended one stays listed, muted. */
 export function PolicyRow({
   policy,
+  focused = false,
   saving = false,
   deploy,
   onRemove,
   holdable = true,
 }: {
   policy: Policy;
+  /** A link pointed at this policy. */
+  focused?: boolean;
   saving?: boolean;
   deploy?: PolicyDeploy;
   /** Left out where the row is only there to be signed (the chat panel). */
@@ -299,11 +336,17 @@ export function PolicyRow({
       ? NO_PROVIDER
       : null);
   const where = policyToPhrase(policy.to);
+  const row = useLinkedRow<HTMLDivElement>(focused);
   return (
     <div
+      ref={row}
       data-policy={policy.id}
       data-ended={policy.ended || undefined}
-      className="flex flex-col gap-2 px-3.5 py-3"
+      data-policy-linked={focused || undefined}
+      className={cn(
+        "flex flex-col gap-2 px-3.5 py-3",
+        focused && "bg-aomi-hover",
+      )}
     >
       <div className="flex items-center gap-2">
         <p
@@ -420,16 +463,25 @@ export const NO_PROVIDER =
  */
 export function RemovedPolicyRow({
   policy,
+  focused = false,
   takeOff,
 }: {
   policy: RemovedPolicy;
+  /** A link pointed at this policy. */
+  focused?: boolean;
   takeOff?: PolicyDeploy;
 }) {
   const { enforcement } = policy;
+  const row = useLinkedRow<HTMLDivElement>(focused);
   return (
     <div
+      ref={row}
       data-policy-removed={policy.id}
-      className="flex flex-col gap-2 px-3.5 py-3"
+      data-policy-linked={focused || undefined}
+      className={cn(
+        "flex flex-col gap-2 px-3.5 py-3",
+        focused && "bg-aomi-hover",
+      )}
     >
       <p className="type-control text-aomi-muted flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 opacity-60">
         <span>

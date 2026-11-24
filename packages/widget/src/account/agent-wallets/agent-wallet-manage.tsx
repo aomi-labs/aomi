@@ -17,7 +17,7 @@ import {
 import {
   shortAddress,
   type AomiAgentWallet,
-  type AomiWalletRules,
+  type AomiWalletPolicies,
 } from "@aomi-labs/client";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { aomiButton } from "@/ui/aomi/button";
@@ -74,7 +74,7 @@ export function AgentWalletManage({
   const { renameWallet, dialog: renameDialog } = useRenameWallet(onRename);
   const [receive, setReceive] = useState<WalletFamily | null>(null);
   // An ask mode made Instant on a wallet-admin wallet files a rule change instead.
-  const [filed, setFiled] = useState<AomiWalletRules | null>(null);
+  const [filed, setFiled] = useState<AomiWalletPolicies | null>(null);
   const archived = wallet.archived_at !== null;
   const paused = wallet.paused || pausedAll;
   // Deposits go where the funds live: under on-chain limits that is the
@@ -178,7 +178,7 @@ export function AgentWalletManage({
           brand="Aomi"
           disabled={paused}
           onClose={archived ? onClose : undefined}
-          onRulesFiled={setFiled}
+          onPoliciesFiled={setFiled}
         />
         {paused ? (
           <p className="type-meta text-aomi-muted -mt-2 flex items-start gap-1.5">

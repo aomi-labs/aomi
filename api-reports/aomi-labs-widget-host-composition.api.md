@@ -16,9 +16,9 @@ import type { AomiAskMode } from '@aomi-labs/client';
 import type { AomiConnectionKind } from '@aomi-labs/client';
 import type { AomiConnectionWalletsUpdate } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
-import { AomiRuleChange } from '@aomi-labs/client';
+import { AomiPolicyChange } from '@aomi-labs/client';
 import { AomiSecretSlot } from '@aomi-labs/client';
-import { AomiWalletRules } from '@aomi-labs/client';
+import { AomiWalletPolicies } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';
 import type { Chain } from 'viem';
 import { ClassProp } from 'class-variance-authority/types';
@@ -509,30 +509,36 @@ export function PackagesModal(input: PackagesModalProps): JSX.Element;
 export function parseRpcOverrides(raw: string): Record<number, string>;
 
 // @public
-export function requestSettingsOpen(tab: SettingsTab): void;
-
-// @public
-export function requestWalletPickerOpen(): void;
-
-// @public
-export function RuleChangeCard(input: {
-    change: AomiRuleChange;
-    client: RulesClient;
-    onDecided: (rules: AomiWalletRules, outcome: "approved" | "declined") => void;
+export function PolicyChangeCard(input: {
+    change: AomiPolicyChange;
+    client: PolicyClient;
+    onDecided: (policies: AomiWalletPolicies, outcome: "approved" | "declined") => void;
     onStale: () => void;
     onLater?: () => void;
     className?: string;
 }): JSX.Element;
 
 // @public
-export function RuleChangePanel(input: RuleChangePanelProps): JSX.Element;
+export function PolicyChangePanel(input: PolicyChangePanelProps): JSX.Element;
 
 // @public (undocumented)
-export type RuleChangePanelProps = {
-    client: RulesClient;
+export type PolicyChangePanelProps = {
+    client: PolicyClient;
     changeId: string;
     onClose: () => void;
 };
+
+// @public
+export type PolicyFocus = {
+    wallet: string;
+    policy?: string;
+};
+
+// @public
+export function requestSettingsOpen(tab: SettingsTab): void;
+
+// @public
+export function requestWalletPickerOpen(): void;
 
 // @public @deprecated (undocumented)
 export function sessionScopedFetch<T>(path: string, options?: RequestInit & {
@@ -543,6 +549,7 @@ export function sessionScopedFetch<T>(path: string, options?: RequestInit & {
 export function SettingsModal(input: {
     onClose: () => void;
     initialTab?: SettingsTab;
+    policyFocus?: PolicyFocus;
     accountOnly?: boolean;
     initialTopUp?: boolean;
 }): JSX.Element;

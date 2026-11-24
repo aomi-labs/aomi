@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ruleKey,
+  enforcementKey,
+  policyKey,
+  upsertPolicy,
   type AomiPolicyCatalog,
   type AomiPolicyChangeRequest,
   type AomiWalletPolicies,
@@ -16,28 +18,27 @@ import {
 } from "@/account/account-management/wallet-model";
 import { agentWalletsQuery } from "@/account/account-queries";
 import { useRefreshWallets } from "@/account/agent-wallets/use-refresh-wallets";
-import { RuleChangeCard } from "@/account/rules/rule-change-card";
+import { PolicyChangeCard } from "@/account/policies/policy-change-card";
 import {
-  rulesErrorCode,
-  rulesFailure,
+  policyErrorCode,
+  policyFailure,
   sameWallet,
   timeUntil,
-  withRule,
-} from "@/account/rules/rules-model";
+} from "@/account/policies/policy-format";
+import type { PolicyFocus } from "@/account/settings-events";
 import { useShellAomi } from "@/account/transport";
 import { AomiButton } from "@/ui/aomi/button";
 import { ListGroup } from "@/ui/aomi/list-group";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { useAomiWalletKit } from "@/wallet/context";
 import type { AomiWalletKit } from "@/wallet/types";
-import { useRuleEnforcement } from "./policy-enforcement";
+import { usePolicyEnforcement } from "./policy-enforcement";
 import { PoliciesView, WalletPolicyCard } from "./policies-view";
 import { WalletVaultRows } from "./vault-rows";
 import {
   adminOf,
   authorityOf,
-  draftRules,
-  enforcementKey,
+  draftPolicies,
   policyCatalog,
   policyProviders,
   policyRows,
@@ -52,7 +53,7 @@ import {
 type Aomi = ReturnType<typeof useShellAomi>;
 
 type Held = {
-  rules: AomiWalletPolicies | null;
+  policies: AomiWalletPolicies | null;
   failed: boolean;
   saving: boolean;
   notice: string | null;
@@ -64,7 +65,7 @@ type Held = {
 };
 
 const EMPTY: Held = {
-  rules: null,
+  policies: null,
   failed: false,
   saving: false,
   notice: null,
@@ -73,8 +74,8 @@ const EMPTY: Held = {
   later: false,
 };
 
-/** Each wallet's rules; a read older than a newer write cannot overwrite it. */
-function useWalletRules(aomi: Aomi, ids: readonly string[]) {
+/** Each wallet's policies; a read older than a newer write cannot overwrite it. */
+function useWalletPolicies(aomi: Aomi, ids: readonly string[]) {
   const [book, setBook] = useState<Record<string, Held>>({});
   const live = useRef(true);
   const versions = useRef<Record<string, number>>({});
@@ -103,9 +104,9 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
     async (id: string) => {
       const version = (versions.current[id] = (versions.current[id] ?? 0) + 1);
       try {
-        const next = await aomi.account.rules.get(id);
+        const next = await aomi.account.policy.get(id);
         if (!live.current || version !== versions.current[id]) return null;
-        patch(id, { rules: next, failed: false });
+        patch(id, { policies: next, failed: false });
         return next;
       } catch {
         if (live.current && version === versions.current[id])
@@ -138,8 +139,8 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
 
   const fail = (id: string, caught: unknown, fallback: string) => {
     if (!live.current) return;
-    patch(id, { error: rulesFailure(caught, fallback) });
-    if (rulesErrorCode(caught) === "rules_changed") void load(id);
+    patch(id, { error: policyFailure(caught, fallback) });
+    if (policyErrorCode(caught) === "rules_changed") void load(id);
   };
 
   const save = async (id: string, request: AomiPolicyChangeRequest) => {
@@ -147,11 +148,11 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
     saving.current.add(id);
     patch(id, { saving: true, error: null, notice: null });
     try {
-      const result = await aomi.account.rules.change(id, request);
+      const result = await aomi.account.policy.change(id, request);
       if (!live.current) return;
       bump(id);
       patch(id, (held) => ({
-        rules: result.rules,
+        policies: result.rules,
         epoch: held.epoch + 1,
         // A change that waits opens its card at the top.
         later:
@@ -180,7 +181,7 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
   ) => {
     bump(id);
     patch(id, {
-      rules: next,
+      policies: next,
       later: false,
       error: null,
       notice: outcome === "approved" ? "Approved" : "Declined",
@@ -194,10 +195,14 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
     saving.current.add(id);
     patch(id, { saving: true, error: null });
     try {
-      decided(id, await aomi.account.rules.declineChange(changeId), "declined");
+      decided(
+        id,
+        await aomi.account.policy.declineChange(changeId),
+        "declined",
+      );
     } catch (caught) {
       fail(id, caught, "Couldn’t decline that. Try again.");
-      if (rulesErrorCode(caught) === "rules_change_not_open") void load(id);
+      if (policyErrorCode(caught) === "rules_change_not_open") void load(id);
     } finally {
       saving.current.delete(id);
       if (live.current) patch(id, { saving: false });
@@ -214,8 +219,10 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
   const stepped = (id: string, next: AomiWalletPolicies) => {
     bump(id);
     patch(id, (held) => ({
-      rules:
-        held.rules && next.revision < held.rules.revision ? held.rules : next,
+      policies:
+        held.policies && next.revision < held.policies.revision
+          ? held.policies
+          : next,
     }));
   };
 
@@ -227,17 +234,17 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
  * authority stays listed either way.
  */
 function authorityWallets(
-  rules: AomiWalletPolicies,
+  policies: AomiWalletPolicies,
   kit: Pick<AomiWalletKit, "wallets">,
 ): PolicyAuthorityWallet[] {
-  const { admin } = rules;
+  const { admin } = policies;
   const options =
     admin.kind === "wallet" &&
-    !rules.admin_wallets.some((wallet) =>
+    !policies.admin_wallets.some((wallet) =>
       sameWallet(wallet, admin.family, admin.address),
     )
-      ? [admin, ...rules.admin_wallets]
-      : rules.admin_wallets;
+      ? [admin, ...policies.admin_wallets]
+      : policies.admin_wallets;
   return options.flatMap((wallet) => {
     const row = kit.wallets.find((entry) =>
       sameWallet(wallet, entry.family, entry.address),
@@ -264,9 +271,12 @@ function authorityWallets(
  */
 export function PoliciesSettings({
   active = true,
+  focus,
 }: {
   /** False while another Settings tab is in front. */
   active?: boolean;
+  /** The wallet, and the policy on it, a link pointed at. */
+  focus?: PolicyFocus;
 }) {
   const aomi = useShellAomi();
   const kit = useAomiWalletKit();
@@ -278,7 +288,7 @@ export function PoliciesSettings({
       ),
     [agents.data],
   );
-  const rules = useWalletRules(
+  const held = useWalletPolicies(
     aomi,
     useMemo(() => wallets.map((wallet) => wallet.id), [wallets]),
   );
@@ -288,7 +298,7 @@ export function PoliciesSettings({
 
   const loadCatalog = useCallback(() => {
     setCatalogFailed(false);
-    aomi.account.rules.catalog().then(
+    aomi.account.policy.catalog().then(
       (next) => live.current && setCatalog(next),
       () => live.current && setCatalogFailed(true),
     );
@@ -303,7 +313,7 @@ export function PoliciesSettings({
 
   // Another tab or the wallet's own sheet may have filed a change meanwhile.
   const shown = useRef(active);
-  const { reload } = rules;
+  const { reload } = held;
   useEffect(() => {
     if (active && !shown.current) reload();
     shown.current = active;
@@ -331,34 +341,34 @@ export function PoliciesSettings({
     );
 
   const waiting = wallets.flatMap((wallet) => {
-    const held = rules.book[wallet.id];
-    const pending = held?.rules?.pending;
-    return held && pending ? [{ wallet, held, pending }] : [];
+    const one = held.book[wallet.id];
+    const pending = one?.policies?.pending;
+    return one && pending ? [{ wallet, held: one, pending }] : [];
   });
 
   return (
     <PoliciesView
       changes={
         waiting.length
-          ? waiting.map(({ wallet, held, pending }) =>
-              held.later ? (
+          ? waiting.map(({ wallet, held: one, pending }) =>
+              one.later ? (
                 <PendingLine
                   key={pending.id}
                   change={pending}
-                  saving={held.saving}
-                  onDecline={() => void rules.decline(wallet.id, pending.id)}
-                  onReview={() => rules.patch(wallet.id, { later: false })}
+                  saving={one.saving}
+                  onDecline={() => void held.decline(wallet.id, pending.id)}
+                  onReview={() => held.patch(wallet.id, { later: false })}
                 />
               ) : (
-                <RuleChangeCard
+                <PolicyChangeCard
                   key={pending.id}
                   change={pending}
                   client={aomi}
                   onDecided={(next, outcome) =>
-                    rules.decided(wallet.id, next, outcome)
+                    held.decided(wallet.id, next, outcome)
                   }
-                  onLater={() => rules.patch(wallet.id, { later: true })}
-                  onStale={() => rules.stale(wallet.id)}
+                  onLater={() => held.patch(wallet.id, { later: true })}
+                  onStale={() => held.stale(wallet.id)}
                 />
               ),
             )
@@ -371,21 +381,24 @@ export function PoliciesSettings({
         </p>
       ) : null}
       {wallets.map((wallet) => {
-        const held = rules.book[wallet.id] ?? EMPTY;
-        return held.rules ? (
+        const one = held.book[wallet.id] ?? EMPTY;
+        return one.policies ? (
           <LiveWalletCard
             key={wallet.id}
             aomi={aomi}
             kit={kit}
             wallet={wallet}
-            held={held}
-            walletRules={held.rules}
+            held={one}
+            walletPolicies={one.policies}
+            focus={
+              focus?.wallet === wallet.id ? (focus.policy ?? "") : undefined
+            }
             catalog={catalog}
             picker={picker}
             onRetryCatalog={catalogFailed ? loadCatalog : undefined}
-            onSave={(request) => void rules.save(wallet.id, request)}
-            onStepped={(next) => rules.stepped(wallet.id, next)}
-            onStale={() => void rules.load(wallet.id)}
+            onSave={(request) => void held.save(wallet.id, request)}
+            onStepped={(next) => held.stepped(wallet.id, next)}
+            onStale={() => void held.load(wallet.id)}
           />
         ) : (
           <section
@@ -400,15 +413,15 @@ export function PoliciesSettings({
                   <span className="truncate">{wallet.name}</span>
                 </h3>
                 <p className="type-meta text-aomi-muted flex items-center gap-2">
-                  {held.failed
+                  {one.failed
                     ? "Couldn’t load the policies."
                     : "Loading policies…"}
-                  {held.failed ? (
+                  {one.failed ? (
                     <button
                       type="button"
                       onClick={() => {
-                        rules.patch(wallet.id, { failed: false });
-                        void rules.load(wallet.id);
+                        held.patch(wallet.id, { failed: false });
+                        void held.load(wallet.id);
                       }}
                       className="hover:text-aomi-fg underline underline-offset-2"
                     >
@@ -475,7 +488,8 @@ function LiveWalletCard({
   kit,
   wallet,
   held,
-  walletRules,
+  walletPolicies,
+  focus,
   catalog,
   picker,
   onRetryCatalog,
@@ -487,20 +501,25 @@ function LiveWalletCard({
   kit: Pick<AomiWalletKit, "wallets">;
   wallet: { id: string; name: string };
   held: Held;
-  walletRules: AomiWalletPolicies;
+  walletPolicies: AomiWalletPolicies;
+  focus?: string;
   catalog: AomiPolicyCatalog | null;
   picker: PolicyCatalog | null;
   onRetryCatalog?: () => void;
   onSave: (request: AomiPolicyChangeRequest) => void;
-  onStepped: (rules: AomiWalletPolicies) => void;
+  onStepped: (policies: AomiWalletPolicies) => void;
   onStale: () => void;
 }) {
-  const set = walletRules.rules;
-  const enforcement = useRuleEnforcement({
+  const set = walletPolicies.rules;
+  // Each change is built from the policies shown: a save that lost a race is
+  // refused, not written over the other edit.
+  const save = (request: AomiPolicyChangeRequest) =>
+    onSave({ ...request, revision: walletPolicies.revision });
+  const enforcement = usePolicyEnforcement({
     client: aomi,
     walletId: wallet.id,
-    revision: walletRules.revision,
-    onRules: onStepped,
+    revision: walletPolicies.revision,
+    onConfirmed: onStepped,
     onStale,
   });
   const view: WalletPolicies = {
@@ -508,20 +527,21 @@ function LiveWalletCard({
     name: wallet.name,
     linkedOnly: set.linked_only,
     onlyListed: set.mode === "whitelist",
-    policies: policyRows(walletRules, catalog),
-    removed: removedPolicies(walletRules, catalog),
-    authority: authorityOf(walletRules.admin),
-    authorityWallets: authorityWallets(walletRules, kit),
-    stopped: Boolean(walletRules.stopped_until),
+    policies: policyRows(walletPolicies, catalog),
+    removed: removedPolicies(walletPolicies, catalog),
+    authority: authorityOf(walletPolicies.admin),
+    authorityWallets: authorityWallets(walletPolicies, kit),
+    stopped: Boolean(walletPolicies.stopped_until),
   };
   return (
     <WalletPolicyCard
       wallet={view}
+      focus={focus}
       catalog={picker}
-      providers={policyProviders(walletRules)}
+      providers={policyProviders(walletPolicies)}
       vaults={
         <WalletVaultRows
-          enforcement={walletRules.enforcement}
+          enforcement={walletPolicies.enforcement}
           catalog={picker}
         />
       }
@@ -530,31 +550,31 @@ function LiveWalletCard({
       error={held.error}
       epoch={held.epoch}
       onRetryCatalog={onRetryCatalog}
-      onLinkedOnly={(on) => onSave({ rules: { ...set, linked_only: on } })}
+      onLinkedOnly={(on) => save({ rules: { ...set, linked_only: on } })}
       onOnlyListed={(on) =>
-        onSave({ rules: { ...set, mode: on ? "whitelist" : "blacklist" } })
+        save({ rules: { ...set, mode: on ? "whitelist" : "blacklist" } })
       }
       onAdd={(draft) => {
-        const added = draftRules(draft);
+        const added = draftPolicies(draft);
         // One change adds the policy on every picked chain.
         if (added)
-          onSave({
-            rules: { ...set, rules: added.reduce(withRule, set.rules) },
+          save({
+            rules: { ...set, rules: added.reduce(upsertPolicy, set.rules) },
           });
       }}
       onRemove={(policy) =>
-        onSave({
+        save({
           rules: {
             ...set,
             rules: set.rules.filter(
-              (rule) => !policy.ruleIds.includes(rule.id ?? ruleKey(rule)),
+              (rule) => !policy.policyIds.includes(rule.id ?? policyKey(rule)),
             ),
           },
         })
       }
-      onAuthority={(authority) => onSave({ admin: adminOf(authority) })}
+      onAuthority={(authority) => save({ admin: adminOf(authority) })}
       deploy={(policy) => {
-        const entry = walletRules.enforcement.find(
+        const entry = walletPolicies.enforcement.find(
           (candidate) =>
             enforcementKey(candidate) === policy.enforcement.deploy,
         );
@@ -563,7 +583,7 @@ function LiveWalletCard({
           : undefined;
       }}
       takeOff={(policy) => {
-        const entry = walletRules.enforcement.find(
+        const entry = walletPolicies.enforcement.find(
           (candidate) => enforcementKey(candidate) === policy.key,
         );
         return entry

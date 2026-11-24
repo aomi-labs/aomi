@@ -204,12 +204,12 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
     // at once; one that gives power, or names an admin or an Instant
     // connection, waits as a rule change the owner's own session decides.
     const rulesPath =
-      url.pathname === `/v1/account/agent-wallets/${AGENT_GROUP.id}/rules`;
+      url.pathname === `/v1/account/agent-wallets/${AGENT_GROUP.id}/policy`;
     const changePath =
-      /^\/v1\/account\/rule-changes\/([^/]+)(?:\/(approve|decline))?$/.exec(
+      /^\/v1\/account\/policy-changes\/([^/]+)(?:\/(approve|decline))?$/.exec(
         url.pathname,
       );
-    const stepPrefix = `/v1/account/agent-wallets/${AGENT_GROUP.id}/rules/enforcement/`;
+    const stepPrefix = `/v1/account/agent-wallets/${AGENT_GROUP.id}/policy/enforcement/`;
     const stepPath = url.pathname.startsWith(stepPrefix)
       ? /^([^/]+)\/(prepare|confirm)$/.exec(
           url.pathname.slice(stepPrefix.length),
@@ -219,7 +219,7 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       rulesPath ||
       changePath ||
       stepPath ||
-      url.pathname === "/v1/account/rules/catalog"
+      url.pathname === "/v1/account/policy/catalog"
     ) {
       const principal = verifyBearer(request, "aomi-backend");
       record(principal);
@@ -347,7 +347,11 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
           };
           admin?: FakeRules["admin"];
           instant?: string[];
+          revision?: number;
         };
+        // Built from rules that moved since: refused, never overwritten.
+        if (sent.revision !== undefined && sent.revision !== state.revision)
+          return json(response, 409, { error: "rules_changed" });
         // A rule keeps its start unless it is new or its amount or end moved;
         // a new or moved end must be in the future.
         const held = new Map(

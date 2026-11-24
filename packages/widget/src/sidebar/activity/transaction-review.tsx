@@ -73,7 +73,7 @@ export function TransactionReview({
   supportedChains?: readonly SupportedChain[];
   approving?: boolean;
   approveDisabled?: boolean;
-  /** Approving cannot work (a wallet rule refused it): only Reject is offered. */
+  /** Approving cannot work (a wallet policy refused it): only Reject is offered. */
   approveHidden?: boolean;
   approveLabel?: string;
   pendingLabel?: string;

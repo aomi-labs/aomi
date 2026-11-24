@@ -2,132 +2,25 @@
 
 import { useState } from "react";
 import {
-  normalizeSolanaCluster,
+  AomiPolicySentError,
+  enforcementKey,
+  expectedPolicyAction,
   shortAddress,
-  type AomiPolicyAction,
   type AomiPolicyEnforcement,
-  type AomiPolicyTypedData,
+  type AomiPolicySigner,
   type AomiWalletPolicies,
-  type WalletEip712Payload,
 } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@/wallet/context";
 import type { AomiWalletKit } from "@/wallet/types";
 import { isExpectedWalletCancellation } from "@/wallet/picker/wallet-cancellation";
+import { canSendSolana, sendSolana } from "@/wallet/runtime/svm/transactions";
 import {
   connectedAddress,
-  type RulesClient,
-} from "@/account/rules/rule-change-card";
-import {
-  rulesErrorCode,
-  rulesFailure,
-  sameWallet,
-} from "@/account/rules/rules-model";
-import { enforcementKey, sendsRevocation } from "./policy-model";
-import {
-  DELEGATION_MANAGER,
-  SIMPLE_FACTORY,
-  deploysVaultOf,
-} from "./vault-withdraw";
+  type PolicyClient,
+} from "@/account/policies/policy-change-card";
+import { policyFailure, sameWallet } from "@/account/policies/policy-format";
 
 const FAMILY = { evm: "an EVM", svm: "a Solana" };
-
-// The wallet and the backend read the chain through different nodes, so a
-// confirm can come before the backend's node shows the transaction.
-async function settled<T>(confirm: () => Promise<T>, delayMs: number) {
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      return await confirm();
-    } catch (cause) {
-      if (attempt >= 5 || rulesErrorCode(cause) !== "chain_not_settled")
-        throw cause;
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
-  }
-}
-
-const INTEGER_TYPE = /^u?int\d*$/;
-const DECIMAL = /^-?\d+$/;
-const HEX_NUMBER = /^0x[0-9a-f]+$/i;
-
-const unreadable = (path: string) =>
-  new Error(`The data to sign has a number this wallet can't read (${path}).`);
-
-/** An integer field as a bigint: never a number past 2^53, which JSON rounded. */
-function integer(value: unknown, path: string): bigint {
-  if (typeof value === "bigint") return value;
-  if (typeof value === "number" && Number.isSafeInteger(value))
-    return BigInt(value);
-  if (
-    typeof value === "string" &&
-    (DECIMAL.test(value) || HEX_NUMBER.test(value))
-  )
-    return BigInt(value);
-  throw unreadable(path);
-}
-
-/** `value` of EIP-712 `type`: integers as bigint, structs and arrays walked. */
-function typedValue(
-  type: string,
-  value: unknown,
-  types: AomiPolicyTypedData["types"],
-  path: string,
-): unknown {
-  if (type.endsWith("]")) {
-    if (!Array.isArray(value)) throw unreadable(path);
-    const item = type.slice(0, type.lastIndexOf("["));
-    return value.map((entry, index) =>
-      typedValue(item, entry, types, `${path}[${index}]`),
-    );
-  }
-  if (INTEGER_TYPE.test(type)) return integer(value, path);
-  const fields = types[type];
-  if (!fields) return value;
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw unreadable(path);
-  const record = value as Record<string, unknown>;
-  return Object.fromEntries(
-    fields.map((field) => [
-      field.name,
-      typedValue(
-        field.type,
-        record[field.name],
-        types,
-        `${path}.${field.name}`,
-      ),
-    ]),
-  );
-}
-
-/**
- * The backend's typed data as the wallet signs it: declared integers become
- * bigints (they arrive as strings past 2^53). Refuses JSON-rounded numbers
- * and a domain for another chain than `chainId`.
- */
-export function signableTypedData(data: AomiPolicyTypedData, chainId: number) {
-  if (!data.types[data.primaryType])
-    throw new Error("The data to sign names a type it does not define.");
-  const domain = { ...data.domain };
-  if (domain.chainId !== undefined) {
-    if (integer(domain.chainId, "domain.chainId") !== BigInt(chainId))
-      throw new Error(
-        "The data to sign is for another chain than this policy's.",
-      );
-    domain.chainId = chainId;
-  }
-  return {
-    domain,
-    types: data.types,
-    primaryType: data.primaryType,
-    message: typedValue(
-      data.primaryType,
-      data.message,
-      data.types,
-      "message",
-    ) as Record<string, unknown>,
-  } as NonNullable<WalletEip712Payload["typed_data"]>;
-}
-
-const PLAIN_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
 export async function switchToChain(
   kit: Pick<AomiWalletKit, "identity" | "switchChain">,
@@ -137,7 +30,7 @@ export async function switchToChain(
     await kit.switchChain(chainId);
 }
 
-/** Submit from the connected account and wait for the receipt. */
+/** Submit from the connected account, wait for the receipt, answer the hash. */
 export async function sendPlainTransaction(
   send: NonNullable<AomiWalletKit["sendTransaction"]>,
   tx: {
@@ -148,7 +41,7 @@ export async function sendPlainTransaction(
     value: string;
   },
 ) {
-  await send(
+  const { txHash } = await send(
     {
       requestId: tx.requestId,
       aaPreference: "none",
@@ -159,84 +52,63 @@ export async function sendPlainTransaction(
     },
     { chainIdAlreadySelected: tx.chainId },
   );
+  return txHash;
 }
 
-async function act(
+/** The connected wallet kit as the SDK's policy signer. */
+function policySigner(kit: AomiWalletKit): AomiPolicySigner {
+  const { signTypedData, sendTransaction } = kit;
+  return {
+    evmAddress: connectedAddress(kit, "evm"),
+    solanaAddress: connectedAddress(kit, "svm"),
+    ...(signTypedData
+      ? {
+          signTypedData: async ({ typedData, ...request }) => {
+            await switchToChain(kit, request.chainId);
+            return (await signTypedData({ typed_data: typedData, ...request }))
+              .signature;
+          },
+        }
+      : {}),
+    ...(sendTransaction
+      ? {
+          sendEvmTransaction: async (tx) => {
+            await switchToChain(kit, tx.chainId);
+            return sendPlainTransaction(sendTransaction, {
+              requestId: "policy-revocation",
+              ...tx,
+            });
+          },
+        }
+      : {}),
+    ...(canSendSolana(kit)
+      ? {
+          sendSolanaTransaction: async ({ unsignedBase64, ...payload }) =>
+            (await sendSolana(kit, { unsignedTx: unsignedBase64, ...payload }))
+              .signature,
+        }
+      : {}),
+  };
+}
+
+/**
+ * Why the owner's connected wallet can't take this step, or null when it can
+ * or the step asks nothing of a wallet.
+ */
+function unable(
   kit: AomiWalletKit,
-  entry: AomiPolicyEnforcement,
-  action: AomiPolicyAction,
-  description: string,
-  owner: string,
-): Promise<{ signature?: string }> {
-  if (action.network !== entry.network)
-    throw new Error(
-      "Aomi asked for a signature on another network than this policy's. Nothing was signed.",
-    );
-  if (action.kind === "typed_data") {
-    const chainId = /^eip155:(\d+)$/.exec(action.network)?.[1];
-    if (entry.signer.family !== "evm" || !chainId || !kit.signTypedData)
-      throw new Error("This wallet can't sign that.");
-    const typed_data = signableTypedData(action.typed_data, Number(chainId));
-    await switchToChain(kit, Number(chainId));
-    const { signature } = await kit.signTypedData({
-      typed_data,
-      signer: owner,
-      chainId: Number(chainId),
-      description,
-    });
-    if (!/^0x[0-9a-f]+$/i.test(signature))
-      throw new Error("Your wallet returned no signature.");
-    return { signature };
-  }
-  if (action.kind === "evm_transaction") {
-    const chainId = /^eip155:(\d+)$/.exec(action.network)?.[1];
-    if (entry.signer.family !== "evm" || !chainId || !kit.sendTransaction)
-      throw new Error("This wallet can't send that.");
-    if (!PLAIN_ADDRESS.test(action.to))
-      throw new Error(
-        "Aomi asked to send to something that is not an address. Nothing was sent.",
-      );
-    // A MetaMask revocation goes to the manager. An undeployed vault is first
-    // created by the factory, and only as this owner's vault.
-    const to = action.to.toLowerCase();
-    const deploysOwnVault =
-      to === SIMPLE_FACTORY && deploysVaultOf(action.data, owner);
-    if (
-      entry.provider === "metamask" &&
-      to !== DELEGATION_MANAGER &&
-      !deploysOwnVault
-    )
-      throw new Error("The revocation targets a different delegation manager.");
-    if (BigInt(action.value) !== BigInt(0))
-      throw new Error(
-        "Aomi asked to send funds with the revocation. Nothing was sent.",
-      );
-    if (
-      !sameWallet(
-        { family: "evm", address: owner },
-        "evm",
-        kit.identity.address,
-      )
-    )
-      throw new Error(
-        "Send this from the wallet that owns the policy. Nothing was sent.",
-      );
-    await switchToChain(kit, Number(chainId));
-    await sendPlainTransaction(kit.sendTransaction, {
-      requestId: "policy-revocation",
-      chainId: Number(chainId),
-      to: action.to,
-      data: action.data,
-      value: action.value,
-    });
-    return {};
-  }
-  const execute = kit.signAndSendSolanaTransaction ?? kit.sendSolanaTransaction;
-  const cluster = normalizeSolanaCluster(action.network);
-  if (entry.signer.family !== "svm" || !cluster || !execute)
-    throw new Error("This wallet can't sign that transaction.");
-  await execute({ unsignedTx: action.unsigned_base64, description, cluster });
-  return {};
+  kind: ReturnType<typeof expectedPolicyAction>,
+  remove: boolean,
+): string | null {
+  if (kind === null) return null;
+  const send = kind === "evm_transaction";
+  const end = `wallet to ${send ? "send it" : remove ? "take it off" : "deploy"}.`;
+  if (kind === "transaction")
+    return canSendSolana(kit)
+      ? null
+      : `This wallet can’t sign Solana transactions here. Connect another Solana ${end}`;
+  if (send ? kit.sendTransaction : kit.signTypedData) return null;
+  return `This wallet can’t ${send ? "send transactions" : "sign this policy"} here. Connect another EVM ${end}`;
 }
 
 /** What a wallet or network said when a step failed; wallets often throw plain objects. */
@@ -254,45 +126,47 @@ export function failureText(cause: unknown): string {
             ].find((text): text is string => typeof text === "string" && !!text)
           : undefined;
   const text = (message ?? "").trim();
+  // The Solana wallet adapter's own errors carry a name and no message.
+  if (
+    !text &&
+    /^Wallet(NotSelected|NotConnected|NotReady)Error$/.test(
+      (cause as { name?: unknown } | null)?.name as string,
+    )
+  )
+    return "No Solana wallet is connected to sign this. Connect one and try again.";
   // Solana nodes refuse a transaction built against another network.
   if (/blockhash not found|block ?hash.*(expired|not found)/i.test(text))
     return "Your wallet’s Solana network doesn’t know the block this transaction was built on. Use a wallet on the same network as Aomi, or try again.";
   return text.length > 200 ? `${text.slice(0, 197)}…` : text;
 }
 
-/** A replacement can keep the same rule key after the old grant is disabled. */
-const stillHeld = (rules: AomiWalletPolicies, key: string) =>
-  rules.enforcement.some(
-    (entry) => enforcementKey(entry) === key && sendsRevocation(entry),
-  );
-
 /** One provider's step as a policy row shows it. */
 export type EnforcementStep = {
   busy: boolean;
   disabled: boolean;
-  /** Which wallet to connect, or what is being signed while the wallet asks. */
+  /** Why the step is unavailable, or what is being signed while the wallet asks. */
   hint: string | null;
   error: string | null;
   run: () => void;
 };
 
 /**
- * Prepare, sign in the owner's wallet, confirm: one rule on chain, the same
+ * Prepare, sign in the owner's wallet, confirm: one policy on chain, the same
  * for every provider. `step` backs "Sign to deploy"; `takeOff` backs a
  * removed policy still on chain.
  */
-export function useRuleEnforcement({
+export function usePolicyEnforcement({
   client,
   walletId,
   revision,
-  onRules,
+  onConfirmed,
   onStale,
   retryDelayMs = 2_000,
 }: {
-  client: RulesClient;
+  client: PolicyClient;
   walletId: string;
   revision: number;
-  onRules: (rules: AomiWalletPolicies) => void;
+  onConfirmed: (policies: AomiWalletPolicies) => void;
   /** A step failed; what is shown may be out of date. */
   onStale: () => void;
   retryDelayMs?: number;
@@ -327,84 +201,56 @@ export function useRuleEnforcement({
     if (busy || !owner) return;
     setBusy(key);
     setErrors(({ [key]: _, ...rest }) => rest);
-    const request = {
-      network: entry.network,
-      rule: entry.rule,
-      revision,
-      owner,
-      ...(remove ? { remove } : {}),
-    };
     try {
-      const action = await client.account.rules.prepareEnforcement(
+      const done = await client.account.policy.enforce(
         walletId,
-        entry.provider,
-        request,
-      );
-      let signature: string | undefined;
-      if (action) {
-        if (summary && action.kind === "evm_transaction")
-          setSigning((held) => ({
-            ...held,
-            [key]: `You’re sending: ${summary}. Your wallet pays the network fee.`,
-          }));
-        // Replacing a grant: the backend asks to revoke the old one first.
-        if (summary && action.kind === "typed_data")
-          setSigning((held) => ({
-            ...held,
-            [key]: `You’re signing for: ${summary}.${
-              entry.state === "behind" && !remove
-                ? " Replacing an earlier version takes two signatures: the old one is removed first, then you sign the new one."
-                : ""
-            } Check it in your wallet.`,
-          }));
-        signature = (
-          await act(
-            kit,
-            entry,
-            action,
-            remove ? "Remove policy from chain" : "Enforce policy on chain",
-            owner,
-          )
-        ).signature;
-      }
-      const confirm = () =>
-        settled(
-          () =>
-            client.account.rules.confirmEnforcement(walletId, entry.provider, {
-              ...request,
-              ...(signature ? { signature } : {}),
-            }),
+        entry,
+        policySigner(kit),
+        {
+          revision,
+          owner,
+          remove,
           retryDelayMs,
-        );
-      let rules = await confirm();
-      // No signature proves a sent tx: rules come back unchanged until the
-      // backend's node shows it.
-      if (action?.kind === "evm_transaction") {
-        for (
-          let attempt = 0;
-          attempt < 5 && stillHeld(rules, key);
-          attempt += 1
-        ) {
-          await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
-          rules = await confirm();
-        }
-      }
-      onRules(rules);
-      if (action?.kind === "evm_transaction" && stillHeld(rules, key)) {
+          onAction: (action) => {
+            if (summary && action.kind === "evm_transaction")
+              setSigning((held) => ({
+                ...held,
+                [key]: `You’re sending: ${summary}. Your wallet pays the network fee.`,
+              }));
+            // Replacing a grant: the backend asks to revoke the old one first.
+            if (summary && action.kind === "typed_data")
+              setSigning((held) => ({
+                ...held,
+                [key]: `You’re signing for: ${summary}.${
+                  entry.state === "behind" && !remove
+                    ? " Replacing an earlier version takes two signatures: the old one is removed first, then you sign the new one."
+                    : ""
+                } Check it in your wallet.`,
+              }));
+          },
+        },
+      );
+      onConfirmed(done.policies);
+      if (!done.settled) {
         setErrors((held) => ({
           ...held,
-          [key]:
-            "Your transaction was sent, but Aomi doesn’t see it on the chain yet. Check again in a moment before sending anything more.",
+          [key]: `Your transaction${done.transaction ? ` ${done.transaction}` : ""} was sent, but Aomi doesn’t see it on the chain yet. Check again in a moment before sending anything more.`,
         }));
         onStale();
       }
-    } catch (cause) {
+    } catch (thrown) {
+      const sent = thrown instanceof AomiPolicySentError ? thrown : null;
+      const cause = sent ? sent.cause : thrown;
       const raw = failureText(cause);
       setErrors((held) => ({
         ...held,
         [key]: isExpectedWalletCancellation(cause)
           ? "Signature declined. Nothing changed."
-          : rulesFailure(cause, raw || "That didn’t go through. Try again."),
+          : `${policyFailure(cause, raw || "That didn’t go through. Try again.")}${
+              sent
+                ? ` Your transaction ${sent.transaction} was sent: check again before sending anything more.`
+                : ""
+            }`,
       }));
       onStale();
     } finally {
@@ -420,16 +266,21 @@ export function useRuleEnforcement({
   ): EnforcementStep => {
     const key = enforcementKey(entry);
     const { connected, owner, canSign } = signerOf(entry);
+    // `takeOff` is for a removed policy, which `next` describes too.
+    const kind = expectedPolicyAction(entry, { remove });
+    const verb = kind === "evm_transaction" ? "send" : "sign";
+    // A step that asks nothing of a wallet needs only the owner's name, which
+    // the backend takes from the binding or from one of the account's wallets.
+    const blocked =
+      canSign || (kind === null && owner)
+        ? unable(kit, kind, remove)
+        : owner && owner !== connected
+          ? `Only the wallet that set this policy can change it on chain. Connect ${shortAddress(owner)} to ${verb}.`
+          : `Connect ${FAMILY[entry.signer.family]} wallet to ${verb}.`;
     return {
       busy: busy === key,
-      disabled: busy !== null || !canSign,
-      hint: canSign
-        ? (signing[key] ?? null)
-        : `Connect ${
-            owner && owner !== connected
-              ? shortAddress(owner)
-              : `${FAMILY[entry.signer.family]} wallet`
-          } to ${remove && sendsRevocation(entry) ? "send" : "sign"}.`,
+      disabled: busy !== null || blocked !== null,
+      hint: blocked ?? signing[key] ?? null,
       error: errors[key] ?? null,
       run: () => void run(entry, { remove, summary }),
     };

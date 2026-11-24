@@ -48,12 +48,19 @@ ARGUMENTS
 "
 `;
 
-exports[`help > prints ["rules"] --help 1`] = `
+exports[`help > prints ["policy"] --help 1`] = `
 "USAGE
-  aomi rules list [--json] [--private-key hex] [--solana-private-key key] [--cluster name]
-  aomi rules approve [--json] [--private-key hex] [--solana-private-key key] [--cluster name] <change-id>
-  aomi rules decline [--json] [--private-key hex] [--solana-private-key key] [--cluster name] <change-id>
-  aomi rules --help
+  aomi policy list [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id]
+  aomi policy catalog [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--chain chain]
+  aomi policy set [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--yes] [--amt amount] [--to app-id|address] [--until YYYY-MM-DD] [--chain chain] <policy>
+  aomi policy remove [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--yes] <policy-id>
+  aomi policy mode [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--yes] <mode>
+  aomi policy authority [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--yes] <self|address>
+  aomi policy deploy [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--provider id] [--yes] <policy-id>
+  aomi policy undeploy [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--provider id] [--yes] <policy-id>
+  aomi policy approve [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] <change-id>
+  aomi policy decline [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] <change-id>
+  aomi policy --help
 
 What the agent may sign
 
@@ -61,9 +68,16 @@ FLAGS
   -h --help  Print help information and exit
 
 COMMANDS
-  list     Each agent wallet's rules, use and waiting change
-  approve  Approve a rule change waiting for you
-  decline  Decline a rule change
+  list       Each agent wallet's policies and where they stand on chain
+  catalog    The apps and tokens a policy can name
+  set        Add or replace one policy: JSON, or --amt <amount> <asset> --to <app>
+  remove     Remove one policy
+  mode       Allow only what policies list, or all they don't cap
+  authority  Who approves a change that loosens
+  deploy     Put a policy on chain with the local signer
+  undeploy   Take a policy off the chain with the local signer
+  approve    Approve a policy change waiting for you
+  decline    Decline a policy change
 "
 `;
 
@@ -179,7 +193,7 @@ ACCOUNT
 
 WALLETS & TRADES
   wallets    Agent wallets, local signer
-  rules      What the agent may sign
+  policy     What the agent may sign
   tx         Review, approve, sign, export
   guard      Spending limits for signing
 

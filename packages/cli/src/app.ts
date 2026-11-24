@@ -14,9 +14,9 @@ import { chat } from "./commands/chat";
 import * as deploy from "./commands/deploy";
 import { guard } from "./commands/guard";
 import * as pipeline from "./commands/pipeline";
+import * as policy from "./commands/policy";
 import * as settings from "./commands/settings";
 import * as threads from "./commands/threads";
-import * as rules from "./commands/rules";
 import * as tx from "./commands/tx";
 import * as wallets from "./commands/wallets";
 import { exitCodeOf, messageOf, parseChain, parseCluster } from "./context";
@@ -91,6 +91,27 @@ const deployFlags = {
   }),
 };
 
+const policyFlags = {
+  ...json,
+  ...conn,
+  wallet: text("Agent wallet (default: the account's only one)", {
+    placeholder: "id",
+  }),
+};
+const policyWrite = {
+  ...policyFlags,
+  yes: yes("Approve it too, when you are the authority"),
+};
+
+const policyEnforce = {
+  ...policyFlags,
+  rpcUrl: signing.rpcUrl,
+  provider: text("The on-chain provider, when several hold it", {
+    placeholder: "id",
+  }),
+  yes: yes("Sign and send without asking"),
+};
+
 const arg = (brief: string, placeholder: string, optional = false) => ({
   brief,
   placeholder,
@@ -157,7 +178,7 @@ const BRIEFS = {
   whoami: "Who you're signed in as",
   account: "Profile, connections, credits",
   wallets: "Agent wallets, local signer",
-  rules: "What the agent may sign",
+  policy: "What the agent may sign",
   tx: "Review, approve, sign, export",
   guard: "Spending limits for signing",
   apps: "Install apps, set credentials",
@@ -358,26 +379,87 @@ const root = routes(
       },
       { default: "list", hidden: ["current", "set"] },
     ),
-    rules: routes(
-      BRIEFS.rules,
+    policy: routes(
+      BRIEFS.policy,
       {
         list: command(
-          "Each agent wallet's rules, use and waiting change",
-          { ...json, ...conn },
+          "Each agent wallet's policies and where they stand on chain",
+          policyFlags,
           [],
-          rules.list,
+          policy.list,
+        ),
+        catalog: command(
+          "The apps and tokens a policy can name",
+          {
+            ...policyFlags,
+            chain: text("Only this chain: a name or an id", {
+              placeholder: "chain",
+            }),
+          },
+          [],
+          policy.catalog,
+        ),
+        set: command(
+          "Add or replace one policy: JSON, or --amt <amount> <asset> --to <app>",
+          {
+            ...policyWrite,
+            amt: text("The most the agent may spend, in token units", {
+              placeholder: "amount",
+            }),
+            to: text("A catalog app id, any, or an address", {
+              placeholder: "app-id|address",
+            }),
+            until: text("The last day it holds (UTC)", {
+              placeholder: "YYYY-MM-DD",
+            }),
+            chain: text("The token's chain, when its symbol is on several", {
+              placeholder: "chain",
+            }),
+          },
+          [arg("Policy JSON or its file; with --amt, the token", "policy")],
+          policy.set,
+        ),
+        remove: command(
+          "Remove one policy",
+          policyWrite,
+          [arg("Policy id, or the start of one", "policy-id")],
+          policy.remove,
+        ),
+        mode: command(
+          "Allow only what policies list, or all they don't cap",
+          policyWrite,
+          [arg("whitelist or blacklist", "mode")],
+          policy.mode,
+        ),
+        authority: command(
+          "Who approves a change that loosens",
+          policyWrite,
+          [arg("self, or a linked wallet's address", "self|address")],
+          policy.authority,
+        ),
+        deploy: command(
+          "Put a policy on chain with the local signer",
+          policyEnforce,
+          [arg("Policy id, or the start of one", "policy-id")],
+          policy.deploy,
+        ),
+        undeploy: command(
+          "Take a policy off the chain with the local signer",
+          policyEnforce,
+          [arg("Policy id, or the start of one", "policy-id")],
+          policy.undeploy,
         ),
         approve: command(
-          "Approve a rule change waiting for you",
-          { ...json, ...conn },
+          "Approve a policy change waiting for you",
+          policyFlags,
           [arg("Change id", "change-id")],
-          rules.approve,
+          policy.approve,
         ),
         decline: command(
-          "Decline a rule change",
-          { ...json, ...conn },
+          "Decline a policy change",
+          policyFlags,
           [arg("Change id", "change-id")],
-          rules.decline,
+          policy.decline,
         ),
       },
       { default: "list" },
@@ -726,7 +808,7 @@ export const app = buildApplication(root, {
 const GROUPS: [string, (keyof typeof BRIEFS)[]][] = [
   ["CHAT", ["chat", "threads"]],
   ["ACCOUNT", ["login", "logout", "whoami", "account"]],
-  ["WALLETS & TRADES", ["wallets", "rules", "tx", "guard"]],
+  ["WALLETS & TRADES", ["wallets", "policy", "tx", "guard"]],
   ["APPS", ["apps", "pipeline", "deploy"]],
 ];
 const SETTINGS: (keyof typeof BRIEFS)[] = [

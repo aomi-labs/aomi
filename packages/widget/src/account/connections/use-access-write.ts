@@ -3,11 +3,11 @@
 import { useState } from "react";
 import {
   AomiApiError,
-  RULES_ERROR_CODES,
+  POLICY_ERROR_CODES,
   type AomiAccountConnection,
   type AomiConnectionWalletsUpdate,
   type AomiAskMode,
-  type AomiWalletRules,
+  type AomiWalletPolicies,
 } from "@aomi-labs/client";
 import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
 import { useShellAomi } from "@/account/transport";
@@ -18,12 +18,12 @@ import { useRefreshWallets } from "@/account/agent-wallets/use-refresh-wallets";
  * connection saves, `saving[key]` is the list it will hold, so the picker
  * moves at once and the server catches up behind it. Render `dialog`.
  *
- * Instant on a wallet whose rules admin is a wallet is refused with 403
- * `rules_signature_required`: the change is filed as a rule change instead,
- * and `onRulesFiled` gets the rules it now waits in.
+ * Instant on a wallet whose policy admin is a wallet is refused with 403
+ * `rules_signature_required`: the change is filed as a policy change instead,
+ * and `onPoliciesFiled` gets the policies it now waits in.
  */
 export function useAccessWrite(
-  onRulesFiled?: (rules: AomiWalletRules) => void,
+  onPoliciesFiled?: (policies: AomiWalletPolicies) => void,
 ) {
   const aomi = useShellAomi();
   const refresh = useRefreshWallets();
@@ -66,14 +66,14 @@ export function useAccessWrite(
     } catch (caught) {
       if (
         !(caught instanceof AomiApiError) ||
-        caught.code !== RULES_ERROR_CODES.signatureRequired
+        caught.code !== POLICY_ERROR_CODES.signatureRequired
       )
         return setError("Couldn’t save that. Try again.");
       try {
-        const filed = await aomi.account.rules.change(wallet.id, {
+        const filed = await aomi.account.policy.change(wallet.id, {
           instant: [key],
         });
-        if (onRulesFiled) onRulesFiled(filed.rules);
+        if (onPoliciesFiled) onPoliciesFiled(filed.rules);
         else
           setError(
             `Instant on "${wallet.name}" needs its admin wallet to sign. Open Policies in Settings to approve it.`,

@@ -12,7 +12,6 @@ import {
   json,
   out,
   privateKeyOf,
-  signerAddresses,
   usage,
   type ConnectFlags,
   type ShowCode,
@@ -53,9 +52,14 @@ const SIGN_IN = {
 
 export async function whoami(flags: Flags): Promise<void> {
   const aomi = await connect(flags);
+  // The EVM key signs in when both are given; the other key only signs.
+  const { evm, svm } = aomi.wallet ?? {};
+  const [flag, key, other] = privateKeyOf(flags)
+    ? ["--private-key", evm, svm]
+    : ["--solana-private-key", svm, evm];
   const via =
     aomi.auth.mode === "wallet"
-      ? `${privateKeyOf(flags) ? "--private-key" : "--solana-private-key"} ${signerAddresses(aomi).join(" · ")}`
+      ? `${flag} ${key?.address}${other ? ` · local signer only: ${other.address}` : ""}`
       : (SIGN_IN[aomi.auth.mode] ?? aomi.auth.mode);
   // Device grants are capability tokens: the profile route answers 401.
   const me = await aomi.account.me().catch((error: unknown) => {

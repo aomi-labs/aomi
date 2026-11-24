@@ -305,24 +305,30 @@ export type AccountNonce = {
 };
 
 // @public
-export class AccountRulesTransport {
+export class AccountPolicyTransport {
     constructor(requestResponse: RequestResponse$2);
     approveChange(changeId: string, options?: {
         signature?: string;
-    }): Promise<AomiWalletRules>;
+    }): Promise<AomiWalletPolicies>;
     catalog(options?: {
         signal?: AbortSignal;
-    }): Promise<AomiRulesCatalog>;
-    change(agentWalletId: string, request: AomiRulesChangeRequest): Promise<AomiRulesChangeResult>;
-    confirmEnforcement(agentWalletId: string, provider: string, request: AomiRulesConfirmRequest): Promise<AomiWalletRules>;
-    declineChange(changeId: string): Promise<AomiWalletRules>;
+    }): Promise<AomiPolicyCatalog>;
+    change(agentWalletId: string, request: AomiPolicyChangeRequest): Promise<AomiPolicyChangeResult>;
+    confirmEnforcement(agentWalletId: string, provider: string, request: AomiPolicyConfirmRequest): Promise<AomiWalletPolicies>;
+    declineChange(changeId: string): Promise<AomiWalletPolicies>;
+    enforce(agentWalletId: string, entry: AomiPolicyEnforcement, signer: AomiPolicySigner, options: AomiPolicyEnforceOptions): Promise<{
+        policies: AomiWalletPolicies;
+        settled: boolean;
+        transaction?: string;
+    }>;
     get(agentWalletId: string, options?: {
         signal?: AbortSignal;
-    }): Promise<AomiWalletRules>;
+    }): Promise<AomiWalletPolicies>;
     getChange(changeId: string, options?: {
         signal?: AbortSignal;
-    }): Promise<AomiRuleChange>;
-    prepareEnforcement(agentWalletId: string, provider: string, request: AomiRulesEnforceRequest): Promise<AomiRulesAction | null>;
+    }): Promise<AomiPolicyChange>;
+    prepareEnforcement(agentWalletId: string, provider: string, request: AomiPolicyEnforceRequest): Promise<AomiPolicyAction | null>;
+    revise(agentWalletId: string, build: (held: AomiWalletPolicies) => AomiPolicyChangeRequest): Promise<AomiPolicyChangeResult>;
 }
 
 // @public (undocumented)
@@ -357,7 +363,7 @@ export class AccountTransport extends AccountGraphTransport {
     readonly credits: AccountCreditsTransport;
     readonly keys: AccountKeysTransport;
     readonly link: AccountLinkTransport;
-    readonly rules: AccountRulesTransport;
+    readonly policy: AccountPolicyTransport;
     readonly wallets: AccountWalletsTransport;
 }
 
@@ -1592,6 +1598,300 @@ export class AomiPipelineSkillScope extends AomiPipelineOperationScope {
 // @public (undocumented)
 export type AomiPlatformFilter = string | readonly string[] | null | undefined;
 
+// @public
+export type AomiPolicy = {
+    id?: string;
+    asset: string;
+    amount: string;
+    to: AomiPolicyTo;
+    active_from?: number;
+    active_until?: number;
+    symbol?: string | null;
+    decimals?: number | null;
+};
+
+// @public
+export type AomiPolicyAction =
+/** Sign this transaction and send it; `confirm` then reads the chain. */
+    {
+    kind: "transaction";
+    network: string;
+    unsigned_base64: string;
+}
+/** Sign this EIP-712 data and send nothing; `confirm` takes the signature. */
+| {
+    kind: "typed_data";
+    network: string;
+    typed_data: AomiPolicyTypedData;
+}
+/** Send this plain EVM transaction from the owner's wallet and pay its gas; `confirm` takes no signature. */
+| {
+    kind: "evm_transaction";
+    network: string;
+    to: string;
+    data: string;
+    value: string;
+};
+
+// @public
+export type AomiPolicyAdmin = {
+    kind: "aomi_managed";
+} | AomiPolicyAdminWallet;
+
+// @public (undocumented)
+export type AomiPolicyAdminWallet = {
+    kind: "wallet";
+    family: AomiWalletFamily;
+    address: string;
+};
+
+// @public
+export type AomiPolicyCatalog = {
+    apps: AomiPolicyCatalogApp[];
+    tokens: AomiPolicyCatalogToken[];
+};
+
+// @public (undocumented)
+export type AomiPolicyCatalogApp = {
+    id: string;
+    label: string;
+    chains: string[];
+};
+
+// @public (undocumented)
+export type AomiPolicyCatalogToken = {
+    asset: string;
+    symbol: string;
+    decimals: number;
+    chain: string;
+};
+
+// @public
+export type AomiPolicyChange = {
+    id: string;
+    agent_wallet_id: string;
+    wallet_name: string;
+    lines: AomiPolicyChangeLine[];
+    state: AomiPolicyChangeState;
+    proposed_by: string;
+    expires_at: number;
+    signer: AomiPolicyAdminWallet | null;
+    sign_message: string | null;
+};
+
+// @public
+export type AomiPolicyChangeLine = {
+    text: string;
+    loosens: boolean;
+};
+
+// @public
+export type AomiPolicyChangeRequest = {
+    revision?: number;
+    rules?: AomiPolicySet;
+    admin?: AomiPolicyAdmin;
+    instant?: string[];
+};
+
+// @public
+export type AomiPolicyChangeResult = {
+    status: "applied" | "waiting" | "unchanged";
+    rules: AomiWalletPolicies;
+};
+
+// @public (undocumented)
+export type AomiPolicyChangeState = (typeof CHANGE_STATES)[number];
+
+// @public
+export type AomiPolicyConfirmRequest = AomiPolicyEnforceRequest & {
+    signature?: string;
+};
+
+// @public
+export type AomiPolicyDraft = {
+    asset: string;
+    decimals: number;
+    amount: string;
+    to: AomiPolicyTo;
+    activeUntil?: number | null;
+};
+
+// @public
+export type AomiPolicyEnforcement = {
+    rule: string;
+    provider: string;
+    name: string;
+    network: string;
+    state: (typeof ENFORCEMENT_STATES)[number];
+    ready: boolean;
+    left: string | null;
+    expires_at: number | null;
+    account: string | null;
+    deployment_tx: string | null;
+    note: string | null;
+    next?: AomiPolicyAction["kind"] | null;
+    signer: {
+        family: AomiWalletFamily;
+        address: string | null;
+    };
+};
+
+// @public (undocumented)
+export type AomiPolicyEnforceOptions = {
+    revision: number;
+    owner: string;
+    remove?: boolean;
+    onAction?: (action: AomiPolicyAction) => void;
+    retryDelayMs?: number;
+};
+
+// @public
+export type AomiPolicyEnforceRequest = {
+    network: string;
+    rule: string;
+    revision: number;
+    owner?: string;
+    remove?: boolean;
+};
+
+// @public
+export class AomiPolicyFieldError extends Error {
+    constructor(field: string, reason: string,
+    nearest?: string[]);
+    // (undocumented)
+    readonly field: string;
+    readonly nearest: string[];
+}
+
+// @public
+export type AomiPolicyInput = {
+    amount: string;
+    asset: string;
+    to: string;
+    until?: string;
+    chain?: string;
+};
+
+// @public
+export type AomiPolicyMode = (typeof MODES)[number];
+
+// @public
+export type AomiPolicyOnChain =
+/** The chain holds the policy as it stands. */
+    {
+    kind: "in_sync";
+    entry: AomiPolicyEnforcement;
+}
+/** A provider can hold it and nothing is on chain yet. */
+| {
+    kind: "not_deployed";
+    entry: AomiPolicyEnforcement;
+}
+/** The chain holds an earlier version, or one its owner must still act on. */
+| {
+    kind: "out_of_date";
+    entry: AomiPolicyEnforcement;
+}
+/** The chain could not be read. */
+| {
+    kind: "unverified";
+    entry: AomiPolicyEnforcement;
+}
+/** Aomi no longer holds the policy; the chain still does. */
+| {
+    kind: "chain_only";
+    entry: AomiPolicyEnforcement;
+}
+/**
+* The wallet is in blacklist mode, and `provider`, on the policy's chain,
+* holds policies in whitelist mode only.
+*/
+| {
+    kind: "needs_whitelist";
+    provider: AomiPolicyProvider;
+}
+/** No provider can hold it; `note` is the provider's reason, if one said. */
+| {
+    kind: "aomi_only";
+    note: string | null;
+};
+
+// @public
+export type AomiPolicyProvider = {
+    provider: string;
+    name: string;
+    network: string;
+    holds: "total_and_period" | "total_period_and_destination";
+    note: string | null;
+};
+
+// @public
+export class AomiPolicySentError extends Error {
+    constructor(transaction: string, cause: unknown);
+    // (undocumented)
+    readonly cause: unknown;
+    // (undocumented)
+    readonly transaction: string;
+}
+
+// @public
+export type AomiPolicySet = {
+    mode: AomiPolicyMode;
+    rules: AomiPolicy[];
+    linked_only: boolean;
+};
+
+// @public
+export type AomiPolicySigner = {
+    evmAddress?: string;
+    solanaAddress?: string;
+    signTypedData?: (request: {
+        typedData: AomiSignableTypedData;
+        signer: string;
+        chainId: number;
+        description: string;
+    }) => Promise<string>;
+    sendEvmTransaction?: (transaction: {
+        chainId: number;
+        to: string;
+        data: string;
+        value: string;
+    }) => Promise<string | void>;
+    sendSolanaTransaction?: (transaction: {
+        unsignedBase64: string;
+        cluster: SvmCluster;
+        description: string;
+    }) => Promise<string>;
+};
+
+// @public
+export type AomiPolicyTo =
+/** Any listed app on the asset's chain. Never a plain send. */
+    {
+    kind: "any_protocol";
+}
+/** One app, by its catalog id. */
+| {
+    kind: "protocol";
+    id: string;
+}
+/** A plain send to this address. */
+| {
+    kind: "address";
+    address: string;
+};
+
+// @public
+export type AomiPolicyTypedData = {
+    domain: Record<string, unknown>;
+    types: Record<string, {
+        name: string;
+        type: string;
+    }[]>;
+    primaryType: string;
+    message: Record<string, unknown>;
+};
+
 // @public (undocumented)
 export type AomiPolicyWindow = {
     unit: "slots";
@@ -1629,209 +1929,6 @@ export interface AomiRequestOptions {
 export type AomiRequestQueryValue = string | number | boolean | readonly (string | number | boolean)[] | null | undefined;
 
 // @public
-type AomiRule = {
-    id?: string;
-    asset: string;
-    amount: string;
-    to: AomiRuleTo;
-    active_from?: number;
-    active_until?: number;
-    symbol?: string | null;
-    decimals?: number | null;
-};
-export { AomiRule as AomiPolicy }
-export { AomiRule }
-
-// @public
-export type AomiRuleChange = {
-    id: string;
-    agent_wallet_id: string;
-    wallet_name: string;
-    lines: AomiRuleChangeLine[];
-    state: AomiRuleChangeState;
-    proposed_by: string;
-    expires_at: number;
-    signer: AomiRulesAdminWallet | null;
-    sign_message: string | null;
-};
-
-// @public
-export type AomiRuleChangeLine = {
-    text: string;
-    loosens: boolean;
-};
-
-// @public (undocumented)
-export type AomiRuleChangeState = (typeof CHANGE_STATES)[number];
-
-// @public
-type AomiRulesAction =
-/** Sign this transaction and send it; `confirm` then reads the chain. */
-    {
-    kind: "transaction";
-    network: string;
-    unsigned_base64: string;
-}
-/** Sign this EIP-712 data and send nothing; `confirm` takes the signature. */
-| {
-    kind: "typed_data";
-    network: string;
-    typed_data: AomiRulesTypedData;
-}
-/** Send this plain EVM transaction from the owner's wallet and pay its gas; `confirm` takes no signature. */
-| {
-    kind: "evm_transaction";
-    network: string;
-    to: string;
-    data: string;
-    value: string;
-};
-export { AomiRulesAction as AomiPolicyAction }
-export { AomiRulesAction }
-
-// @public
-type AomiRulesAdmin = {
-    kind: "aomi_managed";
-} | AomiRulesAdminWallet;
-export { AomiRulesAdmin as AomiPolicyAdmin }
-export { AomiRulesAdmin }
-
-// @public (undocumented)
-export type AomiRulesAdminWallet = {
-    kind: "wallet";
-    family: AomiWalletFamily;
-    address: string;
-};
-
-// @public
-type AomiRulesCatalog = {
-    apps: AomiRulesCatalogApp[];
-    tokens: AomiRulesCatalogToken[];
-};
-export { AomiRulesCatalog as AomiPolicyCatalog }
-export { AomiRulesCatalog }
-
-// @public (undocumented)
-export type AomiRulesCatalogApp = {
-    id: string;
-    label: string;
-    chains: string[];
-};
-
-// @public (undocumented)
-export type AomiRulesCatalogToken = {
-    asset: string;
-    symbol: string;
-    decimals: number;
-    chain: string;
-};
-
-// @public
-type AomiRulesChangeRequest = {
-    rules?: AomiRuleSet;
-    admin?: AomiRulesAdmin;
-    instant?: string[];
-};
-export { AomiRulesChangeRequest as AomiPolicyChangeRequest }
-export { AomiRulesChangeRequest }
-
-// @public
-export type AomiRulesChangeResult = {
-    status: "applied" | "waiting" | "unchanged";
-    rules: AomiWalletRules;
-};
-
-// @public
-export type AomiRulesConfirmRequest = AomiRulesEnforceRequest & {
-    signature?: string;
-};
-
-// @public
-type AomiRulesEnforcement = {
-    rule: string;
-    provider: string;
-    name: string;
-    network: string;
-    state: (typeof ENFORCEMENT_STATES)[number];
-    ready: boolean;
-    left: string | null;
-    expires_at: number | null;
-    account: string | null;
-    deployment_tx: string | null;
-    note: string | null;
-    signer: {
-        family: AomiWalletFamily;
-        address: string | null;
-    };
-};
-export { AomiRulesEnforcement as AomiPolicyEnforcement }
-export { AomiRulesEnforcement }
-
-// @public
-export type AomiRulesEnforceRequest = {
-    network: string;
-    rule: string;
-    revision: number;
-    owner?: string;
-    remove?: boolean;
-};
-
-// @public
-type AomiRuleSet = {
-    mode: AomiRulesMode;
-    rules: AomiRule[];
-    linked_only: boolean;
-};
-export { AomiRuleSet as AomiPolicySet }
-export { AomiRuleSet }
-
-// @public
-export type AomiRulesMode = (typeof MODES)[number];
-
-// @public
-type AomiRulesProvider = {
-    provider: string;
-    name: string;
-    network: string;
-    holds: "total_and_period" | "total_period_and_destination";
-    note: string | null;
-};
-export { AomiRulesProvider as AomiPolicyProvider }
-export { AomiRulesProvider }
-
-// @public
-type AomiRulesTypedData = {
-    domain: Record<string, unknown>;
-    types: Record<string, {
-        name: string;
-        type: string;
-    }[]>;
-    primaryType: string;
-    message: Record<string, unknown>;
-};
-export { AomiRulesTypedData as AomiPolicyTypedData }
-export { AomiRulesTypedData }
-
-// @public
-type AomiRuleTo =
-/** Any listed app on the asset's chain. Never a plain send. */
-    {
-    kind: "any_protocol";
-}
-/** One app, by its catalog id. */
-| {
-    kind: "protocol";
-    id: string;
-}
-/** A plain send to this address. */
-| {
-    kind: "address";
-    address: string;
-};
-export { AomiRuleTo as AomiPolicyTo }
-export { AomiRuleTo }
-
-// @public
 export interface AomiSecretSlot {
     // (undocumented)
     description: string;
@@ -1841,6 +1938,9 @@ export interface AomiSecretSlot {
     required: boolean;
     user_own?: boolean;
 }
+
+// @public
+export type AomiSignableTypedData = NonNullable<WalletEip712Payload["typed_data"]>;
 
 // @public (undocumented)
 export interface AomiSigningPolicy {
@@ -1964,22 +2064,20 @@ export type AomiWalletErrorCode = (typeof WALLET_ERROR_CODES)[keyof typeof WALLE
 export type AomiWalletFamily = "evm" | "svm";
 
 // @public (undocumented)
-type AomiWalletRules = {
+export type AomiWalletPolicies = {
     agent_wallet_id: string;
     wallet_name: string;
     revision: number;
-    rules: AomiRuleSet;
+    rules: AomiPolicySet;
     sentences: string[];
-    admin: AomiRulesAdmin;
+    admin: AomiPolicyAdmin;
     stopped_until: number | null;
-    pending: AomiRuleChange | null;
+    pending: AomiPolicyChange | null;
     enforced_by: Record<string, string[]>;
-    enforcement: AomiRulesEnforcement[];
-    providers: AomiRulesProvider[];
-    admin_wallets: AomiRulesAdminWallet[];
+    enforcement: AomiPolicyEnforcement[];
+    providers: AomiPolicyProvider[];
+    admin_wallets: AomiPolicyAdminWallet[];
 };
-export { AomiWalletRules as AomiWalletPolicies }
-export { AomiWalletRules }
 
 // @public
 export class AomiWallets {
@@ -2224,6 +2322,12 @@ export const arcTestnet: {
 // @public (undocumented)
 export type AssembledSvmInstruction = Schemas["AssembledSvmInstruction"];
 
+// @public
+export function assetChain(asset: string, catalog?: AomiPolicyCatalog): string;
+
+// @public
+export const assetNetwork: (asset: string) => string;
+
 // @public (undocumented)
 export interface AtomicBatchArgs {
     account?: Hex;
@@ -2402,6 +2506,9 @@ export type CapabilitySelection = {
     walletIds?: readonly string[];
 };
 
+// @public
+export function catalogOn(catalog: AomiPolicyCatalog, chain: string): AomiPolicyCatalog;
+
 // @public (undocumented)
 export const CHAIN_NAMES: Record<number, string>;
 
@@ -2412,8 +2519,14 @@ export type ChainInfo = {
     ticker: string;
 };
 
+// @public
+export function chainOnlyPolicies(policies: Pick<AomiWalletPolicies, "rules" | "enforcement">): string[];
+
 // @public (undocumented)
 export const CHAINS_BY_ID: Record<number, Chain>;
+
+// @public
+export function checkPolicy(value: unknown, catalog: AomiPolicyCatalog, now?: number): AomiPolicy;
 
 // @public (undocumented)
 export const CLIENT_TYPE_TS_CLI: AomiClientType;
@@ -2800,10 +2913,16 @@ export type CreditLedgerEntry = CreditLedger["entries"][number];
 export const CURATED_APP_IDS: readonly (keyof typeof CURATED_APP_INFO)[];
 
 // @public (undocumented)
+export const DELEGATION_MANAGER = "0xdb9b1e94b5b69df7e401ddbede43491141047db3";
+
+// @public (undocumented)
 export function discoverAomiAuthorizationServer(input: {
     portalBaseUrl: string;
     fetch?: typeof fetch;
 }): Promise<AomiAuthorizationServerMetadata>;
+
+// @public
+export const enforcementKey: (entry: Pick<AomiPolicyEnforcement, "provider" | "network" | "rule">) => string;
 
 // @public (undocumented)
 export function ensureSvmWalletBound(client: AomiClient, wallet: string, signMessage: (message: Uint8Array) => Promise<Uint8Array>): Promise<AomiEnsureBoundResult>;
@@ -3176,11 +3295,20 @@ export interface ExpectedCallsOptions {
     allowUnavailableSimulation?: boolean;
 }
 
+// @public
+export const expectedPolicyAction: (entry: Pick<AomiPolicyEnforcement, "signer" | "ready" | "note" | "next">, input?: {
+    remove?: boolean | undefined;
+    inForce?: boolean | undefined;
+}) => AomiPolicyAction["kind"] | null;
+
 // @public (undocumented)
 export function extractBatchTransactionHashes(batchResult: unknown): string[];
 
 // @public
 export function extractCapabilityHints(text: string): CapabilityHint[];
+
+// @public
+export function fromBaseUnits(amount: string, decimals: number): string;
 
 // @public (undocumented)
 export type GetAccountBearer = ((options?: {
@@ -3218,7 +3346,7 @@ export class GuestSignInError extends AomiApiError {
 export function handlePaymentChallenges(request: Request, initialResponse: Response, fetchImpl: typeof globalThis.fetch, client: x402Client | x402HTTPClient): Promise<Response>;
 
 // @public
-export const hasRules: (rules: AomiRuleSet) => boolean;
+export const hasPolicies: (rules: AomiPolicySet) => boolean;
 
 // @public (undocumented)
 export type InterruptIntent = Schemas$3["InterruptIntent"];
@@ -3307,6 +3435,9 @@ export type Logger = {
 
 // @public (undocumented)
 export const MANUAL_SIGNATURE_ADMISSION_UNAVAILABLE = "Manual EVM execution signatures are unavailable because a fresh safety admission cannot be claimed.";
+
+// @public
+export function matchPolicyIds(policies: Pick<AomiWalletPolicies, "rules" | "enforcement">, typed: string): string[];
 
 // @public
 export const MAX_AUTO_FEE_WEI: bigint;
@@ -3849,6 +3980,46 @@ export class PipelineTransport {
 }
 
 // @public (undocumented)
+export const POLICY_ERROR_CODES: {
+    readonly appUnknown: "rules_app_unknown";
+    readonly assetInvalid: "rules_asset_invalid";
+    readonly addressInvalid: "rules_address_invalid";
+    readonly duplicate: "rules_duplicate";
+    readonly periodInvalid: "rules_period_invalid";
+    readonly adminWalletNotLinked: "rules_admin_wallet_not_linked";
+    readonly connectionInvalid: "rules_connection_invalid";
+    readonly walletNotFound: "agent_wallet_not_found";
+    readonly changeNotFound: "rules_change_not_found";
+    readonly changeNotOpen: "rules_change_not_open";
+    readonly changed: "rules_changed";
+    readonly chainNotSettled: "chain_not_settled";
+    readonly notEnforceable: "rules_not_enforceable";
+    readonly ruleNotFound: "rule_not_found";
+    readonly bindingNotFound: "binding_not_found";
+    readonly providerNotFound: "policy_provider_not_found";
+    readonly deploymentTooLarge: "deployment_too_large";
+    readonly stepSignatureRequired: "signature_required";
+    readonly stepSignatureInvalid: "signature_invalid";
+    readonly stepSignatureUnexpected: "signature_unexpected";
+    readonly changePending: "rules_change_pending";
+    readonly signatureRequired: "rules_signature_required";
+    readonly signatureInvalid: "rules_signature_invalid";
+    readonly loginStale: "login_stale";
+};
+
+// @public
+export function policyFromDraft(draft: AomiPolicyDraft): AomiPolicy | null;
+
+// @public
+export function policyFromInput(input: AomiPolicyInput, catalog: AomiPolicyCatalog, now?: number): AomiPolicy;
+
+// @public
+export function policyKey(rule: Pick<AomiPolicy, "asset" | "to">): string;
+
+// @public
+export function policyOnChain(policies: Held, id: string, provider?: string): AomiPolicyOnChain | null;
+
+// @public (undocumented)
 export function posterFromClient(client: AomiClient): AuthorizationPoster;
 
 // @public
@@ -3958,37 +4129,6 @@ export const robinhood: {
 };
 
 // @public
-export function ruleKey(rule: Pick<AomiRule, "asset" | "to">): string;
-
-// @public (undocumented)
-export const RULES_ERROR_CODES: {
-    readonly appUnknown: "rules_app_unknown";
-    readonly assetInvalid: "rules_asset_invalid";
-    readonly addressInvalid: "rules_address_invalid";
-    readonly duplicate: "rules_duplicate";
-    readonly periodInvalid: "rules_period_invalid";
-    readonly adminWalletNotLinked: "rules_admin_wallet_not_linked";
-    readonly connectionInvalid: "rules_connection_invalid";
-    readonly walletNotFound: "agent_wallet_not_found";
-    readonly changeNotFound: "rules_change_not_found";
-    readonly changeNotOpen: "rules_change_not_open";
-    readonly changed: "rules_changed";
-    readonly chainNotSettled: "chain_not_settled";
-    readonly notEnforceable: "rules_not_enforceable";
-    readonly ruleNotFound: "rule_not_found";
-    readonly bindingNotFound: "binding_not_found";
-    readonly providerNotFound: "policy_provider_not_found";
-    readonly deploymentTooLarge: "deployment_too_large";
-    readonly stepSignatureRequired: "signature_required";
-    readonly stepSignatureInvalid: "signature_invalid";
-    readonly stepSignatureUnexpected: "signature_unexpected";
-    readonly changePending: "rules_change_pending";
-    readonly signatureRequired: "rules_signature_required";
-    readonly signatureInvalid: "rules_signature_invalid";
-    readonly loginStale: "login_stale";
-};
-
-// @public
 export function safeEnv(read: () => string | undefined): string | undefined;
 
 // @public (undocumented)
@@ -4018,6 +4158,9 @@ export type SendResult = {
     messages: readonly MessageEvent_2[];
     title?: string;
 };
+
+// @public (undocumented)
+export const sendsRevocation: (entry: Pick<AomiPolicyEnforcement, "ready" | "note">) => boolean;
 
 // @public
 export class Session {
@@ -4134,6 +4277,9 @@ export function shortAddress(value: string, visible?: {
 
 // @public (undocumented)
 export type SignableCommit = components["schemas"]["SignableCommit"];
+
+// @public
+export function signableTypedData(data: AomiPolicyTypedData, chainId: number): AomiSignableTypedData;
 
 // @public (undocumented)
 export interface SimContext {
@@ -4725,6 +4871,9 @@ export function toAAWalletCall(payload: WalletTxPayload, defaultChainId?: number
 // @public
 export function toAAWalletCalls(payload: WalletTxPayload, defaultChainId?: number): AAWalletCall[];
 
+// @public
+export function toBaseUnits(human: string, decimals: number): string | null;
+
 // @public (undocumented)
 export type ToolCompleteEvent = Schemas$3["ToolCompleteEvent"];
 
@@ -4829,6 +4978,9 @@ export class TypedEventEmitter<EventMap extends Record<string, unknown> = Record
 
 // @public
 export const UNTAGGABLE_APPS: ReadonlySet<string>;
+
+// @public
+export function upsertPolicy(policies: readonly AomiPolicy[], policy: AomiPolicy): AomiPolicy[];
 
 // @public (undocumented)
 export type UserState = Schemas$4["UserState"];
@@ -5044,7 +5196,13 @@ export type WalletTxPayload = {
 export function walletUserState(wallets: Wallets): UserState | undefined;
 
 // @public
+export const whitelistOnlyProvider: (policies: Pick<Held, "rules" | "providers">, network: string, provider?: string) => AomiPolicyProvider | undefined;
+
+// @public
 export function withBrowserSessionTransition<T>(transition: () => Promise<T>): Promise<T>;
+
+// @public
+export const withoutPolicy: (policies: readonly AomiPolicy[], id: string) => AomiPolicy[];
 
 // @public
 export function wrapFetchWithPaymentChallenges(fetchImpl: typeof globalThis.fetch, client: x402Client | x402HTTPClient): typeof globalThis.fetch;

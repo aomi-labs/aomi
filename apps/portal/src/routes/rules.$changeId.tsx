@@ -1,14 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { RuleChangeClient } from "@/features/rules/rule-change-client";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 /**
- * A rule change by id, as Telegram links it; the page calls it a policy
- * change. Signed out, the page opens the
- * wallet picker, then the change.
+ * The page's old address, which Telegram and the backend's `approve_url`
+ * still link to.
  */
 export const Route = createFileRoute("/rules/$changeId")({
-  head: () => ({ meta: [{ title: "Review policy change — Aomi" }] }),
-  component: function RuleChangePage() {
-    return <RuleChangeClient changeId={Route.useParams().changeId} />;
+  beforeLoad: ({ params }) => {
+    throw redirect({
+      to: "/policy/$changeId",
+      params: { changeId: params.changeId },
+    });
   },
 });
