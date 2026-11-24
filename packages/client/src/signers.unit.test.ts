@@ -258,6 +258,53 @@ describe("solanaSigner", () => {
     expect(() => solanaSigner("[1,2]")).toThrow(/64 bytes/);
   });
 
+  it("signs a v1 transaction's message in its own signer slot", async () => {
+    const payer = Keypair.generate();
+    const keypair = Keypair.generate();
+    // SIMD-0385 wire form: 0x81, header (2 signers, 0 readonly signed,
+    // 1 readonly unsigned), config mask, blockhash, 0 instructions,
+    // 3 addresses, then a 64-byte slot per signer.
+    const message = Buffer.concat([
+      Buffer.from([0x81, 2, 0, 1]),
+      Buffer.from([0b10, 0, 0, 0]),
+      Buffer.alloc(32, 7),
+      Buffer.from([0, 3]),
+      payer.publicKey.toBuffer(),
+      keypair.publicKey.toBuffer(),
+      Keypair.generate().publicKey.toBuffer(),
+      Buffer.from([0x40, 0x0d, 0x03, 0x00]),
+    ]);
+    const unsigned = Buffer.concat([message, Buffer.alloc(128)]);
+    const signer = solanaSigner(keypair);
+    expect(signer.canSignV1Transaction).toBe(true);
+
+    const signed = Buffer.from(
+      (
+        (await signer.signTransaction!({
+          transactionBase64: unsigned.toString("base64"),
+        })) as { signedTransaction: string }
+      ).signedTransaction,
+      "base64",
+    );
+
+    expect(signed.subarray(0, message.length)).toEqual(message);
+    expect(signed.subarray(message.length, message.length + 64)).toEqual(
+      Buffer.alloc(64),
+    );
+    expect(
+      nacl.sign.detached.verify(
+        message,
+        signed.subarray(message.length + 64),
+        keypair.publicKey.toBytes(),
+      ),
+    ).toBe(true);
+    await expect(
+      solanaSigner(Keypair.generate()).signTransaction!({
+        transactionBase64: unsigned.toString("base64"),
+      }),
+    ).rejects.toThrow(/not a signer/);
+  });
+
   it("broadcasts through the RPC named for the commit's cluster", async () => {
     const endpoints: string[] = [];
     vi.spyOn(Connection.prototype, "sendRawTransaction").mockImplementation(

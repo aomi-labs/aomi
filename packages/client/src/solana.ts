@@ -9,6 +9,7 @@ import {
 import bs58 from "bs58";
 import nacl from "tweetnacl";
 import { AomiError } from "./api-error";
+import { isV1Transaction, parseV1Transaction } from "./solana-v1";
 import type { SvmWallet } from "./wallet/types";
 import { normalizeSolanaCluster, type SvmCluster } from "./wallet-utils";
 
@@ -47,6 +48,8 @@ export function solanaSigner(
   return {
     address: keypair.publicKey.toBase58(),
     cluster: options.cluster ?? "solana:mainnet",
+    // A local key signs the message bytes of any version.
+    canSignV1Transaction: true,
     // A local key signs for any cluster, so it has nothing to switch.
     switchCluster: async () => undefined,
     signTransaction: async ({ transactionBase64 }) => ({
@@ -90,9 +93,19 @@ function parseKeypair(secret: string): Keypair {
   return Keypair.fromSecretKey(bytes);
 }
 
-/** Versioned (v0) first, then legacy, like wallet adapters. */
+/** v1 by its prefix, then versioned (v0), then legacy, like wallet adapters. */
 function signTransaction(base64: string, keypair: Keypair): string {
   const bytes = Buffer.from(base64, "base64");
+  if (isV1Transaction(bytes)) {
+    const transaction = parseV1Transaction(bytes);
+    const signature = nacl.sign.detached(
+      transaction.message,
+      keypair.secretKey,
+    );
+    return Buffer.from(
+      transaction.withSignature(keypair.publicKey.toBytes(), signature),
+    ).toString("base64");
+  }
   try {
     const versioned = VersionedTransaction.deserialize(bytes);
     versioned.sign([keypair]);
