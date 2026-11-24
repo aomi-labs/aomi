@@ -48,6 +48,8 @@ export type SvmWalletCapabilities = {
   canSignAllTransactions?: boolean;
   canSendTransaction?: boolean;
   canSignAndSendTransaction?: boolean;
+  /** Reported to the backend as `can_sign_v1_transaction`. */
+  canSignV1Transaction?: boolean;
 };
 
 export type AomiNetworkTarget =
