@@ -12,11 +12,18 @@ import {
   UserState,
   wallet,
   type AomiAuthStrategy,
+  type AomiPolicySigner,
   type AgentTarget,
   type SvmCluster,
 } from "@aomi-labs/client";
 import { viemSigner } from "@aomi-labs/client/viem";
-import { createWalletClient, http, type Chain } from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  type Chain,
+  type Hex,
+} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import * as chains from "viem/chains";
 import { grants, loadState, updateState, type CliState } from "./state";
@@ -186,6 +193,70 @@ export async function connect(
   if (await signedIn(baseUrl))
     return new Aomi({ ...common, auth: await deviceAuth(baseUrl, onCode) });
   return new Aomi({ ...common, guest: persistedGuest(baseUrl, state) });
+}
+
+/**
+ * The local keys as the wallet that puts a policy on chain: the EVM key signs
+ * typed data and sends a transaction itself, the Solana key signs and
+ * broadcasts. A family with no key has no method.
+ */
+export function policySigner(
+  aomi: Aomi,
+  flags: ConnectFlags,
+): AomiPolicySigner {
+  const { evm, svm } = aomi.wallet ?? {};
+  const key = privateKeyOf(flags) ?? (loadState().evmKey as Hex | undefined);
+  const { signTypedData } = evm ?? {};
+  const { signTransaction, broadcastTransaction } = svm ?? {};
+  return {
+    evmAddress: evm?.address,
+    ...(signTypedData
+      ? {
+          signTypedData: async ({ typedData, chainId }) => {
+            const signed = await signTypedData({ typedData, chainId });
+            return typeof signed === "string" ? signed : signed.signature;
+          },
+        }
+      : {}),
+    ...(key
+      ? {
+          sendEvmTransaction: async ({ chainId, to, data, value }) => {
+            const on = {
+              chain: chainOf(chainId),
+              transport: http(flags.rpcUrl),
+            };
+            const hash = await createWalletClient({
+              account: privateKeyToAccount(key),
+              ...on,
+            }).sendTransaction({
+              to: to as Hex,
+              data: data as Hex,
+              value: BigInt(value),
+            });
+            const receipt = await createPublicClient(
+              on,
+            ).waitForTransactionReceipt({ hash });
+            if (receipt.status !== "success")
+              throw new CliError(`The transaction reverted: ${hash}`);
+          },
+        }
+      : {}),
+    ...(signTransaction && broadcastTransaction
+      ? {
+          sendSolanaTransaction: async ({ unsignedBase64, cluster }) => {
+            const signed = await signTransaction({
+              transactionBase64: unsignedBase64,
+              cluster,
+            });
+            const raw =
+              typeof signed === "string" ? signed : signed.signedTransaction;
+            if (!raw)
+              throw new CliError("The local signer returned no transaction");
+            return broadcastTransaction(raw, cluster);
+          },
+        }
+      : {}),
+  };
 }
 
 /** The guest bearer outlives the process, so its threads stay reachable. */

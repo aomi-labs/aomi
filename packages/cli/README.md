@@ -61,7 +61,7 @@ sign-in.
 | `login`, `logout`, `whoami` | Sign in and out |
 | `account` | Profile; `connections`, `unlink`, `credits`, `fund`, `statement` |
 | `wallets` | Agent wallets: `list`, `balance <id>`, `use <id>`; the local `signer` (`show`, `set`, `clear`) |
-| `policy` | Each agent wallet's policies and where they stand on chain; `catalog`, `set <json>` or `set --amt <amount> <asset> --to <app-id\|address>`, `remove <policy-id>`, `mode whitelist\|blacklist`, `authority self\|<address>`, `approve <change-id>`, `decline <change-id>` |
+| `policy` | Each agent wallet's policies and where they stand on chain; `catalog`, `set <json>` or `set --amt <amount> <asset> --to <app-id\|address>`, `remove <policy-id>`, `mode whitelist\|blacklist`, `authority self\|<address>`, `deploy <policy-id>` and `undeploy <policy-id>` (on chain, with the local signer), `approve <change-id>`, `decline <change-id>` |
 | `tx` | `list`, `review <ref>`, `approve <ref>`, `reject <ref>`, `sign <ref>`, `export <ref>` |
 | `guard [strict\|balanced\|yolo]` | The thread's guard, or `--account`'s default |
 | `apps` | `list`, `install`, `uninstall`, `use`, `credentials` |

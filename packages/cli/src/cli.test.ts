@@ -11,6 +11,34 @@ const dir = vi.hoisted(() => {
   return path;
 });
 
+// The local Solana key never reaches a node here: what it is asked to sign
+// and to broadcast is only recorded.
+const chain = vi.hoisted(() => {
+  const asked = { signed: [] as unknown[], sent: [] as unknown[][] };
+  return {
+    ...asked,
+    sign: async (input: unknown) => {
+      asked.signed.push(input);
+      return { signedTransaction: "c2lnbmVk" };
+    },
+    broadcast: async (...call: unknown[]) => {
+      asked.sent.push(call);
+      return "5igSent";
+    },
+  };
+});
+vi.mock("@aomi-labs/client/solana", async (original) => {
+  const real = await original<typeof import("@aomi-labs/client/solana")>();
+  return {
+    ...real,
+    solanaSigner: (...args: Parameters<typeof real.solanaSigner>) => ({
+      ...real.solanaSigner(...args),
+      signTransaction: chain.sign,
+      broadcastTransaction: chain.broadcast,
+    }),
+  };
+});
+
 import { main, rootHelp } from "./app";
 
 const BASE = "https://chat.example";
@@ -873,6 +901,200 @@ describe("aomi policy", () => {
     expect(late.stderr).toContain(
       "This change isn't waiting for approval (applied)",
     );
+  });
+
+  describe("deploy and undeploy", () => {
+    const OWNER = SOLANA.publicKey.toBase58();
+    const GONE = `${SOL}@protocol:jito`;
+    const steps = {
+      prepare: `POST /v1/account/agent-wallets/${WALLET}/rules/enforcement/swig/prepare`,
+      confirm: `POST /v1/account/agent-wallets/${WALLET}/rules/enforcement/swig/confirm`,
+    };
+    const owned = (rule: string, state: string) => ({
+      ...swig(rule, state),
+      signer: { family: "svm", address: OWNER },
+    });
+    const run = (...argv: string[]) =>
+      cli("policy", ...argv, "--solana-private-key", SOLANA_KEY);
+    const sent = (step: keyof typeof steps) =>
+      requests
+        .filter((request) => request.key === steps[step])
+        .map((request) => JSON.parse(request.body));
+    beforeEach(() => {
+      chain.signed.length = 0;
+      chain.sent.length = 0;
+      routes[paths.rules] = { ...body, enforcement: [swig(SOL_ID, "off")] };
+      routes[steps.prepare] = {
+        action: {
+          kind: "transaction",
+          network: "solana:mainnet-beta",
+          unsigned_base64: "dW5zaWduZWQ=",
+        },
+      };
+      routes[steps.confirm] = { rules: body };
+    });
+    afterEach(() => {
+      for (const key of Object.values(steps)) delete routes[key];
+    });
+
+    it("deploys with the local signer: the checks, the three steps, then where it stands", async () => {
+      const { code, stdout } = await run("deploy", SOL_ID, "--yes");
+      expect(code).toBe(0);
+      expect(stdout.split("\n")).toEqual([
+        "Deploy: Up to 0.5 SOL on Jupiter (Solana)",
+        "  provider     Swig on solana:mainnet-beta",
+        `  signer       ${OWNER} (local key) will own it on chain`,
+        "  action       Solana transaction",
+        "  prepare      ready to sign",
+        "  sign + send  sent",
+        "  confirm      Aomi read the chain",
+        "On chain: in sync (Swig)",
+        "Next",
+        "  Nothing: Aomi and the chain agree",
+        "",
+      ]);
+      const request = {
+        network: "solana:mainnet-beta",
+        rule: SOL_ID,
+        revision: 3,
+        owner: OWNER,
+      };
+      expect(sent("prepare")).toEqual([request]);
+      expect(sent("confirm")).toEqual([request]);
+      expect(chain.signed).toEqual([
+        { transactionBase64: "dW5zaWduZWQ=", cluster: "solana:mainnet" },
+      ]);
+      expect(chain.sent).toEqual([["c2lnbmVk", "solana:mainnet"]]);
+    });
+
+    it("asks before signing, and signs nothing without an answer", async () => {
+      const { code, stderr } = await run("deploy", SOL_ID);
+      expect(code).toBe(2);
+      expect(stderr).toContain("Pass --yes outside a terminal");
+      expect(sent("prepare")).toEqual([]);
+      expect(chain.signed).toEqual([]);
+    });
+
+    it("takes a policy Aomi no longer holds off the chain", async () => {
+      routes[paths.rules] = { ...body, enforcement: [owned(GONE, "on")] };
+      const { code, stdout } = await run("undeploy", GONE, "--yes");
+      expect(code).toBe(0);
+      expect(stdout).toContain(`Undeploy: ${GONE}\n`);
+      expect(stdout).toContain("(local key) owns this policy");
+      expect(stdout).toContain("On chain: nothing\n");
+      expect(sent("prepare")).toEqual([
+        {
+          network: "solana:mainnet-beta",
+          rule: GONE,
+          revision: 3,
+          owner: OWNER,
+          remove: true,
+        },
+      ]);
+      expect(chain.sent).toHaveLength(1);
+    });
+
+    it("stops when Aomi asks for another action than the one confirmed", async () => {
+      routes[steps.prepare] = {
+        action: {
+          kind: "typed_data",
+          network: "solana:mainnet-beta",
+          typed_data: { domain: {}, types: {}, primaryType: "X", message: {} },
+        },
+      };
+      const { code, stderr } = await run("deploy", SOL_ID, "--yes");
+      expect(code).toBe(1);
+      expect(stderr).toContain("Nothing was signed");
+      expect(sent("confirm")).toEqual([]);
+    });
+
+    it.each([
+      [
+        "a policy Aomi no longer holds",
+        ["deploy", GONE],
+        { enforcement: [owned(GONE, "on")] },
+        1,
+        `Aomi no longer holds ${GONE}. To take it off the chain: aomi policy undeploy ${GONE}`,
+      ],
+      [
+        "a policy no provider can hold",
+        ["deploy", USDC_ID],
+        {},
+        1,
+        "No on-chain provider can hold this policy. Aomi checks it on every commit",
+      ],
+      [
+        "a provider that declines, with its reason",
+        ["deploy", SOL_ID],
+        {
+          enforcement: [
+            { ...swig(SOL_ID, "off", false), note: "Too many apps." },
+          ],
+        },
+        1,
+        "No on-chain provider can hold this policy (Too many apps.)",
+      ],
+      [
+        "a signer that is not the owner",
+        ["deploy", SOL_ID],
+        {
+          enforcement: [
+            {
+              ...swig(SOL_ID, "behind"),
+              signer: { family: "svm", address: "SomeoneElse1111" },
+            },
+          ],
+        },
+        1,
+        `The local signer ${OWNER} is not SomeoneElse1111, the wallet that owns this policy. Nothing was signed`,
+      ],
+      [
+        "an unknown policy",
+        ["deploy", "nope"],
+        {},
+        1,
+        "No policy nope on this wallet or on chain",
+      ],
+      [
+        "an undeploy with nothing on chain",
+        ["undeploy", SOL_ID],
+        {},
+        1,
+        `Nothing on chain for ${SOL_ID}`,
+      ],
+      [
+        "an unknown provider",
+        ["deploy", SOL_ID, "--provider", "metamask"],
+        {},
+        1,
+        "No provider metamask on this wallet: swig",
+      ],
+    ])("refuses %s", async (_, argv, held, exit, error) => {
+      routes[paths.rules] = { ...(routes[paths.rules] as object), ...held };
+      const { code, stderr } = await run(...argv, "--yes");
+      expect(code).toBe(exit);
+      expect(stderr).toContain(`error: ${error}`);
+      expect(sent("prepare")).toEqual([]);
+      expect(chain.signed).toEqual([]);
+    });
+
+    it("prints where to deploy and exits 3 when no local key is the owner's kind", async () => {
+      // An EVM key only: the Solana owner is an embedded wallet.
+      const { code, stderr } = await policy("deploy", SOL_ID, "--yes");
+      expect(code).toBe(3);
+      expect(stderr).toContain(
+        `No local Solana key for the wallet that owns this policy: aomi wallets signer set, or deploy it at ${BASE}`,
+      );
+      expect(sent("prepare")).toEqual([]);
+    });
+
+    it("says a policy already in sync has nothing to deploy", async () => {
+      routes[paths.rules] = body;
+      const { code, stdout } = await run("deploy", SOL_ID, "--yes");
+      expect(code).toBe(0);
+      expect(stdout).toBe("Already in sync (Swig)\n");
+      expect(sent("prepare")).toEqual([]);
+    });
   });
 
   it("no longer knows aomi rules", async () => {

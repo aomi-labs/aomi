@@ -103,6 +103,15 @@ const policyWrite = {
   yes: yes("Approve it too, when you are the authority"),
 };
 
+const policyEnforce = {
+  ...policyFlags,
+  rpcUrl: signing.rpcUrl,
+  provider: text("The on-chain provider, when several hold it", {
+    placeholder: "id",
+  }),
+  yes: yes("Sign and send without asking"),
+};
+
 const arg = (brief: string, placeholder: string, optional = false) => ({
   brief,
   placeholder,
@@ -420,6 +429,18 @@ const root = routes("the Aomi agent in your terminal", {
         policyWrite,
         [arg("self, or a linked wallet's address", "self|address")],
         policy.authority,
+      ),
+      deploy: command(
+        "Put a policy on chain with the local signer",
+        policyEnforce,
+        [arg("Policy id", "policy-id")],
+        policy.deploy,
+      ),
+      undeploy: command(
+        "Take a policy off the chain with the local signer",
+        policyEnforce,
+        [arg("Policy id", "policy-id")],
+        policy.undeploy,
       ),
       approve: command(
         "Approve a policy change waiting for you",

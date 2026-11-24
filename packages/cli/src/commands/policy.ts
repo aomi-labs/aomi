@@ -7,6 +7,7 @@ import {
   catalogOn,
   chainOnlyPolicies,
   checkPolicy,
+  expectedPolicyAction,
   fromBaseUnits,
   hasPolicies,
   policyFromInput,
@@ -17,6 +18,7 @@ import {
   withoutPolicy,
   type Aomi,
   type AomiPolicy,
+  type AomiPolicyAction,
   type AomiPolicyAdmin,
   type AomiPolicyCatalog,
   type AomiPolicyChange,
@@ -27,9 +29,11 @@ import {
 import {
   CliError,
   baseUrlOf,
+  confirm,
   connect,
   json,
   out,
+  policySigner,
   table,
   usage,
   type ConnectFlags,
@@ -586,3 +590,156 @@ export async function authority(
     };
   });
 }
+
+type EnforceFlags = Flags & { provider?: string; yes?: boolean };
+
+const ACTIONS: Record<AomiPolicyAction["kind"], string> = {
+  transaction: "Solana transaction",
+  typed_data: "EIP-712 signature; nothing is sent",
+  evm_transaction: "EVM transaction; the signer pays the gas",
+};
+
+/**
+ * One policy onto the chain, or off it: the checks, the question, then the
+ * SDK's prepare, sign + send and confirm with the local signer.
+ */
+async function enforce(
+  flags: EnforceFlags,
+  id: string,
+  remove: boolean,
+): Promise<void> {
+  const aomi = await connect(flags);
+  const walletId = await walletOf(aomi, flags);
+  const held = await aomi.account.policy.get(walletId);
+  if (
+    flags.provider &&
+    !held.enforcement.some((entry) => entry.provider === flags.provider)
+  )
+    throw new CliError(
+      `No provider ${flags.provider} on this wallet${
+        held.providers.length
+          ? `: ${held.providers.map((provider) => provider.provider).join(", ")}`
+          : ""
+      }`,
+    );
+  const status = policyOnChain(held, id, flags.provider);
+  if (!status)
+    throw new CliError(
+      `No policy ${id} on this wallet or on chain: aomi policy list`,
+    );
+  if (remove && !("entry" in status && status.kind !== "not_deployed"))
+    throw new CliError(`Nothing on chain for ${id}`);
+  if (!remove && status.kind === "chain_only")
+    throw new CliError(
+      `Aomi no longer holds ${id}. To take it off the chain: aomi policy undeploy ${id}`,
+    );
+  if (status.kind === "aomi_only")
+    throw new CliError(
+      `No on-chain provider can hold this policy${status.note ? ` (${status.note})` : ""}. Aomi checks it on every commit`,
+    );
+  const { entry } = status;
+  if (!remove && !entry.ready) {
+    if (status.kind !== "in_sync")
+      throw new CliError(
+        `${entry.name} has nothing to deploy for it${entry.note ? `: ${entry.note}` : ""}`,
+      );
+    return flags.json
+      ? json({ settled: true, on_chain: status.kind, rules: held })
+      : out(`Already ${onChain(status)}`);
+  }
+  const { family } = entry.signer;
+  const local = aomi.wallet?.[family]?.address;
+  const owner = entry.signer.address ?? local;
+  const verb = remove ? "undeploy" : "deploy";
+  if (!local || !owner)
+    throw new CliError(
+      `No local ${family === "evm" ? "EVM" : "Solana"} key for the wallet that owns this policy${
+        entry.signer.address ? ` (${entry.signer.address})` : ""
+      }: aomi wallets signer set, or ${verb} it at ${baseUrlOf(flags)}`,
+      3,
+    );
+  if (
+    family === "evm"
+      ? local.toLowerCase() !== owner.toLowerCase()
+      : local !== owner
+  )
+    throw new CliError(
+      `The local signer ${local} is not ${owner}, the wallet that owns this policy. Nothing was signed`,
+    );
+  const kind = expectedPolicyAction(entry, remove);
+  const policy = held.rules.rules.find((one) => idOf(one) === id);
+  const say = (line: string) => void (flags.json || out(line));
+  const row = (name: string, text: string) =>
+    say(`  ${name.padEnd(11)}  ${text}`);
+  say(`${remove ? "Undeploy" : "Deploy"}: ${policy ? sentence(policy) : id}`);
+  row("provider", `${entry.name} on ${entry.network}`);
+  row(
+    "signer",
+    `${owner} (local key) ${entry.signer.address ? "owns this policy" : "will own it on chain"}`,
+  );
+  row("action", ACTIONS[kind]);
+  if (!flags.yes && !(await confirm("Sign and send?")))
+    throw new CliError("Not sent");
+  let asked = false;
+  const signer = policySigner(aomi, flags);
+  /** The same step, said once the wallet has done it. */
+  const said = <In, Out>(act?: (input: In) => Promise<Out>) =>
+    act &&
+    (async (input: In) => {
+      const result = await act(input);
+      row("sign + send", kind === "typed_data" ? "signed" : "sent");
+      return result;
+    });
+  let result;
+  try {
+    result = await aomi.account.policy.enforce(
+      walletId,
+      entry,
+      {
+        evmAddress: signer.evmAddress,
+        signTypedData: said(signer.signTypedData),
+        sendEvmTransaction: said(signer.sendEvmTransaction),
+        sendSolanaTransaction: said(signer.sendSolanaTransaction),
+      },
+      {
+        revision: held.revision,
+        owner,
+        remove,
+        onAction: (action) => {
+          // Thrown before the wallet is asked: nothing is signed.
+          if (action.kind !== kind)
+            throw new CliError(
+              `Aomi asked for another action (${ACTIONS[action.kind]}) than the one you confirmed. Nothing was signed`,
+            );
+          asked = true;
+          row("prepare", "ready to sign");
+        },
+      },
+    );
+  } catch (error) {
+    refusal(error, baseUrlOf(flags));
+  }
+  const { policies, settled } = result;
+  const now = policyOnChain(policies, id);
+  if (flags.json)
+    return json({ settled, on_chain: now?.kind ?? null, rules: policies });
+  if (!asked) {
+    row("prepare", "the chain already matches");
+    row("sign + send", "nothing to sign");
+  }
+  row("confirm", settled ? "Aomi read the chain" : "not on Aomi's node yet");
+  out(`On chain: ${now ? onChain(now) : "nothing"}`);
+  printNext(
+    settled
+      ? nextLines(flags, policies)
+      : ["aomi policy list   check again before sending anything more"],
+  );
+}
+
+/** `aomi policy deploy <policy-id>`: put a policy Aomi holds on chain. */
+export const deploy = (flags: EnforceFlags, id: string) =>
+  enforce(flags, id, false);
+
+/** `aomi policy undeploy <policy-id>`: take it off, held by Aomi or not. */
+export const undeploy = (flags: EnforceFlags, id: string) =>
+  enforce(flags, id, true);
