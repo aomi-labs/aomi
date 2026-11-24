@@ -28,6 +28,7 @@ const DEV_PUBLIC_KEY = [
 
 const env: EdgeEnv = {
   BUILD_HOSTS: "build.example",
+  BUILD_GITHUB_CLIENT_ID: "Iv23staging",
   BUILD_UPSTREAM_ORIGIN: UPSTREAM,
   BUILD_SESSION_SECRET: SECRET,
   BACKEND_ORIGINS: BACKEND,
@@ -119,12 +120,12 @@ beforeEach(() => {
 });
 
 describe("build surface: GitHub sign-in", () => {
-  it("starts OAuth at GitHub with the staging app and a signed request cookie", async () => {
+  it("starts OAuth at GitHub with the environment's app and a signed request cookie", async () => {
     const response = await build("/api/build/auth/github/login?resume=template&platform=web");
     expect(response.status).toBe(302);
     const location = new URL(response.headers.get("location")!);
     expect(location.origin + location.pathname).toBe("https://github.com/login/oauth/authorize");
-    expect(location.searchParams.get("client_id")).toBe("Iv23lilgvJz13pJekLSZ");
+    expect(location.searchParams.get("client_id")).toBe("Iv23staging");
     expect(location.searchParams.get("redirect_uri")).toBe(`${BUILD}/api/build/auth/github/callback`);
     const cookie = cookiesOf(response).aomi_github_oauth_request;
     expect(cookie.raw).toMatch(/HttpOnly; SameSite=Lax; Max-Age=600; Secure/);
@@ -144,11 +145,17 @@ describe("build surface: GitHub sign-in", () => {
     expect(wrong.headers.get("allow")).toBe("GET");
   });
 
+  it("refuses to start sign-in without the environment's client id", async () => {
+    const unset: EdgeEnv = { ...env, BUILD_GITHUB_CLIENT_ID: " " };
+    const response = await handleRequest(new Request(`${BUILD}/api/build/auth/github/login`), unset, world);
+    expect(response.status).toBe(503);
+  });
+
   it.each([
-    { topology: "default", expected: "Iv23lilgvJz13pJekLSZ" },
-    { topology: "production", expected: "Iv23li4wPpAfoGOJ6v0Q" },
-  ] as const)("selects the committed OAuth client for $topology", async ({ topology, expected }) => {
-    const deployment: EdgeEnv = { ...env, EDGE_TOPOLOGY: topology };
+    { topology: "rc", expected: "Iv23rc" },
+    { topology: "production", expected: "Iv23production" },
+  ] as const)("uses the configured OAuth client on $topology", async ({ topology, expected }) => {
+    const deployment: EdgeEnv = { ...env, EDGE_TOPOLOGY: topology, BUILD_GITHUB_CLIENT_ID: expected };
     const login = await handleRequest(new Request(`${BUILD}/api/build/auth/github/login`), deployment, world);
     const authorize = new URL(login.headers.get("location")!);
     expect(authorize.searchParams.get("client_id")).toBe(expected);

@@ -37,6 +37,7 @@ const SETTINGS = [
   "AOMI_AUTH_DOMAIN",
   "AOMI_TRUSTED_ORIGINS",
   "BUILD_HOSTS",
+  "BUILD_GITHUB_CLIENT_ID",
   "LANDING_HOSTS",
   "CORS_ALLOWED_HOST_PATTERNS",
   "TASK_CORS_PUBLIC_ORIGINS",
@@ -132,6 +133,8 @@ export function deployArgs(env = process.env) {
   if (vars.BETTER_AUTH_URL && new URL(vars.BETTER_AUTH_URL).protocol !== "https:")
     throw new Error("BETTER_AUTH_URL must use https");
   if (vars.LANDING_HOSTS) required("LANDING_UPSTREAM_ORIGIN", env);
+  // Build's GitHub sign-in needs the environment's own one-shot App.
+  if (vars.BUILD_HOSTS) required("BUILD_GITHUB_CLIENT_ID", env);
   return [
     "wrangler",
     "deploy",
