@@ -537,6 +537,7 @@ export type {
   AomiWalletPolicies,
 } from "./account/policy";
 export {
+  AomiPolicySentError,
   DELEGATION_MANAGER,
   enforcementKey,
   sendsRevocation,

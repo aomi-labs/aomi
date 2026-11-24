@@ -1,6 +1,7 @@
 import {
   AomiApiError,
   AomiPolicyFieldError,
+  AomiPolicySentError,
   POLICY_ERROR_CODES,
   assetChain,
   assetNetwork,
@@ -789,14 +790,12 @@ async function enforce(
   if (!flags.yes && !(await confirm(kind ? "Sign and send?" : "Confirm?")))
     throw new CliError("Not sent");
   let asked = false;
-  let sent: string | undefined;
   const signer = policySigner(aomi, flags);
   /** The same step, said once the wallet has done it. */
   const said = <In, Out>(act?: (input: In) => Promise<Out>) =>
     act &&
     (async (input: In) => {
       const result = await act(input);
-      if (kind !== "typed_data" && typeof result === "string") sent = result;
       // A sent transaction is named at once: whatever follows, it is out.
       row(
         "sign + send",
@@ -835,17 +834,19 @@ async function enforce(
   } catch (error) {
     // What was sent is out, whatever failed after it: a script must not
     // send it again for want of its reference.
+    const sent = error instanceof AomiPolicySentError ? error : null;
+    const cause = sent ? sent.cause : error;
     if (flags.json && sent)
       json({
         error: {
-          message: messageOf(error),
-          ...(error instanceof AomiApiError ? { code: error.code } : {}),
-          transaction: sent,
+          message: messageOf(cause),
+          ...(cause instanceof AomiApiError ? { code: cause.code } : {}),
+          transaction: sent.transaction,
         },
       });
-    if (error instanceof AomiApiError && error.code === "account_not_found")
+    if (cause instanceof AomiApiError && cause.code === "account_not_found")
       throw notOwnWallet(flags, family, owner);
-    refusal(error, baseUrlOf(flags));
+    refusal(cause, baseUrlOf(flags));
   }
   const { policies, settled, transaction } = result;
   const now = policyOnChain(policies, id, flags.provider);

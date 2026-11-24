@@ -96,6 +96,21 @@ function deploysVaultOf(data: string, owner: string): boolean {
   }
 }
 
+/**
+ * A step failed after the wallet sent `transaction` (a Solana signature or an
+ * EVM hash): it is out, whatever `cause` says. A signer throws it too, when
+ * what it sent reverts.
+ */
+export class AomiPolicySentError extends Error {
+  constructor(
+    readonly transaction: string,
+    readonly cause: unknown,
+  ) {
+    super(cause instanceof Error ? cause.message : String(cause));
+    this.name = "AomiPolicySentError";
+  }
+}
+
 const notSettled = (cause: unknown) =>
   cause instanceof AomiApiError && cause.code === "chain_not_settled";
 
@@ -301,7 +316,8 @@ export type AomiPolicyEnforceOptions = {
  * Deploy, replace or `remove` the entry's policy with the owner's wallet.
  * `settled` is false when a sent transaction is not on the backend's node
  * yet: read again before sending anything more. `transaction` is what the
- * wallet sent, a Solana signature or an EVM hash, when it said.
+ * wallet sent, a Solana signature or an EVM hash, when it said. A failure
+ * after it was sent is an `AomiPolicySentError`, which carries it.
  */
 export async function enforcePolicy(
   transport: Pick<
@@ -349,6 +365,9 @@ export async function enforcePolicy(
     ));
   }
   const onChain = action ? action.kind !== "typed_data" : false;
+  /** What was sent stays with whatever fails after it. */
+  const lost = (cause: unknown) =>
+    transaction ? new AomiPolicySentError(transaction, cause) : cause;
   // The backend records a Solana transaction's signature, and refuses
   // anything else there after it is sent.
   const proof =
@@ -367,7 +386,7 @@ export async function enforcePolicy(
       retryDelayMs,
     ).catch((cause: unknown) => {
       if (onChain && notSettled(cause)) return null;
-      throw cause;
+      throw lost(cause);
     });
   let policies = await confirm();
   // No signature proves a sent tx: policies come back unchanged until the
@@ -396,7 +415,9 @@ export async function enforcePolicy(
   // Sent and still unseen: the caller keeps the transaction, not an error.
   if (!policies)
     return {
-      policies: await transport.get(agentWalletId),
+      policies: await transport.get(agentWalletId).catch((cause: unknown) => {
+        throw lost(cause);
+      }),
       settled: false,
       ...said,
     };

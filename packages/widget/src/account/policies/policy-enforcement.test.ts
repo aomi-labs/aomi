@@ -4,6 +4,7 @@ import type {
   AomiPolicyEnforcement,
   AomiPolicySigner,
 } from "@aomi-labs/client";
+import { AomiPolicySentError } from "@aomi-labs/client";
 import { failureText, usePolicyEnforcement } from "./policy-enforcement";
 
 const kit = vi.hoisted(() => ({
@@ -113,6 +114,13 @@ describe("the connected wallet as the SDK's policy signer", () => {
     });
     expect(error).toMatch(/send funds/);
     expect(kit.sendTransaction).not.toHaveBeenCalled();
+    // A step that failed after the send still names what was sent.
+    const after = await run(async () => {
+      throw new AomiPolicySentError("0xsent", new Error("The node is down."));
+    });
+    expect(after.error).toBe(
+      "The node is down. Your transaction 0xsent was sent: check again before sending anything more.",
+    );
   });
 });
 

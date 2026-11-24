@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  AomiPolicySentError,
   enforcementKey,
   expectedPolicyAction,
   shortAddress,
@@ -237,13 +238,19 @@ export function usePolicyEnforcement({
         }));
         onStale();
       }
-    } catch (cause) {
+    } catch (thrown) {
+      const sent = thrown instanceof AomiPolicySentError ? thrown : null;
+      const cause = sent ? sent.cause : thrown;
       const raw = failureText(cause);
       setErrors((held) => ({
         ...held,
         [key]: isExpectedWalletCancellation(cause)
           ? "Signature declined. Nothing changed."
-          : policyFailure(cause, raw || "That didn’t go through. Try again."),
+          : `${policyFailure(cause, raw || "That didn’t go through. Try again.")}${
+              sent
+                ? ` Your transaction ${sent.transaction} was sent: check again before sending anything more.`
+                : ""
+            }`,
       }));
       onStale();
     } finally {

@@ -6,6 +6,7 @@ import type {
 } from "./policy";
 import { AomiApiError } from "../api-error";
 import {
+  AomiPolicySentError,
   enforcePolicy,
   signableTypedData,
   type AomiPolicySigner,
@@ -212,8 +213,13 @@ describe("a transaction that was sent and the backend's node never shows", () =>
       },
       { solanaAddress: SOLANA_OWNER, sendSolanaTransaction },
     );
-    await expect(refusedAfterSend.result).rejects.toMatchObject({
-      code: "rules_changed",
+    // What was sent stays with the refusal that followed it.
+    const refusal = await refusedAfterSend.result.catch((cause) => cause);
+    expect(refusal).toBeInstanceOf(AomiPolicySentError);
+    expect(refusal).toMatchObject({
+      transaction: "5igSent",
+      message: "changed",
+      cause: { code: "rules_changed" },
     });
     expect(refusedAfterSend.transport.confirmEnforcement).toHaveBeenCalledTimes(
       1,
