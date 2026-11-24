@@ -21,6 +21,7 @@ import {
   type AomiPublicPackage,
   type MentionItem,
 } from "@aomi-labs/client";
+import { plain } from "../trace";
 
 /** Everything "@" can tag, as the composer's picker lists it. */
 export async function mentionCatalog(
@@ -46,7 +47,7 @@ export async function mentionCatalog(
       : aomi.account.wallets.list().catch(() => [] as AomiAccountWallet[]),
   ]);
   const chainName = (id: number) => CHAIN_NAMES[id] ?? String(id);
-  return [
+  const items: MentionItem[] = [
     ...agents.map((card): MentionItem => {
       const { displayName, category } = resolveAgentIdentity(card);
       return {
@@ -78,6 +79,12 @@ export async function mentionCatalog(
     },
     ...walletItems(wallets),
   ];
+  // Drawn, and typed into the editor, beside a pending decision.
+  return items.map((item) => ({
+    ...item,
+    label: plain(item.label),
+    ...(item.description && { description: plain(item.description) }),
+  }));
 }
 
 /** The account's wallets, one entry per wallet: an agent wallet's EVM and SVM keys are one. */

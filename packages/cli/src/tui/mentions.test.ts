@@ -44,6 +44,19 @@ describe("mentionCatalog", () => {
     ).toEqual(["aomi/defillama"]);
   });
 
+  it("draws and inserts nothing a terminal acts on", async () => {
+    const list = async () => ({
+      packages: [
+        row({ display_name: "De\u001b[2KFi", description: "\u202ex" }),
+      ],
+    });
+    const items = await mentionCatalog(client(list), "thread-1");
+    const { label, description } = items.find(
+      (item) => item.kind === "package",
+    )!;
+    expect(`${label}${description}`).not.toMatch(/[\u001b\u202e]/);
+  });
+
   it("reads aomi/main's packages before the thread is stored", async () => {
     const list = vi.fn(async (options?: { threadId?: string }) => {
       if (options?.threadId) throw new Error("session_not_found");

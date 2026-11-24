@@ -38,12 +38,11 @@ export const packageState = (row: AomiPackage) =>
   `${row.enabled ? "on" : "off"} (${REASONS[row.reason]})`;
 
 /** What its guards check, never more than they do; none when nothing is. */
-function checkedLine({ checked }: AomiPackage): string | undefined {
-  if (!checked) return undefined;
+function checkedLine({ checked, verified }: AomiPackage): string | undefined {
+  if (!checked || !verified) return undefined;
   const { actions, contracts, evaluator } = checked;
-  if (!actions.length)
-    return `checked by ${evaluator ?? "a built-in guard"} before you approve`;
-  return `checked before you approve: ${actions.join(", ")} on ${contracts} contract${contracts === 1 ? "" : "s"}`;
+  if (!actions.length) return `checked by ${evaluator ?? "a built-in guard"}`;
+  return `checked: ${actions.join(", ")} on ${contracts} contract${contracts === 1 ? "" : "s"}`;
 }
 
 /** What the live release may reach, in the words the person approves. */
@@ -55,7 +54,7 @@ export function notice(row: AomiPackage): string[] {
   ];
   if (row.prepares.length)
     lines.push(
-      `  prepare ${row.prepares.map((family) => FAMILIES[family]).join(" and ")} transactions for you to approve`,
+      `  prepare ${row.prepares.map((family) => FAMILIES[family]).join(" and ")} transactions`,
     );
   for (const signature of signatures)
     lines.push(
@@ -181,13 +180,11 @@ export async function on(
 }
 
 /** Add a private package with its code. An unverified one asks before it turns on. */
-export async function add(
-  flags: Flags & { yes?: boolean },
-  code: string,
-): Promise<void> {
+export async function add(flags: Flags & { yes?: boolean }): Promise<void> {
+  const code = (await readSecret("Code: ")).trim();
   const aomi = await connect(flags);
   const row = await aomi.account.packages
-    .activate(code.trim())
+    .activate(code)
     .catch((error: unknown) => {
       if (isAomiError(error, "code_invalid"))
         throw new CliError("That code isn't valid");
@@ -219,7 +216,7 @@ export async function remove(
 }
 
 export const removal = (row: AomiPackage) =>
-  `Remove ${plain(row.display_name)}? It leaves your Library and your saved keys for it are deleted. You can add it again with its code.`;
+  `Remove ${plain(row.display_name)}? It leaves your Library and your saved keys for it are permanently deleted. Adding it again needs a valid code from its publisher.`;
 
 export async function off(flags: Flags, ref: string): Promise<void> {
   const aomi = await connect(flags);

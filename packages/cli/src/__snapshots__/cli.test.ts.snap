@@ -136,7 +136,7 @@ COMMANDS
 
 exports[`help > prints ["tx","approve"] --help 1`] = `
 "USAGE
-  aomi tx approve [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--yes] [--wait] <ref>
+  aomi tx approve [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--yes] [--version n] [--wait] <ref>
   aomi tx approve --help
 
 Approve a commit waiting for you
@@ -146,7 +146,8 @@ FLAGS
      [--private-key]         Sign in with this EVM key (SIWE) and sign with it; env AOMI_PRIVATE_KEY
      [--solana-private-key]  Sign in with this Solana key (SIWS) and sign with it; env AOMI_SOLANA_PRIVATE_KEY
      [--cluster]             Solana cluster: mainnet, devnet or testnet
-     [--yes/--no-yes]        Approve without asking
+     [--yes/--no-yes]        Skip the question; needs --version
+     [--version]             Only at this version, as tx review --json shows it
      [--wait/--no-wait]      Follow it until it settles (--no-wait skips)                                      [default = true]
   -h  --help                 Print help information and exit
 
@@ -159,9 +160,9 @@ exports[`help > prints ["tx"] --help 1`] = `
 "USAGE
   aomi tx list [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--thread id]
   aomi tx review [--json] [--private-key hex] [--solana-private-key key] [--cluster name] <ref>
-  aomi tx approve [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--yes] [--wait] <ref>
-  aomi tx reject [--json] [--private-key hex] [--solana-private-key key] [--cluster name] <ref>
-  aomi tx sign [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--rpc-url url] [--chain id] [--yes] <ref>
+  aomi tx approve [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--yes] [--version n] [--wait] <ref>
+  aomi tx reject [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--yes] [--version n] <ref>
+  aomi tx sign [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--rpc-url url] [--chain id] [--yes] [--version n] <ref>
   aomi tx export [--private-key hex] [--solana-private-key key] [--cluster name] <ref>
   aomi tx --help
 
@@ -174,7 +175,7 @@ COMMANDS
   list     What the thread left to sign or approve
   review   One commit: state, chain, signer, review
   approve  Approve a commit waiting for you
-  reject   Reject a commit
+  reject   Show a commit, then reject it
   sign     Show a commit, then sign it with the local signer
   export   The exact reviewed commit, for an external signer
 "

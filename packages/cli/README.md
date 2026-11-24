@@ -29,9 +29,16 @@ Two ways, nothing else:
   mainnet).
 
 What a local key signs goes out on `--rpc-url`, which is kept for this backend
-and chain once it answers as that chain. Without one, production uses the
-public RPC; any other backend asks for one, since its chains may be local
-copies. `tx sign` shows what it signs and asks; `--yes` skips the question.
+and chain, else on production's public RPC. Another backend's chains may be
+local copies, so there a key sends no EVM transaction, and a Solana one only on
+an RPC that knows the block Aomi built it on.
+
+`tx sign`, `tx approve` and `tx reject` show the commit and decide it only when
+they show all of it: every call from its bytes, every amount and fee, the full
+message, every member of a batch. Anything else, such as a call they can't
+decode or a batch a local key would sign, is for the sign page (exit 3). They
+ask; a script passes `--yes --version <n>` with the version it reviewed in
+`tx review --json`.
 
 Without either you are a guest: chat and public reads work, and the guest's
 threads stay yours on this machine.
@@ -55,32 +62,32 @@ https://aomi.chat/sign/7f3c…
 `--json` makes stdout NDJSON: `step`, `reply` and `commit` events.
 
 Exit codes: 0 ok, 1 error, 2 usage, 3 waiting for an approval, a signature or a
-sign-in.
+sign-in, 4 sent but not settled yet.
 
 ## Commands
 
-| Command                           | What it does                                                                                                                                                                                |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `chat [message]`                  | Ask once (`-p`) or open the chat screen. `--thread`, `--new`, `--agent`, `--model`                                                                                                          |
-| `threads`                         | `list`, `open <id>`, `new`, `rename <id> <title>`, `archive <id>`                                                                                                                           |
-| `login`, `logout`, `whoami`       | Sign in and out                                                                                                                                                                             |
-| `account`                         | Profile; `connections`, `unlink`, `credits`, `fund`, `statement`                                                                                                                            |
-| `wallets`                         | Agent wallets: `list`, `balance <id>`, `use <id>`; the local `signer` (`show`, `set`, `clear`)                                                                                              |
-| `rules`                           | Each agent wallet's rules, today's use and waiting change; `approve <change-id>`, `decline <change-id>`                                                                                     |
-| `tx`                              | `list`, `review <ref>`, `approve <ref>`, `reject <ref>`, `sign <ref>`, `export <ref>`                                                                                                       |
-| `guard [strict\|balanced\|yolo]`  | The thread's guard, or `--account`'s default                                                                                                                                                |
-| `library`                         | `list [--search --chain --tag --on]`, `show <id>`, `on <id>`, `off <id>`, `reset <id>` (each with `--thread`), `add <code>`, `remove <id>`, `connect <id> <slot>`, `disconnect <id> <slot>` |
-| `pipeline`                        | `ops`, `op`, `agents`, `packages`, `package`, `invoke`, `stage [--commit]`                                                                                                                  |
-| `build`                           | Author packages and agents: `init`, `new package\|agent`, `contracts add`, `tool add`, `gen`, `doctor`, `test`, `pack`                                                                      |
-| `build publish`                   | Build and upload the root `aomi.toml`'s packages and agents. `--promote`, `--package`, `--agent`, `--no-build`, `--wasm name=path`                                                          |
-| `build promote`, `build rollback` | `<package\|agent> <name> <number>`: make a release live; rollback names the release to go back to                                                                                           |
-| `build codes`                     | `create <package> [--agent <id>]`, `list <package>`, `revoke <package> <id>`: activation codes for a private package                                                                        |
-| `build releases`                  | `<package\|agent> <name>`: every release, newest first                                                                                                                                      |
-| `model`, `chain`                  | `current`, `list`, `set`                                                                                                                                                                    |
-| `keys`                            | Your own provider keys: `list`, `set <provider>`, `remove`                                                                                                                                  |
-| `secret`                          | `list`, `add NAME=value…`, `clear`                                                                                                                                                          |
-| `config`                          | `current`, `set-backend <url>`                                                                                                                                                              |
-| `completion`                      | `eval "$(aomi completion)"`                                                                                                                                                                 |
+| Command                           | What it does                                                                                                                                                                         |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `chat [message]`                  | Ask once (`-p`) or open the chat screen. `--thread`, `--new`, `--agent`, `--model`                                                                                                   |
+| `threads`                         | `list`, `open <id>`, `new`, `rename <id> <title>`, `archive <id>`                                                                                                                    |
+| `login`, `logout`, `whoami`       | Sign in and out                                                                                                                                                                      |
+| `account`                         | Profile; `connections`, `unlink`, `credits`, `fund`, `statement`                                                                                                                     |
+| `wallets`                         | Agent wallets: `list`, `balance <id>`, `use <id>`; the local `signer` (`show`, `set`, `clear`)                                                                                       |
+| `rules`                           | Each agent wallet's rules, today's use and waiting change; `approve <change-id>`, `decline <change-id>`                                                                              |
+| `tx`                              | `list`, `review <ref>`, `approve <ref>`, `reject <ref>`, `sign <ref>`, `export <ref>`                                                                                                |
+| `guard [strict\|balanced\|yolo]`  | The thread's guard, or `--account`'s default                                                                                                                                         |
+| `library`                         | `list [--search --chain --tag --on]`, `show <id>`, `on <id>`, `off <id>`, `reset <id>` (each with `--thread`), `add`, `remove <id>`, `connect <id> <slot>`, `disconnect <id> <slot>` |
+| `pipeline`                        | `ops`, `op`, `agents`, `packages`, `package`, `invoke`, `stage [--commit]`                                                                                                           |
+| `build`                           | Author packages and agents: `init`, `new package\|agent`, `contracts add`, `tool add`, `gen`, `doctor`, `test`, `pack`                                                               |
+| `build publish`                   | Build and upload the root `aomi.toml`'s packages and agents. `--promote`, `--package`, `--agent`, `--no-build`, `--wasm name=path`                                                   |
+| `build promote`, `build rollback` | `<package\|agent> <name> <number>`: make a release live; rollback names the release to go back to                                                                                    |
+| `build codes`                     | `create <package> [--agent <id>]`, `list <package>`, `revoke <package> <id>`: activation codes for a private package                                                                 |
+| `build releases`                  | `<package\|agent> <name>`: every release, newest first                                                                                                                               |
+| `model`, `chain`                  | `current`, `list`, `set`                                                                                                                                                             |
+| `keys`                            | Your own provider keys: `list`, `set <provider>`, `remove`                                                                                                                           |
+| `secret`                          | `list`, `add NAME=value…`, `clear`                                                                                                                                                   |
+| `config`                          | `current`, `set-backend <url>`                                                                                                                                                       |
+| `completion`                      | `eval "$(aomi completion)"`                                                                                                                                                          |
 
 Credential and key values come from stdin or a hidden prompt, never argv.
 `--chain` takes a decimal chain id.
@@ -111,10 +118,10 @@ reusable workflow `aomi-labs/aomi/.github/workflows/publish-packages.yml`.
 
 `aomi` opens it. Each turn shows "Worked Ns · N steps" (ctrl+o expands the
 steps), the reply, and a card for a commit that waits for you: its decoded
-steps, what they change, the simulation and whether guards cover it. `a`
-approves, `s` signs with the key on this machine after a second, explicit yes,
-`r` rejects, `o` opens the sign page, `d` shows details. A commit that changed
-meanwhile is shown again, never signed.
+steps, what they change, the simulation and whether guards cover it. After a
+second, explicit yes `a` approves, `s` signs with the key on this machine and
+`r` rejects; `o` opens the sign page, the only key on a card that can't show
+everything. A commit that changed meanwhile is shown again, never decided.
 
 Type `/` for `/model` (a list, Auto first), `/guard` (Strict, Balanced or Yolo
 for the thread), `/library` (search, turn on or off, show, remove;

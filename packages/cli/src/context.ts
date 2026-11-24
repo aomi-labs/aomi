@@ -14,8 +14,9 @@ import {
   wallet,
   type AgentCard,
   type AomiAuthStrategy,
+  type AomiWalletStrategy,
   type AgentTarget,
-  type CommitView,
+  type CommitRefView,
   type SvmCluster,
 } from "@aomi-labs/client";
 import { viemSigner } from "@aomi-labs/client/viem";
@@ -23,10 +24,11 @@ import { createWalletClient, http, type Chain } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import * as chains from "viem/chains";
 import { grants, loadState, updateState, type CliState } from "./state";
+import { plain, plainText } from "./trace";
 
 export const DEFAULT_BASE_URL = "https://aomi.chat";
 
-/** Exit codes: 0 ok, 1 error, 2 usage, 3 needs approval or sign-in. */
+/** Exit codes: 0 ok, 1 error, 2 usage, 3 needs approval or sign-in, 4 pending. */
 export class CliError extends Error {
   constructor(
     message: string,
@@ -169,6 +171,11 @@ export async function connect(
   const evmKey = key ?? (state.evmKey as `0x${string}` | undefined);
   const svmKey = solanaKey ?? state.svmKey;
   const cluster = clusterOf(flags, state);
+  const rpc: Sending["rpc"] = new Map();
+  const rpcOn = (chain: string) => {
+    if (!rpc.has(chain)) throw new CliError(`No RPC checked for ${chain}`);
+    return rpc.get(chain);
+  };
   // Each signs for any chain and sends on that chain's own RPC.
   const evmOn = (id: number, rpcUrl?: string) =>
     viemSigner(
@@ -188,118 +195,154 @@ export async function connect(
   const signer = {
     evm: evmKey
       ? {
-          ...evmOn(flags.chain ?? state.chain ?? 1, flags.rpcUrl),
-          broadcastTransaction: async (signed: string, id: number) =>
-            evmOn(id, rpcOf(flags, "evm", String(id))).broadcastTransaction!(
-              signed,
-              id,
+          ...evmOn(flags.chain ?? state.chain ?? 1),
+          broadcastTransaction: (signed: string, id: number) =>
+            sent(async () =>
+              evmOn(id, rpcOn(`eip155:${id}`)).broadcastTransaction!(
+                signed,
+                id,
+              ),
             ),
         }
       : undefined,
     svm: svmKey
       ? {
           ...svmOn(cluster),
-          broadcastTransaction: async (signed: string, name: string) =>
-            svmOn(parseCluster(name), rpcOf(flags, "svm", name))
-              .broadcastTransaction!(signed, name),
+          broadcastTransaction: (signed: string, name: string) =>
+            sent(async () => {
+              const chain = parseCluster(name);
+              const url = rpcOn(chain);
+              if (url) await knowsBlock(url, signed, chain);
+              return svmOn(chain, url).broadcastTransaction!(signed, name);
+            }),
         }
       : undefined,
   };
-  const common = {
-    baseUrl,
-    apiKey: flags.apiKey ?? process.env.AOMI_API_KEY,
-    ...(signer.evm || signer.svm ? { signer } : {}),
+  const open = (
+    as:
+      | { auth: AomiAuthStrategy | AomiWalletStrategy }
+      | { guest: ReturnType<typeof persistedGuest> },
+  ) => {
+    const aomi = new Aomi({
+      baseUrl,
+      apiKey: flags.apiKey ?? process.env.AOMI_API_KEY,
+      ...(signer.evm || signer.svm ? { signer } : {}),
+      ...as,
+    });
+    sending.set(aomi, { baseUrl, rpc });
+    return aomi;
   };
   if (key)
-    return new Aomi({
-      ...common,
+    return open({
       auth: wallet(privateKeyToAccount(key), {
         chainId: flags.chain ?? state.chain,
       }),
     });
-  if (solanaKey && signer.svm)
-    return new Aomi({ ...common, auth: wallet(signer.svm) });
+  if (solanaKey && signer.svm) return open({ auth: wallet(signer.svm) });
   if (await signedIn(baseUrl))
-    return new Aomi({ ...common, auth: await deviceAuth(baseUrl, onCode) });
-  return new Aomi({ ...common, guest: persistedGuest(baseUrl, state) });
+    return open({ auth: await deviceAuth(baseUrl, onCode) });
+  return open({ guest: persistedGuest(baseUrl, state) });
 }
+
+/** A connection's backend, and the RPC `rpcReady` passed per chain
+ * (undefined is the public one): the only one it sends on. */
+type Sending = { baseUrl: string; rpc: Map<string, string | undefined> };
+const sending = new WeakMap<Aomi, Sending>();
 
 /** Where public RPCs reach the chains the commits are on; elsewhere (a local
  * stack) they reach the real chain, which a signed copy would then be sent to. */
-const PRODUCTION = new Set(["aomi.chat", "api.aomi.dev"]);
+const PRODUCTION = new Set(["https://aomi.chat/", "https://api.aomi.dev/"]);
 
 const chainKey = (family: string, ref: string) =>
   family === "svm" ? parseCluster(ref) : `eip155:${ref}`;
 
-/** The RPC that sends on a chain; undefined is the public one. Saved per
- * backend, so a local stack never shares one with production. */
-function rpcOf(
-  flags: ConnectFlags,
-  family: string,
-  ref: string,
-): string | undefined {
-  const state = loadState();
-  const base = baseUrlOf(flags, state);
-  const url = flags.rpcUrl ?? state.rpc?.[base]?.[chainKey(family, ref)];
-  if (!url && !PRODUCTION.has(new URL(base).hostname))
-    throw new CliError(`No RPC for ${chainKey(family, ref)}: pass --rpc-url`);
-  return url;
+async function rpcCall(url: string, method: string, params: unknown[]) {
+  const answer = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+  })
+    .then((response) => response.json() as Promise<{ result?: unknown }>)
+    // Its URL may hold a key, so no error names it.
+    .catch(() => undefined);
+  if (!answer?.result) throw new CliError("The RPC doesn't answer");
+  return answer.result;
 }
 
-/** Each cluster by the start of its genesis hash, as CAIP-2 names it. */
-const GENESIS: Record<string, SvmCluster> = {
-  "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp": "solana:mainnet",
-  EtWTRABZaYq6iMfeYKouRu166VU2xqa1: "solana:devnet",
-  "4uhcVJyU9pJkvQyS88uRDiswHScCKQY3": "solana:testnet",
-};
+/** A Solana RPC is on the commit's chain, and no copy of it, when it knows
+ * the block Aomi put in the transaction. */
+async function knowsBlock(url: string, signed: string, chain: string) {
+  const { VersionedTransaction } = await import("@solana/web3.js");
+  const { message } = VersionedTransaction.deserialize(
+    Buffer.from(signed, "base64"),
+  );
+  const known = await rpcCall(url, "isBlockhashValid", [
+    message.recentBlockhash,
+    { commitment: "processed" },
+  ]);
+  if (!(known as { value?: boolean }).value)
+    throw new CliError(
+      `Not sent: the RPC doesn't know the block Aomi built this on, so it isn't Aomi's ${chain}`,
+    );
+}
+
+/** A refused send, without the RPC's URL or the signed bytes. */
+async function sent<T>(send: () => Promise<T>): Promise<T> {
+  try {
+    return await send();
+  } catch (error) {
+    if (error instanceof CliError) throw error;
+    const { details, message } = error as {
+      details?: unknown;
+      message: string;
+    };
+    throw new CliError(
+      `Not sent: ${plain(String(details ?? message))
+        .replace(/\w+:\/\/\S+/gu, "the RPC")
+        .replace(/[\w+/=]{80,}/gu, "…")}`,
+    );
+  }
+}
 
 /**
- * Before a local key signs what this machine then sends: an RPC for the
- * commit's chain (asked for with `missing` when there is none), kept once it
- * answers as that chain. Signed bytes it cannot send would hold the nonce.
+ * Before a local key signs what this machine then sends: the RPC that sends
+ * it, asked for with `missing` when a Solana commit has none. Signed bytes it
+ * cannot send would hold the nonce.
  */
 export async function rpcReady(
+  aomi: Aomi,
   flags: ConnectFlags,
-  view: CommitView,
+  view: CommitRefView,
   missing: (chain: string) => Promise<string>,
 ): Promise<void> {
   if (view.broadcaster !== "wallet" || isMessageCommit(view)) return;
-  const { chain_family: family, chain_ref: ref } = view;
-  const chain = chainKey(family, ref);
-  let url: string | undefined;
-  try {
-    url = rpcOf(flags, family, ref);
-    if (!url) return;
-  } catch {
-    url = await missing(chain);
+  const { baseUrl, rpc } = sending.get(aomi)!;
+  const evm = view.chain_family === "evm";
+  const chain = chainKey(view.chain_family, view.chain_ref);
+  let url = flags.rpcUrl ?? loadState().rpc?.[baseUrl]?.[chain];
+  if (!PRODUCTION.has(new URL(baseUrl).href)) {
+    // A copy has its chain's id and its blocks, and no review names the block
+    // it ran on: nothing tells the copy's RPC from the real chain's.
+    if (evm)
+      throw new CliError(
+        `This Aomi is not production, so a key here sends nothing for ${chain}: use ${view.sign_url ?? "its sign page"}`,
+        3,
+      );
+    url ??= await missing(chain);
   }
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: family === "svm" ? "getGenesisHash" : "eth_chainId",
-      params: [],
-    }),
-  })
-    .then((answer) => answer.json() as Promise<{ result?: string }>)
-    // Its URL may hold a key, so no error names it.
-    .catch(() => undefined);
-  const result = response?.result;
-  if (!result) throw new CliError(`The RPC doesn't answer for ${chain}`);
-  const is =
-    family === "svm"
-      ? // A local copy has a genesis of its own.
-        (GENESIS[result.slice(0, 32)] ?? chain)
-      : `eip155:${Number(result)}`;
-  if (is !== chain)
-    throw new CliError(`The RPC is on ${is}, the commit on ${chain}`);
-  const state = loadState();
-  const base = baseUrlOf(flags, state);
-  updateState({
-    rpc: { ...state.rpc, [base]: { ...state.rpc?.[base], [chain]: url } },
-  });
+  if (url && evm) {
+    const is = `eip155:${Number(await rpcCall(url, "eth_chainId", []))}`;
+    if (is !== chain)
+      throw new CliError(`The RPC is on ${is}, the commit on ${chain}`);
+  }
+  rpc.set(chain, url);
+  if (url)
+    updateState((state) => ({
+      rpc: {
+        ...state.rpc,
+        [baseUrl]: { ...state.rpc?.[baseUrl], [chain]: url },
+      },
+    }));
 }
 
 /** The agents you can name, as the Portal has them: the one your agent key opens. */
@@ -434,19 +477,28 @@ export function openUrl(url: string): void {
     .unref();
 }
 
-export const out = (line = ""): void => void process.stdout.write(`${line}\n`);
+export const out = (line = ""): void =>
+  void process.stdout.write(`${plainText(line)}\n`);
 export const err = (line = ""): void => void process.stderr.write(`${line}\n`);
-export const json = (value: unknown): void => out(JSON.stringify(value));
+export const json = (value: unknown, indent?: number): void =>
+  void process.stdout.write(`${JSON.stringify(value, null, indent)}\n`);
 
 /** One line: the error, the server's reason, and what to do. */
 export function messageOf(error: unknown): string {
-  if (!(error instanceof Error)) return String(error);
-  const { details, hint } = error as {
-    details?: { error?: { message?: string } };
+  if (!(error instanceof Error)) return plainText(String(error));
+  const { code, details, hint } = error as {
+    code?: string;
+    details?: { error?: { message?: string }; older_commit_ref?: string };
     hint?: string;
   };
+  if (code === "commit_older_review_first")
+    return plain(
+      `An earlier review is still waiting. Sign or reject it first: aomi tx review ${details?.older_commit_ref ?? "<ref>"}`,
+    );
+  if (code === "commit_restage_needed")
+    return "An earlier review was rejected, so this one is out of order. Ask again to prepare it fresh.";
   const reason = details?.error?.message;
-  return [error.message, reason, hint].filter(Boolean).join(": ");
+  return plainText([error.message, reason, hint].filter(Boolean).join(": "));
 }
 
 /** An Aomi failure with the exit code it means here. */

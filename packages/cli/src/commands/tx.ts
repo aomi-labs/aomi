@@ -7,7 +7,6 @@ import {
   type Aomi,
   type CommitHandle,
   type CommitRefView,
-  type CommitReview,
 } from "@aomi-labs/client";
 import {
   ask,
@@ -21,9 +20,8 @@ import {
   usage,
   type ConnectFlags,
 } from "../context";
-import { cardLines, guardLine } from "../review";
+import { Card } from "../review";
 import { loadState } from "../state";
-import { plain } from "../trace";
 
 type Flags = ConnectFlags & { json?: boolean };
 const TIMEOUT_MS = 120_000;
@@ -38,53 +36,6 @@ async function open(aomi: Aomi, ref: string): Promise<CommitHandle> {
   }
 }
 
-/** One line for what the reviewed request does. */
-export function reviewSummary(review: CommitReview | undefined): string {
-  if (!review) return "no review";
-  if (review.type === "sign")
-    return plain(
-      review.description ?? `${review.chainFamily.toUpperCase()} signature`,
-    );
-  const count = review.transactions.length;
-  const labels = review.transactions.flatMap((transaction) =>
-    "label" in transaction && typeof transaction.label === "string"
-      ? [plain(transaction.label)]
-      : [],
-  );
-  const simulation = review.simulation?.status
-    ? ` · simulation ${review.simulation.status}`
-    : "";
-  return `${count} ${review.type === "execute_evm" ? "EVM" : "SVM"} transaction${count === 1 ? "" : "s"}${labels.length ? `: ${labels.join("; ")}` : ""}${simulation}`;
-}
-
-/** The commit itself: where it stands, its chain and who signs. */
-export function metaLines(view: CommitRefView): string[] {
-  const rows: [string, string][] = [
-    ["Commit", view.commit_id],
-    ["State", `${view.state} (version ${view.version})`],
-    ["Chain", `${view.chain_family}:${view.chain_ref}`],
-    ["Signer", view.signer],
-    [
-      "Origin",
-      `${view.origin}${view.origin_agent_id !== null ? ` (agent ${view.origin_agent_id})` : ""} · initiated by ${view.initiator}`,
-    ],
-  ];
-  if (view.transaction_id)
-    rows.push(["Transaction", view.transaction_url ?? view.transaction_id]);
-  rows.push(["Sign URL", view.sign_url]);
-  return rows.map(([label, value]) => `${label.padEnd(11)}  ${value}`);
-}
-
-const reviewLines = (
-  view: CommitRefView,
-  review: CommitReview | undefined,
-): string[] => [
-  ...metaLines(view),
-  "",
-  ...cardLines(view, review),
-  guardLine(review),
-];
-
 /** Where the commit ended up. */
 function outcome(view: CommitRefView): string {
   if (view.state === "confirmed")
@@ -97,17 +48,10 @@ function outcome(view: CommitRefView): string {
 }
 
 /** Follow the whole batch until it is over, or the timeout. */
-async function follow(
-  handle: CommitHandle,
-  sign?: (member: CommitHandle) => Promise<void>,
-): Promise<CommitRefView> {
-  let deadline = Date.now() + TIMEOUT_MS;
+async function follow(handle: CommitHandle): Promise<CommitRefView> {
+  const deadline = Date.now() + TIMEOUT_MS;
   while (!handle.settlement.done && Date.now() < deadline) {
-    const next = handle.next;
-    if (sign && next.view.action && next.canSign()) {
-      await sign(next);
-      deadline = Date.now() + TIMEOUT_MS;
-    } else await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     await handle.refresh();
   }
   const { done, failed, last } = handle.settlement;
@@ -117,8 +61,8 @@ async function follow(
 function finish(flags: Flags, view: CommitRefView) {
   if (flags.json) json(view);
   else out(outcome(view));
-  if (isTerminalCommit(view) && view.state !== "confirmed")
-    process.exitCode = 1;
+  if (view.state !== "confirmed")
+    process.exitCode = isTerminalCommit(view) ? 1 : 4;
 }
 
 /** `aomi tx`: what the current thread left to sign or approve. */
@@ -145,13 +89,68 @@ export async function list(flags: Flags & { thread?: string }): Promise<void> {
 export async function review(flags: Flags, ref: string): Promise<void> {
   const handle = await open(await connect(flags), ref);
   try {
+    const card = new Card(handle.view, handle.review);
     if (flags.json)
-      json({
-        ...handle.view,
-        review_summary: reviewSummary(handle.review),
-        guard: guardLine(handle.review),
-      });
-    else reviewLines(handle.view, handle.review).forEach((line) => out(line));
+      json({ ...handle.view, whole: card.whole, guard: card.guard });
+    else [...card.lines, card.guard].forEach((line) => out(line));
+  } finally {
+    handle.close();
+  }
+}
+
+type Decide = Flags & { yes?: boolean; version?: number };
+
+/** Show the commit; one this card can't show whole is decided on its page. */
+function shown(handle: CommitHandle): Card {
+  const card = new Card(handle.view, handle.review);
+  [...card.lines, card.guard].forEach((line) => err(line));
+  if (!card.whole)
+    throw new CliError(
+      `Review this on the sign page: ${card.view.sign_url}`,
+      3,
+    );
+  return card;
+}
+
+/** A yes to the version drawn: a person's, or --yes for the one it names. */
+async function agreed(flags: Decide, verb: string, card: Card): Promise<void> {
+  const { version } = card.view;
+  if (flags.yes && flags.version === undefined)
+    throw usage("--yes needs --version <n>, as aomi tx review --json shows it");
+  if (flags.version !== undefined && flags.version !== version)
+    throw new CliError(`It is at version ${version} now; review it again`);
+  if (!flags.yes && !(await confirm(`${verb}${card.scope}?`)))
+    throw new CliError(`Did not ${verb.toLowerCase()}`);
+}
+
+/** Decide exactly what was shown: by its ref, every write names its version. */
+export async function act(
+  aomi: Aomi,
+  view: CommitRefView,
+  how: "approve" | "sign" | "reject",
+): Promise<CommitRefView> {
+  const handle = await open(aomi, view.commit_id);
+  try {
+    if (handle.view.version !== view.version)
+      throw new CommitStaleError(
+        "commit_version_conflict",
+        "It changed; review it again",
+      );
+    if (how === "reject") return await handle.reject();
+    if (how === "approve") return await handle.approve(view);
+    return await handle.sign(undefined, {
+      expectedVersion: view.version,
+      expectedReviewDigest: view.review?.digest,
+    });
+  } catch (error) {
+    if (error instanceof CommitApprovalForbiddenError)
+      throw new CliError(
+        `This sign-in can't approve it; approve at ${view.sign_url}`,
+        3,
+      );
+    if (error instanceof CommitExpiredError)
+      throw new CliError("Expired · nothing was signed");
+    throw error;
   } finally {
     handle.close();
   }
@@ -159,12 +158,13 @@ export async function review(flags: Flags, ref: string): Promise<void> {
 
 /** Approve a commit parked for you; Aomi then signs with the agent wallet. */
 export async function approve(
-  flags: Flags & { yes?: boolean; wait?: boolean },
+  flags: Decide & { wait?: boolean },
   ref: string,
 ): Promise<void> {
-  const handle = await open(await connect(flags), ref);
+  const aomi = await connect(flags);
+  const handle = await open(aomi, ref);
   try {
-    const view = handle.view;
+    const { view } = handle;
     if (view.state !== "awaiting_approval")
       throw new CliError(
         `This commit isn't waiting for approval (${view.state})`,
@@ -174,23 +174,9 @@ export async function approve(
         `This sign-in can't approve this wallet's trades; approve at ${view.sign_url}`,
         3,
       );
-    reviewLines(view, handle.review).forEach((line) => err(line));
-    if (!flags.yes && !(await confirm("Approve?")))
-      throw new CliError("Not approved");
-    try {
-      await handle.approve(view);
-    } catch (error) {
-      if (error instanceof CommitApprovalForbiddenError)
-        throw new CliError(
-          `This sign-in can't approve it; approve at ${view.sign_url}`,
-          3,
-        );
-      if (error instanceof CommitExpiredError)
-        throw new CliError("Expired · nothing was signed");
-      if (error instanceof CommitStaleError)
-        throw new CliError(`It changed; aomi tx review ${ref}`);
-      throw error;
-    }
+    const card = shown(handle);
+    await agreed(flags, "Approve", card);
+    await act(aomi, card.view, "approve");
     if (flags.wait === false) return out("Approved · Aomi is signing");
     err("Approved · signing…");
     finish(flags, await follow(handle));
@@ -199,57 +185,42 @@ export async function approve(
   }
 }
 
-export async function reject(flags: Flags, ref: string): Promise<void> {
-  const handle = await open(await connect(flags), ref);
+export async function reject(flags: Decide, ref: string): Promise<void> {
+  const aomi = await connect(flags);
+  const handle = await open(aomi, ref);
   try {
-    finish(flags, await handle.reject());
+    const card = shown(handle);
+    await agreed(flags, "Reject", card);
+    const view = await act(aomi, card.view, "reject");
+    if (flags.json) json(view);
+    else out(outcome(view));
   } finally {
     handle.close();
   }
 }
 
-/** What a person was shown, which is all a signature may be for. */
-export const reviewed = (view: CommitRefView) => ({
-  expectedVersion: view.version,
-  expectedReviewDigest: view.review?.digest,
-});
-
-/** Sign with the local signer, every member of the batch in order, each shown first. */
-export async function sign(
-  flags: Flags & { yes?: boolean },
-  ref: string,
-): Promise<void> {
-  const handle = await open(await connect(flags), ref);
+/** Sign with the local signer what was shown. */
+export async function sign(flags: Decide, ref: string): Promise<void> {
+  const aomi = await connect(flags);
+  const handle = await open(aomi, ref);
   try {
     if (handle.state === "awaiting_approval")
       throw new CliError(`It waits for approval: aomi tx approve ${ref}`, 3);
-    if (!handle.next.canSign())
+    const card = shown(handle);
+    if (!handle.canSign())
       throw new CliError(
         `No local signer for it: pass --private-key or --solana-private-key, aomi wallets signer set, or sign at ${handle.signUrl}`,
         3,
       );
-    const signed = await follow(handle, async (member) => {
-      const { view, review } = member;
-      reviewLines(view, review).forEach((line) => err(line));
-      if (!flags.yes && !(await confirm("Sign?")))
-        throw new CliError("Not signed");
-      await rpcReady(flags, view, (chain) =>
-        ask(
-          `RPC URL for ${chain} (this Aomi is not production): `,
-          `No RPC for ${chain}: pass --rpc-url`,
-        ),
-      );
-      try {
-        await member.sign(undefined, reviewed(view));
-      } catch (error) {
-        if (!(error instanceof CommitStaleError)) throw error;
-        // Nobody saw what it is now, so only a person is asked again.
-        if (flags.yes)
-          throw new CliError(`It changed; aomi tx sign ${ref} again`);
-        err("It changed; review it again");
-      }
-    });
-    finish(flags, signed);
+    await agreed(flags, "Sign", card);
+    await rpcReady(aomi, flags, card.view, (chain) =>
+      ask(
+        `RPC URL for ${chain} (this Aomi is not production): `,
+        `No RPC for ${chain}: pass --rpc-url`,
+      ),
+    );
+    await act(aomi, card.view, "sign");
+    finish(flags, await follow(handle));
   } finally {
     handle.close();
   }
@@ -259,13 +230,7 @@ export async function sign(
 export async function exportCommit(flags: Flags, ref: string): Promise<void> {
   const handle = await open(await connect(flags), ref);
   try {
-    out(
-      JSON.stringify(
-        { format: "aomi.commit.v1", commit: handle.view },
-        null,
-        2,
-      ),
-    );
+    json({ format: "aomi.commit.v1", commit: handle.view }, 2);
   } finally {
     handle.close();
   }

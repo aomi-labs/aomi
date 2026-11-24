@@ -38,7 +38,7 @@ import packageJson from "../../package.json";
 import type { ChatFlags } from "../commands/chat";
 import { guardMode } from "../commands/guard";
 import * as packages from "../commands/packages";
-import { metaLines, reviewed, reviewSummary } from "../commands/tx";
+import { act } from "../commands/tx";
 import { signIn } from "../commands/account";
 import { signsWith } from "../commands/wallets";
 import {
@@ -46,15 +46,24 @@ import {
   baseUrlOf,
   CliError,
   connect,
+  messageOf,
   openUrl,
   ownerOf,
   rpcReady,
   turnOptions,
   type ShowCode,
 } from "../context";
-import { cardLines, guardLine } from "../review";
+import { Card } from "../review";
 import { loadState, updateState } from "../state";
-import { GLYPHS, chipsOf, paint, plain, statusOf } from "../trace";
+import {
+  GLYPHS,
+  chipsOf,
+  paint,
+  plain,
+  plainText,
+  statusOf,
+  titleOf,
+} from "../trace";
 
 type TurnView = {
   text?: string;
@@ -91,7 +100,7 @@ const MARKDOWN: MarkdownTheme = {
 
 /** A reply as rendered markdown, parsed once per turn. */
 function replyLines(turn: TurnView, width: number): string[] {
-  turn.markdown ??= new Markdown(turn.reply ?? "", 0, 0, MARKDOWN);
+  turn.markdown ??= new Markdown(plainText(turn.reply ?? ""), 0, 0, MARKDOWN);
   return turn.markdown.render(width);
 }
 
@@ -121,7 +130,7 @@ const HELP = [
   "/new                   start a new thread",
   "/login                 sign in with a device code",
   "esc stops a turn · ctrl+o expands steps · ctrl+c quits",
-  "a s r o d on a waiting transaction: approve, sign, reject, open, details",
+  "a s r o on a waiting transaction: approve, sign, reject, open",
 ].join("\n");
 
 const short = (address: string) =>
@@ -147,7 +156,6 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   let running: Turn | undefined;
   /** ctrl+o opens or closes every turn's steps; until then only the latest is open. */
   let expanded: boolean | undefined;
-  let details = false;
   const bar = { who: aomi.auth.mode === "guest" ? "guest" : "", credits: "" };
   let wallets: AomiAccountWallet[] = [];
   /** The thread's wallet per family, once the server reports it. */
@@ -196,7 +204,15 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     current: string,
     chosen: (value: string) => void,
   ) {
-    const list = new SelectList(items, 10, listTheme);
+    const list = new SelectList(
+      items.map((item) => ({
+        ...item,
+        label: plain(item.label),
+        ...(item.description && { description: plain(item.description) }),
+      })),
+      10,
+      listTheme,
+    );
     list.setSelectedIndex(
       Math.max(
         0,
@@ -244,21 +260,24 @@ export async function runTui(flags: ChatFlags): Promise<void> {
               commit.view.action !== null)),
       );
   /** The card as last drawn: keys decide that version, not a newer one. */
-  let card: { commit: CommitHandle; view: CommitRefView } | undefined;
+  let drawn: { commit: CommitHandle; card: Card } | undefined;
 
   const transcript: Component = {
     invalidate() {},
     render(width) {
       const lines = [
-        paint.dim(`aomi ${packageJson.version} · thread "${title}"`),
+        paint.dim(`aomi ${packageJson.version} · thread "${plain(title)}"`),
       ];
       turns.forEach((turn, index) =>
         lines.push("", ...turnLines(turn, index === turns.length - 1, width)),
       );
       const commit = pending();
-      card = commit && { commit, view: commit.view };
-      if (commit)
-        lines.push("", ...commitBox(commit, Math.min(width, 76), details));
+      drawn = commit && { commit, card: new Card(commit.view, commit.review) };
+      if (drawn)
+        lines.push(
+          "",
+          ...commitBox(drawn.card, commit!.canSign(), Math.min(width, 76)),
+        );
       if (signing) lines.push("", ...signInBox(signing, width));
       lines.push("");
       return lines
@@ -268,12 +287,11 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   };
 
   function turnLines(turn: TurnView, last: boolean, width: number): string[] {
-    if (turn.note) return turn.note.split("\n").map(paint.dim);
+    if (turn.note) return plainText(turn.note).split("\n").map(paint.dim);
+    const text = plainText(turn.text ?? "");
     if (turn.past)
       return [
-        ...(turn.text
-          ? [`${paint.cyan(paint.bold("›"))} ${turn.text}`, ""]
-          : []),
+        ...(text ? [`${paint.cyan(paint.bold("›"))} ${text}`, ""] : []),
         ...(turn.reply ? replyLines(turn, width) : []),
       ];
     const seconds = Math.round(
@@ -283,7 +301,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       turn.ms === undefined
         ? `${paint.yellow("●")} ${paint.bold(`Working ${seconds}s`)}`
         : `${paint.green("●")} ${paint.bold(`Worked ${seconds}s`)}`;
-    const lines = [`${paint.cyan(paint.bold("›"))} ${turn.text}`, ""];
+    const lines = [`${paint.cyan(paint.bold("›"))} ${text}`, ""];
     const open = turn.ms === undefined || (expanded ?? last);
     lines.push(
       `${head} ${paint.dim(`· ${turn.steps.length} step${turn.steps.length === 1 ? "" : "s"}`)}  ${paint.dim(`ctrl+o ${open ? "collapse" : "expand"}`)}`,
@@ -298,7 +316,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
               ? paint.yellow(GLYPHS.waiting)
               : paint.red(GLYPHS.failed);
         lines.push(
-          `  ${glyph} ${step.title.padEnd(22)} ${paint.dim(chipsOf(step))}`,
+          `  ${glyph} ${titleOf(step).padEnd(22)} ${paint.dim(chipsOf(step))}`,
         );
       }
     if (turn.reply) lines.push("", ...replyLines(turn, width));
@@ -320,7 +338,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         // A local key signs everything itself; else the thread's wallet.
         aomi.wallet?.evm || aomi.wallet?.svm || !wallet
           ? bar.who
-          : `${wallet.label} (${signsWith(wallet)})`,
+          : `${plain(wallet.label)} (${signsWith(wallet)})`,
         chain ? (CHAIN_NAMES[chain] ?? `chain ${chain}`) : undefined,
         flags.agent,
         state.model ? modelLabel(state.model) : "Auto model",
@@ -375,12 +393,13 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       openUrl(signing.url);
       return { consume: true };
     }
-    if (!card || picking || editor.getText() || !/^[asrod]$/.test(key))
+    if (!drawn || picking || editor.getText() || !/^[asro]$/.test(key))
       return undefined;
-    const { commit, view } = card;
-    const approves = view.state === "awaiting_approval";
-    const action =
-      key === "r"
+    const { commit, card } = drawn;
+    const approves = card.view.state === "awaiting_approval";
+    const action = !card.whole
+      ? undefined
+      : key === "r"
         ? "reject"
         : key === "a" && approves
           ? "approve"
@@ -394,20 +413,18 @@ export async function runTui(flags: ChatFlags): Promise<void> {
           { value: "no", label: "Cancel" },
           {
             value: "yes",
-            label: { approve: "Approve", sign: "Sign", reject: "Reject" }[
-              action
-            ],
-            description: `${reviewSummary(commit.review)} with ${short(view.signer)}`,
+            label: `${{ approve: "Approve", sign: "Sign", reject: "Reject" }[action]}${card.scope}`,
+            description: `with ${short(card.view.signer)}`,
           },
         ],
         "no",
-        (answer) => void (answer === "yes" && decide(commit, view, action)),
+        (answer) =>
+          void (answer === "yes" && decide(commit, card.view, action)),
       );
     else if (key === "o" && commit.signUrl) {
       openUrl(commit.signUrl);
-      if (!approves) void decide(commit, view, "elsewhere");
-    } else if (key === "d") details = !details;
-    else return undefined;
+      if (!approves) void decide(commit, card.view, "elsewhere");
+    } else return undefined;
     tui.requestRender();
     return { consume: true };
   });
@@ -436,7 +453,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     };
     try {
       if (how === "reject") {
-        await commit.reject();
+        await act(aomi, shown, how);
         return show(paint.dim("✗ Rejected"));
       }
       // The agent answers once it settles; count what it has said so far.
@@ -449,17 +466,16 @@ export async function runTui(flags: ChatFlags): Promise<void> {
             .catch(() => undefined);
       if (how === "approve") {
         show(paint.yellow("◐ Approving…"));
-        await commit.approve(shown);
+        await act(aomi, shown, how);
       }
       if (how !== "elsewhere") show(paint.yellow("◐ Signing and sending…"));
       if (how === "sign") {
-        await rpcReady(flags, shown, async (chain) => {
+        await rpcReady(aomi, flags, shown, async (chain) => {
           throw new CliError(
             `This Aomi is not production: /rpc <url> sets the RPC for ${chain}, then sign`,
           );
         });
-        await commit.sign(undefined, reviewed(shown));
-        if (!isTerminalCommit(commit.view))
+        if (!isTerminalCommit(await act(aomi, shown, how)))
           show(paint.yellow("◐ Submitted; confirming…"));
       }
       if (follows) return;
@@ -468,8 +484,8 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       show(
         paint.green(
           last.signature
-            ? `✓ Signed · ${last.signature}`
-            : `✓ Confirmed · ${last.transaction_url ?? last.transaction_id ?? ""}`,
+            ? `✓ Signed · ${plain(last.signature)}`
+            : `✓ Confirmed · ${plain(last.transaction_url ?? last.transaction_id ?? "")}`,
         ),
       );
       if (own === revision) void followUp(await said, source, own);
@@ -480,7 +496,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         await leader.refresh().catch(() => undefined);
         return show(paint.yellow("It changed; review it again"));
       }
-      show(paint.red(error instanceof Error ? error.message : String(error)));
+      show(paint.red(messageOf(error)));
     }
   }
 
@@ -556,7 +572,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       walletPick = undefined;
       void loadWallet();
     } catch (error) {
-      view.error = error instanceof Error ? error.message : String(error);
+      view.error = messageOf(error);
     } finally {
       clearInterval(ticker);
       signing = undefined;
@@ -578,7 +594,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         await signIn(baseUrlOf(flags), showCode);
       } catch (error) {
         signing = undefined;
-        return note(error instanceof Error ? error.message : String(error));
+        return note(messageOf(error));
       }
       signing = undefined;
       aomi = await connect(flags, showCode);
@@ -634,12 +650,13 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       );
     }
     if (name === "rpc") {
-      if (!arg || !card)
+      if (!arg || !drawn)
         return note("/rpc <url>, while a card waits to be signed");
-      await rpcReady({ ...flags, rpcUrl: arg }, card.view, async () => arg);
-      // The signer reads these flags too; the saved RPC takes over.
+      const { view } = drawn.card;
+      await rpcReady(aomi, { ...flags, rpcUrl: arg }, view, async () => arg);
+      // The saved RPC takes over.
       flags.rpcUrl = undefined;
-      return note(`RPC saved for chain ${card.view.chain_ref}`);
+      return note(`RPC saved for chain ${view.chain_ref}`);
     }
     if (name === "threads") {
       const { threads } = await aomi.agent.threads
@@ -713,7 +730,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
           guard = (await aomi.account.guard.set({ mode, thread })).mode;
           note(`Guard ${TRANSACTION_SAFETY_NAMES[guard].label}`);
         } catch (error) {
-          note(error instanceof Error ? error.message : String(error));
+          note(messageOf(error));
         }
       };
       // Yolo runs flagged actions too, so it asks first, as on the web.
@@ -759,7 +776,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         loadMentions();
         note(done);
       } catch (error) {
-        note(error instanceof Error ? error.message : String(error));
+        note(messageOf(error));
       }
     };
     const ask = (label: string, done: string, act: () => Promise<unknown>) =>
@@ -829,14 +846,13 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   editor.onSubmit = (raw) => {
     const text = raw.trim();
     if (!text) return;
-    editor.addToHistory?.(text);
+    // A code or an RPC's key stays out of recall.
+    if (!/^\/(library\s+add|rpc)\b/u.test(text)) editor.addToHistory?.(text);
     if (text.startsWith("/")) {
       if (commandRunning) return note("A command is still working");
       commandRunning = true;
       void slash(text)
-        .catch((error: unknown) =>
-          note(error instanceof Error ? error.message : String(error)),
-        )
+        .catch((error: unknown) => note(messageOf(error)))
         .finally(() => {
           commandRunning = false;
         });
@@ -868,7 +884,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       }
       note(`Wallet ${own[0]!.label} · ${signsWith(own[0]!)}`);
     } catch (error) {
-      note(error instanceof Error ? error.message : String(error));
+      note(messageOf(error));
     }
   }
 
@@ -972,8 +988,8 @@ function signInBox(
     paint.cyan(
       `${titleText}${"─".repeat(Math.max(0, size - visibleWidth(titleText) - 1))}┐`,
     ),
-    row(`${paint.dim("Open ")} ${prompt.url}`),
-    row(`${paint.dim("Code ")} ${paint.bold(prompt.code)}`),
+    row(`${paint.dim("Open ")} ${plain(prompt.url)}`),
+    row(`${paint.dim("Code ")} ${paint.bold(plain(prompt.code))}`),
     row(""),
     row(
       `${paint.yellow("◐")} Waiting for approval   ${paint.cyan(paint.bold("o"))} Open in browser`,
@@ -983,12 +999,8 @@ function signInBox(
 }
 
 /** The commit waiting for you: what it does, what checks it, and its keys. */
-function commitBox(
-  commit: CommitHandle,
-  width: number,
-  details: boolean,
-): string[] {
-  const { view, review } = commit;
+function commitBox(card: Card, local: boolean, width: number): string[] {
+  const { view, guard } = card;
   const inner = width - 4;
   const rows = (text: string) =>
     wrapTextWithAnsi(text, inner).map(
@@ -996,10 +1008,7 @@ function commitBox(
         `${paint.yellow("│")} ${truncateToWidth(line, inner, "…", true)} ${paint.yellow("│")}`,
     );
   const approves = view.state === "awaiting_approval";
-  const signs = !approves && commit.canSign();
-  const { batch } = view;
-  const titleText = `┌ ${approves ? "Approve" : "Sign"} ${commit.kind.endsWith("message") ? "message" : "transaction"}${batch && batch.ordered_commit_ids.length > 1 ? ` ${batch.index + 1} of ${batch.ordered_commit_ids.length}` : ""} `;
-  const guard = guardLine(review);
+  const titleText = `┌ ${approves ? "Approve" : "Sign"}${card.scope || " this"} `;
   const color = guard.startsWith("Covered")
     ? paint.green
     : /^(Blocked|Not cleared)/.test(guard)
@@ -1011,30 +1020,18 @@ function commitBox(
     paint.yellow(
       `${titleText}${"─".repeat(Math.max(0, width - visibleWidth(titleText) - 1))}┐`,
     ),
-    ...cardLines(view, review, details).flatMap((line) =>
+    ...card.lines.flatMap((line) =>
       rows(line.startsWith("! ") ? paint.yellow(line) : line),
     ),
     ...rows(color(guard)),
     ...rows(
-      `${paint.dim("Signs with")} ${short(view.signer)} ${paint.dim(
-        approves
-          ? "· Ask"
-          : signs
-            ? "· key on this machine"
-            : color === paint.red
-              ? "· stopped by guards"
-              : "· your wallet, on the sign page",
-      )}`,
-    ),
-    ...(details
-      ? metaLines(view).flatMap((line) => rows(paint.dim(line)))
-      : []),
-    ...rows(
       [
-        ...(approves ? [key("a", "Approve")] : signs ? [key("s", "Sign")] : []),
-        key("r", "Reject"),
-        key("o", approves ? "Open in browser" : "Open sign page"),
-        key("d", "Details"),
+        ...(!card.whole
+          ? []
+          : approves
+            ? [key("a", "Approve"), key("r", "Reject")]
+            : [...(local ? [key("s", "Sign")] : []), key("r", "Reject")]),
+        key("o", "Open sign page"),
       ].join("   "),
     ),
     paint.yellow(`└${"─".repeat(width - 2)}┘`),

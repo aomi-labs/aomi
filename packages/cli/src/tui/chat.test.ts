@@ -5,6 +5,7 @@ const screen = vi.hoisted(() => ({
   editor: undefined as undefined | { onSubmit: (text: string) => void },
   input: undefined as undefined | ((key: string) => unknown),
   updates: [] as object[],
+  recalled: [] as string[],
   transcript: undefined as undefined | { render: (width: number) => string[] },
   list: undefined as
     | undefined
@@ -43,7 +44,9 @@ vi.mock("@earendil-works/pi-tui", () => ({
     getText() {
       return "";
     }
-    addToHistory() {}
+    addToHistory(text: string) {
+      screen.recalled.push(text);
+    }
   },
   SelectList: class {
     onSelect = () => {};
@@ -75,10 +78,11 @@ vi.mock("../state", () => ({
 vi.mock("../context", () => ({
   CliError: Error,
   agentsOf: async () => [
-    { agent_id: 4, agent: "acme/prices", display_name: "Prices" },
+    { agent_id: 4, agent: "acme/prices", display_name: "Prices\u001b[2K" },
   ],
   rpcReady: vi.fn(),
   connect: vi.fn(),
+  messageOf: (error: Error) => error.message,
   baseUrlOf: () => "https://chat.example",
   ownerOf: () => "guest",
   openUrl() {},
@@ -99,13 +103,10 @@ vi.mock("../commands/packages", () => ({
   removal: () => "Remove?",
 }));
 vi.mock("../commands/wallets", () => ({ signsWith: vi.fn() }));
-vi.mock("../commands/tx", () => ({
-  metaLines: () => ["meta"],
-  reviewed: (view: { version: number }) => view.version,
-  reviewSummary: () => "1 EVM transaction",
-}));
+vi.mock("../commands/tx", () => ({ act: vi.fn() }));
 
 import { CommitStaleError } from "@aomi-labs/client";
+import { act } from "../commands/tx";
 import { connect, rpcReady } from "../context";
 import { runTui } from "./chat";
 
@@ -119,6 +120,9 @@ function deferred<T>() {
 
 beforeEach(() => {
   screen.editor = screen.transcript = screen.list = undefined;
+  screen.recalled = [];
+  vi.mocked(act).mockReset();
+  vi.mocked(act).mockResolvedValue({ state: "submitted" } as never);
 });
 
 it("keeps /new from replacing a thread while its turn is running", async () => {
@@ -175,19 +179,18 @@ it("keeps /new from replacing a thread while its turn is running", async () => {
   }
 });
 
-describe("a commit that needs your signature", () => {
-  const review = {
+describe("a commit that waits for you", () => {
+  const TRANSFER = `0xa9059cbb${"bb".padStart(64, "0")}${"1e8480".padStart(64, "0")}`;
+  const review = (data = TRANSFER, legs = 1) => ({
     type: "execute_evm",
-    transactions: [
-      {
-        chain_id: 8453,
-        from: "0xme",
-        to: "0x00000000000000000000000000000000000000aa",
-        data: "0x12345678",
-        label: "Deposit\npool.deposit(amount: 2000000)",
-        kind: "call",
-      },
-    ],
+    transactions: Array.from({ length: legs }, () => ({
+      chain_id: 8453,
+      from: "0xme",
+      to: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      data,
+      label: "Pay\nusdc.transfer(to: wallet)",
+      kind: "call",
+    })),
     simulation: {
       status: "passed",
       balanceChanges: [
@@ -204,7 +207,7 @@ describe("a commit that needs your signature", () => {
       fees: [],
       warnings: [],
       guards: [],
-      gas: null,
+      gas: { units: "50000" },
       logs: [],
     },
     transactionSafety: {
@@ -216,28 +219,31 @@ describe("a commit that needs your signature", () => {
       decision: { eligibility: "eligible", bypassedFindingIds: [] },
       authority: { eligibility: "eligible" },
     },
-  };
+  });
 
-  async function open(sign = vi.fn(), local = true) {
+  async function open(more: object = {}, shown = review(), local = true) {
     const commit = {
       ref: "c1",
-      state: "needs_signature",
-      kind: "evm_tx",
       signUrl: "https://chat.example/sign/c1",
       view: {
         commit_id: "c1",
         version: 3,
         state: "needs_signature",
+        chain_family: "evm",
+        chain_ref: "8453",
         signer: "0xme",
         action: { kind: "sign" },
-        batch: null,
+        batch: null as null | object,
+        ...more,
       },
-      review,
+      get state() {
+        return commit.view.state;
+      },
+      review: shown,
       batch: [{ commit_id: "c1" }],
       canSign: () => local,
       subscribe() {},
       close() {},
-      sign,
       refresh: vi.fn(async () => {
         commit.view = { ...commit.view, version: 4 };
       }),
@@ -252,7 +258,7 @@ describe("a commit that needs your signature", () => {
       reply: "",
       commits: [commit],
     });
-    vi.mocked(connect).mockResolvedValue({
+    const aomi = {
       auth: { mode: "guest" },
       agent: {
         thread: () => ({
@@ -260,118 +266,136 @@ describe("a commit that needs your signature", () => {
           history: async () => ({ activeWallet: {}, messages: [] }),
         }),
       },
-    } as unknown as Awaited<ReturnType<typeof connect>>);
+    } as unknown as Awaited<ReturnType<typeof connect>>;
+    vi.mocked(connect).mockResolvedValue(aomi);
     const finished = runTui({});
     await vi.waitFor(() => expect(screen.editor).toBeDefined());
     screen.editor!.onSubmit("deposit");
     const drawn = () => screen.transcript!.render(80).join("\n");
-    await vi.waitFor(() => expect(drawn()).toContain("Sign transaction"));
+    await vi.waitFor(() => expect(drawn()).toContain("Open sign page"));
     return {
+      aomi,
       commit,
       drawn,
       close: () => (screen.input?.("ctrl+c"), finished),
     };
   }
 
-  it("shows the decoded steps, their effect and the guard line", async () => {
+  it("shows its chain, decoded steps, effect and guard line", async () => {
     const { drawn, close } = await open();
-    expect(drawn()).toContain("1. Deposit");
-    expect(drawn()).toContain("pool.deposit(amount: 2000000)");
-    expect(drawn()).toContain("- send 2 USDC [2K (0x8335…2913)");
-    expect(drawn()).toContain("Simulation passed");
+    expect(drawn()).toContain("Sign this");
+    expect(drawn()).toContain("evm:8453 Base");
+    expect(drawn()).toContain("1. Pay");
+    expect(drawn()).toContain("00bb, amount: 2000000)");
+    expect(drawn()).not.toContain("to: wallet");
+    expect(drawn()).toContain("- send 2 USDC [2K (0x833589fCD6eDb6E08f4c");
     expect(drawn()).toContain("Partly covered: The spender is not known");
-    expect(drawn()).not.toContain("meta");
-    screen.input!("d");
-    expect(drawn()).toContain("meta");
-    await close();
-  });
-
-  it("signs what was drawn, after s and an explicit yes", async () => {
-    const { commit, drawn, close } = await open();
-    screen.input!("s");
-    expect(screen.list!.items[0]).toEqual({ value: "no", label: "Cancel" });
-    // Keys belong to the list now: the rest of a typed word decides nothing.
-    expect(screen.input!("r")).toBeUndefined();
-    // It changes while the list is open.
-    commit.view = { ...commit.view, version: 9 };
-    drawn();
-    expect(commit.sign).not.toHaveBeenCalled();
-    screen.list!.onSelect({ value: "yes" });
-    await vi.waitFor(() =>
-      expect(commit.sign).toHaveBeenCalledExactlyOnceWith(undefined, 3),
-    );
-    await vi.waitFor(() => expect(drawn()).toContain("Confirmed · 0xhash"));
     await close();
   });
 
   it.each([
-    ["a", "awaiting_approval", "Approve"],
-    ["r", "needs_signature", "Reject"],
+    ["s", "sign", "needs_signature", "Sign"],
+    ["a", "approve", "awaiting_approval", "Approve"],
+    ["r", "reject", "needs_signature", "Reject"],
+    ["r", "reject", "awaiting_approval", "Reject"],
   ])(
-    "%s decides nothing without an explicit yes",
-    async (key, state, label) => {
-      const { commit, drawn, close } = await open();
-      const approve = vi.fn(async () => commit.view);
-      const reject = vi.fn(async () => commit.view);
-      Object.assign(commit, { approve, reject });
-      commit.view = { ...commit.view, state };
-      drawn();
+    "%s decides to %s what was drawn, after an explicit yes",
+    async (key, how, state, label) => {
+      const { aomi, commit, drawn, close } = await open({ state });
+      const { view } = commit;
       screen.input!(key);
       expect(screen.list!.items[0]).toEqual({ value: "no", label: "Cancel" });
       expect(screen.list!.items[1]).toMatchObject({ label });
+      // Keys belong to the list now: the rest of a typed word decides nothing.
+      expect(screen.input!("r")).toBeUndefined();
       screen.list!.onSelect({ value: "no" });
-      expect(approve).not.toHaveBeenCalled();
-      expect(reject).not.toHaveBeenCalled();
+      expect(act).not.toHaveBeenCalled();
       screen.input!(key);
+      // It changes while the list is open.
+      commit.view = { ...view, version: 9 };
+      drawn();
       screen.list!.onSelect({ value: "yes" });
-      const called = key === "a" ? approve : reject;
-      await vi.waitFor(() => expect(called).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() =>
+        expect(act).toHaveBeenCalledExactlyOnceWith(aomi, view, how),
+      );
+      await vi.waitFor(() =>
+        expect(drawn()).toContain(
+          how === "reject" ? "Rejected" : "Confirmed · 0xhash",
+        ),
+      );
       await close();
     },
   );
 
+  it("says one decision is for the whole batch", async () => {
+    const batch = { ordered_commit_ids: ["c1", "c2"] };
+    const state = "awaiting_approval";
+    const { drawn, close } = await open({ batch, state }, review(TRANSFER, 2));
+    expect(drawn()).toContain("Approve all 2");
+    expect(drawn()).toContain("2. Pay");
+    screen.input!("a");
+    expect(screen.list!.items[1]).toMatchObject({ label: "Approve all 2" });
+    await close();
+  });
+
+  it.each([
+    ["a call it can't decode", {}, review("0x12345678")],
+    ["an approval it can't decode", { state: "awaiting_approval" }, undefined],
+    [
+      "a batch a key here would sign",
+      { batch: { ordered_commit_ids: ["c1", "c2"] } },
+      review(TRANSFER, 2),
+    ],
+  ])("offers only the sign page for %s", async (_, more, shown) => {
+    const { drawn, close } = await open(more, shown ?? (null as never));
+    expect(drawn()).toContain("Review this on the sign page");
+    expect(drawn()).not.toMatch(/Reject|s.{0,20} Sign\b/);
+    for (const key of ["a", "s", "r", "d"])
+      expect(screen.input!(key)).toBeUndefined();
+    expect(screen.list).toBeUndefined();
+    await close();
+  });
+
+  it("offers no signature without a local key", async () => {
+    const { close } = await open({}, review(), false);
+    expect(screen.input!("s")).toBeUndefined();
+    expect(screen.list).toBeUndefined();
+    await close();
+  });
+
   it("shows a commit that changed again instead of signing it", async () => {
-    const { commit, drawn, close } = await open(
-      vi.fn(async () => {
-        throw new CommitStaleError("commit_version_conflict", "stale");
-      }),
+    vi.mocked(act).mockRejectedValue(
+      new CommitStaleError("commit_version_conflict", "stale"),
     );
+    const { commit, drawn, close } = await open();
     screen.input!("s");
     screen.list!.onSelect({ value: "yes" });
     await vi.waitFor(() =>
       expect(drawn()).toContain("It changed; review it again"),
     );
     expect(commit.refresh).toHaveBeenCalled();
-    expect(drawn()).toContain("Sign transaction");
-    expect(commit.sign).toHaveBeenCalledTimes(1);
+    expect(drawn()).toContain("version 4");
+    expect(act).toHaveBeenCalledTimes(1);
     await close();
   });
 
   it("signs nothing until its RPC is ready, and takes one with /rpc", async () => {
     vi.mocked(rpcReady).mockImplementationOnce(
-      async (_flags, _view, missing) => {
-        await missing("eip155:8453");
+      async (_aomi, _flags, _view, missing) => {
+        await missing("solana:mainnet");
       },
     );
-    const { commit, drawn, close } = await open();
+    const { drawn, close } = await open();
     screen.input!("s");
     screen.list!.onSelect({ value: "yes" });
     await vi.waitFor(() => expect(drawn()).toContain("/rpc <url>"));
-    expect(commit.sign).not.toHaveBeenCalled();
-    screen.editor!.onSubmit("/rpc https://rpc.example/");
+    expect(act).not.toHaveBeenCalled();
+    screen.editor!.onSubmit("/rpc https://rpc.example/key");
     await vi.waitFor(() => expect(drawn()).toContain("RPC saved"));
+    expect(screen.recalled).toEqual(["deposit"]);
     screen.input!("s");
     screen.list!.onSelect({ value: "yes" });
-    await vi.waitFor(() => expect(commit.sign).toHaveBeenCalledTimes(1));
-    await close();
-  });
-
-  it("offers only the sign page without a local key", async () => {
-    const { commit, drawn, close } = await open(vi.fn(), false);
-    expect(drawn()).toContain("your wallet, on the sign page");
-    expect(screen.input!("s")).toBeUndefined();
-    expect(screen.list).toBeUndefined();
-    expect(commit.sign).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(act).toHaveBeenCalledTimes(1));
     await close();
   });
 });
@@ -458,6 +482,7 @@ describe("packages and agents", () => {
     await choose("no");
     expect(store.activate).toHaveBeenCalledWith("s3cret");
     expect(drawn()).toContain("acme/vault is added, but off");
+    expect(screen.recalled).toEqual([]);
     expect(store.setChoice).not.toHaveBeenCalled();
     slash("/library vault");
     await choose("acme/vault");
@@ -472,6 +497,7 @@ describe("packages and agents", () => {
     const { flags, slash, choose, drawn, close } = await open();
     slash("/agent");
     await choose("acme/prices");
+    expect(screen.list!.items[1]!.label).toBe("Prices [2K");
     expect(flags.agent).toBe("acme/prices");
     await vi.waitFor(() => expect(drawn()).toContain("Agent acme/prices"));
     slash("/agent not a slug");

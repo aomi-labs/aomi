@@ -30,21 +30,26 @@ export const paint = {
   strike: (text: string) => `${ESC}9m${text}${ESC}29m`,
 };
 
+const CONTROL =
+  /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069]+/gu;
+
 /** Text from a package, a token or a message, with nothing a terminal acts on. */
-export const plain = (text: string) =>
-  text.replace(
-    /[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]+/gu,
-    " ",
-  );
+export const plain = (text: string) => text.replace(CONTROL, " ");
+
+/** The same, its lines and tabs kept. */
+export const plainText = (text: string) =>
+  text.replace(CONTROL, (run) => run.replace(/[^\n\t]/gu, " "));
+
+export const titleOf = (step: InterpretedToolStep) => plain(step.title);
 
 export const chipsOf = (step: InterpretedToolStep) =>
-  step.chips.map((chip) => chip.label).join(" · ");
+  plain(step.chips.map((chip) => chip.label).join(" · "));
 
 /** One decoded step as one line: `✓ Simulate transaction  Base · 2 txs`. */
 export function stepLine(step: InterpretedToolStep, color: boolean): string {
   const status = statusOf(step);
   const line =
-    `${GLYPHS[status]} ${step.title.padEnd(21)} ${chipsOf(step)}`.trimEnd();
+    `${GLYPHS[status]} ${titleOf(step).padEnd(21)} ${chipsOf(step)}`.trimEnd();
   if (!color) return line;
   return status === "waiting"
     ? paint.yellow(line)

@@ -12,7 +12,7 @@ import {
   type ConnectFlags,
 } from "../context";
 import { loadState, updateState } from "../state";
-import { chipsOf, paint, statusOf, stepLine } from "../trace";
+import { chipsOf, paint, plain, statusOf, stepLine } from "../trace";
 
 export type ChatFlags = ConnectFlags & {
   prompt?: string;
@@ -93,7 +93,8 @@ export function commitHint(commit: CommitHandle, color: boolean): string {
     commit.state === "awaiting_approval"
       ? ["Waiting for you", `aomi tx approve ${commit.ref}`]
       : ["Sign it", `aomi tx sign ${commit.ref}`];
-  const head = `\n${color ? paint.yellow(label) : label}  ${command}`;
+  const head = `\n${color ? paint.yellow(label!) : label}  ${plain(command!)}`;
   if (!commit.signUrl) return head;
-  return `${head}\n${color ? paint.dim(commit.signUrl) : commit.signUrl}`;
+  const url = plain(commit.signUrl);
+  return `${head}\n${color ? paint.dim(url) : url}`;
 }

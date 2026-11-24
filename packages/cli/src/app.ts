@@ -76,6 +76,11 @@ const signing = {
   }),
   chain: text("Chain id", { parse: parseChain, placeholder: "id" }),
 };
+/** Decides without asking, for the version a script reviewed. */
+const deciding = {
+  yes: yes("Skip the question; needs --version"),
+  version: int("Only at this version, as tx review --json shows it"),
+};
 /** Whose operations a pipeline command uses. */
 const scoped = {
   agent: text("Agent (default: the main agent)", {
@@ -431,7 +436,7 @@ const root = routes("the Aomi agent in your terminal", {
         {
           ...json,
           ...conn,
-          yes: yes("Approve without asking"),
+          ...deciding,
           wait: yes("Follow it until it settles (--no-wait skips)", {
             default: true,
             optional: undefined,
@@ -440,10 +445,15 @@ const root = routes("the Aomi agent in your terminal", {
         ref,
         tx.approve,
       ),
-      reject: command("Reject a commit", { ...json, ...conn }, ref, tx.reject),
+      reject: command(
+        "Show a commit, then reject it",
+        { ...json, ...conn, ...deciding },
+        ref,
+        tx.reject,
+      ),
       sign: command(
         "Show a commit, then sign it with the local signer",
-        { ...json, ...signing, yes: yes("Sign without asking") },
+        { ...json, ...signing, ...deciding },
         ref,
         tx.sign,
       ),
@@ -513,9 +523,9 @@ const root = routes("the Aomi agent in your terminal", {
         packages.reset,
       ),
       add: command(
-        "Add a private package with its code, and turn it on",
+        "Add a private package and turn it on (code from stdin or a prompt)",
         { ...json, ...conn, yes: yes("Skip the confirmation") },
-        [arg("Access code", "code")],
+        [],
         packages.add,
       ),
       remove: command(

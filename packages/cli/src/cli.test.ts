@@ -3,7 +3,10 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { Keypair } from "@solana/web3.js";
+import { SystemProgram, Transaction } from "@solana/web3.js";
 import bs58 from "bs58";
+import { encodeFunctionData, erc20Abi, keccak256 } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const dir = vi.hoisted(() => {
@@ -158,7 +161,7 @@ beforeEach(() => {
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const request = new Request(input, init);
-      const key = `${request.method} ${new URL(request.url).pathname}`;
+      const key = `${request.method} ${new URL(request.url).pathname.replace(/^\/stack/, "")}`;
       requests.push({
         key,
         url: request.url,
@@ -168,7 +171,12 @@ beforeEach(() => {
       // A list answers in order, its last entry from then on.
       const listed = routes[key];
       const answer =
-        Array.isArray(listed) && listed.length > 1 ? listed.shift() : listed;
+        typeof listed === "function"
+          ? listed(requests.at(-1)!.body)
+          : Array.isArray(listed) && listed.length > 1
+            ? listed.shift()
+            : listed;
+      if (answer instanceof Response) return answer;
       if (key === "POST /api/auth/siwe/verify")
         return Response.json(answer, {
           headers: { "set-auth-token": "session-token" },
@@ -518,9 +526,26 @@ describe("aomi pipeline", () => {
 
 describe("aomi tx", () => {
   const ref = "9a1b";
+  const ME = privateKeyToAccount(KEY).address;
+  const SPENDER = "0x00000000000000000000000000000000000000bb";
+  const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+  const LIVE = "https://aomi.chat";
+  const data = encodeFunctionData({
+    abi: erc20Abi,
+    functionName: "approve",
+    args: [SPENDER, 2n ** 256n - 1n],
+  });
+  const leg = (calldata: string) => ({
+    chain_id: 8453,
+    from: ME,
+    to: USDC,
+    data: calldata,
+    label: "Deposit\npool.deposit(amount: 2000000)",
+    kind: "call",
+  });
   const waiting = {
     ...view(ref, "needs_signature"),
-    signer: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    signer: ME,
     broadcaster: "wallet",
     sign_url: `${BASE}/sign/${ref}`,
     origin: "cli",
@@ -530,24 +555,15 @@ describe("aomi tx", () => {
       digest: "sha256:review",
       request: {
         type: "execute_evm",
-        transactions: [
-          {
-            chain_id: 8453,
-            from: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-            to: "0x00000000000000000000000000000000000000aa",
-            data: "0x12345678",
-            label: "Deposit\npool.deposit(amount: 2000000)",
-            kind: "call",
-          },
-        ],
+        transactions: [leg(data)],
         simulation: {
           status: "passed",
           balanceChanges: [],
           approvals: [
             {
-              account: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-              spender: "0x00000000000000000000000000000000000000bb",
-              asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              account: ME,
+              spender: SPENDER,
+              asset: USDC,
               kind: "allowance",
               standard: "erc20",
               unlimited: true,
@@ -558,7 +574,7 @@ describe("aomi tx", () => {
           fees: [],
           warnings: [],
           guards: [],
-          gas: null,
+          gas: { units: "50000" },
           logs: [],
         },
       },
@@ -569,101 +585,342 @@ describe("aomi tx", () => {
         kind: "evm_transaction",
         chain_id: 8453,
         nonce: 1,
-        signer: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        signer: ME,
         transaction: {
-          to: "0x00000000000000000000000000000000000000aa",
-          data: "0x12345678",
+          to: USDC,
+          data,
           value: "0",
-          gas_limit: "21000",
+          gas_limit: 50000,
           max_fee_per_gas: "1",
           max_priority_fee_per_gas: "1",
         },
       },
     },
   };
-  const sign = (...more: string[]) =>
-    cli("tx", "sign", ref, "--yes", "--private-key", KEY, ...more);
+  const parked = {
+    ...waiting,
+    state: "awaiting_approval",
+    broadcaster: "hosted",
+    action: null,
+  };
+  const yes = ["--yes", "--version", "1"];
+  const tx = (verb: string, ...more: string[]) =>
+    cli("tx", verb, ref, "--private-key", KEY, ...more);
+  const live = (...more: string[]) =>
+    tx("sign", ...yes, "--backend-url", LIVE, ...more);
+  const wrote = () =>
+    requests.filter((r) => r.key.startsWith(`POST /v1/commits/${ref}/`));
+  /** The RPC at "/": its chain, then what it does with signed bytes. */
+  const rpc =
+    (chain: string, send: () => object = () => ({ result: null })) =>
+    (body: string) =>
+      body.includes("eth_chainId")
+        ? { jsonrpc: "2.0", id: 1, result: chain }
+        : { jsonrpc: "2.0", id: 1, ...send() };
+  /** A signature's answer: what was signed, to send. */
+  const signed = (body: string) => {
+    const [payload] = JSON.parse(body).payloads;
+    return {
+      ...waiting,
+      version: 2,
+      state: "awaiting_broadcast",
+      action: {
+        kind: "broadcast",
+        signed_transaction: payload,
+        transaction_id: keccak256(payload),
+      },
+    };
+  };
+  const confirmed = {
+    ...waiting,
+    version: 3,
+    state: "confirmed",
+    action: null,
+    transaction_id: "0xhash",
+  };
   beforeEach(() => {
     routes[`GET /v1/commits/${ref}`] = waiting;
-    routes["POST /"] = { result: "0x2105" };
+    routes["POST /"] = rpc("0x2105");
   });
   afterEach(() => {
     delete routes["POST /"];
+    delete routes["POST /s3cret"];
     for (const key of Object.keys(routes))
       if (key.includes(`/v1/commits/${ref}`)) delete routes[key];
   });
 
-  it("asks for an RPC where the backend is not production, before signing", async () => {
-    const { code, stderr } = await sign();
-    expect(code).toBe(2);
-    expect(stderr).toContain("No RPC for eip155:8453: pass --rpc-url");
-    expect(requests.some((r) => r.key.startsWith("POST /v1/commits"))).toBe(
-      false,
+  it.each([
+    BASE,
+    "http://aomi.chat",
+    "https://aomi.chat:8443",
+    "https://aomi.chat/stack",
+  ])("sends nothing for %s, which is not production", async (backend) => {
+    const { code, stderr } = await tx(
+      "sign",
+      ...yes,
+      ...["--backend-url", backend, "--rpc-url", "https://rpc.example/"],
     );
+    expect(code).toBe(3);
+    expect(stderr).toContain("This Aomi is not production");
+    expect(wrote()).toEqual([]);
+    expect(() => readFileSync(join(dir, "cli.json"), "utf8")).toThrow();
   });
 
   it("refuses an RPC on another chain before signing, and keeps none", async () => {
-    routes["POST /"] = { result: "0x1" };
-    const { code, stderr } = await sign("--rpc-url", "https://rpc.example/");
+    routes["POST /"] = rpc("0x1");
+    const { code, stderr } = await live("--rpc-url", "https://rpc.example/");
     expect(code).toBe(1);
     expect(stderr).toContain(
       "The RPC is on eip155:1, the commit on eip155:8453",
     );
-    expect(requests.some((r) => r.key.startsWith("POST /v1/commits"))).toBe(
-      false,
-    );
+    expect(wrote()).toEqual([]);
     expect(() => readFileSync(join(dir, "cli.json"), "utf8")).toThrow();
   });
 
-  it("keeps a matching RPC for this backend and chain only", async () => {
-    const wrote = () =>
-      requests.some((r) => r.key.startsWith(`POST /v1/commits/${ref}/`));
-    await sign("--rpc-url", "https://rpc.example/");
-    expect(wrote()).toBe(true);
-    expect(JSON.parse(readFileSync(join(dir, "cli.json"), "utf8")).rpc).toEqual(
-      { [BASE]: { "eip155:8453": "https://rpc.example/" } },
-    );
-    requests = [];
-    await sign();
-    expect(wrote()).toBe(true);
-    const other = await sign("--backend-url", "https://other.example");
-    expect(other.stderr).toContain("No RPC for eip155:8453");
+  it("sends on the RPC it checked, whatever the config becomes", async () => {
+    routes[`POST /v1/commits/${ref}/sign`] = (body: string) => {
+      routes[`GET /v1/commits/${ref}`] = confirmed;
+      state({
+        baseUrl: BASE,
+        rpc: { [LIVE]: { "eip155:8453": "https://other.example/" } },
+      });
+      return signed(body);
+    };
+    const hash = () => {
+      const sent = wrote()[0]!;
+      return { result: keccak256(JSON.parse(sent.body).payloads[0]) };
+    };
+    routes["POST /"] = rpc("0x2105", hash);
+    routes[`POST /v1/commits/${ref}/broadcast`] = confirmed;
+    const { code, stdout } = await live("--rpc-url", "https://rpc.example/");
+    expect(code).toBe(0);
+    expect(stdout).toContain("Confirmed");
+    const sent = requests.filter((r) => r.body.includes("eth_sendRaw"));
+    expect(sent.map((r) => r.url)).toEqual(["https://rpc.example/"]);
+    expect(requests.some((r) => r.url.includes("other.example"))).toBe(false);
   });
 
-  it("reviews the decoded steps, what they allow and the guard line", async () => {
-    const { code, stdout } = await cli(
-      "tx",
-      "review",
-      ref,
-      "--private-key",
-      KEY,
+  it("prints neither the RPC's key nor signed bytes when a send fails", async () => {
+    routes[`POST /v1/commits/${ref}/sign`] = signed;
+    routes["POST /s3cret"] = rpc("0x2105", () => ({
+      error: {
+        code: -32000,
+        message: `nonce too low for 0x${"ab".repeat(80)} at https://rpc.example/s3cret`,
+      },
+    }));
+    const { code, stdout, stderr } = await live(
+      "--rpc-url",
+      "https://rpc.example/s3cret",
     );
+    expect(code).toBe(1);
+    expect(stderr).toContain("Not sent: ");
+    expect(stdout + stderr).not.toMatch(/s3cret|(ab){40}|0x02f8/);
+  });
+
+  it("sends a Solana transaction only where its block is known", async () => {
+    const solana = new Transaction({
+      feePayer: SOLANA.publicKey,
+      blockhash: SOLANA.publicKey.toBase58(),
+      lastValidBlockHeight: 1,
+    }).add(
+      SystemProgram.transfer({
+        fromPubkey: SOLANA.publicKey,
+        toPubkey: SOLANA.publicKey,
+        lamports: 5,
+      }),
+    );
+    const [ix] = solana.instructions;
+    const svm = {
+      ...waiting,
+      chain_family: "svm",
+      chain_ref: "mainnet-beta",
+      signer: SOLANA.publicKey.toBase58(),
+      review: {
+        digest: "d",
+        request: {
+          type: "execute_svm",
+          transactions: [
+            {
+              payer: SOLANA.publicKey.toBase58(),
+              cluster: "mainnet-beta",
+              version: "legacy",
+              description: "Send",
+              kind: "transfer",
+              instructions: [
+                {
+                  payer: SOLANA.publicKey.toBase58(),
+                  cluster: "mainnet-beta",
+                  program_id: ix!.programId.toBase58(),
+                  accounts: ix!.keys.map((key) => ({
+                    pubkey: key.pubkey.toBase58(),
+                    is_signer: key.isSigner,
+                    is_writable: key.isWritable,
+                  })),
+                  data_base64: ix!.data.toString("base64"),
+                  description: "Send",
+                  kind: "transfer",
+                },
+              ],
+            },
+          ],
+          simulation: {
+            ...waiting.review.request.simulation,
+            approvals: [],
+            fees: [{ asset: "native", amount: "5000" }],
+          },
+        },
+      },
+      action: {
+        kind: "sign",
+        payload: {
+          kind: "svm_transaction",
+          signer: SOLANA.publicKey.toBase58(),
+          transaction_base64: solana
+            .serialize({ requireAllSignatures: false })
+            .toString("base64"),
+        },
+      },
+    };
+    routes[`GET /v1/commits/${ref}`] = svm;
+    routes[`POST /v1/commits/${ref}/renew`] = svm;
+    routes[`POST /v1/commits/${ref}/sign`] = (body: string) => ({
+      ...svm,
+      version: 2,
+      state: "awaiting_broadcast",
+      action: {
+        kind: "broadcast",
+        signed_transaction: JSON.parse(body).payloads[0],
+        transaction_id: "sig",
+      },
+    });
+    const sign = (...more: string[]) =>
+      cli(
+        "tx",
+        "sign",
+        ref,
+        "--solana-private-key",
+        SOLANA_KEY,
+        ...yes,
+        ...more,
+      );
+    const none = await sign();
+    expect(none.code).toBe(2);
+    expect(none.stderr).toContain("No RPC for solana:mainnet: pass --rpc-url");
+    expect(wrote()).toEqual([]);
+    routes["POST /"] = { result: { value: false } };
+    const other = await sign("--rpc-url", "https://rpc.example/");
+    expect(other.code).toBe(1);
+    expect(other.stderr).toContain("doesn't know the block");
+    const calls = requests.filter((r) => r.key === "POST /");
+    expect(calls.map((r) => JSON.parse(r.body).method)).toEqual([
+      "isBlockhashValid",
+    ]);
+    expect(JSON.parse(calls[0]!.body).params[0]).toBe(solana.recentBlockhash);
+  });
+
+  it("reviews the decoded call, what it allows and the guard line", async () => {
+    const { code, stdout } = await tx("review");
     expect(code).toBe(0);
-    expect(stdout).toContain("1. Deposit\n   pool.deposit(amount: 2000000)\n");
+    expect(stdout).toContain("1. Deposit\n");
+    expect(stdout).not.toContain("pool.deposit");
+    expect(stdout).toContain(`approve(spender: ${SPENDER}, amountOrId: 1157`);
     expect(stdout).toContain(
-      "! allow 0x00000000000000000000000000000000000000bb to spend unlimited USDC (0x8335…2913)",
+      `! allow ${SPENDER} to spend unlimited USDC (${USDC})`,
     );
     expect(stdout).toContain("Guard coverage not reported");
+    expect(JSON.parse((await tx("review", "--json")).stdout)).toMatchObject({
+      version: 1,
+      whole: true,
+    });
   });
 
-  it("shows what it signs, and signs nothing without --yes", async () => {
-    const { code, stderr } = await cli("tx", "sign", ref, "--private-key", KEY);
+  it("shows what it signs, and signs nothing without a yes", async () => {
+    const { code, stderr } = await tx("sign");
     expect(code).toBe(2);
     expect(stderr).toContain("1. Deposit");
     expect(stderr).toContain("Pass --yes outside a terminal");
-    expect(requests.some((r) => r.key.startsWith("POST /v1/commits"))).toBe(
-      false,
-    );
+    expect(wrote()).toEqual([]);
   });
 
-  it("does not sign a commit that changed after it was shown", async () => {
-    routes[`GET /v1/commits/${ref}`] = [waiting, { ...waiting, version: 2 }];
-    const { code, stderr } = await sign("--rpc-url", "https://rpc.example/");
+  it.each([
+    ["sign", waiting],
+    ["approve", parked],
+    ["reject", parked],
+  ])("%s --yes needs the version a script reviewed", async (verb, commit) => {
+    routes[`GET /v1/commits/${ref}`] = commit;
+    const unnamed = await tx(verb, "--yes");
+    expect(unnamed.code).toBe(2);
+    expect(unnamed.stderr).toContain("--yes needs --version <n>");
+    const older = await tx(verb, "--yes", "--version", "7");
+    expect(older.code).toBe(1);
+    expect(older.stderr).toContain("It is at version 1 now");
+    expect(wrote()).toEqual([]);
+  });
+
+  it.each([
+    ["sign", waiting],
+    ["approve", parked],
+    ["reject", parked],
+  ])("%s only shows a commit it can't show whole", async (verb, commit) => {
+    const { review } = commit;
+    const opaque = { ...review.request, transactions: [leg("0x12345678")] };
+    for (const request of [opaque, null]) {
+      routes[`GET /v1/commits/${ref}`] = {
+        ...commit,
+        review: request && { ...review, request },
+      };
+      const { code, stderr } = await tx(verb, ...yes);
+      expect(code).toBe(3);
+      expect(stderr).toContain(`Review this on the sign page: ${BASE}/sign/`);
+      expect(stderr).not.toContain('"kind"');
+    }
+    expect(wrote()).toEqual([]);
+  });
+
+  it.each([
+    ["sign", waiting],
+    ["approve", parked],
+    ["reject", parked],
+  ])(
+    "%s decides nothing that changed after it was shown",
+    async (verb, commit) => {
+      routes[`GET /v1/commits/${ref}`] = [commit, { ...commit, version: 2 }];
+      const { code, stderr } = await (verb === "sign"
+        ? live("--rpc-url", "https://rpc.example/")
+        : tx(verb, ...yes));
+      expect(code).toBe(1);
+      expect(stderr).toContain("It changed; review it again");
+      expect(wrote()).toEqual([]);
+    },
+  );
+
+  it("rejects the version it showed", async () => {
+    routes[`GET /v1/commits/${ref}`] = { ...parked, version: 4 };
+    routes[`POST /v1/commits/${ref}/reject`] = {
+      ...parked,
+      version: 5,
+      state: "rejected",
+    };
+    const { code } = await tx("reject", "--yes", "--version", "4");
+    expect(code).toBe(0);
+    expect(wrote().map((r) => JSON.parse(r.body))).toEqual([{ version: 4 }]);
+  });
+
+  it.each([
+    [
+      { code: "commit_older_review_first", older_commit_ref: "0ld" },
+      "An earlier review is still waiting. Sign or reject it first: aomi tx review 0ld",
+    ],
+    [
+      { code: "commit_restage_needed" },
+      "An earlier review was rejected, so this one is out of order. Ask again to prepare it fresh.",
+    ],
+  ])("says why a nonce is out of order: %j", async (body, says) => {
+    routes[`POST /v1/commits/${ref}/sign`] = () =>
+      Response.json(body, { status: 409 });
+    const { code, stderr } = await live();
     expect(code).toBe(1);
-    expect(stderr).toContain(`It changed; aomi tx sign ${ref} again`);
-    expect(requests.some((r) => r.key.startsWith("POST /v1/commits"))).toBe(
-      false,
-    );
+    expect(stderr).toContain(`error: ${says}\n`);
   });
 });
 
@@ -790,9 +1047,9 @@ describe("aomi library", () => {
     expect(code).toBe(2);
     expect(stdout).toContain("reach api.acme.dev");
     // A text-only package has no transactions of its own, and still prepares.
-    expect(stdout).toContain("prepare EVM transactions for you to approve");
+    expect(stdout).toContain("prepare EVM transactions\n");
     expect(stdout).toContain(
-      "checked before you approve: borrow, supply on 2 contracts; other calls are partly covered",
+      "checked: borrow, supply on 2 contracts; other calls are partly covered",
     );
     expect(stderr).toContain("--yes");
     expect(requests.some((r) => r.key.startsWith("PUT"))).toBe(false);
@@ -859,8 +1116,41 @@ describe("aomi library", () => {
     ]);
   });
 
+  /** Run with `text` on stdin. */
+  const typed = async (text: string, ...argv: string[]) => {
+    const stdin = Object.getOwnPropertyDescriptor(process, "stdin");
+    Object.defineProperty(process, "stdin", {
+      value: Readable.from([text]),
+      configurable: true,
+    });
+    try {
+      return await cli(...argv, "--private-key", KEY);
+    } finally {
+      Object.defineProperty(process, "stdin", stdin!);
+    }
+  };
+
+  it("claims no check for an unverified release", async () => {
+    routes["GET /api/account/packages"] = {
+      packages: [{ ...packages[2], verified: false }],
+    };
+    const { stdout } = await cli(
+      "library",
+      "show",
+      "acme/lend",
+      "--private-key",
+      KEY,
+    );
+    expect(stdout).not.toContain("checked");
+    expect(stdout).toContain("no check of its own");
+  });
+
+  it("takes no code on the command line", async () => {
+    expect((await cli("library", "add", "code")).code).toBe(2);
+  });
+
   it("adds an unverified package off until its notice is accepted", async () => {
-    const asked = await cli("library", "add", " code ", "--private-key", KEY);
+    const asked = await typed(" code \n", "library", "add");
     expect(asked.code).toBe(2);
     expect(asked.stderr).toContain("acme/vault is added, but off");
     expect(asked.stdout).toContain("Not verified by Aomi.");
@@ -868,20 +1158,14 @@ describe("aomi library", () => {
     expect(requests.find((r) => r.key.endsWith("activate"))?.body).toBe(
       '{"code":"code"}',
     );
-    const yes = await cli("library", "add", "c", "--yes", "--private-key", KEY);
+    const yes = await typed("c", "library", "add", "--yes");
     expect(yes.code).toBe(0);
     expect(yes.stdout).toBe("acme/vault is on\n");
   });
 
   it("adds a verified package on, without asking", async () => {
     routes["POST /api/account/packages/activate"] = packages[0];
-    const { code, stdout } = await cli(
-      "library",
-      "add",
-      "code",
-      "--private-key",
-      KEY,
-    );
+    const { code, stdout } = await typed("code", "library", "add");
     expect(code).toBe(0);
     expect(stdout).toBe("acme/swap is added and on\n");
     expect(requests.some((r) => r.key.startsWith("PUT"))).toBe(false);
@@ -914,20 +1198,10 @@ describe("aomi library", () => {
   });
 
   it("connects a slot from stdin and never prints the value", async () => {
-    const stdin = Object.getOwnPropertyDescriptor(process, "stdin");
-    Object.defineProperty(process, "stdin", {
-      value: Readable.from(["s3cret-value\n"]),
-      configurable: true,
-    });
-    const { code, stdout, stderr } = await cli(
-      "library",
-      "connect",
-      "acme/swap",
-      "API_KEY",
-      "--private-key",
-      KEY,
+    const { code, stdout, stderr } = await typed(
+      "s3cret-value\n",
+      ...["library", "connect", "acme/swap", "API_KEY"],
     );
-    Object.defineProperty(process, "stdin", stdin!);
     expect(code).toBe(0);
     expect(stdout).toBe("API_KEY connected\n");
     expect(stdout + stderr).not.toContain("s3cret-value");
