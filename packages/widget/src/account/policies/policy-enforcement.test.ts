@@ -33,14 +33,17 @@ describe("the connected wallet as the SDK's policy signer", () => {
     kit.switchChain.mockClear();
     kit.sendTransaction.mockClear();
   });
-  async function run(enforce: (signer: AomiPolicySigner) => Promise<void>) {
+  async function run(
+    enforce: (signer: AomiPolicySigner) => Promise<object | void>,
+  ) {
     const client = {
       account: {
         policy: {
-          enforce: vi.fn(async (...args: unknown[]) => {
-            await enforce(args[2] as AomiPolicySigner);
-            return { policies: { enforcement: [] }, settled: true };
-          }),
+          enforce: vi.fn(async (...args: unknown[]) => ({
+            policies: { enforcement: [] },
+            settled: true,
+            ...(await enforce(args[2] as AomiPolicySigner)),
+          })),
         },
       },
     };
@@ -89,6 +92,19 @@ describe("the connected wallet as the SDK's policy signer", () => {
       },
       { chainIdAlreadySelected: 8453 },
     );
+  });
+
+  it("hands the SDK the hash the wallet returned, and names it while Aomi does not see it", async () => {
+    const { error } = await run(async (signer) => ({
+      settled: false,
+      transaction: await signer.sendEvmTransaction!({
+        chainId: 8453,
+        to: "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+        data: "0xcafe",
+        value: "0x0",
+      }),
+    }));
+    expect(error).toMatch(/^Your transaction 0xsent was sent, but Aomi/);
   });
 
   it("shows what the SDK refused", async () => {

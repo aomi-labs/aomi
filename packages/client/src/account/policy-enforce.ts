@@ -195,6 +195,8 @@ export function signableTypedData(data: AomiPolicyTypedData, chainId: number) {
 }
 
 const PLAIN_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+/** 64 bytes in base58. */
+const SOLANA_SIGNATURE = /^[1-9A-HJ-NP-Za-km-z]{64,88}$/;
 
 async function act(
   signer: AomiPolicySigner,
@@ -347,13 +349,20 @@ export async function enforcePolicy(
     ));
   }
   const onChain = action ? action.kind !== "typed_data" : false;
+  // The backend records a Solana transaction's signature, and refuses
+  // anything else there after it is sent.
+  const proof =
+    signature ??
+    (action?.kind === "transaction" && SOLANA_SIGNATURE.test(transaction ?? "")
+      ? transaction
+      : undefined);
   /** Null when the backend's node never showed a transaction that was sent. */
   const confirm = () =>
     settled(
       () =>
         transport.confirmEnforcement(agentWalletId, entry.provider, {
           ...request,
-          ...(signature ? { signature } : {}),
+          ...(proof ? { signature: proof } : {}),
         }),
       retryDelayMs,
     ).catch((cause: unknown) => {

@@ -12,6 +12,9 @@ const dir = vi.hoisted(() => {
 
 // No node is reached: only the account each transaction is sent from is kept.
 const sentFrom = vi.hoisted(() => [] as string[]);
+const receipt = vi.hoisted(() => ({
+  wait: async (): Promise<{ status: string }> => ({ status: "success" }),
+}));
 vi.mock("viem", async (original) => {
   const real = await original<typeof import("viem")>();
   return {
@@ -26,7 +29,7 @@ vi.mock("viem", async (original) => {
         },
       }),
     createPublicClient: () => ({
-      waitForTransactionReceipt: async () => ({ status: "success" }),
+      waitForTransactionReceipt: () => receipt.wait(),
     }),
   };
 });
@@ -65,4 +68,30 @@ it("sends a policy transaction with the key the client was connected with, not o
   });
   expect(hash).toBe("0xhash");
   expect(sentFrom).toEqual([checked]);
+});
+
+it("answers the hash of a sent transaction whose receipt does not come, and refuses a reverted one by its hash", async () => {
+  save(CHECKED);
+  const signer = policySigner(
+    await connect({ backendUrl: "https://chat.example" }),
+    {},
+  );
+  const send = () =>
+    signer.sendEvmTransaction!({
+      chainId: 8453,
+      to: "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+      data: "0x",
+      value: "0x0",
+    });
+  const held = receipt.wait;
+  try {
+    receipt.wait = async () => {
+      throw new Error("Timed out while waiting for transaction");
+    };
+    expect(await send()).toBe("0xhash");
+    receipt.wait = async () => ({ status: "reverted" });
+    await expect(send()).rejects.toThrow("The transaction reverted: 0xhash");
+  } finally {
+    receipt.wait = held;
+  }
 });

@@ -29,7 +29,7 @@ export async function switchToChain(
     await kit.switchChain(chainId);
 }
 
-/** Submit from the connected account and wait for the receipt. */
+/** Submit from the connected account, wait for the receipt, answer the hash. */
 export async function sendPlainTransaction(
   send: NonNullable<AomiWalletKit["sendTransaction"]>,
   tx: {
@@ -40,7 +40,7 @@ export async function sendPlainTransaction(
     value: string;
   },
 ) {
-  await send(
+  const { txHash } = await send(
     {
       requestId: tx.requestId,
       aaPreference: "none",
@@ -51,6 +51,7 @@ export async function sendPlainTransaction(
     },
     { chainIdAlreadySelected: tx.chainId },
   );
+  return txHash;
 }
 
 /** The connected wallet kit as the SDK's policy signer. */
@@ -72,7 +73,7 @@ function policySigner(kit: AomiWalletKit): AomiPolicySigner {
       ? {
           sendEvmTransaction: async (tx) => {
             await switchToChain(kit, tx.chainId);
-            await sendPlainTransaction(sendTransaction, {
+            return sendPlainTransaction(sendTransaction, {
               requestId: "policy-revocation",
               ...tx,
             });
@@ -200,7 +201,7 @@ export function usePolicyEnforcement({
     setBusy(key);
     setErrors(({ [key]: _, ...rest }) => rest);
     try {
-      const { policies, settled } = await client.account.policy.enforce(
+      const done = await client.account.policy.enforce(
         walletId,
         entry,
         policySigner(kit),
@@ -228,12 +229,11 @@ export function usePolicyEnforcement({
           },
         },
       );
-      onConfirmed(policies);
-      if (!settled) {
+      onConfirmed(done.policies);
+      if (!done.settled) {
         setErrors((held) => ({
           ...held,
-          [key]:
-            "Your transaction was sent, but Aomi doesn’t see it on the chain yet. Check again in a moment before sending anything more.",
+          [key]: `Your transaction${done.transaction ? ` ${done.transaction}` : ""} was sent, but Aomi doesn’t see it on the chain yet. Check again in a moment before sending anything more.`,
         }));
         onStale();
       }

@@ -256,8 +256,9 @@ export type AomiPolicyEnforceRequest = {
 };
 
 /**
- * `signature` (0x hex) is required for `typed_data`, optional and only
- * recorded for `transaction`, and absent for `evm_transaction`.
+ * `signature` is required for `typed_data` (0x hex), optional and only
+ * recorded for `transaction` (the Solana signature), and absent for
+ * `evm_transaction`.
  */
 export type AomiPolicyConfirmRequest = AomiPolicyEnforceRequest & {
   signature?: string;

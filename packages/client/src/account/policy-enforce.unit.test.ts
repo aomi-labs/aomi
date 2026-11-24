@@ -164,6 +164,35 @@ describe("a transaction that was sent and the backend's node never shows", () =>
     expect(transport.get).not.toHaveBeenCalled();
   });
 
+  it("tells the backend the Solana signature the wallet returned, and nothing it could not read as one", async () => {
+    const SIGNATURE = "5".repeat(88);
+    const confirmed = async (returned: string) => {
+      const { transport, result } = flow(
+        transaction,
+        async () => ({ enforcement: [], revision: 3 }),
+        {
+          solanaAddress: SOLANA_OWNER,
+          sendSolanaTransaction: async () => returned,
+        },
+      );
+      expect((await result).transaction).toBe(returned);
+      return transport.confirmEnforcement.mock.calls[0];
+    };
+    const request = {
+      network: entry.network,
+      rule: entry.rule,
+      revision: 1,
+      owner: SOLANA_OWNER,
+    };
+    expect(await confirmed(SIGNATURE)).toEqual([
+      "w",
+      "swig",
+      { ...request, signature: SIGNATURE },
+    ]);
+    // The backend refuses another kind of signature after it is sent.
+    expect(await confirmed("0xnot-base58")).toEqual(["w", "swig", request]);
+  });
+
   it("still throws when nothing was sent, and any other refusal", async () => {
     const nothing = flow(
       null,

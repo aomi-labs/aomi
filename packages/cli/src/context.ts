@@ -246,10 +246,12 @@ export function policySigner(
               data: data as Hex,
               value: BigInt(value),
             });
-            const receipt = await createPublicClient(
-              on,
-            ).waitForTransactionReceipt({ hash });
-            if (receipt.status !== "success")
+            // It is sent: with no receipt in time, the hash still goes back
+            // and Aomi's read of the chain says whether it landed.
+            const receipt = await createPublicClient(on)
+              .waitForTransactionReceipt({ hash })
+              .catch(() => null);
+            if (receipt && receipt.status !== "success")
               throw new CliError(`The transaction reverted: ${hash}`);
             return hash;
           },

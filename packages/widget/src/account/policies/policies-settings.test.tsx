@@ -1486,7 +1486,7 @@ describe("Settings › Policies", () => {
             await send();
             await act(() => vi.advanceTimersByTimeAsync(15_000));
             await see(
-              /Your transaction was sent, but Aomi doesn’t see it on the chain yet/,
+              /Your transaction 0x\w+ was sent, but Aomi doesn’t see it on the chain yet/,
               removedRows()[0],
             );
             expect(removedRows()).toHaveLength(1);
