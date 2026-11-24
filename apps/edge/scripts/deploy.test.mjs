@@ -105,6 +105,12 @@ describe("edge deploy script", () => {
     ]);
   });
 
+  it("requires Build's GitHub client id wherever Build is served", () => {
+    expect(() => deployArgs({ ...staging, BUILD_HOSTS: "staging.aomi.build" })).toThrow(/BUILD_GITHUB_CLIENT_ID must be set/);
+    const args = deployArgs({ ...staging, BUILD_HOSTS: "staging.aomi.build", BUILD_GITHUB_CLIENT_ID: "Iv23client" });
+    expect(args).toContain("BUILD_GITHUB_CLIENT_ID:Iv23client");
+  });
+
   it("leaves unset settings to the Worker's defaults", () => {
     const args = deployArgs({ ...staging, PORTAL_HOSTS: "  ", BUILD_HOSTS: "" });
     expect(args.join(" ")).not.toMatch(/PORTAL_HOSTS|BUILD_HOSTS|MANAGER_ORIGIN/);

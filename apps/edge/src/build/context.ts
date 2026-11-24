@@ -18,8 +18,6 @@ export type BuildContext = {
   trustedOrigins: readonly string[];
   /** Cookies are Secure everywhere except local development. */
   secureCookies: boolean;
-  /** Whether this is the production Build (which GitHub OAuth app to use). */
-  production: boolean;
   fetchImpl: FetchLike;
   now: () => number;
   /** Builder API keys, in the database behind `HYPERDRIVE`. */
@@ -48,7 +46,6 @@ export function buildContext(
     upstreamOrigin: build.upstream,
     trustedOrigins: [url.origin],
     secureCookies: !LOCAL_HOSTS.has(url.hostname),
-    production: env.EDGE_TOPOLOGY === "production",
     fetchImpl,
     now,
     keys: postgresKeys(() => {
