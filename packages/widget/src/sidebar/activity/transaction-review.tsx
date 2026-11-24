@@ -47,6 +47,15 @@ export type TransactionReviewData = Pick<Action, "id" | "revision"> & {
   request: ActionRequest;
 };
 
+type StatusLink = { label: string; href: string };
+
+const statusActionClass =
+  "text-aomi-fg font-medium underline underline-offset-2";
+
+/** Where to decide the earlier review a refused signature waits for. */
+export const olderReviewLink = (href: string | undefined) =>
+  href ? { label: "Open the earlier review", href } : undefined;
+
 export function TransactionReview({
   review,
   supportedChains,
@@ -85,8 +94,9 @@ export function TransactionReview({
   rejectDisabled?: boolean;
   status?: string;
   statusIsError?: boolean;
-  /** A text action after the status, e.g. where to change what refused it. */
-  statusAction?: { label: string; onClick: () => void };
+  /** A text action after the status, e.g. where to change what refused it.
+   * With `href` it opens a page beside this one, which keeps its signature. */
+  statusAction?: { label: string; onClick: () => void } | StatusLink;
   recoveringExistingAttempt?: boolean;
   onApprove: () => void;
   onApproveAll?: () => void;
@@ -281,13 +291,24 @@ export function TransactionReview({
           {statusAction ? (
             <>
               {" "}
-              <button
-                type="button"
-                onClick={statusAction.onClick}
-                className="text-aomi-fg font-medium underline underline-offset-2"
-              >
-                {statusAction.label}
-              </button>
+              {"href" in statusAction ? (
+                <a
+                  href={statusAction.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={statusActionClass}
+                >
+                  {statusAction.label}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={statusAction.onClick}
+                  className={statusActionClass}
+                >
+                  {statusAction.label}
+                </button>
+              )}
             </>
           ) : null}
         </p>

@@ -1,6 +1,7 @@
 import type { FC, SVGProps } from "react";
 import type { ActionRequest } from "@aomi-labs/client";
 import {
+  AomiApiError,
   isAomiError,
   normalizeSolanaCluster,
   shortAddress,
@@ -279,7 +280,7 @@ export function formatFeeSummary(fees: Simulation["fees"]): string {
   return `${formatAssetAmount(first.amount, decimals)} ${symbol}${suffix}`;
 }
 
-/** Commit Service ran the signed bytes and refused them before sending. */
+/** Commit Service refused the signature: nothing was sent. */
 const REFUSED_SIGNED: Record<string, string> = {
   commit_signed_out_of_compute:
     "The wallet's added safety checks ran out of compute, so nothing was sent. Try again.",
@@ -287,7 +288,28 @@ const REFUSED_SIGNED: Record<string, string> = {
     "This transaction would fail now, so nothing was sent. Ask for a fresh quote.",
   commit_envelope_mismatch:
     "The wallet changed the transaction beyond what it may, so nothing was sent.",
+  commit_older_review_first:
+    "An earlier review is still waiting. Sign or reject it first.",
+  commit_restage_needed:
+    "An earlier review was rejected, so this one is out of order. Ask again to prepare it fresh.",
 };
+
+/** What a commit that ended with `code` says, when Commit Service refused it. */
+export function refusedSigned(code: string | null | undefined) {
+  return code && Object.hasOwn(REFUSED_SIGNED, code)
+    ? REFUSED_SIGNED[code]
+    : undefined;
+}
+
+/** The earlier review a refused signature waits for. Ref routes keep it in
+ * the error's details, thread routes in the response body. */
+export function olderReviewRef(error: unknown): string | undefined {
+  if (!(error instanceof Error)) return undefined;
+  const details = error instanceof AomiApiError ? error.details : undefined;
+  return /"older_commit_ref":\s*"([^"]+)"/.exec(
+    `${error.message} ${JSON.stringify(details ?? null)}`,
+  )?.[1];
+}
 
 /** A failed send or signature as one readable line: a transaction the
  * network refused in its preflight check keeps its reason, not its logs. */
@@ -295,11 +317,12 @@ export function reviewErrorTitle(error: unknown): string {
   const message =
     error instanceof Error ? error.message : "Action response failed";
   // Ref routes type the code; thread routes leave it in the response body.
-  const code =
-    isAomiError(error) && Object.hasOwn(REFUSED_SIGNED, error.code)
-      ? error.code
-      : Object.keys(REFUSED_SIGNED).find((key) => message.includes(key));
-  if (code) return REFUSED_SIGNED[code]!;
+  const refusal =
+    refusedSigned(isAomiError(error) ? error.code : undefined) ??
+    refusedSigned(
+      Object.keys(REFUSED_SIGNED).find((key) => message.includes(key)),
+    );
+  if (refusal) return refusal;
   const refused =
     /Transaction simulation failed: (?:Error processing Instruction \d+: )?([^.\n]+)/.exec(
       message,

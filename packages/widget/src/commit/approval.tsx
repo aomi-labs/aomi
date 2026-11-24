@@ -5,7 +5,7 @@
  * the sidebar card, the sign page and the scheduled-run strip only need it
  * once something is waiting.
  */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAomiRuntime } from "@aomi-labs/react";
 import {
   AomiApiError,
@@ -20,6 +20,7 @@ import { requestSettingsOpen } from "@/account/settings-events";
 import { useAomiWalletKit } from "@/wallet/context";
 import { TransactionReview } from "@/sidebar/activity/transaction-review";
 import { useApprovalAuthority } from "./approval-authority";
+import { useSignHref, useSignUrl } from "./sign-href";
 
 const APPROVAL_NOTE = "Aomi signs with your agent wallet after you approve.";
 
@@ -86,24 +87,6 @@ function useApprovalStep() {
   return { busy, error, ruled, run };
 }
 
-/** The commit's sign page URL, fetched while `enabled`. */
-function useSignUrl(ref: string, enabled: boolean) {
-  const { commitController } = useAomiRuntime();
-  const [signUrl, setSignUrl] = useState<string>();
-  useEffect(() => {
-    if (!enabled || !commitController) return;
-    let live = true;
-    commitController
-      .refView(ref)
-      .then((view) => live && setSignUrl(view.sign_url))
-      .catch(() => undefined);
-    return () => {
-      live = false;
-    };
-  }, [commitController, enabled, ref]);
-  return signUrl;
-}
-
 /**
  * The sidebar card for a parked commit: Approve (once for a whole batch) and
  * Reject. Where this session cannot approve (an embed), Approve opens the
@@ -117,7 +100,7 @@ export function ParkedReview({ commit }: { commit: CommitView }) {
   const { busy, error, ruled, run } = useApprovalStep();
   const id = commit.commit_id;
   const linkOnly = !authority || forbidden;
-  const signUrl = useSignUrl(id, linkOnly);
+  const signUrl = useSignUrl(linkOnly ? id : undefined);
   const request = commitController?.review(id);
   if (!commitController || !request) return null;
   return (
@@ -173,8 +156,7 @@ export function ParkedReview({ commit }: { commit: CommitView }) {
 export function ScheduledApproval({ refs }: { refs: readonly string[] }) {
   const authority = useApprovalAuthority();
   const ref = refs[0]!;
-  const signUrl = useSignUrl(ref, !authority);
-  const href = authority ? `/sign/${encodeURIComponent(ref)}` : signUrl;
+  const href = useSignHref(ref);
   return (
     <p
       role="status"

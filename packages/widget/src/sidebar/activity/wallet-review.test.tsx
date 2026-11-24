@@ -1337,6 +1337,58 @@ describe("ordered batch submission", () => {
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    ["on Aomi", true, "/sign/cmt_older"],
+    ["in an embed", false, "https://aomi.example/sign/cmt_older"],
+  ])(
+    "links the earlier review a signature waits for, until the next try (%s)",
+    async (_where, authority, href) => {
+      const execute = vi
+        .fn()
+        .mockRejectedValueOnce(
+          new Error(
+            'HTTP 409: Conflict\n{"code":"commit_older_review_first","message":"…","older_commit_ref":"cmt_older"}',
+          ),
+        )
+        .mockRejectedValueOnce(new Error("User rejected"));
+      controller(execute);
+      (runtime.commitController as unknown as Record<string, unknown>).refView =
+        vi.fn(async (ref: string) => ({
+          sign_url: `https://aomi.example/sign/${ref}`,
+        }));
+      render(
+        <ApprovalAuthorityContext.Provider value={authority}>
+          <WalletReview />
+        </ApprovalAuthorityContext.Provider>,
+      );
+      const send = () =>
+        fireEvent.click(
+          screen.getByRole("button", { name: "Send 2 transactions" }),
+        );
+      send();
+      const link = await screen.findByRole("link", {
+        name: "Open the earlier review",
+      });
+      expect(link).toHaveAttribute("href", href);
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "An earlier review is still waiting. Sign or reject it first.",
+      );
+      expect(runtime.showNotification).not.toHaveBeenCalled();
+      expect(execute).toHaveBeenCalledTimes(1);
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Send 2 transactions" }),
+        ).toBeEnabled(),
+      );
+      send();
+      await waitFor(() =>
+        expect(runtime.showNotification).toHaveBeenCalledOnce(),
+      );
+      expect(screen.queryByRole("link")).toBeNull();
+    },
+  );
+
   it("stops after the wallet rejects a commit", async () => {
     const execute = vi.fn((id: string) =>
       Promise.resolve({

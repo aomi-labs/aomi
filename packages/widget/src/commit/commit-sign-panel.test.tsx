@@ -269,6 +269,36 @@ describe("CommitSignPanel", () => {
     expect(screen.getByRole("heading", { name: "Review trade" })).toBeTruthy();
   });
 
+  it("links the earlier review a signature waits for", async () => {
+    const { handle } = await open(view(), {
+      code: "commit_older_review_first",
+      status: 409,
+      message: "An earlier review is still waiting. Sign or reject it first.",
+      older_commit_ref: "cmt_older",
+    });
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    expect(
+      await screen.findByRole("link", { name: "Open the earlier review" }),
+    ).toHaveAttribute("href", "/sign/cmt_older");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /^An earlier review is still waiting\. Sign or reject it first\. Open/,
+    );
+  });
+
+  it("says why a commit out of order was not sent", async () => {
+    const { handle } = await open(
+      view({
+        state: "failed",
+        action: null,
+        failure_code: "commit_restage_needed",
+      }),
+    );
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
+    expect(screen.getByRole("heading", { name: "Nothing was sent" }));
+    expect(screen.getByText(/Ask again to prepare it fresh/)).toBeTruthy();
+  });
+
   it("asks for exactly the commit's signer before signing", async () => {
     kit.identity.address = "0x9999999999999999999999999999999999999999";
     const { handle } = await open(view());

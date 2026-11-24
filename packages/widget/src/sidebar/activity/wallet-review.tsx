@@ -19,8 +19,9 @@ import {
 } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@/wallet/context";
 import { selectLegacyReviewAction, selectReviewQueue } from "./model";
-import { TransactionReview } from "./transaction-review";
-import { reviewErrorTitle } from "./presentation";
+import { useSignHref } from "@/commit/sign-href";
+import { olderReviewLink, TransactionReview } from "./transaction-review";
+import { olderReviewRef, reviewErrorTitle } from "./presentation";
 import { useSignerSwitch } from "./signer-switch";
 
 const ParkedReview = lazy(() =>
@@ -147,6 +148,13 @@ export function WalletReview() {
     [commitController],
   );
   const [deciding, setDeciding] = useState(false);
+  // The commit a signature was refused on until `ref`, an earlier review, is
+  // decided: said under the review, with the way there.
+  const [waiting, setWaiting] = useState<{
+    commitId?: string;
+    ref: string;
+    reason: string;
+  }>();
   const [batchSubmission, setBatchSubmission] =
     useState<BatchSubmission | null>(null);
   const walletAttemptState = liveCommit?.wallet_attempt?.state;
@@ -196,6 +204,7 @@ export function WalletReview() {
         return false;
       lock.current = true;
       setDeciding(true);
+      setWaiting(undefined);
       try {
         if (batchCommitId && commitController) {
           const result = await commitController.execute(batchCommitId);
@@ -212,11 +221,15 @@ export function WalletReview() {
         }
         return true;
       } catch (error) {
-        showNotification({
-          type: "error",
-          title: reviewErrorTitle(error),
-          duration: 6000,
-        });
+        const reason = reviewErrorTitle(error);
+        const ref = olderReviewRef(error);
+        if (ref)
+          setWaiting({
+            commitId: batchCommitId ?? liveCommit?.commit_id,
+            ref,
+            reason,
+          });
+        else showNotification({ type: "error", title: reason, duration: 6000 });
         return false;
       } finally {
         lock.current = false;
@@ -235,6 +248,10 @@ export function WalletReview() {
       showNotification,
     ],
   );
+
+  const refused =
+    waiting && waiting.commitId === liveCommit?.commit_id ? waiting : undefined;
+  const olderHref = useSignHref(refused?.ref);
 
   // Every reviewed batch still waiting on the wallet, in signing order. The
   // shown batch must be intact; later batches join only when they are too.
@@ -404,7 +421,8 @@ export function WalletReview() {
           : lifecycle?.onChain ||
               (lifecycle && NOTICE_PHASES.has(lifecycle.phase))
             ? lifecycle.label
-            : undefined;
+            : refused?.reason;
+  const statusIsRefusal = Boolean(refused) && status === refused?.reason;
   // While a send runs, progress counts the groups pinned at the click.
   const groups = batchSubmission?.batches ?? queuedBatches;
   const groupIndex = liveCommit
@@ -453,9 +471,11 @@ export function WalletReview() {
           Boolean(!status && signerSwitch.error) ||
           signatureAdmissionUnavailable ||
           walletMismatch ||
+          statusIsRefusal ||
           lifecycle?.onChain === "reverted" ||
           (eligibilityBlocksNewAttempt && eligibility?.state === "blocked")
         }
+        statusAction={statusIsRefusal ? olderReviewLink(olderHref) : undefined}
         recoveringExistingAttempt={recoveringExistingAttempt}
         approveLabel={
           lifecycle?.phase === "checking_submission"

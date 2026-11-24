@@ -12,6 +12,7 @@ import {
 import { Clock, Send, Wallet } from "lucide-react";
 import {
   CommitStaleError,
+  isAomiError,
   isMessageCommit,
   isTerminalCommit,
   projectCommitLifecycle,
@@ -29,7 +30,15 @@ import { walletKey } from "@/wallet/wallet-utils";
 import { useCommitCapabilities } from "@/wallet/use-action-capabilities";
 import { useShellAomi } from "@/account/transport";
 import { connectionsQuery } from "@/account/account-queries";
-import { TransactionReview } from "@/sidebar/activity/transaction-review";
+import {
+  olderReviewLink,
+  TransactionReview,
+} from "@/sidebar/activity/transaction-review";
+import {
+  olderReviewRef,
+  refusedSigned,
+  reviewErrorTitle,
+} from "@/sidebar/activity/presentation";
 import { StatusPill } from "@/ui/aomi/status-pill";
 import { CommitTransactions } from "./commit-transactions";
 
@@ -122,6 +131,7 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
   const parkedOrSigning = view.signing_mode === "auto";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [olderRef, setOlderRef] = useState<string>();
   const review = leg.review;
   const lifecycle = projectCommitLifecycle(
     view,
@@ -162,6 +172,7 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
     if (busy) return false;
     setBusy(true);
     setError(undefined);
+    setOlderRef(undefined);
     try {
       await step();
       return true;
@@ -170,9 +181,11 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
         setError("This request changed. Review it again before signing.");
         await handle.refresh().catch(() => undefined);
       } else {
-        setError(
-          caught instanceof Error ? caught.message : "The request failed",
-        );
+        setError(reviewErrorTitle(caught));
+        setOlderRef(olderReviewRef(caught));
+        // This refusal ended the commit.
+        if (isAomiError(caught, "commit_restage_needed"))
+          await handle.refresh().catch(() => undefined);
       }
       return false;
     } finally {
@@ -284,7 +297,14 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
       <Clock className="text-aomi-muted size-12" strokeWidth={1.5} />,
       backButton(false),
     );
-  if (terminal) return done(outcome.label, goBack, null, backButton(false));
+  const refused = refusedSigned(settled.failed?.failure_code);
+  if (terminal)
+    return done(
+      refused ? "Nothing was sent" : outcome.label,
+      refused ?? goBack,
+      null,
+      backButton(false),
+    );
   return (
     <AomiSheet backdrop={false}>
       <SheetHeader
@@ -355,6 +375,9 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
             }
             status={error ?? (lifecycle.onChain ? lifecycle.label : undefined)}
             statusIsError={Boolean(error) || lifecycle.onChain === "reverted"}
+            statusAction={olderReviewLink(
+              olderRef && `/sign/${encodeURIComponent(olderRef)}`,
+            )}
             recoveringExistingAttempt={Boolean(
               view.wallet_attempt || leg.recoveryRecord?.attemptId,
             )}

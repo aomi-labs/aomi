@@ -1,6 +1,10 @@
 import { AomiApiError } from "@aomi-labs/client";
 import { describe, expect, it } from "vitest";
-import { reviewErrorTitle, transactionTitle } from "./presentation";
+import {
+  olderReviewRef,
+  reviewErrorTitle,
+  transactionTitle,
+} from "./presentation";
 
 describe("reviewErrorTitle", () => {
   it("keeps the network's reason for a refused send, not its logs", () => {
@@ -17,7 +21,11 @@ describe("reviewErrorTitle", () => {
     expect(reviewErrorTitle(new Error("commit_signed_would_fail"))).toMatch(
       /would fail now, so nothing was sent/,
     );
-    expect(reviewErrorTitle(new Error('HTTP 422: {"code":"commit_envelope_mismatch"}'))).toMatch(
+    expect(
+      reviewErrorTitle(
+        new Error('HTTP 422: {"code":"commit_envelope_mismatch"}'),
+      ),
+    ).toMatch(
       /changed the transaction beyond what it may, so nothing was sent/,
     );
     expect(
@@ -26,6 +34,36 @@ describe("reviewErrorTitle", () => {
       ),
     ).toMatch(/would fail now, so nothing was sent/);
     expect(reviewErrorTitle("nope")).toBe("Action response failed");
+  });
+});
+
+describe("a signature that waits for an earlier review", () => {
+  const body = {
+    code: "commit_older_review_first",
+    message: "An earlier review is still waiting. Sign or reject it first.",
+    older_commit_ref: "cmt_older",
+  };
+  it.each([
+    ["thread route", new Error(`HTTP 409: Conflict\n${JSON.stringify(body)}`)],
+    [
+      "ref route",
+      new AomiApiError(
+        409,
+        body.code,
+        `HTTP 409: ${body.message}`,
+        false,
+        undefined,
+        body,
+      ),
+    ],
+  ])("says so and names it (%s)", (_route, error) => {
+    expect(reviewErrorTitle(error)).toBe(body.message);
+    expect(olderReviewRef(error)).toBe("cmt_older");
+  });
+  it("asks for a fresh one when the earlier was rejected", () => {
+    const error = new Error('HTTP 409: {"code":"commit_restage_needed"}');
+    expect(reviewErrorTitle(error)).toMatch(/Ask again to prepare it fresh/);
+    expect(olderReviewRef(error)).toBeUndefined();
   });
 });
 
