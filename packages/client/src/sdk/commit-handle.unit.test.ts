@@ -202,7 +202,7 @@ describe("aomi.commits — thread-less commit refs", () => {
 
   it("signs at the reviewed version and digest, then broadcasts bound to the new version", async () => {
     const broadcasting = view({
-      version: 5,
+      version: 4,
       state: "awaiting_broadcast",
       action: {
         kind: "broadcast",
@@ -212,13 +212,11 @@ describe("aomi.commits — thread-less commit refs", () => {
     });
     const { aomi, calls } = backend({
       [`GET /v1/commits/${ref}`]: () => Response.json(view()),
-      [`POST /v1/commits/${ref}/renew`]: () =>
-        Response.json(view({ version: 4 })),
       [`POST /v1/commits/${ref}/sign`]: () => Response.json(broadcasting),
       [`POST /v1/commits/${ref}/broadcast`]: () =>
         Response.json(
           view({
-            version: 6,
+            version: 5,
             state: "submitted",
             action: null,
             transaction_id: "0xhash",
@@ -243,14 +241,13 @@ describe("aomi.commits — thread-less commit refs", () => {
     expect(result.state).toBe("submitted");
     const writes = calls.filter((call) => call.method === "POST");
     expect(writes.map((call) => [call.path, call.body])).toEqual([
-      [`/v1/commits/${ref}/renew`, { version: 3 }],
       [
         `/v1/commits/${ref}/sign`,
-        { version: 4, review_digest: "digest-3", payloads: ["0xsigned"] },
+        { version: 3, review_digest: "digest-3", payloads: ["0xsigned"] },
       ],
       [
         `/v1/commits/${ref}/broadcast`,
-        { version: 5, review_digest: "digest-3", transaction_id: "0xhash" },
+        { version: 4, review_digest: "digest-3", transaction_id: "0xhash" },
       ],
     ]);
     expect(writes.every((call) => !call.headers.has("x-thread-id"))).toBe(true);
@@ -343,7 +340,6 @@ describe("aomi.commits — thread-less commit refs", () => {
   it("surfaces a server version conflict as CommitStaleError", async () => {
     const { aomi } = backend({
       [`GET /v1/commits/${ref}`]: () => Response.json(view()),
-      [`POST /v1/commits/${ref}/renew`]: () => Response.json(view()),
       [`POST /v1/commits/${ref}/sign`]: () =>
         Response.json(
           { code: "commit_version_conflict", status: 409 },

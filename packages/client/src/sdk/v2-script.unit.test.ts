@@ -154,7 +154,6 @@ const routes: Record<string, unknown> = {
     Response.json(turnPage(intent.sessionId)),
   "GET /v1/commits/c-swap": { ...swap, sign_url: "https://x/sign/c-swap" },
   "GET /v1/commits/c-park": { ...parked, sign_url: "https://x/sign/c-park" },
-  "POST /v1/commits/c-swap/renew": swap,
   "POST /v1/commits/c-swap/sign": submitted(swap),
   "PATCH /v1/agent/sessions/:id": {
     id: "thread-1",
@@ -230,8 +229,7 @@ const routes: Record<string, unknown> = {
     commits: [piped],
   },
   "GET /v1/pipeline/evm/commits/c-pipe": [piped, piped, confirmed(piped)],
-  "POST /v1/pipeline/evm/commits/c-pipe/manual": (body: { kind: string }) =>
-    Response.json(body.kind === "renew" ? piped : submitted(piped)),
+  "POST /v1/pipeline/evm/commits/c-pipe/manual": submitted(piped),
   "GET /v1/account": {
     user: { id: "u1" },
     linkedAccounts: [],
@@ -275,7 +273,6 @@ const routes: Record<string, unknown> = {
   },
   "GET /v1/account/credits": { balance_microusd: 41_200 },
   "GET /v1/commits/7f3c": [other, other, { ...other, version: 2 }],
-  "POST /v1/commits/7f3c/renew": other,
   "POST /v1/commits/7f3c/sign": () =>
     Response.json(
       { error: { code: "commit_version_conflict", message: "changed" } },
