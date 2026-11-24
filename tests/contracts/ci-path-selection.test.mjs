@@ -13,7 +13,7 @@ import {
 
 test("plain documentation changes skip product checks", () => {
   const selected = classifyPaths([
-    "docs/testing/hosted-wallet-e2e.md",
+    "docs/topics/development/facts/frontend-invariants.md",
     "GOAL.md",
   ]);
   assert.equal(selected.reason, "documentation_only");
@@ -123,7 +123,7 @@ test("shared package changes fan out to every dependent surface", () => {
 });
 
 test("workflow changes run policy without unrelated product jobs", () => {
-  const selected = classifyPaths([".github/workflows/hosted-wallet-e2e.yml"]);
+  const selected = classifyPaths([".github/workflows/preview-e2e.yml"]);
   assert.equal(selected.workflow_policy, true);
   assert.equal(selected.packages, false);
   assert.equal(selected.apps, false);

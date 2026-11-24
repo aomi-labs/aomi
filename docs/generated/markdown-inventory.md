@@ -105,7 +105,6 @@ review_after_days: 7
 - `demo/MCP_CLI_SIGNING_DEMO.md` (not-included)
 - `demo/README.md` (not-included)
 - `docs/decisions.md` (not-included)
-- `docs/testing/hosted-wallet-e2e.md` (not-included)
 - `docs/topics/security/official-install-paths.md` (not-included)
 - `docs/trace-attribution/README.md` (not-included)
 - `examples/embed-next/README.md` (not-included)
