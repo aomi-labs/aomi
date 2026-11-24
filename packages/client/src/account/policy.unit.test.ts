@@ -582,6 +582,14 @@ describe("wallet rules", () => {
     expect(matchPolicyIds(both, `${SOL}@a`)).toEqual([GONE]);
     expect(matchPolicyIds(both, `${SOL}@`)).toEqual([SOL_RULE, GONE]);
     expect(matchPolicyIds(both, "nope")).toEqual([]);
+    // An empty shell variable names no policy, not the only one.
+    const sole = {
+      ...read,
+      rules: { ...read.rules, rules: [read.rules.rules[0]!] },
+    };
+    expect(matchPolicyIds(sole, SOL)).toHaveLength(1);
+    expect(matchPolicyIds(sole, "")).toEqual([]);
+    expect(matchPolicyIds(sole, " \t")).toEqual([]);
     // The backend's `next` wins over the inference; null is no wallet action.
     const evm = read.enforcement[1]!;
     expect(expectedPolicyAction({ ...evm, next: "evm_transaction" })).toBe(

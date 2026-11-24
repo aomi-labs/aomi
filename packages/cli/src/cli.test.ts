@@ -1284,6 +1284,25 @@ describe("aomi policy", () => {
       expect(sent("prepare")).toHaveLength(1);
     });
 
+    it("refuses an empty policy id, which would start the wallet's only policy", async () => {
+      routes[paths.rules] = {
+        ...body,
+        rules: { ...body.rules, rules: [sol()] },
+        enforcement: [owned(SOL_ID, "on")],
+      };
+      for (const argv of [
+        ["remove", ""],
+        ["undeploy", "  "],
+        ["deploy", ""],
+      ]) {
+        const { code, stderr } = await run(...argv, "--yes");
+        expect(code).toBe(2);
+        expect(stderr).toContain("Pass a policy id: aomi policy list");
+      }
+      expect(sent("prepare")).toEqual([]);
+      expect(requests.some((r) => r.key === paths.write)).toBe(false);
+    });
+
     it("follows the entry's next: no wallet action needs no local key, and an action that shows up is refused", async () => {
       // An EVM key only, and the chain needs nothing from the Solana owner.
       routes[paths.rules] = {

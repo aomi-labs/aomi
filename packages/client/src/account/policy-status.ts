@@ -114,7 +114,8 @@ export function chainOnlyPolicies(
 
 /**
  * The ids `typed` names among the policies Aomi or a chain holds: that id,
- * else every id it starts. One means it is unambiguous.
+ * else every id it starts. One means it is unambiguous. Nothing typed names
+ * none: an empty prefix would start them all.
  */
 export function matchPolicyIds(
   policies: Pick<AomiWalletPolicies, "rules" | "enforcement">,
@@ -124,6 +125,7 @@ export function matchPolicyIds(
     ...policies.rules.rules.map((policy) => policy.id ?? policyKey(policy)),
     ...chainOnlyPolicies(policies),
   ];
+  if (!typed.trim()) return [];
   return ids.includes(typed)
     ? [typed]
     : ids.filter((id) => id.startsWith(typed));

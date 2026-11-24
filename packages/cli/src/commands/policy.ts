@@ -172,6 +172,7 @@ const policyUrl = (flags: ConnectFlags, walletId: string, id: string) =>
 
 /** The policy `typed` names: its id, or the one id that starts with it. */
 function named(policies: AomiWalletPolicies, typed: string): string {
+  if (!typed.trim()) throw usage("Pass a policy id: aomi policy list");
   const ids = matchPolicyIds(policies, typed);
   if (ids.length > 1)
     throw new CliError(
