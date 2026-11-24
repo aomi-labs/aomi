@@ -161,37 +161,40 @@ describe("generic Solana wallet composition", () => {
 describe("v1 signing capability", () => {
   const address = "So11111111111111111111111111111111111111112";
 
+  type Adapter = Parameters<typeof standardV1Signer>[0];
+
+  // The StandardWalletAdapter shape the signer reads; the adapter derives
+  // supportedTransactionVersions from the wallet's features.
   function standardAdapter(versions: readonly (string | number)[]) {
     const signTransaction = vi.fn(
       async (...inputs: { transaction: Uint8Array }[]) =>
         inputs.map(({ transaction }) => ({ signedTransaction: transaction })),
     );
-    return {
-      signTransaction,
-      adapter: {
-        standard: true,
-        wallet: {
-          accounts: [{ address, features: ["solana:signTransaction"] }],
-          features: {
-            "solana:signTransaction": {
-              supportedTransactionVersions: versions,
-              signTransaction,
-            },
-          },
-        },
+    const account = { address, features: ["solana:signTransaction"] };
+    const adapter = {
+      standard: true,
+      supportedTransactionVersions: new Set(versions),
+      wallet: {
+        accounts: [account],
+        features: { "solana:signTransaction": { signTransaction } },
       },
-    };
+    } as unknown as Adapter;
+    return { adapter, account, signTransaction };
   }
 
   it("signs raw bytes when the wallet lists version 1", async () => {
-    const { adapter, signTransaction } = standardAdapter(["legacy", 0, 1]);
+    const { adapter, account, signTransaction } = standardAdapter([
+      "legacy",
+      0,
+      1,
+    ]);
     const signer = standardV1Signer(adapter, address);
     const bytes = Uint8Array.from([0x81, 1]);
 
     expect(signer).toBeTypeOf("function");
     await expect(signer!([bytes])).resolves.toEqual([bytes]);
     expect(signTransaction).toHaveBeenCalledWith({
-      account: adapter.wallet.accounts[0],
+      account,
       transaction: bytes,
     });
   });
@@ -204,7 +207,7 @@ describe("v1 signing capability", () => {
     ],
     [
       "is not a Wallet Standard wallet",
-      { ...standardAdapter([1]).adapter, standard: false },
+      { supportedTransactionVersions: new Set([1]) } as unknown as Adapter,
       address,
     ],
     [

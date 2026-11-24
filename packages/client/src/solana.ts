@@ -9,7 +9,6 @@ import {
 import bs58 from "bs58";
 import nacl from "tweetnacl";
 import { AomiError } from "./api-error";
-import { isV1Transaction, parseV1Transaction } from "./solana-v1";
 import type { SvmWallet } from "./wallet/types";
 import { normalizeSolanaCluster, type SvmCluster } from "./wallet-utils";
 
@@ -93,19 +92,10 @@ function parseKeypair(secret: string): Keypair {
   return Keypair.fromSecretKey(bytes);
 }
 
-/** v1 by its prefix, then versioned (v0), then legacy, like wallet adapters. */
+/** v1 by its prefix byte, then versioned (v0), then legacy, like wallet adapters. */
 function signTransaction(base64: string, keypair: Keypair): string {
   const bytes = Buffer.from(base64, "base64");
-  if (isV1Transaction(bytes)) {
-    const transaction = parseV1Transaction(bytes);
-    const signature = nacl.sign.detached(
-      transaction.message,
-      keypair.secretKey,
-    );
-    return Buffer.from(
-      transaction.withSignature(keypair.publicKey.toBytes(), signature),
-    ).toString("base64");
-  }
+  if (bytes[0] === 0x81) return signV1(bytes, keypair).toString("base64");
   try {
     const versioned = VersionedTransaction.deserialize(bytes);
     versioned.sign([keypair]);
@@ -118,4 +108,31 @@ function signTransaction(base64: string, keypair: Keypair): string {
       legacy.serialize({ requireAllSignatures: false }),
     ).toString("base64");
   }
+}
+
+/**
+ * A v1 transaction (SIMD-0385), which web3.js 1.x cannot decode, is its
+ * message then one 64-byte signature per required signer. The message is
+ * 0x81, a 3-byte header (signer count first), a 4-byte config mask, the
+ * 32-byte blockhash, instruction and address counts, then the addresses,
+ * signers first.
+ */
+function signV1(bytes: Buffer, keypair: Keypair): Buffer {
+  const signers = bytes[1] ?? 0;
+  const messageLength = bytes.length - signers * 64;
+  const slot = Array.from({ length: signers }, (_, i) =>
+    bytes.subarray(42 + i * 32, 74 + i * 32),
+  ).findIndex((key) => keypair.publicKey.toBuffer().equals(key));
+  if (slot < 0) {
+    throw new AomiError(
+      "invalid_transaction",
+      "The key is not a signer of this transaction",
+    );
+  }
+  const signed = Buffer.from(bytes);
+  signed.set(
+    nacl.sign.detached(bytes.subarray(0, messageLength), keypair.secretKey),
+    messageLength + slot * 64,
+  );
+  return signed;
 }
