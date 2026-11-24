@@ -52,12 +52,11 @@ export function loadFlows(filter?: string): Flow[] {
       });
     }
   }
-  // The hosted wallet journeys, as one signed-in session flow. Their scripted
-  // titles are parameterised by wallet family, and the transfer case needs a
-  // funded wallet.
+  // The hosted wallet journeys (scripted in aomi-qa's release test run), as
+  // one signed-in session flow; the transfer case needs a funded wallet.
   flows.push({
     id: "hosted--signed-in-session",
-    source: "hosted-wallet-journeys.spec.ts",
+    source: "aomi-qa journeys/hosted.spec.ts",
     goal: "an EVM wallet signs in, gets a settled reply, keeps its session and chat history across a reload, and sign-out ends both",
   });
   if (!filter) return flows;

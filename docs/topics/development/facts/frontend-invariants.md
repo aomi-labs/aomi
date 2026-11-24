@@ -180,8 +180,9 @@ wallets are standards-compatible injected fixtures with ephemeral keys, not
 real extension or embedded-provider accounts. The controlled upstream validates
 identity and protocol transport but does not replace a hosted backend smoke.
 The suite never signs transactions or broadcasts. It is not a real-provider-
-availability or full backend-migration test; the separate hosted-wallet workflow
-remains the staging-provider/backend check.
+availability or full backend-migration test; the hosted browser
+journeys in aomi-qa's release test run (product-mono `release-test.yml`) are
+the real-provider and backend check, on rc for every release.
 
 ## Payment cutover consumer baseline
 
