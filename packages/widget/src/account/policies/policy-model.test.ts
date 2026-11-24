@@ -10,6 +10,7 @@ import {
   policyAmount,
   policyCatalog,
   policyProviders,
+  NEEDS_WHITELIST,
   policyRows,
   policyToPhrase,
   removalSummary,
@@ -69,7 +70,10 @@ const metamask = (asset: string, extra: Partial<AomiPolicyEnforcement> = {}) =>
     signer: { family: "evm", address: null },
     ...extra,
   });
-const wallet = (rules: object[], enforcement: AomiPolicyEnforcement[] = []) => ({
+const wallet = (
+  rules: object[],
+  enforcement: AomiPolicyEnforcement[] = [],
+) => ({
   rules: { mode: "whitelist" as const, rules, linked_only: false } as never,
   enforcement,
 });
@@ -110,6 +114,29 @@ describe("policy rows", () => {
     expect(periodLine(result[2]!)).toBe(
       "Active period: 11/11/2026 – 11/12/2026",
     );
+  });
+
+  it("says why nothing holds a policy on chain in blacklist mode, where a provider serves its chain", () => {
+    const held = {
+      ...wallet([rule(SOL), rule(BASE_USDC)]),
+      rules: {
+        mode: "blacklist",
+        rules: [rule(SOL), rule(BASE_USDC)],
+        linked_only: false,
+      } as never,
+      providers: [
+        {
+          provider: "swig",
+          name: "Swig",
+          network: SOL.split("/")[0]!,
+          holds: "total_period_and_destination" as const,
+          note: null,
+        },
+      ],
+    };
+    const [sol, usdc] = policyRows(held, null, NOW);
+    expect(sol!.enforcement).toEqual({ name: null, note: NEEDS_WHITELIST });
+    expect(usdc!.enforcement).toEqual({ name: null });
   });
 
   it("keeps an ended rule, says when it ended, and does not count it", () => {

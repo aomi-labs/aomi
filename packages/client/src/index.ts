@@ -566,6 +566,7 @@ export {
   expectedPolicyAction,
   matchPolicyIds,
   policyOnChain,
+  whitelistOnlyProvider,
 } from "./account/policy-status";
 export type { AomiPolicyOnChain } from "./account/policy-status";
 export { AomiWallets } from "./sdk/wallets";

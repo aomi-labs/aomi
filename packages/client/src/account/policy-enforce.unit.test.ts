@@ -277,6 +277,53 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
     expect(sendEvmTransaction).not.toHaveBeenCalled();
   });
 
+  describe("a deployment sent as a transaction", () => {
+    // The vault's creation: the entry asks for a transaction until the
+    // backend's node shows it.
+    const asks = entry({ state: "off", note: null, next: "evm_transaction" });
+    const deploy = async (confirmed: object[], held = asks) => {
+      let calls = 0;
+      const transport = {
+        prepareEnforcement: vi.fn(async () => action()),
+        confirmEnforcement: vi.fn(async () => ({
+          enforcement: [confirmed[Math.min(calls++, confirmed.length - 1)]],
+        })),
+      };
+      const result = await enforcePolicy(
+        transport as never,
+        "w",
+        held,
+        { evmAddress: OWNER, sendEvmTransaction: async () => "0xhash" },
+        { revision: 1, owner: OWNER, retryDelayMs: 0 },
+      );
+      return { result, confirms: transport.confirmEnforcement.mock.calls };
+    };
+
+    it("keeps confirming while the entry is unchanged, and settles once it moves on", async () => {
+      const moved = { ...asks, next: "typed_data" };
+      const { result, confirms } = await deploy([asks, asks, moved]);
+      expect(result).toEqual({
+        policies: { enforcement: [moved] },
+        settled: true,
+        transaction: "0xhash",
+      });
+      expect(confirms).toHaveLength(3);
+    });
+
+    it("answers settled false and keeps the transaction when it never moves on", async () => {
+      const { result, confirms } = await deploy([asks]);
+      expect(result).toMatchObject({ settled: false, transaction: "0xhash" });
+      expect(confirms).toHaveLength(6);
+    });
+
+    it("settles at once, as before, for a backend that sends no next", async () => {
+      const old = entry({ state: "off", note: null });
+      const { result, confirms } = await deploy([old], old);
+      expect(result.settled).toBe(true);
+      expect(confirms).toHaveLength(1);
+    });
+  });
+
   it("sends the prepared transaction from the owner's wallet and nothing else", async () => {
     const { error, confirmEnforcement, transport } = await run(action());
     expect(error).toBeNull();

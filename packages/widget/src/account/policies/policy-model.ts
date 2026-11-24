@@ -3,6 +3,7 @@ import {
   normalizeSolanaCluster,
   policyFromDraft,
   policyKey,
+  policyOnChain,
   sendsRevocation,
   type AomiPolicy,
   type AomiPolicyTo,
@@ -326,12 +327,17 @@ export const wireTo = (to: PolicyTo): AomiPolicyTo =>
       ? { kind: "protocol", id: to.id }
       : { kind: "address", address: to.address };
 
+/** Why a row says None on a chain a provider serves, in blacklist mode. */
+export const NEEDS_WHITELIST =
+  "On-chain providers hold policies only in whitelist mode. Aomi still checks every trade against this policy.";
+
 /**
  * Rules that differ only by chain share a row. One waiting to be signed
  * keeps its own: each rule deploys with its own signature.
  */
 export function policyRows(
-  rules: Pick<AomiWalletPolicies, "rules" | "enforcement">,
+  rules: Pick<AomiWalletPolicies, "rules" | "enforcement"> &
+    Partial<Pick<AomiWalletPolicies, "providers">>,
   catalog?: AomiPolicyCatalog | null,
   now = Date.now(),
 ): Policy[] {
@@ -351,7 +357,11 @@ export function policyRows(
       known ? { symbol, decimals } : undefined,
     );
     const enforcement: PolicyEnforcement =
-      ended && held.deploy ? { name: null } : held;
+      ended && held.deploy
+        ? { name: null }
+        : !ended && policyOnChain(rules, id)?.kind === "needs_whitelist"
+          ? { ...held, note: NEEDS_WHITELIST }
+          : held;
     const chain: PolicyChain = {
       label: assetChain(rule.asset, catalog ?? undefined),
       network: assetNetwork(rule.asset),

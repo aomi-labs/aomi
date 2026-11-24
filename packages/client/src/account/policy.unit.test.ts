@@ -519,6 +519,48 @@ describe("wallet rules", () => {
     ).toEqual([GONE]);
     expect(chainOnlyPolicies(read)).toEqual([]);
     expect(policyOnChain(read, SOL_RULE, "metamask")?.kind).toBe("aomi_only");
+    // Blacklist mode, no entry, and a provider on the policy's chain that
+    // holds policies in whitelist mode only: the mode is the reason.
+    const blacklist = {
+      ...read,
+      rules: { ...read.rules, mode: "blacklist" as const },
+      enforcement: [],
+      providers: [
+        {
+          provider: "swig",
+          name: "Swig",
+          network: "solana:mainnet-beta",
+          holds: "total_period_and_destination" as const,
+          note: null,
+        },
+      ],
+    };
+    expect(policyOnChain(blacklist, SOL_RULE)).toMatchObject({
+      kind: "needs_whitelist",
+      provider: { provider: "swig" },
+    });
+    // No provider on Base, another provider asked for, one this client does
+    // not know, whitelist mode, or a provider that declined: Aomi only.
+    expect(policyOnChain(blacklist, USDC_RULE)?.kind).toBe("aomi_only");
+    expect(policyOnChain(blacklist, SOL_RULE, "metamask")?.kind).toBe(
+      "aomi_only",
+    );
+    const [swig] = blacklist.providers;
+    expect(
+      policyOnChain(
+        { ...blacklist, providers: [{ ...swig!, provider: "other" }] },
+        SOL_RULE,
+      )?.kind,
+    ).toBe("aomi_only");
+    expect(
+      policyOnChain({ ...blacklist, rules: read.rules }, SOL_RULE)?.kind,
+    ).toBe("aomi_only");
+    expect(
+      policyOnChain(
+        { ...blacklist, enforcement: [entry("off", false)] },
+        SOL_RULE,
+      )?.kind,
+    ).toBe("aomi_only");
     expect(expectedPolicyAction(read.enforcement[0]!)).toBe("transaction");
     expect(expectedPolicyAction(read.enforcement[1]!)).toBe("typed_data");
     expect(

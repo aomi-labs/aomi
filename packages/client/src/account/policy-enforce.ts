@@ -356,11 +356,22 @@ export async function enforcePolicy(
     });
   let policies = await confirm();
   // No signature proves a sent tx: policies come back unchanged until the
-  // backend's node shows it.
+  // backend's node shows it. A signed revocation still waits to be sent, or
+  // the entry still asks for the action it asked for at the start. An older
+  // backend sends no `next`, and only the revocation tells.
   const sent = action?.kind === "evm_transaction";
+  const unseen = (now: AomiWalletPolicies) =>
+    stillHeld(now, key) ||
+    (entry.next === action?.kind &&
+      now.enforcement.some(
+        (one) =>
+          enforcementKey(one) === key &&
+          one.state === entry.state &&
+          one.next === entry.next,
+      ));
   for (
     let attempt = 0;
-    sent && attempt < 5 && policies && stillHeld(policies, key);
+    sent && attempt < 5 && policies && unseen(policies);
     attempt += 1
   ) {
     await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
@@ -374,5 +385,5 @@ export async function enforcePolicy(
       settled: false,
       ...said,
     };
-  return { policies, settled: !(sent && stillHeld(policies, key)), ...said };
+  return { policies, settled: !(sent && unseen(policies)), ...said };
 }

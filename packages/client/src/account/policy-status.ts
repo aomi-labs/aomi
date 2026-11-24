@@ -6,8 +6,10 @@ import {
   policyKey,
   type AomiPolicyAction,
   type AomiPolicyEnforcement,
+  type AomiPolicyProvider,
   type AomiWalletPolicies,
 } from "./policy";
+import { assetNetwork } from "./policy-draft";
 import { sendsRevocation } from "./policy-enforce";
 
 export type AomiPolicyOnChain =
@@ -21,8 +23,40 @@ export type AomiPolicyOnChain =
   | { kind: "unverified"; entry: AomiPolicyEnforcement }
   /** Aomi no longer holds the policy; the chain still does. */
   | { kind: "chain_only"; entry: AomiPolicyEnforcement }
+  /**
+   * The wallet is in blacklist mode, and `provider`, on the policy's chain,
+   * holds policies in whitelist mode only.
+   */
+  | { kind: "needs_whitelist"; provider: AomiPolicyProvider }
   /** No provider can hold it; `note` is the provider's reason, if one said. */
   | { kind: "aomi_only"; note: string | null };
+
+/** The read of a wallet's policies a status needs; `providers` if it has them. */
+type Held = Pick<AomiWalletPolicies, "rules" | "enforcement"> &
+  Partial<Pick<AomiWalletPolicies, "providers">>;
+
+// Swig and MetaMask each lower a rule only when `mode` is whitelist
+// (`swig_policy.rs` `lower`, `metamask.rs` `convert`).
+const WHITELIST_ONLY = ["swig", "metamask"];
+
+/**
+ * The provider on `network` that holds nothing for this wallet because it is
+ * in blacklist mode: one that holds policies in whitelist mode only. Whether
+ * it would hold a given policy after the switch is the provider's to say.
+ */
+export const whitelistOnlyProvider = (
+  policies: Pick<Held, "rules" | "providers">,
+  network: string,
+  provider?: string,
+): AomiPolicyProvider | undefined =>
+  policies.rules.mode === "blacklist"
+    ? policies.providers?.find(
+        (one) =>
+          one.network === network &&
+          WHITELIST_ONLY.includes(one.provider) &&
+          (!provider || one.provider === provider),
+      )
+    : undefined;
 
 const ON_CHAIN = {
   on: "in_sync",
@@ -35,14 +69,14 @@ const ON_CHAIN = {
  * Null when neither Aomi nor a chain holds it.
  */
 export function policyOnChain(
-  policies: Pick<AomiWalletPolicies, "rules" | "enforcement">,
+  policies: Held,
   id: string,
   provider?: string,
 ): AomiPolicyOnChain | null {
   const mine = policies.enforcement.filter(
     (entry) => entry.rule === id && (!provider || entry.provider === provider),
   );
-  const held = policies.rules.rules.some(
+  const held = policies.rules.rules.find(
     (policy) => (policy.id ?? policyKey(policy)) === id,
   );
   if (!held) {
@@ -54,8 +88,12 @@ export function policyOnChain(
     if (entry) return { kind: ON_CHAIN[state], entry };
   }
   const entry = mine.find((candidate) => candidate.ready);
-  return entry
-    ? { kind: "not_deployed", entry }
+  if (entry) return { kind: "not_deployed", entry };
+  const waits =
+    !mine.length &&
+    whitelistOnlyProvider(policies, assetNetwork(held.asset), provider);
+  return waits
+    ? { kind: "needs_whitelist", provider: waits }
     : { kind: "aomi_only", note: mine[0]?.note ?? null };
 }
 

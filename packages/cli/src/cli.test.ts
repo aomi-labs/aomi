@@ -369,11 +369,16 @@ describe("sign-in", () => {
     expect(requests.at(-1)?.auth).toBe("Bearer siws-token");
   });
 
-  it("names both signers when the EVM key signs in", async () => {
+  it("says which key signed in, and that the other is only a local signer", async () => {
     state({ svmKey: SOLANA_KEY });
     const { stdout } = await cli("whoami", "--private-key", KEY);
     expect(stdout).toContain(
-      `Signed in  --private-key 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 · ${SOLANA.publicKey.toBase58()}`,
+      `Signed in  --private-key 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 · local signer only: ${SOLANA.publicKey.toBase58()}\n`,
+    );
+    state({ evmKey: KEY });
+    const solana = await cli("whoami", "--solana-private-key", SOLANA_KEY);
+    expect(solana.stdout).toContain(
+      `Signed in  --solana-private-key ${SOLANA.publicKey.toBase58()} · local signer only: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8\n`,
     );
   });
 
@@ -1059,9 +1064,21 @@ describe("aomi policy", () => {
       requests
         .filter((request) => request.key === steps[step])
         .map((request) => JSON.parse(request.body));
+    const owns = "GET /v1/account/wallets";
     beforeEach(() => {
       chain.signed.length = 0;
       chain.sent.length = 0;
+      routes[owns] = {
+        wallets: [
+          {
+            id: "w_1",
+            kind: "browser",
+            family: "svm",
+            address: OWNER,
+            label: "Phantom",
+          },
+        ],
+      };
       routes[paths.rules] = { ...body, enforcement: [swig(SOL_ID, "off")] };
       routes[steps.prepare] = {
         action: {
@@ -1073,7 +1090,7 @@ describe("aomi policy", () => {
       routes[steps.confirm] = { rules: body };
     });
     afterEach(() => {
-      for (const key of Object.values(steps)) delete routes[key];
+      for (const key of [...Object.values(steps), owns]) delete routes[key];
     });
 
     it("deploys with the local signer: the checks, the three steps, then where it stands", async () => {
@@ -1149,6 +1166,20 @@ describe("aomi policy", () => {
 
     it.each([
       [
+        "a policy its provider holds in whitelist mode only",
+        ["deploy", SOL_ID],
+        { enforcement: [] },
+        1,
+        "Swig holds policies only in whitelist mode, and this wallet is in blacklist mode: aomi policy mode whitelist",
+      ],
+      [
+        "a local key that is not one of the account's wallets, before it asks",
+        ["deploy", SOL_ID],
+        { wallets: [] },
+        3,
+        `The local signer ${OWNER} is not one of this account's wallets, so it cannot own this policy. Sign in with it (--solana-private-key without --private-key) or link it to this account at ${BASE}. Nothing was signed`,
+      ],
+      [
         "a policy Aomi no longer holds",
         ["deploy", GONE],
         { enforcement: [owned(GONE, "on")] },
@@ -1208,7 +1239,8 @@ describe("aomi policy", () => {
         1,
         "No provider metamask on this wallet: swig",
       ],
-    ])("refuses %s", async (_, argv, held, exit, error) => {
+    ])("refuses %s", async (_, argv, { wallets, ...held }, exit, error) => {
+      if (wallets) routes[owns] = { wallets };
       routes[paths.rules] = { ...(routes[paths.rules] as object), ...held };
       const { code, stderr } = await run(...argv, "--yes");
       expect(code).toBe(exit);
@@ -1335,6 +1367,41 @@ describe("aomi policy", () => {
       });
     });
 
+    it("gives the same guidance when the prepare step says the owner is not the account's", async () => {
+      routes[steps.prepare] = () =>
+        Response.json(
+          {
+            error: "account_not_found",
+            message:
+              "The on-chain address does not belong to this Aomi account",
+          },
+          { status: 404 },
+        );
+      const { code, stderr } = await run("deploy", SOL_ID, "--yes");
+      expect(code).toBe(3);
+      expect(stderr).toContain(
+        `error: The local signer ${OWNER} is not one of this account's wallets`,
+      );
+      expect(chain.signed).toEqual([]);
+    });
+
+    it("keeps the transaction in --json when what follows the send fails", async () => {
+      routes[steps.confirm] = () =>
+        Response.json({ error: "rules_changed" }, { status: 409 });
+      const { code, stdout, stderr } = await run(
+        "deploy",
+        SOL_ID,
+        "--yes",
+        "--json",
+      );
+      expect(code).toBe(1);
+      expect(JSON.parse(stdout)).toMatchObject({
+        error: { code: "rules_changed", transaction: "5igSent" },
+      });
+      expect(stderr).toContain("error: ");
+      expect(chain.sent).toHaveLength(1);
+    });
+
     it("says a policy already in sync has nothing to deploy", async () => {
       routes[paths.rules] = body;
       const { code, stdout } = await run("deploy", SOL_ID, "--yes");
@@ -1342,6 +1409,35 @@ describe("aomi policy", () => {
       expect(stdout).toBe("Already in sync (Swig)\n");
       expect(sent("prepare")).toEqual([]);
     });
+  });
+
+  it("says a policy waits for whitelist mode where a provider on its chain holds only that", async () => {
+    const held = { ...body, enforcement: [] };
+    routes[paths.rules] = held;
+    routes[paths.write] = { status: "applied", rules: held };
+    const set = await policy("set", "--amt", "0.01", "SOL", "--to", "jupiter");
+    expect(set.stdout).toContain(
+      "Next\n  aomi policy mode whitelist   on-chain providers hold policies only in whitelist mode\n",
+    );
+    const { stdout } = await policy("list");
+    expect(stdout).toMatch(/SOL on Jupiter .* needs whitelist mode\n/);
+    // No provider serves Base here: that one is Aomi's alone.
+    expect(stdout).toMatch(/USDC on any app .* Aomi only\n/);
+    // A change that still waits is not held yet: the same reason applies.
+    routes[paths.rules] = { ...held, rules: { ...body.rules, rules: [usdc] } };
+    routes[paths.write] = {
+      status: "waiting",
+      rules: {
+        ...held,
+        rules: { ...body.rules, rules: [usdc] },
+        pending: change,
+      },
+    };
+    const waiting = await policy("set", "--amt", "1", "SOL", "--to", "jupiter");
+    expect(waiting.stdout).toContain(
+      "  aomi policy mode whitelist   on-chain providers hold policies only in whitelist mode\n",
+    );
+    expect(waiting.stdout).not.toContain("put it there");
   });
 
   it("no longer knows aomi rules", async () => {

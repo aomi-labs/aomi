@@ -1804,6 +1804,14 @@ export type AomiPolicyOnChain =
     kind: "chain_only";
     entry: AomiPolicyEnforcement;
 }
+/**
+* The wallet is in blacklist mode, and `provider`, on the policy's chain,
+* holds policies in whitelist mode only.
+*/
+| {
+    kind: "needs_whitelist";
+    provider: AomiPolicyProvider;
+}
 /** No provider can hold it; `note` is the provider's reason, if one said. */
 | {
     kind: "aomi_only";
@@ -4001,7 +4009,7 @@ export function policyFromInput(input: AomiPolicyInput, catalog: AomiPolicyCatal
 export function policyKey(rule: Pick<AomiPolicy, "asset" | "to">): string;
 
 // @public
-export function policyOnChain(policies: Pick<AomiWalletPolicies, "rules" | "enforcement">, id: string, provider?: string): AomiPolicyOnChain | null;
+export function policyOnChain(policies: Held, id: string, provider?: string): AomiPolicyOnChain | null;
 
 // @public (undocumented)
 export function posterFromClient(client: AomiClient): AuthorizationPoster;
@@ -5177,6 +5185,9 @@ export type WalletTxPayload = {
 
 // @public (undocumented)
 export function walletUserState(wallets: Wallets): UserState | undefined;
+
+// @public
+export const whitelistOnlyProvider: (policies: Pick<Held, "rules" | "providers">, network: string, provider?: string) => AomiPolicyProvider | undefined;
 
 // @public
 export function withBrowserSessionTransition<T>(transition: () => Promise<T>): Promise<T>;

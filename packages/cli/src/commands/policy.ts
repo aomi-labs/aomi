@@ -16,6 +16,7 @@ import {
   policyOnChain,
   shortAddress,
   upsertPolicy,
+  whitelistOnlyProvider,
   withoutPolicy,
   type Aomi,
   type AomiPolicy,
@@ -33,6 +34,7 @@ import {
   confirm,
   connect,
   json,
+  messageOf,
   out,
   policySigner,
   table,
@@ -98,10 +100,11 @@ const ON_CHAIN: Record<AomiPolicyOnChain["kind"], string> = {
   out_of_date: "out of date",
   unverified: "not verified",
   chain_only: "on chain only",
+  needs_whitelist: "needs whitelist mode",
   aomi_only: "Aomi only",
 };
 
-/** `in sync (Swig)`, `not deployed`, `on chain only`, `Aomi only`. */
+/** `in sync (Swig)`, `not deployed`, `needs whitelist mode`, `Aomi only`. */
 export const onChain = (status: AomiPolicyOnChain): string =>
   ["in_sync", "out_of_date", "unverified"].includes(status.kind) &&
   "entry" in status
@@ -198,6 +201,7 @@ export function nextLines(
     );
   const focusId = focus && policyKey(focus);
   let aomiOnly = false;
+  let needsWhitelist = false;
   for (const id of [
     ...new Set([
       ...policies.rules.rules.map(idOf),
@@ -216,11 +220,15 @@ export function nextLines(
     else if (status?.kind === "unverified")
       lines.push(`aomi policy list   ${status.entry.name} could not be read`);
     else if (id !== focusId) continue;
+    else if (status?.kind === "needs_whitelist") needsWhitelist = true;
     else if (status?.kind === "aomi_only") aomiOnly = true;
     else if (!status && pending) {
       // Not held until the change is approved: a provider on its chain can.
       const network = assetNetwork(focus!.asset);
-      if (policies.providers.some((provider) => provider.network === network))
+      if (whitelistOnlyProvider(policies, network)) needsWhitelist = true;
+      else if (
+        policies.providers.some((provider) => provider.network === network)
+      )
         lines.push(
           `aomi policy deploy ${id}${wallet}   once approved: not on chain yet; put it there`,
         );
@@ -234,6 +242,10 @@ export function nextLines(
       `Still on chain: ${name} holds ${id}. Run aomi policy undeploy ${id}${wallet}`,
     );
   }
+  if (needsWhitelist)
+    lines.push(
+      `aomi policy mode whitelist${wallet}   on-chain providers hold policies only in whitelist mode`,
+    );
   if (aomiOnly)
     lines.push(
       "Enforced by Aomi only: no on-chain provider holds this kind of policy",
@@ -645,6 +657,21 @@ export async function authority(
 
 type EnforceFlags = Flags & { provider?: string; yes?: boolean };
 
+/** A key that is not one of the account's wallets cannot own a policy. */
+const notOwnWallet = (
+  flags: ConnectFlags,
+  family: "evm" | "svm",
+  address: string,
+) =>
+  new CliError(
+    `The local signer ${address} is not one of this account's wallets, so it cannot own this policy. Sign in with it (${
+      family === "evm"
+        ? "--private-key"
+        : "--solana-private-key without --private-key"
+    }) or link it to this account at ${baseUrlOf(flags)}. Nothing was signed`,
+    3,
+  );
+
 const ACTIONS: Record<AomiPolicyAction["kind"], string> = {
   transaction: "Solana transaction",
   typed_data: "EIP-712 signature; nothing is sent",
@@ -687,6 +714,10 @@ async function enforce(
     throw new CliError(
       `Aomi no longer holds ${id}. To take it off the chain: aomi policy undeploy ${id}${walletArg(held, !flags.wallet)}`,
     );
+  if (status.kind === "needs_whitelist")
+    throw new CliError(
+      `${status.provider.name} holds policies only in whitelist mode, and this wallet is in blacklist mode: aomi policy mode whitelist${walletArg(held, !flags.wallet)}`,
+    );
   if (status.kind === "aomi_only")
     throw new CliError(
       `No on-chain provider can hold this policy${status.note ? ` (${status.note})` : ""}. Aomi checks it on every commit`,
@@ -728,6 +759,21 @@ async function enforce(
     throw new CliError(
       `The local signer ${local} is not ${owner}, the wallet that owns this policy. Nothing was signed`,
     );
+  // A policy with no owner on chain yet takes the local key as its owner,
+  // and the backend only takes one of the account's own wallets.
+  if (!entry.signer.address) {
+    const wallets = await aomi.account.wallets.list();
+    if (
+      !wallets.some(
+        (wallet) =>
+          wallet.family === family &&
+          (family === "evm"
+            ? wallet.address.toLowerCase() === owner.toLowerCase()
+            : wallet.address === owner),
+      )
+    )
+      throw notOwnWallet(flags, family, owner);
+  }
   const policy = held.rules.rules.find((one) => idOf(one) === id);
   const say = (line: string) => void (flags.json || out(line));
   const row = (name: string, text: string) =>
@@ -742,12 +788,14 @@ async function enforce(
   if (!flags.yes && !(await confirm(kind ? "Sign and send?" : "Confirm?")))
     throw new CliError("Not sent");
   let asked = false;
+  let sent: string | undefined;
   const signer = policySigner(aomi, flags);
   /** The same step, said once the wallet has done it. */
   const said = <In, Out>(act?: (input: In) => Promise<Out>) =>
     act &&
     (async (input: In) => {
       const result = await act(input);
+      if (kind !== "typed_data" && typeof result === "string") sent = result;
       // A sent transaction is named at once: whatever follows, it is out.
       row(
         "sign + send",
@@ -784,6 +832,18 @@ async function enforce(
       },
     );
   } catch (error) {
+    // What was sent is out, whatever failed after it: a script must not
+    // send it again for want of its reference.
+    if (flags.json && sent)
+      json({
+        error: {
+          message: messageOf(error),
+          ...(error instanceof AomiApiError ? { code: error.code } : {}),
+          transaction: sent,
+        },
+      });
+    if (error instanceof AomiApiError && error.code === "account_not_found")
+      throw notOwnWallet(flags, family, owner);
     refusal(error, baseUrlOf(flags));
   }
   const { policies, settled, transaction } = result;
