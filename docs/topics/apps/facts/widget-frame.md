@@ -37,13 +37,16 @@ React chat widget and for first-party host composition.
   rest. A row and its detail footer offer one first action: "Use in chat" (on),
   "Turn on" (off) or "Connect" (a required person key is missing). "Use in
   chat" closes the Library and asks the same frame's composer for the package's
-  @ tag (`requestCapabilityMention`); a Direct chat is only focused. A package
-  added with a code has "Remove". Every change invalidates all of the account's
+  @ tag (`requestCapabilityMention`, private to that frame and dropped when the
+  account or chat changes first); a Direct chat is only focused. A package
+  added with a code has "Remove". Open sheets and confirms close when the
+  account changes, and each write first reads `/api/account` and is not sent
+  unless the account that started it is still signed in. Every change invalidates all of the account's
   `account-packages` reads, so "@" in any chat follows without a reload.
   Turning on a not verified package first shows its capability envelope once
-  per device, keyed by package id and envelope hash. The Wallet section names
-  checked calls (`checked`) only for a verified package, and is left out for a
-  host package, which declares none. Person keys are entered there; builder
+  per device, keyed by backend, account, package id and envelope hash. The
+  Wallet section names checked calls (`checked`) only for a verified package,
+  and is left out for a package that declares nothing, which is no promise. Person keys are entered there; builder
   keys are only explained. "Add with code" (signed-in accounts;
   guests see a sign-in prompt) redeems a private package code through
   `POST /api/account/packages/activate`; the code is never stored. The package

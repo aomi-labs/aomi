@@ -28,7 +28,7 @@ import {
 } from "@/controls/routing";
 import { buildCapabilityHintPayload } from "@/thread/capability-hint-payload";
 import {
-  CAPABILITY_MENTION_REQUEST_EVENT,
+  onCapabilityMentionRequest,
   type AgentTagRequest,
   type CapabilityMention,
   type CapabilityMentionRequest,
@@ -139,9 +139,9 @@ export function CapabilityComposerProvider({
   }, [view, mentions]);
 
   // Offer the host's agent tag once, after the mount-time mention reset above.
-  const [tagRequest, setTagRequest] = useState<CapabilityMentionRequest | null>(
-    null,
-  );
+  const [tagRequest, setTagRequest] = useState<
+    (CapabilityMentionRequest & { scope?: string }) | null
+  >(null);
   const agentTagKey = initialAgentTag ? initialAgentTag.agent : "";
   const offeredAgentTag = useRef("");
   useEffect(() => {
@@ -149,19 +149,21 @@ export function CapabilityComposerProvider({
     offeredAgentTag.current = agentTagKey;
     setTagRequest({ kind: "agent", id: initialAgentTag.agent });
   }, [agentTagKey, initialAgentTag]);
-  const frame = useAomiDisplayCache()?.client;
-  useEffect(() => {
-    const receive = (event: Event) => {
-      const { detail } = event as CustomEvent<{
-        request: CapabilityMentionRequest;
-        frame: unknown;
-      }>;
-      if (detail.frame === frame) setTagRequest(detail.request);
-    };
-    window.addEventListener(CAPABILITY_MENTION_REQUEST_EVENT, receive);
-    return () =>
-      window.removeEventListener(CAPABILITY_MENTION_REQUEST_EVENT, receive);
-  }, [frame]);
+  // The Library's request is for this account's chat as it is now: one still
+  // waiting for the catalog ends when either changes.
+  const cache = useAomiDisplayCache();
+  const frame = cache?.client;
+  const scope = `${cache?.scope.account?.id ?? ""}:${threadContext.currentThreadId}`;
+  if (tagRequest?.scope !== undefined && tagRequest.scope !== scope)
+    setTagRequest(null);
+  useEffect(
+    () =>
+      frame &&
+      onCapabilityMentionRequest(frame, (request) =>
+        setTagRequest({ ...request, scope }),
+      ),
+    [frame, scope],
+  );
   const consumeTagRequest = useCallback(() => setTagRequest(null), []);
 
   useEffect(() => {

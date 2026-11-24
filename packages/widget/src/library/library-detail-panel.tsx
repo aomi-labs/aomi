@@ -10,7 +10,6 @@ import {
   Lock,
   MessageCircle,
   Plus,
-  Shield,
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -80,31 +79,23 @@ function Lines({
 
 function WalletSection({ row }: { row: AomiPackage }) {
   const lines = walletLines(row);
+  if (lines.length === 0) return null;
   return (
     <Section title="Wallet">
-      {lines.length === 0 ? (
-        <p className="type-control text-aomi-fg/80 flex gap-2.5">
-          <Shield className="text-aomi-muted mt-px size-4 shrink-0" />
-          Never asks for a transaction or a signature.
-        </p>
-      ) : (
-        lines.map(({ kind, icon: Icon, title, detail }) => (
-          <div key={title} className="flex gap-2.5">
-            <Icon
-              className={cn(
-                "mt-px size-4 shrink-0",
-                kind === "guard"
-                  ? "text-aomi-accent-strong"
-                  : "text-aomi-muted",
-              )}
-            />
-            <span className="flex min-w-0 flex-col">
-              <span className="type-control">{title}</span>
-              <span className="type-meta text-aomi-muted">{detail}</span>
-            </span>
-          </div>
-        ))
-      )}
+      {lines.map(({ kind, icon: Icon, title, detail }) => (
+        <div key={title} className="flex gap-2.5">
+          <Icon
+            className={cn(
+              "mt-px size-4 shrink-0",
+              kind === "guard" ? "text-aomi-accent-strong" : "text-aomi-muted",
+            )}
+          />
+          <span className="flex min-w-0 flex-col">
+            <span className="type-control">{title}</span>
+            <span className="type-meta text-aomi-muted">{detail}</span>
+          </span>
+        </div>
+      ))}
     </Section>
   );
 }
@@ -338,10 +329,7 @@ export function LibraryDetailPanel({
             </Section>
           ) : null}
 
-          {/* A host package declares nothing here, which is not "never asks". */}
-          {account && account.live.release !== null ? (
-            <WalletSection row={account} />
-          ) : null}
+          {account ? <WalletSection row={account} /> : null}
 
           {row.skills.length > 0 ? (
             <Section title="Instructions" count={row.skills.length}>

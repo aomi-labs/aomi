@@ -118,7 +118,9 @@ export function CatalogRow({
       data-selected={selected || undefined}
       className={cn(
         "rounded-control group flex min-h-14 items-center pr-2.5 transition-colors",
-        selected ? "bg-aomi-surface-2" : "hover:bg-aomi-hover",
+        selected
+          ? "bg-aomi-surface-2 ring-aomi-border ring-1 ring-inset"
+          : "hover:bg-aomi-surface-2/70",
       )}
     >
       <button

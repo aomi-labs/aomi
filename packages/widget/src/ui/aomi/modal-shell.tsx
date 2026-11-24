@@ -67,8 +67,10 @@ export function ModalShell({
           className={cn(
             "grid h-full min-h-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] md:grid-rows-1",
             inspector
-              ? "md:grid-cols-[185px_minmax(0,1fr)_380px]"
-              : "md:grid-cols-[185px_minmax(0,1fr)]",
+              ? "md:grid-cols-[200px_minmax(0,1fr)_380px]"
+              : wide
+                ? "md:grid-cols-[200px_minmax(0,1fr)]"
+                : "md:grid-cols-[185px_minmax(0,1fr)]",
           )}
         >
           {children}
@@ -209,9 +211,7 @@ export function ModalNavItem({
       )}
     >
       <Icon className="size-4 shrink-0" />
-      <span className="min-w-0 flex-1 whitespace-nowrap text-left">
-        {label}
-      </span>
+      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
       {count === "loading" ? (
         <LoadingLine className="w-4" />
       ) : count !== undefined ? (

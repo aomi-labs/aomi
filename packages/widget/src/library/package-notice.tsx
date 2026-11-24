@@ -51,17 +51,15 @@ export function PackageNotice({
       {row ? (
         <div className="space-y-2">
           <StatusPill tone="neutral">Not verified</StatusPill>
-          <ul className="type-control space-y-1">
-            {lines.length ? (
-              lines.map((line) => (
+          {lines.length ? (
+            <ul className="type-control space-y-1">
+              {lines.map((line) => (
                 <li key={line} className="[overflow-wrap:anywhere]">
                   {line}
                 </li>
-              ))
-            ) : (
-              <li>It reaches no outside service and asks for no approvals.</li>
-            )}
-          </ul>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
     </ConfirmDialog>

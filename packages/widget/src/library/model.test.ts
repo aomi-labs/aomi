@@ -91,11 +91,13 @@ describe("library model", () => {
   });
 
   it("says what the package asks of the wallet in plain words", () => {
+    const APPROVAL =
+      "You approve each one. Agent wallets on Instant follow their rules.";
     const lines = (row: Parameters<typeof walletLines>[0]) =>
       walletLines(row).map(({ title, detail }) => [title, detail]);
     expect(lines(NOT_VERIFIED)).toEqual([
-      ["Prepares EVM transactions", "You approve each one in your wallet."],
-      ["Asks you to sign typed data", "You sign each one in your wallet."],
+      ["Prepares EVM transactions", APPROVAL],
+      ["Asks you to sign typed data", APPROVAL],
     ]);
     expect(
       lines(
@@ -111,14 +113,11 @@ describe("library model", () => {
         }),
       ),
     ).toEqual([
+      ["Prepares EVM and Solana transactions", APPROVAL],
+      ["Asks you to sign a message", APPROVAL],
       [
-        "Prepares EVM and Solana transactions",
-        "You approve each one in your wallet.",
-      ],
-      ["Asks you to sign a message", "You sign each one in your wallet."],
-      [
-        "Checked before you approve",
-        "Aomi’s built-in check covers the calls it knows.",
+        "Checked before signing",
+        "Aomi’s built-in check covers some of its calls. Other calls may be checked only in part.",
       ],
     ]);
     expect(walletLines(packageRow({ prepares: [] }))).toEqual([]);
@@ -130,12 +129,11 @@ describe("library model", () => {
           envelope: { ...VERIFIED.envelope, transactions: [] },
         }),
       ),
-    ).toEqual([
-      ["Prepares EVM transactions", "You approve each one in your wallet."],
-    ]);
+    ).toEqual([["Prepares EVM transactions", APPROVAL]]);
   });
 
-  it("says what is checked in one sentence, and only for a verified package", () => {
+  it("says what is checked, not that all is, and only for a verified package", () => {
+    const REST = "Other calls may be checked only in part.";
     const detail = (
       actions: string[],
       contracts: number,
@@ -154,7 +152,7 @@ describe("library model", () => {
         13,
       ),
     ).toBe(
-      "Borrow, repay, set collateral, supply and withdraw on 13 contracts.",
+      `Borrow, repay, set collateral, supply and withdraw, on 13 contracts in total. ${REST}`,
     );
     expect(
       detail(
@@ -171,11 +169,19 @@ describe("library model", () => {
         1,
       ),
     ).toBe(
-      "Borrow, deposit eth, repay, set collateral, supply and withdraw on 1 contract.",
+      `Borrow, deposit ETH, repay, set collateral, supply and withdraw, on 1 contract. ${REST}`,
     );
     expect(
       detail(["a", "b", "c", "d", "e", "f", "g"], 2, { prepares: ["svm"] }),
-    ).toBe("A, b, c, d, e and 2 more calls on 2 programs.");
+    ).toBe(`A, b, c, d, e and 2 more calls, on 2 programs in total. ${REST}`);
+    expect(
+      detail(
+        ["request withdrawals wst eth", "swap exact eth for tokens", "method"],
+        1,
+      ),
+    ).toBe(
+      `Request withdrawals wstETH, swap exact ETH for tokens and method, on 1 contract. ${REST}`,
+    );
     expect(detail(["supply"], 1, { verified: false })).toBeUndefined();
   });
 
@@ -211,15 +217,24 @@ describe("library model", () => {
     expect(shortDigest("sha256:7c21deadbeef9a")).toBe("7c21…9a");
   });
 
-  it("remembers the notice per device, package and envelope hash", () => {
-    expect(noticeSeen(NOT_VERIFIED)).toBe(false);
-    markNoticeSeen(NOT_VERIFIED);
-    expect(noticeSeen(NOT_VERIFIED)).toBe(true);
+  it("remembers the notice per backend, account, package and envelope hash", () => {
+    const owner = { backendUrl: "https://one.example", account: "a" };
+    expect(noticeSeen(NOT_VERIFIED, owner)).toBe(false);
+    markNoticeSeen(NOT_VERIFIED, owner);
+    expect(noticeSeen(NOT_VERIFIED, owner)).toBe(true);
+    for (const other of [
+      { ...owner, account: "b" },
+      { ...owner, backendUrl: "https://two.example" },
+    ])
+      expect(noticeSeen(NOT_VERIFIED, other)).toBe(false);
+    const unknown = { ...owner, account: undefined };
+    markNoticeSeen(NOT_VERIFIED, unknown);
+    expect(noticeSeen(NOT_VERIFIED, unknown)).toBe(false);
     const wider = packageRow({
       ...NOT_VERIFIED,
       envelope: { ...NOT_VERIFIED.envelope, hash: "sha256:env10" },
     });
-    expect(noticeSeen(wider)).toBe(false);
-    expect(noticeSeen({ ...NOT_VERIFIED, package_id: 1 })).toBe(false);
+    expect(noticeSeen(wider, owner)).toBe(false);
+    expect(noticeSeen({ ...NOT_VERIFIED, package_id: 1 }, owner)).toBe(false);
   });
 });

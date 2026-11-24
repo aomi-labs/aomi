@@ -5,7 +5,7 @@ import type {
   AomiPackageSlot,
   AomiPublicPackage,
 } from "@aomi-labs/client";
-import { isAomiError } from "@aomi-labs/client";
+import { createScopedStorage, isAomiError } from "@aomi-labs/client";
 import type { ComponentType } from "react";
 import {
   BadgeCheck,
@@ -259,18 +259,40 @@ const FAMILY_WORDS: Record<AomiPackageFamily, string> = {
 /** The most calls one sentence names. */
 const NAMED_CALLS = 6;
 
-/** What is checked, as one sentence. "supply" also stands for "supply eth". */
+/** The checked calls arrive in lower case; tokens keep their own. */
+const TOKENS: Record<string, string> = {
+  "wst eth": "wstETH",
+  wsteth: "wstETH",
+  "st eth": "stETH",
+  steth: "stETH",
+  eth: "ETH",
+  weth: "WETH",
+  weth9: "WETH9",
+  sol: "SOL",
+  usdc: "USDC",
+  usdt: "USDT",
+  lp: "LP",
+  nft: "NFT",
+};
+const TOKEN = new RegExp(`\\b(?:${Object.keys(TOKENS).join("|")})\\b`, "g");
+
+/** What is checked, in total. "supply" also stands for "supply eth". */
 function checkedCalls(
   { actions, contracts }: AomiPackageChecks,
   prepares: readonly AomiPackageFamily[],
 ): string {
+  const rest = "Other calls may be checked only in part.";
   if (!actions.length)
-    return "Aomi’s built-in check covers the calls it knows.";
+    return `Aomi’s built-in check covers some of its calls. ${rest}`;
   const calls = [
     ...new Set(
       actions
         .filter((call) => !actions.some((own) => call.startsWith(`${own} `)))
-        .map((call) => call.replace(/^set .*collateral$/, "set collateral")),
+        .map((call) =>
+          call
+            .replace(/^set .*collateral$/, "set collateral")
+            .replace(TOKEN, (token) => TOKENS[token]!),
+        ),
     ),
   ];
   const named =
@@ -282,7 +304,8 @@ function checkedCalls(
       : calls;
   const list = new Intl.ListFormat("en-GB").format(named);
   const on = prepares.includes("evm") ? "contract" : "program";
-  return `${list[0]!.toUpperCase()}${list.slice(1)} on ${contracts} ${on}${contracts === 1 ? "" : "s"}.`;
+  const where = contracts === 1 ? `1 ${on}` : `${contracts} ${on}s in total`;
+  return `${list[0]!.toUpperCase()}${list.slice(1)}, on ${where}. ${rest}`;
 }
 
 export interface WalletLine {
@@ -292,7 +315,11 @@ export interface WalletLine {
   detail: string;
 }
 
-/** What the package may ask of the person's wallet; empty when nothing. */
+const APPROVAL =
+  "You approve each one. Agent wallets on Instant follow their rules.";
+
+/** What the package says it asks of a wallet. Empty is no promise: its
+ * instructions can still have the agent prepare something. */
 export function walletLines(row: AomiPackage): WalletLine[] {
   const signs = new Set(
     row.envelope.signatures.map((signature) =>
@@ -306,7 +333,7 @@ export function walletLines(row: AomiPackage): WalletLine[] {
             kind: "transactions" as const,
             icon: Send,
             title: `Prepares ${row.prepares.map((family) => FAMILY_WORDS[family]).join(" and ")} transactions`,
-            detail: "You approve each one in your wallet.",
+            detail: APPROVAL,
           },
         ]
       : []),
@@ -314,7 +341,7 @@ export function walletLines(row: AomiPackage): WalletLine[] {
       kind: "signature" as const,
       icon: PenLine,
       title: `Asks you to sign ${what}`,
-      detail: "You sign each one in your wallet.",
+      detail: APPROVAL,
     })),
     // A package that is not verified checks nothing by its own declaration.
     ...(row.verified && row.checked
@@ -322,7 +349,7 @@ export function walletLines(row: AomiPackage): WalletLine[] {
           {
             kind: "guard" as const,
             icon: ShieldCheck,
-            title: "Checked before you approve",
+            title: "Checked before signing",
             detail: checkedCalls(row.checked, row.prepares),
           },
         ]
@@ -336,25 +363,28 @@ export function shortDigest(digest: string): string {
   return hex.length > 8 ? `${hex.slice(0, 4)}…${hex.slice(-2)}` : hex;
 }
 
-/** The one-time notice is acknowledged per device, per package and envelope. */
-export function noticeKey(row: AomiPackage): string {
-  return `aomi:package-notice:${row.package_id}:${row.envelope.hash}`;
+/** Who acknowledges a notice: one account of one backend, on this device. */
+export interface NoticeOwner {
+  backendUrl: string;
+  account: string | undefined;
 }
 
-export function noticeSeen(row: AomiPackage): boolean {
-  try {
-    return globalThis.localStorage?.getItem(noticeKey(row)) === "1";
-  } catch {
-    return false;
-  }
+/** The one-time notice is acknowledged per owner, package and envelope. */
+function notice(row: AomiPackage, { backendUrl, account }: NoticeOwner) {
+  const key = `package-notice:${row.package_id}:${row.envelope.hash}`;
+  return account
+    ? { key, storage: createScopedStorage({ backendUrl, principal: account }) }
+    : null;
 }
 
-export function markNoticeSeen(row: AomiPackage): void {
-  try {
-    globalThis.localStorage?.setItem(noticeKey(row), "1");
-  } catch {
-    /* Storage blocked: the notice shows again next time. */
-  }
+export function noticeSeen(row: AomiPackage, owner: NoticeOwner): boolean {
+  const seen = notice(row, owner);
+  return seen?.storage.get(seen.key) === "1";
+}
+
+export function markNoticeSeen(row: AomiPackage, owner: NoticeOwner): void {
+  const seen = notice(row, owner);
+  seen?.storage.set(seen.key, "1");
 }
 
 /** The HTTP status an account call failed with; 0 when there is none. */
@@ -372,8 +402,14 @@ export function loadFailure(cause: unknown): LoadFailure {
   return statusOf(cause) === 401 ? "session_ended" : "failed";
 }
 
+/** This browser is no longer signed in as the account that started a write. */
+export const ACCOUNT_CHANGED = "account_changed";
+const ACCOUNT_CHANGED_COPY =
+  "You’re signed in to another account now, so nothing more was changed. Reload the page.";
+
 /** A mutation error in words, with the agent's refusals named. */
 export function explainMutationError(cause: unknown, agent: string): string {
+  if (isAomiError(cause, ACCOUNT_CHANGED)) return ACCOUNT_CHANGED_COPY;
   if (isAomiError(cause, "not_listed_by_agent"))
     return `${agent} doesn’t include this package, so it can’t be turned on here.`;
   const status = statusOf(cause);
@@ -383,6 +419,7 @@ export function explainMutationError(cause: unknown, agent: string): string {
 }
 
 export function explainActivateError(cause: unknown): string {
+  if (isAomiError(cause, ACCOUNT_CHANGED)) return ACCOUNT_CHANGED_COPY;
   const status = statusOf(cause);
   if (status === 404) return "That code isn’t valid. Check it and try again.";
   if (status === 401) return "Sign in to add a private package.";

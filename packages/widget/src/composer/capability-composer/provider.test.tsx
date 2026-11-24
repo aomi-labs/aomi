@@ -18,6 +18,8 @@ import type { DirectRoutingAgent } from "@/controls/routing";
 import { AgentIndicator } from "@/controls/agent-indicator";
 
 const fixture = vi.hoisted(() => ({
+  frame: {} as object,
+  account: "acct-1",
   text: "",
   setText: vi.fn(),
   prepareGuestSession: vi.fn(async () => {}),
@@ -48,7 +50,8 @@ vi.mock("@assistant-ui/react", () => ({
 vi.mock("@aomi-labs/react", () => ({
   useChatView: () => null,
   useAomiDisplayCache: () => ({
-    client: "this frame",
+    client: fixture.frame,
+    scope: { account: { kind: "user", id: fixture.account } },
     aomi: { raw: { prepareGuestSession: fixture.prepareGuestSession } },
   }),
   useControl: () => fixture,
@@ -592,7 +595,7 @@ describe("the Library's Use in chat", () => {
   };
   const editor = () => screen.getByRole("textbox", { name: "Message input" });
   const tags = () => editor().querySelectorAll("[data-capability-key]");
-  const use = (frame = "this frame") =>
+  const use = (frame: object | undefined = fixture.frame) =>
     act(async () =>
       requestCapabilityMention({ kind: "package", id: aave.id }, frame),
     );
@@ -623,6 +626,25 @@ describe("the Library's Use in chat", () => {
     expect(tags()).toHaveLength(1);
   });
 
+  it.each([
+    ["account", () => (fixture.account = "acct-2")],
+    ["chat", () => (fixture.threadId = "thread-b")],
+  ])("drops a waiting request when the %s changes", async (_what, change) => {
+    const before = { ...fixture };
+    const view = render(<Harness />);
+    await use();
+    // Ends for good, also when the first one comes back.
+    change();
+    await act(async () => view.rerender(<Harness />));
+    fixture.account = before.account;
+    fixture.threadId = before.threadId;
+    fixture.items = [aave];
+    await act(async () => view.rerender(<Harness />));
+    expect(tags()).toHaveLength(0);
+    await use();
+    expect(tags()).toHaveLength(1);
+  });
+
   it("leaves another frame's composer and an open edit box alone", async () => {
     fixture.items = [aave];
     render(
@@ -637,7 +659,11 @@ describe("the Library's Use in chat", () => {
         <CapabilityMentionInput placeholder="Message" className="" />
       </CapabilityComposerProvider>,
     );
-    await use("another frame");
+    await use({});
+    expect(tags()).toHaveLength(0);
+    act(() =>
+      requestCapabilityMention({ kind: "package", id: aave.id }, undefined),
+    );
     expect(tags()).toHaveLength(0);
     await use();
     expect(tags()).toHaveLength(1);

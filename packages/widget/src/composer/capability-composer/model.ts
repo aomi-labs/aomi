@@ -29,22 +29,30 @@ export type CapabilityMentionRequest = Pick<CapabilityMention, "kind" | "id">;
 /** A host's request to open the composer with one agent already tagged. */
 export type AgentTagRequest = { agent: string };
 
-export const CAPABILITY_MENTION_REQUEST_EVENT =
-  "aomi:capability-mention-request";
+/** Each frame's composer, by the frame's display cache client: a page may
+ * embed several, and nothing else on it hears a request. */
+const composers = new WeakMap<
+  object,
+  (request: CapabilityMentionRequest) => void
+>();
 
-/**
- * Ask a frame's composer to tag a catalog capability and take the focus.
- * `frame` is that frame's display cache client: a page may embed several.
- */
+/** Ask `frame`'s composer to tag a catalog capability and take the focus. */
 export function requestCapabilityMention(
   request: CapabilityMentionRequest,
-  frame: unknown,
+  frame: object | undefined,
 ): void {
-  window.dispatchEvent(
-    new CustomEvent(CAPABILITY_MENTION_REQUEST_EVENT, {
-      detail: { request, frame },
-    }),
-  );
+  if (frame) composers.get(frame)?.(request);
+}
+
+/** Receive `frame`'s requests until the returned function is called. */
+export function onCapabilityMentionRequest(
+  frame: object,
+  receive: (request: CapabilityMentionRequest) => void,
+): () => void {
+  composers.set(frame, receive);
+  return () => {
+    if (composers.get(frame) === receive) composers.delete(frame);
+  };
 }
 
 /** What a person calls each kind. */

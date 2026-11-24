@@ -1,10 +1,21 @@
 "use client";
 
-import type { AomiPackage, AomiPublicPackage } from "@aomi-labs/client";
+import {
+  AomiError,
+  type AomiPackage,
+  type AomiPublicPackage,
+} from "@aomi-labs/client";
 import { useAomiDisplayCache, useOptionalAomiRuntime } from "@aomi-labs/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ArrowLeft, Library, Plus } from "lucide-react";
-import { useShellAomi } from "@/account/transport";
+import { useShellTransport } from "@/account/transport";
 import { useAccountOverview } from "@/account/account-overview";
 import { requestCapabilityMention } from "@/composer/capability-composer/model";
 import { useAomiWalletKit } from "@/wallet/context";
@@ -23,6 +34,7 @@ import { PackageNotice } from "./package-notice";
 import { AddWithCodeSheet, ConnectSheet } from "./package-sheets";
 import { usePackageCatalog } from "./use-package-catalog";
 import {
+  ACCOUNT_CHANGED,
   GUEST_VIEWS,
   GROUP_TITLES,
   NAV_ITEMS,
@@ -48,10 +60,11 @@ interface PackagesModalProps {
 }
 
 export function PackagesModal({ onClose }: PackagesModalProps) {
-  const aomi = useShellAomi();
+  const transport = useShellTransport();
+  const { aomi } = transport;
   const accountUserId = useAccountOverview()?.user.user_id;
   const runtime = useOptionalAomiRuntime();
-  const frame = useAomiDisplayCache()?.client;
+  const cache = useAomiDisplayCache();
   // A chat the server has not stored yet has no agent to read; the Library
   // then shows `aomi/main`, as it does without a chat.
   const threadId =
@@ -78,6 +91,31 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   const [keysRow, setKeysRow] = useState<AomiPackage | null>(null);
   const [removeRow, setRemoveRow] = useState<AomiPackage | null>(null);
   const [addedId, setAddedId] = useState<string | null>(null);
+  const [owner, setOwner] = useState(accountUserId);
+  // What one account opened ends with it, before anyone else can confirm it.
+  if (owner !== accountUserId) {
+    setOwner(accountUserId);
+    setBusy(new Set());
+    setActionError(null);
+    setNoticeRow(null);
+    setCodeOpen(false);
+    setKeysRow(null);
+    setRemoveRow(null);
+    setAddedId(null);
+  }
+  const current = useRef(accountUserId);
+  useLayoutEffect(() => {
+    current.current = accountUserId;
+  }, [accountUserId]);
+  /** The account this handler belongs to is still the one shown. */
+  const mine = useCallback(
+    () => current.current === accountUserId,
+    [accountUserId],
+  );
+  const noticeOwner = {
+    backendUrl: cache?.scope.backendUrl ?? transport.baseUrl,
+    account: accountUserId,
+  };
   const desktop = useDesktopLayout();
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -99,6 +137,17 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
     rows.find((row) => row.id === selectedId) ?? groups[0]?.rows[0] ?? null;
   const inspector = selected !== null && desktop;
 
+  /**
+   * One write, for the account whose screen asked for it. Another tab can sign
+   * this browser in to someone else, so it asks who it is first.
+   */
+  const write = async <Result,>(send: () => Promise<Result>) => {
+    const { user } = await aomi.raw.getAccount(transport.settingsThread());
+    if (!mine() || user.user_id !== accountUserId)
+      throw new AomiError(ACCOUNT_CHANGED);
+    return send();
+  };
+
   /** Run one mutation, then read the rows again; errors stay in place. */
   const mutate = useCallback(
     async (row: AomiPackage, change: () => Promise<unknown>) => {
@@ -108,45 +157,55 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       try {
         await change();
         await refetch();
-        return true;
+        return mine();
       } catch (cause) {
-        setActionError(explainMutationError(cause, agent));
+        if (mine()) setActionError(explainMutationError(cause, agent));
         return false;
       } finally {
-        setBusy((ids) => new Set([...ids].filter((id) => id !== row.id)));
+        if (mine())
+          setBusy((ids) => new Set([...ids].filter((id) => id !== row.id)));
       }
     },
-    [agent, busy, refetch],
+    [agent, busy, mine, refetch],
   );
 
   const setChoice = (row: AomiPackage, enabled: boolean) =>
     void mutate(row, () =>
-      aomi.account.packages.setChoice(row.package_id, enabled, { threadId }),
+      write(() =>
+        aomi.account.packages.setChoice(row.package_id, enabled, { threadId }),
+      ),
     );
   /** A not verified package shows its notice before it first turns on. */
   const toggle = (row: AomiPackage, enabled: boolean) => {
     if (!enabled) setAddedId(null);
-    if (enabled && !row.verified && !noticeSeen(row)) setNoticeRow(row);
+    if (enabled && !row.verified && !noticeSeen(row, noticeOwner))
+      setNoticeRow(row);
     else setChoice(row, enabled);
   };
   const saveKeys = (row: AomiPackage, values: [string, string][]) =>
     mutate(row, async () => {
       for (const [slot, value] of values)
-        await aomi.account.packages.setSecret(row.package_id, slot, value);
+        await write(() =>
+          aomi.account.packages.setSecret(row.package_id, slot, value),
+        );
     });
   const disconnect = (row: AomiPackage) =>
     void mutate(row, async () => {
       for (const slot of personSlots(row))
         if (slot.status === "ready")
-          await aomi.account.packages.clearSecret(row.package_id, slot.name);
+          await write(() =>
+            aomi.account.packages.clearSecret(row.package_id, slot.name),
+          );
     });
   const remove = async (row: AomiPackage) => {
-    if (await mutate(row, () => aomi.account.packages.remove(row.package_id)))
-      setMobileDetailOpen(false);
+    const removed = await mutate(row, () =>
+      write(() => aomi.account.packages.remove(row.package_id)),
+    );
+    if (removed) setMobileDetailOpen(false);
   };
   /** Tag the package in the chat behind the Library. */
   const use = (row: AomiPackage) => {
-    requestCapabilityMention({ kind: "package", id: row.id }, frame);
+    requestCapabilityMention({ kind: "package", id: row.id }, cache?.client);
     onClose();
   };
   /**
@@ -155,8 +214,9 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
    */
   const activate = async (code: string) => {
     try {
-      const row = await aomi.account.packages.activate(code);
+      const row = await write(() => aomi.account.packages.activate(code));
       await refetch();
+      if (!mine()) return null;
       setView("all");
       setChain(null);
       setTag(null);
@@ -400,7 +460,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
           open
           tone="danger"
           title={`Remove ${removeRow.display_name}?`}
-          description="It leaves your Library and your saved keys for it are deleted. You can add it again with its code."
+          description="It leaves your Library and your saved keys for it are permanently deleted. To add it again you need a valid code from the publisher."
           confirmLabel="Remove"
           onConfirm={() => void remove(removeRow)}
           onOpenChange={() => setRemoveRow(null)}
@@ -410,7 +470,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
         row={noticeRow}
         onCancel={() => setNoticeRow(null)}
         onConfirm={(row) => {
-          markNoticeSeen(row);
+          markNoticeSeen(row, noticeOwner);
           setNoticeRow(null);
           setChoice(row, true);
         }}
