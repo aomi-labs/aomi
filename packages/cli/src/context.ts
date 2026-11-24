@@ -222,6 +222,7 @@ export function policySigner(
   const { signTransaction, broadcastTransaction } = svm ?? {};
   return {
     evmAddress: evm?.address,
+    solanaAddress: svm?.address,
     ...(signTypedData
       ? {
           signTypedData: async ({ typedData, chainId }) => {

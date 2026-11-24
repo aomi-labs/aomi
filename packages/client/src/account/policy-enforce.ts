@@ -27,8 +27,9 @@ export type AomiSignableTypedData = NonNullable<
  * this wallet cannot take.
  */
 export type AomiPolicySigner = {
-  /** The connected EVM account; a transaction is only sent from the owner's. */
+  /** The connected account of each family; only the policy's owner is asked. */
   evmAddress?: string;
+  solanaAddress?: string;
   /** Sign EIP-712 data as `signer` on `chainId`; answers the 0x signature. */
   signTypedData?: (request: {
     typedData: AomiSignableTypedData;
@@ -202,13 +203,26 @@ async function act(
   description: string,
   owner: string,
 ): Promise<{ signature?: string; transaction?: string }> {
+  // Only an EVM address reads the same in either case.
+  const { family } = entry.signer;
+  const same = (address?: string | null) =>
+    family === "evm"
+      ? address?.toLowerCase() === owner.toLowerCase()
+      : address === owner;
+  if (
+    !same(entry.signer.address ?? owner) ||
+    !same(family === "evm" ? signer.evmAddress : signer.solanaAddress)
+  )
+    throw new Error(
+      "Sign this with the wallet that owns the policy. Nothing was signed.",
+    );
   if (action.network !== entry.network)
     throw new Error(
       "Aomi asked for a signature on another network than this policy's. Nothing was signed.",
     );
   if (action.kind === "typed_data") {
     const chainId = /^eip155:(\d+)$/.exec(action.network)?.[1];
-    if (entry.signer.family !== "evm" || !chainId || !signer.signTypedData)
+    if (family !== "evm" || !chainId || !signer.signTypedData)
       throw new Error("This wallet can't sign that.");
     const signature = await signer.signTypedData({
       typedData: signableTypedData(action.typed_data, Number(chainId)),
@@ -222,7 +236,7 @@ async function act(
   }
   if (action.kind === "evm_transaction") {
     const chainId = /^eip155:(\d+)$/.exec(action.network)?.[1];
-    if (entry.signer.family !== "evm" || !chainId || !signer.sendEvmTransaction)
+    if (family !== "evm" || !chainId || !signer.sendEvmTransaction)
       throw new Error("This wallet can't send that.");
     if (!PLAIN_ADDRESS.test(action.to))
       throw new Error(
@@ -243,10 +257,6 @@ async function act(
       throw new Error(
         "Aomi asked to send funds with the revocation. Nothing was sent.",
       );
-    if (owner.toLowerCase() !== signer.evmAddress?.toLowerCase())
-      throw new Error(
-        "Send this from the wallet that owns the policy. Nothing was sent.",
-      );
     const hash = await signer.sendEvmTransaction({
       chainId: Number(chainId),
       to: action.to,
@@ -256,11 +266,7 @@ async function act(
     return { transaction: hash || undefined };
   }
   const cluster = normalizeSolanaCluster(action.network);
-  if (
-    entry.signer.family !== "svm" ||
-    !cluster ||
-    !signer.sendSolanaTransaction
-  )
+  if (family !== "svm" || !cluster || !signer.sendSolanaTransaction)
     throw new Error("This wallet can't sign that transaction.");
   return {
     transaction: await signer.sendSolanaTransaction({

@@ -57,7 +57,8 @@ export async function sendPlainTransaction(
 function policySigner(kit: AomiWalletKit): AomiPolicySigner {
   const { signTypedData, sendTransaction } = kit;
   return {
-    evmAddress: kit.identity.address,
+    evmAddress: connectedAddress(kit, "evm"),
+    solanaAddress: connectedAddress(kit, "svm"),
     ...(signTypedData
       ? {
           signTypedData: async ({ typedData, ...request }) => {

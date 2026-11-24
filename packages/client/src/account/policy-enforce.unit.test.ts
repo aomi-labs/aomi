@@ -135,7 +135,7 @@ describe("a transaction that was sent and the backend's node never shows", () =>
       async () => {
         throw unsettled();
       },
-      { sendSolanaTransaction },
+      { solanaAddress: SOLANA_OWNER, sendSolanaTransaction },
     );
     await expect(result).resolves.toEqual({
       policies: { enforcement: [], revision: 2 },
@@ -154,7 +154,7 @@ describe("a transaction that was sent and the backend's node never shows", () =>
         if ((calls += 1) < 3) throw unsettled();
         return { enforcement: [], revision: 3 };
       },
-      { sendSolanaTransaction },
+      { solanaAddress: SOLANA_OWNER, sendSolanaTransaction },
     );
     await expect(result).resolves.toEqual({
       policies: { enforcement: [], revision: 3 },
@@ -181,7 +181,7 @@ describe("a transaction that was sent and the backend's node never shows", () =>
       async () => {
         throw new AomiApiError(409, "rules_changed", "changed");
       },
-      { sendSolanaTransaction },
+      { solanaAddress: SOLANA_OWNER, sendSolanaTransaction },
     );
     await expect(refusedAfterSend.result).rejects.toMatchObject({
       code: "rules_changed",
@@ -231,7 +231,7 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
     };
     const error = await enforcePolicy(transport as never, "w", held, signer, {
       revision: 1,
-      owner: OWNER,
+      owner: held.signer.address!,
       remove: true,
     }).then(
       () => null,
@@ -263,18 +263,79 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
     });
     expect(other.error).toMatch(/wallet that owns the policy/);
     expect(other.confirmEnforcement).not.toHaveBeenCalled();
+    const SOLANA_OWNER = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x";
     const solana = await run(
       action(),
-      entry({
-        signer: {
-          family: "svm",
-          address: "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x",
-        },
-      }),
+      entry({ signer: { family: "svm", address: SOLANA_OWNER } }),
+      { solanaAddress: SOLANA_OWNER, sendEvmTransaction },
     );
     expect(solana.error).toBe("This wallet can't send that.");
     expect(solana.confirmEnforcement).not.toHaveBeenCalled();
     expect(sendEvmTransaction).not.toHaveBeenCalled();
+  });
+
+  it("asks no wallet that is not the policy's owner, whatever the action", async () => {
+    const SOLANA_OWNER = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x";
+    const swig = entry({
+      provider: "swig",
+      network: "solana:mainnet-beta",
+      signer: { family: "svm", address: SOLANA_OWNER },
+    });
+    const ask = vi.fn(async () => "0x1234");
+    const refused = async (
+      answer: AomiPolicyAction,
+      held: AomiPolicyEnforcement,
+      signer: AomiPolicySigner,
+      owner = held.signer.address!,
+    ) => {
+      const confirmEnforcement = vi.fn();
+      await expect(
+        enforcePolicy(
+          {
+            prepareEnforcement: async () => answer,
+            confirmEnforcement,
+          } as never,
+          "w",
+          held,
+          signer,
+          { revision: 1, owner },
+        ),
+      ).rejects.toThrow(
+        "Sign this with the wallet that owns the policy. Nothing was signed.",
+      );
+      expect(confirmEnforcement).not.toHaveBeenCalled();
+    };
+    const typed: AomiPolicyAction = {
+      kind: "typed_data",
+      network: "eip155:8453",
+      typed_data: data(),
+    };
+    const transaction: AomiPolicyAction = {
+      kind: "transaction",
+      network: "solana:mainnet-beta",
+      unsigned_base64: "dW5zaWduZWQ=",
+    };
+    const OTHER = "0x1111000000000000000000000000000000002222";
+    // Another wallet is connected, or none that says who it is.
+    await refused(typed, entry(), { evmAddress: OTHER, signTypedData: ask });
+    await refused(typed, entry(), { signTypedData: ask });
+    await refused(transaction, swig, {
+      solanaAddress: "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
+      sendSolanaTransaction: ask,
+    });
+    // A Solana address is not the same in another case.
+    await refused(transaction, swig, {
+      solanaAddress: SOLANA_OWNER.toLowerCase(),
+      sendSolanaTransaction: ask,
+    });
+    // The caller names an owner the chain does not have for this policy.
+    await refused(
+      typed,
+      entry(),
+      { evmAddress: OTHER, signTypedData: ask },
+      OTHER,
+    );
+    expect(ask).not.toHaveBeenCalled();
   });
 
   describe("a deployment sent as a transaction", () => {

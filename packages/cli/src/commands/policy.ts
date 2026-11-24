@@ -811,7 +811,7 @@ async function enforce(
       walletId,
       entry,
       {
-        evmAddress: signer.evmAddress,
+        ...signer,
         signTypedData: said(signer.signTypedData),
         sendEvmTransaction: said(signer.sendEvmTransaction),
         sendSolanaTransaction: said(signer.sendSolanaTransaction),
