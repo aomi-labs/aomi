@@ -297,7 +297,7 @@
         ]
       }
     },
-    "/api/pipeline/toolsets/{toolset}/operations/{operation}": {
+    "/api/pipeline/operations/{operation}": {
       "post": {
         "responses": {
           "200": {
@@ -318,7 +318,7 @@
         ]
       }
     },
-    "/api/pipeline/skills/{skill}/operations/{operation}": {
+    "/api/pipeline/packages/{package}/operations/{operation}": {
       "post": {
         "responses": {
           "200": {
@@ -2093,6 +2093,23 @@
         ]
       }
     },
+    "/api/account/packages/{package_id}": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
     "/api/account/packages/{package_id}/choice": {
       "put": {
         "responses": {
@@ -2357,85 +2374,6 @@
         ]
       }
     },
-    "/api/resource/toolsets": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
-      }
-    },
-    "/api/resource/toolsets/{toolset}": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
-      }
-    },
-    "/api/resource/tools": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
-      }
-    },
-    "/api/resource/tools/{tool_id}": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
-      }
-    },
-    "/api/resource/packages": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": []
-      }
-    },
     "/api/resource/skills": {
       "get": {
         "responses": {
@@ -2447,7 +2385,83 @@
         "x-aomi-auth": []
       }
     },
-    "/api/resource/skills/*skill_id": {
+    "/api/resource/tools": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "agentKey": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "agent_gate"
+        ]
+      }
+    },
+    "/api/resource/tools/{tool}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "agentKey": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "agent_gate"
+        ]
+      }
+    },
+    "/api/resource/packages": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "agentKey": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "agent_gate"
+        ]
+      }
+    },
+    "/api/resource/packages/{package}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "agentKey": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "agent_gate"
+        ]
+      }
+    },
+    "/api/catalog/packages": {
       "get": {
         "responses": {
           "200": {
@@ -2456,40 +2470,6 @@
         },
         "security": [],
         "x-aomi-auth": []
-      }
-    },
-    "/api/resource/search/toolsets": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
-      }
-    },
-    "/api/resource/search/tools": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
       }
     },
     "/api/agents/resolve": {
@@ -2897,117 +2877,6 @@
         "x-aomi-auth": [
           "admin"
         ]
-      }
-    },
-    "/api/admin/toolsets": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "admin"
-        ]
-      }
-    },
-    "/api/admin/skills": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "admin"
-        ]
-      }
-    },
-    "/api/admin/skills/batch": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "admin"
-        ]
-      }
-    },
-    "/api/admin/skills/rollback": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "admin"
-        ]
-      }
-    },
-    "/api/admin/skills/{id}": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "admin"
-        ]
-      },
-      "put": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "admin"
-        ]
-      }
-    },
-    "/api/skills": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": []
       }
     },
     "/api/system": {
@@ -3684,6 +3553,20 @@
         ]
       }
     },
+    "/api/agents/{name}/tokens/{id}": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "builder",
+          "agent:promote"
+        ]
+      }
+    },
     "/api/account/channels": {
       "get": {
         "responses": {
@@ -3773,6 +3656,19 @@
       }
     },
     "/api/operator/packages/{publisher}/{name}/approve": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "admin"
+        ]
+      }
+    },
+    "/api/operator/packages/{publisher}/{name}/rename": {
       "post": {
         "responses": {
           "200": {

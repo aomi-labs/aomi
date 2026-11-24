@@ -6,6 +6,7 @@
     "description": "Intent enters the runtime; one ordered stream of concrete Events leaves it. Actions are durable Events whose nested ActionRequest requires a client response."
   },
   "x-aomi-route-manifest": [
+    "DELETE /v1/account/packages/{packageId}",
     "DELETE /v1/account/packages/{packageId}/choice",
     "DELETE /v1/account/packages/{packageId}/secrets/{slot}",
     "DELETE /v1/agent/sessions/{sessionId}",
@@ -3323,6 +3324,51 @@
                 }
               }
             }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:packages:write"]
+          }
+        ]
+      }
+    },
+    "/v1/account/packages/{packageId}": {
+      "delete": {
+        "operationId": "removeAccountPackage",
+        "description": "Take out a package the account added with a code: its access, choice and keys end",
+        "parameters": [
+          {
+            "name": "packageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Take out a package the account added with a code: its access, choice and keys end",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
           }
         },
         "security": [
@@ -10248,7 +10294,7 @@
               "account:transaction-safety:read": "Read owned transaction safety preferences",
               "account:transaction-safety:write": "Update owned transaction safety preferences",
               "account:packages:read": "Read the package Library: each package's state and slot status, never values",
-              "account:packages:write": "Switch packages on or off and activate private packages",
+              "account:packages:write": "Switch packages on or off, and add and remove private packages",
               "account:credentials:write": "Save and remove the account's own package keys",
               "mcp:agent": "Use the Agent MCP protected resource",
               "mcp:pipeline": "Use the Pipeline MCP protected resource",

@@ -671,6 +671,20 @@
         ]
       }
     },
+    "/api/agents/{name}/tokens/{id}": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "builder",
+          "agent:promote"
+        ]
+      }
+    },
     "/api/account/channels": {
       "get": {
         "responses": {
@@ -760,6 +774,19 @@
       }
     },
     "/api/operator/packages/{publisher}/{name}/approve": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "admin"
+        ]
+      }
+    },
+    "/api/operator/packages/{publisher}/{name}/rename": {
       "post": {
         "responses": {
           "200": {

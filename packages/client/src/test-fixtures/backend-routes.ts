@@ -25,6 +25,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "DELETE",
+    path: "/api/account/packages/:package_id",
+    auth: ["account"],
+  },
+  {
+    method: "DELETE",
     path: "/api/account/packages/:package_id/choice",
     auth: ["account"],
   },
@@ -42,6 +47,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "DELETE",
     path: "/api/account/scheduled-intents/:id",
     auth: ["account"],
+  },
+  {
+    method: "DELETE",
+    path: "/api/agents/:name/tokens/:id",
+    auth: ["builder","agent:promote"],
   },
   {
     method: "DELETE",
@@ -165,21 +175,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/api/admin/skills",
-    auth: ["admin"],
-  },
-  {
-    method: "GET",
-    path: "/api/admin/skills/:id",
-    auth: ["admin"],
-  },
-  {
-    method: "GET",
-    path: "/api/admin/toolsets",
-    auth: ["admin"],
-  },
-  {
-    method: "GET",
     path: "/api/agents/:name",
     auth: ["builder"],
   },
@@ -191,6 +186,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/agents/resolve",
+    auth: [],
+  },
+  {
+    method: "GET",
+    path: "/api/catalog/packages",
     auth: [],
   },
   {
@@ -356,17 +356,12 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/resource/packages",
-    auth: [],
+    auth: ["account","agent_gate"],
   },
   {
     method: "GET",
-    path: "/api/resource/search/tools",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/resource/search/toolsets",
-    auth: ["account"],
+    path: "/api/resource/packages/:package",
+    auth: ["account","agent_gate"],
   },
   {
     method: "GET",
@@ -375,38 +370,18 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/api/resource/skills/*skill_id",
-    auth: [],
-  },
-  {
-    method: "GET",
     path: "/api/resource/tools",
-    auth: ["account"],
+    auth: ["account","agent_gate"],
   },
   {
     method: "GET",
-    path: "/api/resource/tools/:tool_id",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/resource/toolsets",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/resource/toolsets/:toolset",
-    auth: ["account"],
+    path: "/api/resource/tools/:tool",
+    auth: ["account","agent_gate"],
   },
   {
     method: "GET",
     path: "/api/secrets",
     auth: ["thread"],
-  },
-  {
-    method: "GET",
-    path: "/api/skills",
-    auth: [],
   },
   {
     method: "GET",
@@ -565,16 +540,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/admin/skills/batch",
-    auth: ["admin"],
-  },
-  {
-    method: "POST",
-    path: "/api/admin/skills/rollback",
-    auth: ["admin"],
-  },
-  {
-    method: "POST",
     path: "/api/agents/:name/configs",
     auth: ["builder","agent:publish"],
   },
@@ -675,6 +640,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
+    path: "/api/operator/packages/:publisher/:name/rename",
+    auth: ["admin"],
+  },
+  {
+    method: "POST",
     path: "/api/packages/:name/codes",
     auth: ["builder","package:promote"],
   },
@@ -710,7 +680,12 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/pipeline/skills/:skill/operations/:operation",
+    path: "/api/pipeline/operations/:operation",
+    auth: ["account","agent_gate","delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/pipeline/packages/:package/operations/:operation",
     auth: ["account","agent_gate","delegated"],
   },
   {
@@ -731,11 +706,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/pipeline/svm/stage",
-    auth: ["account","agent_gate","delegated"],
-  },
-  {
-    method: "POST",
-    path: "/api/pipeline/toolsets/:toolset/operations/:operation",
     auth: ["account","agent_gate","delegated"],
   },
   {
@@ -887,11 +857,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "PUT",
     path: "/api/account/transaction-safety",
     auth: ["account"],
-  },
-  {
-    method: "PUT",
-    path: "/api/admin/skills/:id",
-    auth: ["admin"],
   },
   {
     method: "PUT",
