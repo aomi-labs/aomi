@@ -21,10 +21,12 @@ import {
   TRANSACTION_SAFETY_NAMES,
   type Turn,
   CommitStaleError,
+  isAgentSlug,
   isTerminalCommit,
   type Aomi,
   type AomiAccountWallet,
   type AomiActiveWallet,
+  type AomiPackage,
   type CommitHandle,
   type CommitRefView,
   type MentionItem,
@@ -35,10 +37,12 @@ import { MentionAutocomplete, mentionCatalog, walletGroups } from "./mentions";
 import packageJson from "../../package.json";
 import type { ChatFlags } from "../commands/chat";
 import { guardMode } from "../commands/guard";
+import * as packages from "../commands/packages";
 import { metaLines, reviewed, reviewSummary } from "../commands/tx";
 import { signIn } from "../commands/account";
 import { signsWith } from "../commands/wallets";
 import {
+  agentsOf,
   baseUrlOf,
   CliError,
   connect,
@@ -50,7 +54,7 @@ import {
 } from "../context";
 import { cardLines, guardLine } from "../review";
 import { loadState, updateState } from "../state";
-import { GLYPHS, chipsOf, paint, statusOf } from "../trace";
+import { GLYPHS, chipsOf, paint, plain, statusOf } from "../trace";
 
 type TurnView = {
   text?: string;
@@ -94,6 +98,8 @@ function replyLines(turn: TurnView, width: number): string[] {
 const SLASH = [
   { name: "model", description: "Pick the model for this thread" },
   { name: "wallet", description: "Pick the wallet this thread trades with" },
+  { name: "agent", description: "Pin an agent, or go back to Auto" },
+  { name: "library", description: "Packages: on, off, add, remove, show" },
   { name: "threads", description: "Continue another thread" },
   { name: "guard", description: "Strict, Balanced or Yolo for this thread" },
   { name: "new", description: "Start a new thread" },
@@ -106,6 +112,9 @@ const SLASH = [
 const HELP = [
   "/model [name | auto]   pick the model",
   "/wallet                the wallet this thread trades with, and how it signs",
+  "/agent [name | auto]   pin an agent, publisher/name, for this run",
+  "/library [search]      packages: turn on or off, show, remove",
+  "/library add <code>    add a private package",
   "/threads               continue another thread",
   "/guard [strict | balanced | yolo]  how guards gate this thread's actions",
   "/rpc <url>             the RPC that sends what you sign here",
@@ -211,9 +220,11 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   let catalog: MentionItem[] = [];
   const loadMentions = () => {
     const own = revision;
-    void mentionCatalog(aomi, thread).then((items) => {
-      if (own === revision && !closing.signal.aborted) catalog = items;
-    });
+    void agentsOf(flags, aomi)
+      .then((agents) => mentionCatalog(aomi, thread, agents))
+      .then((items) => {
+        if (own === revision && !closing.signal.aborted) catalog = items;
+      });
   };
   const mentions = new MentionAutocomplete(SLASH, () => catalog);
   editor.setAutocompleteProvider(mentions);
@@ -311,6 +322,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
           ? bar.who
           : `${wallet.label} (${signsWith(wallet)})`,
         chain ? (CHAIN_NAMES[chain] ?? `chain ${chain}`) : undefined,
+        flags.agent,
         state.model ? modelLabel(state.model) : "Auto model",
         guard && TRANSACTION_SAFETY_NAMES[guard].label,
         bar.credits,
@@ -589,6 +601,30 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       loadMentions();
       return note("New thread");
     }
+    if (name === "library") return library(arg);
+    if (name === "agent") {
+      const choose = (agent: string) => {
+        flags.agent = agent === "auto" ? undefined : agent;
+        note(`Agent ${flags.agent ?? "Auto"}`);
+      };
+      if (arg)
+        return arg === "auto" || isAgentSlug(arg)
+          ? choose(arg)
+          : note("/agent publisher/name, or /agent auto");
+      const cards = await agentsOf(flags, aomi);
+      return pick(
+        [
+          { value: "auto", label: "Auto", description: "Aomi picks" },
+          ...cards.map((agent) => ({
+            value: agent.agent,
+            label: agent.display_name,
+            description: agent.agent,
+          })),
+        ],
+        flags.agent ?? "auto",
+        choose,
+      );
+    }
     if (name === "rpc") {
       if (!arg || !card)
         return note("/rpc <url>, while a card waits to be signed");
@@ -701,6 +737,85 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       );
     }
     note(`Unknown command /${name}; /help`);
+  }
+
+  /** `/library`: the thread's packages, as the Portal's Library has them. */
+  async function library(arg: string) {
+    if (aomi.auth.mode === "guest")
+      return note("Sign in for your packages: /login");
+    const store = aomi.account.packages;
+    const own = { threadId: started ? thread : undefined };
+    const change = async (done: string, act: () => Promise<unknown>) => {
+      try {
+        await act();
+        loadMentions();
+        note(done);
+      } catch (error) {
+        note(error instanceof Error ? error.message : String(error));
+      }
+    };
+    const ask = (label: string, done: string, act: () => Promise<unknown>) =>
+      pick(
+        [
+          { value: "no", label: "Cancel" },
+          { value: "yes", label },
+        ],
+        "no",
+        (answer) => void (answer === "yes" && change(done, act)),
+      );
+    // Turning on shows what the package may do first, as everywhere.
+    const turnOn = (row: AomiPackage) => {
+      note(packages.notice(row).join("\n"));
+      ask(`Turn on ${row.id}`, `${row.id} is on`, () =>
+        store.setChoice(row.package_id, true, own),
+      );
+    };
+    const [verb, code] = arg.split(/\s+/);
+    if (verb === "add" && code) {
+      const row = await store.activate(code);
+      loadMentions();
+      note(`${row.id} is added${row.enabled ? " and on" : ", but off"}`);
+      return row.enabled ? undefined : turnOn(row);
+    }
+    const rows = (await store.list(own)).packages.filter((row) =>
+      packages.keeps(row, { search: arg }),
+    );
+    if (!rows.length) return note("No packages found");
+    pick(
+      rows.map((row) => ({
+        value: row.id,
+        label: plain(row.display_name),
+        description: `${packages.packageState(row)} · ${row.verified ? "verified" : "unverified"} · ${row.chains.join(", ") || "any chain"}`,
+      })),
+      "",
+      (id) => {
+        const row = rows.find((entry) => entry.id === id)!;
+        const acts: Record<string, () => void> = {
+          Show: () => note(packages.packageLines(row).join("\n")),
+          ...(row.enabled
+            ? !row.agent_listed && {
+                "Turn off": () =>
+                  void change(`${row.id} is off`, () =>
+                    store.setChoice(row.package_id, false, own),
+                  ),
+              }
+            : row.available && { "Turn on": () => turnOn(row) }),
+          ...(row.removable && {
+            Remove: () => {
+              note(packages.removal(row));
+              ask(`Remove ${row.id}`, `${row.id} is removed`, () =>
+                store.remove(row.package_id),
+              );
+            },
+          }),
+        };
+        pick(
+          Object.keys(acts).map((label) => ({ value: label, label })),
+          "",
+          (label) => acts[label]!(),
+        );
+      },
+    );
   }
 
   editor.onSubmit = (raw) => {

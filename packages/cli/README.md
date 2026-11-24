@@ -110,11 +110,17 @@ reusable workflow `aomi-labs/aomi/.github/workflows/publish-packages.yml`.
 ## The chat screen
 
 `aomi` opens it. Each turn shows "Worked Ns · N steps" (ctrl+o expands the
-steps), the reply, and a box for a commit waiting for your web approval: `a`
-approve, `r` reject, `o` open in the browser, `d` details. Type `/` for
-`/model` (a list, Auto first), `/guard` (Strict, Balanced or Yolo for the
-thread), `/new`, `/help`. Chat routes to the thread’s agent (Auto); `--agent` pins an agent slug
-for a run. Esc stops a turn; ctrl+c quits.
+steps), the reply, and a card for a commit that waits for you: its decoded
+steps, what they change, the simulation and whether guards cover it. `a`
+approves, `s` signs with the key on this machine after a second, explicit yes,
+`r` rejects, `o` opens the sign page, `d` shows details. A commit that changed
+meanwhile is shown again, never signed.
+
+Type `/` for `/model` (a list, Auto first), `/guard` (Strict, Balanced or Yolo
+for the thread), `/library` (search, turn on or off, show, remove;
+`/library add <code>`), `/agent` (pin one for this run, or Auto), `/rpc <url>`,
+`/new`, `/help`. `@` tags agents, packages, chains and wallets. The agents are
+the one your agent key (`--api-key`) opens. Esc stops a turn; ctrl+c quits.
 
 ## State
 

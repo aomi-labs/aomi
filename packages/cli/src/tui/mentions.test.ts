@@ -56,6 +56,23 @@ describe("mentionCatalog", () => {
     expect(items.some((item) => item.id === "aomi/defillama")).toBe(true);
   });
 
+  it("offers the agents it is given first, with their task target", async () => {
+    const catalog = async () => ({ packages: [row({})] });
+    const items = await mentionCatalog(client(catalog), "t", [
+      {
+        agent_id: 4,
+        agent: "acme/prices",
+        display_name: "Prices",
+        metadata: {},
+      },
+    ]);
+    expect(items[0]).toMatchObject({
+      kind: "agent",
+      id: "agent:acme/prices",
+      agentName: "acme/prices",
+    });
+  });
+
   it("gives a guest the public catalog, never the account read", async () => {
     const list = vi.fn();
     const items = await mentionCatalog(

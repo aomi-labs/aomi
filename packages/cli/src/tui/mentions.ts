@@ -12,8 +12,10 @@ import {
   mentionGroups,
   packageMentions,
   parsePackageCatalog,
+  resolveAgentIdentity,
   shortAddress,
   SUPPORTED_CHAIN_IDS,
+  type AgentCard,
   type Aomi,
   type AomiAccountWallet,
   type AomiPublicPackage,
@@ -24,6 +26,7 @@ import {
 export async function mentionCatalog(
   aomi: Aomi,
   thread: string,
+  agents: readonly AgentCard[] = [],
 ): Promise<MentionItem[]> {
   const [packages, wallets] = await Promise.all([
     // Signed in: the thread's packages that are on (`aomi/main`'s before the
@@ -44,6 +47,17 @@ export async function mentionCatalog(
   ]);
   const chainName = (id: number) => CHAIN_NAMES[id] ?? String(id);
   return [
+    ...agents.map((card): MentionItem => {
+      const { displayName, category } = resolveAgentIdentity(card);
+      return {
+        kind: "agent",
+        id: `agent:${card.agent}`,
+        label: displayName,
+        description: category.label,
+        agentName: card.agent,
+        searchText: `${card.agent} ${card.display_name} ${category.label}`,
+      };
+    }),
     ...packageMentions(packages),
     ...SUPPORTED_CHAIN_IDS.map(
       (id): MentionItem => ({

@@ -12,6 +12,7 @@ import {
   oauth,
   UserState,
   wallet,
+  type AgentCard,
   type AomiAuthStrategy,
   type AgentTarget,
   type CommitView,
@@ -299,6 +300,20 @@ export async function rpcReady(
   updateState({
     rpc: { ...state.rpc, [base]: { ...state.rpc?.[base], [chain]: url } },
   });
+}
+
+/** The agents you can name, as the Portal has them: the one your agent key opens. */
+export async function agentsOf(
+  flags: ConnectFlags,
+  aomi: Aomi,
+): Promise<AgentCard[]> {
+  const key = flags.apiKey ?? process.env.AOMI_API_KEY;
+  return key
+    ? aomi.raw.resolveAgentKey(key).then(
+        (card) => [card],
+        () => [],
+      )
+    : [];
 }
 
 /** The guest bearer outlives the process, so its threads stay reachable. */
