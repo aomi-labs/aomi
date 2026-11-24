@@ -406,7 +406,7 @@ describe("wallet rules", () => {
     ["an unknown admin", { admin: { kind: "multisig" } }],
   ])("rejects %s rather than dropping it from the next write", (_, extra) => {
     expect(() => parseWalletPolicies({ ...body, ...extra })).toThrow(
-      /Invalid rules response/,
+      /Invalid policy response/,
     );
   });
 
@@ -475,10 +475,7 @@ describe("wallet rules", () => {
         .filter((call) => call.method === "POST")
         .map((call) => (call.body as { revision: number }).revision),
     ).toEqual([3, 4]);
-    expect(result).toMatchObject({
-      status: "applied",
-      before: { revision: 4 },
-    });
+    expect(result).toMatchObject({ status: "applied" });
     // Refused twice in a row: the caller hears it.
     writes = 0;
     const always = backend({

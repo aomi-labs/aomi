@@ -95,6 +95,20 @@ export function buildSvmTransactionMethods(
   const signAllTransactions = wallet.signAllTransactions;
   const signMessage = wallet.signMessage;
   const sendTransaction = wallet.sendTransaction;
+  const send = sendTransaction
+    ? async (payload: WalletSolanaSignPayload) => {
+        if (!payload.unsignedTx) {
+          throw new Error("Missing unsigned_tx payload");
+        }
+        const connection = new SolanaConnection(config.rpcHttpUrl, "confirmed");
+        const tx = deserializeSolanaTransaction(
+          decodeBase64(payload.unsignedTx),
+        );
+        const signature = await sendTransaction(tx, connection);
+        await confirmSubmittedTransaction(connection, signature);
+        return { signature };
+      }
+    : undefined;
 
   return {
     signSolanaTransaction: signTransaction
@@ -134,41 +148,8 @@ export function buildSvmTransactionMethods(
           return { signature: encodeBase64(signature) };
         }
       : undefined,
-    sendSolanaTransaction: sendTransaction
-      ? async (payload: WalletSolanaSignPayload) => {
-          if (!payload.unsignedTx) {
-            throw new Error("Missing unsigned_tx payload");
-          }
-          const connection = new SolanaConnection(
-            config.rpcHttpUrl,
-            "confirmed",
-          );
-          const tx = deserializeSolanaTransaction(
-            decodeBase64(payload.unsignedTx),
-          );
-          const signature = await sendTransaction(tx, connection);
-          await confirmSubmittedTransaction(connection, signature);
-          return { signature };
-        }
-      : undefined,
-    signAndSendSolanaTransaction:
-      sendTransaction && config.preferDirectSend
-        ? async (payload: WalletSolanaSignPayload) => {
-            if (!payload.unsignedTx) {
-              throw new Error("Missing unsigned_tx payload");
-            }
-            const connection = new SolanaConnection(
-              config.rpcHttpUrl,
-              "confirmed",
-            );
-            const tx = deserializeSolanaTransaction(
-              decodeBase64(payload.unsignedTx),
-            );
-            const signature = await sendTransaction(tx, connection);
-            await confirmSubmittedTransaction(connection, signature);
-            return { signature };
-          }
-        : undefined,
+    sendSolanaTransaction: send,
+    signAndSendSolanaTransaction: config.preferDirectSend ? send : undefined,
     solanaRpcHttpUrl: config.rpcHttpUrl,
     solanaRpcWsUrl: config.rpcWsUrl,
   };

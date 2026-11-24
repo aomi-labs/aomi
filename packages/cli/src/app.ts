@@ -235,550 +235,568 @@ const signerSet = command(
   wallets.setSigner,
 );
 
-const root = routes("the Aomi agent in your terminal", {
-  chat: chatCommand,
-  threads: routes(
-    BRIEFS.threads,
-    {
-      list: command(
-        "Your threads, newest first",
-        { ...json, ...conn, limit: int("How many") },
-        [],
-        threads.list,
-      ),
-      open: command(
-        "Continue a thread",
-        {},
-        [arg("Thread id", "id")],
-        threads.open,
-      ),
-      show: command(
-        "What you and the agent said (default: the current thread)",
-        { ...json, ...conn },
-        [arg("Thread id", "id", true)],
-        threads.show,
-      ),
-      new: command("Start a new thread", {}, [], threads.start),
-      rename: command(
-        "Rename a thread",
-        { ...json, ...conn },
-        [arg("Thread id", "id"), arg("New title", "title")],
-        threads.rename,
-      ),
-      archive: command(
-        "Archive a thread",
-        { ...json, ...conn },
-        [arg("Thread id", "id")],
-        threads.archive,
-      ),
-    },
-    { default: "list" },
-  ),
-  login,
-  logout,
-  whoami,
-  account: routes(
-    BRIEFS.account,
-    {
-      show: command(
-        "Profile, logins, wallets and credits",
-        { ...json, ...conn },
-        [],
-        account.show,
-      ),
-      connections: command(
-        "Ways to sign in",
-        { ...json, ...conn },
-        [],
-        account.connections,
-      ),
-      unlink: command(
-        "Remove a way to sign in",
-        { ...conn, yes: yes("Confirm") },
-        [arg("Login id", "id")],
-        account.unlink,
-      ),
-      credits: command(
-        "Balance and recent activity",
-        { ...json, ...conn, limit: int("Activity rows") },
-        [],
-        account.showCredits,
-      ),
-      fund: command(
-        "Buy credits from --private-key's wallet",
-        {
-          ...json,
-          ...conn,
-          network: text("Treasury network, e.g. eip155:8453", {
-            optional: false,
-            placeholder: "caip2",
-          }),
-          idempotencyKey: text("Reuse it when retrying", {
-            optional: false,
-            placeholder: "key",
-          }),
-        },
-        [{ ...arg("Whole credits, 100-100000", "credits"), parse: Number }],
-        account.fund,
-      ),
-      statement: command(
-        "Priced usage",
-        {
-          ...json,
-          ...conn,
-          limit: int("Page size"),
-          cursor: text("Page cursor", { placeholder: "cursor" }),
-        },
-        [],
-        account.statement,
-      ),
-    },
-    {
-      default: "show",
-    },
-  ),
-  wallets: routes(
-    BRIEFS.wallets,
-    {
-      list: command(
-        "The account's wallets, agent wallets first",
-        { ...json, ...conn },
-        [],
-        wallets.list,
-      ),
-      balance: command(
-        "An agent wallet's balances",
-        { ...json, ...conn },
-        [arg("Wallet id", "id")],
-        wallets.balance,
-      ),
-      use: command(
-        "Trade with this wallet in the current thread",
-        { ...json, ...conn },
-        [arg("Wallet id", "id")],
-        wallets.use,
-      ),
-      signer: routes(
-        "This machine's signing keys",
-        {
-          show: signerShow,
-          set: signerSet,
-          clear: command("Forget the local keys", {}, [], wallets.clearSigner),
-        },
-        { default: "show" },
-      ),
-      current: signerShow,
-      set: signerSet,
-    },
-    { default: "list", hidden: ["current", "set"] },
-  ),
-  policy: routes(
-    BRIEFS.policy,
-    {
-      list: command(
-        "Each agent wallet's policies and where they stand on chain",
-        policyFlags,
-        [],
-        policy.list,
-      ),
-      catalog: command(
-        "The apps and tokens a policy can name",
-        {
-          ...policyFlags,
-          chain: text("Only this chain: a name or an id", {
-            placeholder: "chain",
-          }),
-        },
-        [],
-        policy.catalog,
-      ),
-      set: command(
-        "Add or replace one policy: JSON, or --amt <amount> <asset> --to <app>",
-        {
-          ...policyWrite,
-          amt: text("The most the agent may spend, in token units", {
-            placeholder: "amount",
-          }),
-          to: text("A catalog app id, any, or an address", {
-            placeholder: "app-id|address",
-          }),
-          until: text("The last day it holds (UTC)", {
-            placeholder: "YYYY-MM-DD",
-          }),
-          chain: text("The token's chain, when its symbol is on several", {
-            placeholder: "chain",
-          }),
-        },
-        [arg("Policy JSON or its file; with --amt, the token", "policy")],
-        policy.set,
-      ),
-      remove: command(
-        "Remove one policy",
-        policyWrite,
-        [arg("Policy id, or the start of one", "policy-id")],
-        policy.remove,
-      ),
-      mode: command(
-        "Allow only what policies list, or all they don't cap",
-        policyWrite,
-        [arg("whitelist or blacklist", "mode")],
-        policy.mode,
-      ),
-      authority: command(
-        "Who approves a change that loosens",
-        policyWrite,
-        [arg("self, or a linked wallet's address", "self|address")],
-        policy.authority,
-      ),
-      deploy: command(
-        "Put a policy on chain with the local signer",
-        policyEnforce,
-        [arg("Policy id, or the start of one", "policy-id")],
-        policy.deploy,
-      ),
-      undeploy: command(
-        "Take a policy off the chain with the local signer",
-        policyEnforce,
-        [arg("Policy id, or the start of one", "policy-id")],
-        policy.undeploy,
-      ),
-      approve: command(
-        "Approve a policy change waiting for you",
-        policyFlags,
-        [arg("Change id", "change-id")],
-        policy.approve,
-      ),
-      decline: command(
-        "Decline a policy change",
-        policyFlags,
-        [arg("Change id", "change-id")],
-        policy.decline,
-      ),
-    },
-    { default: "list" },
-  ),
-  tx: routes(
-    BRIEFS.tx,
-    {
-      list: command(
-        "What the thread left to sign or approve",
-        {
-          ...json,
-          ...conn,
-          thread: text("Thread id", { placeholder: "id" }),
-        },
-        [],
-        tx.list,
-      ),
-      review: command(
-        "One commit: state, chain, signer, review",
-        { ...json, ...conn },
-        ref,
-        tx.review,
-      ),
-      approve: command(
-        "Approve a commit waiting for you",
-        {
-          ...json,
-          ...conn,
-          yes: yes("Approve without asking"),
-          wait: yes("Follow it until it settles (--no-wait skips)", {
-            default: true,
-            optional: undefined,
-          }),
-        },
-        ref,
-        tx.approve,
-      ),
-      reject: command("Reject a commit", { ...json, ...conn }, ref, tx.reject),
-      sign: command(
-        "Sign a commit with the local signer",
-        { ...json, ...signing },
-        ref,
-        tx.sign,
-      ),
-      export: command(
-        "The exact reviewed commit, for an external signer",
-        conn,
-        ref,
-        tx.exportCommit,
-      ),
-    },
-    { default: "list" },
-  ),
-  guard: command(
-    BRIEFS.guard,
-    {
-      ...json,
-      ...conn,
-      account: yes("The account default"),
-      thread: text("This thread", { placeholder: "id" }),
-    },
-    [arg("strict, balanced or yolo", "mode", true)],
-    guard,
-  ),
-  apps: routes(
-    BRIEFS.apps,
-    {
-      list: command("Apps you can use", { ...json, ...conn }, [], apps.list),
-      install: command(
-        "Install an app",
-        { ...json, ...conn },
-        [arg("App name", "name")],
-        apps.install,
-      ),
-      uninstall: command(
-        "Uninstall an app",
-        { ...json, ...conn },
-        [arg("App name", "name")],
-        apps.uninstall,
-      ),
-      credentials: routes(
-        "An app's credentials",
-        {
-          list: command(
-            "The app's credential slots",
-            { ...json, ...conn },
-            [arg("App name", "name")],
-            apps.credentials,
-          ),
-          set: command(
-            "Set one (value from stdin or a prompt)",
-            { ...json, ...conn },
-            [arg("App name", "name"), arg("Credential", "key")],
-            apps.setCredential,
-          ),
-          remove: command(
-            "Remove one",
-            conn,
-            [arg("App name", "name"), arg("Credential", "key")],
-            apps.removeCredential,
-          ),
-        },
-        { default: "list" },
-      ),
-    },
-    { default: "list" },
-  ),
-  pipeline: routes(
-    BRIEFS.pipeline,
-    {
-      ops: command(
-        "Operations of an app or skill",
-        {
-          ...json,
-          ...conn,
-          app: text("App (default: default)", { placeholder: "name" }),
-          skill: text("Skill", { placeholder: "name" }),
-          filter: text("Names containing this", { placeholder: "text" }),
-        },
-        [],
-        pipeline.operations,
-      ),
-      op: command(
-        "Describe one operation",
-        {
-          ...conn,
-          app: text("App", { placeholder: "name" }),
-          skill: text("Skill", { placeholder: "name" }),
-        },
-        [arg("Operation", "name")],
-        pipeline.operation,
-      ),
-      apps: command(
-        "Apps with operations",
-        {
-          ...json,
-          ...conn,
-          filter: text("Names containing this", { placeholder: "text" }),
-        },
-        [],
-        pipeline.apps,
-      ),
-      skills: command(
-        "Skills",
-        {
-          ...json,
-          ...conn,
-          filter: text("Names containing this", { placeholder: "text" }),
-        },
-        [],
-        pipeline.skills,
-      ),
-      skill: command(
-        "One skill",
-        { ...json, ...conn, instructions: yes("Print its SKILL.md") },
-        [arg("Skill", "name")],
-        pipeline.skill,
-      ),
-      invoke: command(
-        "Run a read operation",
-        {
-          ...conn,
-          app: text("App", { placeholder: "name" }),
-          skill: text("Skill", { placeholder: "name" }),
-          idempotencyKey: text("Reuse when retrying", { placeholder: "key" }),
-        },
-        [
-          arg("Operation", "name"),
-          arg("JSON arguments, a file, @file or -", "args", true),
-        ],
-        pipeline.invoke,
-      ),
-      build: command(
-        "Stage and simulate an operation",
-        {
-          ...json,
-          ...signing,
-          app: text("App (default: default)", { placeholder: "name" }),
-          commit: yes("Also make the commit to sign"),
-          chainFamily: text("evm or svm when it can't be told", {
-            hidden: true,
-            placeholder: "family",
-          }),
-        },
-        [
-          arg("Operation", "name"),
-          arg("JSON arguments, a file, @file or -", "args", true),
-        ],
-        pipeline.build,
-      ),
-    },
-    { default: "ops" },
-  ),
-  deploy: routes(
-    BRIEFS.deploy,
-    {
-      run: command(
-        "Deploy the current commit",
-        {
-          ...deployFlags,
-          projectId: int("Project id; env AOMI_PROJECT_ID"),
-          branch: text("Deploy this branch's tip", { placeholder: "branch" }),
-          commit: text("Deploy this commit", { placeholder: "sha" }),
-          preflight: yes("Preview the manifest only"),
-        },
-        [],
-        deploy.deploy,
-      ),
-      status: command(
-        "The deployment's state",
-        {
-          ...deployFlags,
-          deploymentId: text("Deployment id", { placeholder: "id" }),
-          watch: yes("Poll until it is ready or failed"),
-        },
-        [],
-        deploy.status,
-      ),
-      activate: command(
-        "Promote the deployment",
-        {
-          ...deployFlags,
-          deploymentId: text("Deployment id", { placeholder: "id" }),
-        },
-        [],
-        deploy.activate,
-      ),
-    },
-    { default: "run", hidden: ["run"] },
-  ),
-  model: routes(
-    BRIEFS.model,
-    {
-      current: command("The model in use", {}, [], settings.currentModel),
-      list: command(
-        "Models you can use",
-        { ...json, ...conn },
-        [],
-        settings.models,
-      ),
-      set: command(
-        "Use this model",
-        {},
-        [arg("Model", "name")],
-        settings.setModel,
-      ),
-    },
-    { default: "current" },
-  ),
-  chain: routes(
-    BRIEFS.chain,
-    {
-      current: command("The chain in use", {}, [], settings.currentChain),
-      list: command("Supported chains", json, [], settings.chains),
-      set: command(
-        "Use this chain",
-        {},
-        [{ ...arg("Chain id", "id"), parse: parseChain }],
-        settings.setChain,
-      ),
-    },
-    { default: "current" },
-  ),
-  keys: routes(
-    BRIEFS.keys,
-    {
-      list: command(
-        "Providers with a saved key",
-        { ...json, ...conn },
-        [],
-        settings.keys,
-      ),
-      set: command(
-        "Save a provider key (from stdin or a prompt)",
-        conn,
-        [arg("Provider, e.g. anthropic", "provider")],
-        settings.setKey,
-      ),
-      remove: command(
-        "Remove a provider key",
-        conn,
-        [arg("Provider", "provider")],
-        settings.removeKey,
-      ),
-    },
-    { default: "list" },
-  ),
-  secret: routes(
-    BRIEFS.secret,
-    {
-      list: command("Secret names", { ...json, ...conn }, [], settings.secrets),
-      add: command(
-        "Add NAME=value secrets",
-        conn,
-        { rest: arg("NAME=value", "secret") },
-        settings.addSecrets,
-      ),
-      clear: command("Remove every secret", conn, [], settings.clearSecrets),
-    },
-    { default: "list" },
-  ),
-  config: routes(
-    BRIEFS.config,
-    {
-      current: command(
-        "Backend, thread, model, app, chain",
-        { ...json, backendUrl: conn.backendUrl },
-        [],
-        settings.config,
-      ),
-      "set-backend": command(
-        "Point at another Aomi",
-        {},
-        [arg("URL", "url")],
-        settings.setBackend,
-      ),
-    },
-    { default: "current" },
-  ),
-  completion: command(
-    BRIEFS.completion,
-    {},
-    [arg("bash or zsh", "shell", true)],
-    completion,
-  ),
-});
+const root = routes(
+  "the Aomi agent in your terminal",
+  {
+    chat: chatCommand,
+    threads: routes(
+      BRIEFS.threads,
+      {
+        list: command(
+          "Your threads, newest first",
+          { ...json, ...conn, limit: int("How many") },
+          [],
+          threads.list,
+        ),
+        open: command(
+          "Continue a thread",
+          {},
+          [arg("Thread id", "id")],
+          threads.open,
+        ),
+        show: command(
+          "What you and the agent said (default: the current thread)",
+          { ...json, ...conn },
+          [arg("Thread id", "id", true)],
+          threads.show,
+        ),
+        new: command("Start a new thread", {}, [], threads.start),
+        rename: command(
+          "Rename a thread",
+          { ...json, ...conn },
+          [arg("Thread id", "id"), arg("New title", "title")],
+          threads.rename,
+        ),
+        archive: command(
+          "Archive a thread",
+          { ...json, ...conn },
+          [arg("Thread id", "id")],
+          threads.archive,
+        ),
+      },
+      { default: "list" },
+    ),
+    login,
+    logout,
+    whoami,
+    account: routes(
+      BRIEFS.account,
+      {
+        show: command(
+          "Profile, logins, wallets and credits",
+          { ...json, ...conn },
+          [],
+          account.show,
+        ),
+        connections: command(
+          "Ways to sign in",
+          { ...json, ...conn },
+          [],
+          account.connections,
+        ),
+        unlink: command(
+          "Remove a way to sign in",
+          { ...conn, yes: yes("Confirm") },
+          [arg("Login id", "id")],
+          account.unlink,
+        ),
+        credits: command(
+          "Balance and recent activity",
+          { ...json, ...conn, limit: int("Activity rows") },
+          [],
+          account.showCredits,
+        ),
+        fund: command(
+          "Buy credits from --private-key's wallet",
+          {
+            ...json,
+            ...conn,
+            network: text("Treasury network, e.g. eip155:8453", {
+              optional: false,
+              placeholder: "caip2",
+            }),
+            idempotencyKey: text("Reuse it when retrying", {
+              optional: false,
+              placeholder: "key",
+            }),
+          },
+          [{ ...arg("Whole credits, 100-100000", "credits"), parse: Number }],
+          account.fund,
+        ),
+        statement: command(
+          "Priced usage",
+          {
+            ...json,
+            ...conn,
+            limit: int("Page size"),
+            cursor: text("Page cursor", { placeholder: "cursor" }),
+          },
+          [],
+          account.statement,
+        ),
+      },
+      {
+        default: "show",
+      },
+    ),
+    wallets: routes(
+      BRIEFS.wallets,
+      {
+        list: command(
+          "The account's wallets, agent wallets first",
+          { ...json, ...conn },
+          [],
+          wallets.list,
+        ),
+        balance: command(
+          "An agent wallet's balances",
+          { ...json, ...conn },
+          [arg("Wallet id", "id")],
+          wallets.balance,
+        ),
+        use: command(
+          "Trade with this wallet in the current thread",
+          { ...json, ...conn },
+          [arg("Wallet id", "id")],
+          wallets.use,
+        ),
+        signer: routes(
+          "This machine's signing keys",
+          {
+            show: signerShow,
+            set: signerSet,
+            clear: command(
+              "Forget the local keys",
+              {},
+              [],
+              wallets.clearSigner,
+            ),
+          },
+          { default: "show" },
+        ),
+        current: signerShow,
+        set: signerSet,
+      },
+      { default: "list", hidden: ["current", "set"] },
+    ),
+    policy: routes(
+      BRIEFS.policy,
+      {
+        list: command(
+          "Each agent wallet's policies and where they stand on chain",
+          policyFlags,
+          [],
+          policy.list,
+        ),
+        catalog: command(
+          "The apps and tokens a policy can name",
+          {
+            ...policyFlags,
+            chain: text("Only this chain: a name or an id", {
+              placeholder: "chain",
+            }),
+          },
+          [],
+          policy.catalog,
+        ),
+        set: command(
+          "Add or replace one policy: JSON, or --amt <amount> <asset> --to <app>",
+          {
+            ...policyWrite,
+            amt: text("The most the agent may spend, in token units", {
+              placeholder: "amount",
+            }),
+            to: text("A catalog app id, any, or an address", {
+              placeholder: "app-id|address",
+            }),
+            until: text("The last day it holds (UTC)", {
+              placeholder: "YYYY-MM-DD",
+            }),
+            chain: text("The token's chain, when its symbol is on several", {
+              placeholder: "chain",
+            }),
+          },
+          [arg("Policy JSON or its file; with --amt, the token", "policy")],
+          policy.set,
+        ),
+        remove: command(
+          "Remove one policy",
+          policyWrite,
+          [arg("Policy id, or the start of one", "policy-id")],
+          policy.remove,
+        ),
+        mode: command(
+          "Allow only what policies list, or all they don't cap",
+          policyWrite,
+          [arg("whitelist or blacklist", "mode")],
+          policy.mode,
+        ),
+        authority: command(
+          "Who approves a change that loosens",
+          policyWrite,
+          [arg("self, or a linked wallet's address", "self|address")],
+          policy.authority,
+        ),
+        deploy: command(
+          "Put a policy on chain with the local signer",
+          policyEnforce,
+          [arg("Policy id, or the start of one", "policy-id")],
+          policy.deploy,
+        ),
+        undeploy: command(
+          "Take a policy off the chain with the local signer",
+          policyEnforce,
+          [arg("Policy id, or the start of one", "policy-id")],
+          policy.undeploy,
+        ),
+        approve: command(
+          "Approve a policy change waiting for you",
+          policyFlags,
+          [arg("Change id", "change-id")],
+          policy.approve,
+        ),
+        decline: command(
+          "Decline a policy change",
+          policyFlags,
+          [arg("Change id", "change-id")],
+          policy.decline,
+        ),
+      },
+      { default: "list" },
+    ),
+    tx: routes(
+      BRIEFS.tx,
+      {
+        list: command(
+          "What the thread left to sign or approve",
+          {
+            ...json,
+            ...conn,
+            thread: text("Thread id", { placeholder: "id" }),
+          },
+          [],
+          tx.list,
+        ),
+        review: command(
+          "One commit: state, chain, signer, review",
+          { ...json, ...conn },
+          ref,
+          tx.review,
+        ),
+        approve: command(
+          "Approve a commit waiting for you",
+          {
+            ...json,
+            ...conn,
+            yes: yes("Approve without asking"),
+            wait: yes("Follow it until it settles (--no-wait skips)", {
+              default: true,
+              optional: undefined,
+            }),
+          },
+          ref,
+          tx.approve,
+        ),
+        reject: command(
+          "Reject a commit",
+          { ...json, ...conn },
+          ref,
+          tx.reject,
+        ),
+        sign: command(
+          "Sign a commit with the local signer",
+          { ...json, ...signing },
+          ref,
+          tx.sign,
+        ),
+        export: command(
+          "The exact reviewed commit, for an external signer",
+          conn,
+          ref,
+          tx.exportCommit,
+        ),
+      },
+      { default: "list" },
+    ),
+    guard: command(
+      BRIEFS.guard,
+      {
+        ...json,
+        ...conn,
+        account: yes("The account default"),
+        thread: text("This thread", { placeholder: "id" }),
+      },
+      [arg("strict, balanced or yolo", "mode", true)],
+      guard,
+    ),
+    apps: routes(
+      BRIEFS.apps,
+      {
+        list: command("Apps you can use", { ...json, ...conn }, [], apps.list),
+        install: command(
+          "Install an app",
+          { ...json, ...conn },
+          [arg("App name", "name")],
+          apps.install,
+        ),
+        uninstall: command(
+          "Uninstall an app",
+          { ...json, ...conn },
+          [arg("App name", "name")],
+          apps.uninstall,
+        ),
+        credentials: routes(
+          "An app's credentials",
+          {
+            list: command(
+              "The app's credential slots",
+              { ...json, ...conn },
+              [arg("App name", "name")],
+              apps.credentials,
+            ),
+            set: command(
+              "Set one (value from stdin or a prompt)",
+              { ...json, ...conn },
+              [arg("App name", "name"), arg("Credential", "key")],
+              apps.setCredential,
+            ),
+            remove: command(
+              "Remove one",
+              conn,
+              [arg("App name", "name"), arg("Credential", "key")],
+              apps.removeCredential,
+            ),
+          },
+          { default: "list" },
+        ),
+      },
+      { default: "list" },
+    ),
+    pipeline: routes(
+      BRIEFS.pipeline,
+      {
+        ops: command(
+          "Operations of an app or skill",
+          {
+            ...json,
+            ...conn,
+            app: text("App (default: default)", { placeholder: "name" }),
+            skill: text("Skill", { placeholder: "name" }),
+            filter: text("Names containing this", { placeholder: "text" }),
+          },
+          [],
+          pipeline.operations,
+        ),
+        op: command(
+          "Describe one operation",
+          {
+            ...conn,
+            app: text("App", { placeholder: "name" }),
+            skill: text("Skill", { placeholder: "name" }),
+          },
+          [arg("Operation", "name")],
+          pipeline.operation,
+        ),
+        apps: command(
+          "Apps with operations",
+          {
+            ...json,
+            ...conn,
+            filter: text("Names containing this", { placeholder: "text" }),
+          },
+          [],
+          pipeline.apps,
+        ),
+        skills: command(
+          "Skills",
+          {
+            ...json,
+            ...conn,
+            filter: text("Names containing this", { placeholder: "text" }),
+          },
+          [],
+          pipeline.skills,
+        ),
+        skill: command(
+          "One skill",
+          { ...json, ...conn, instructions: yes("Print its SKILL.md") },
+          [arg("Skill", "name")],
+          pipeline.skill,
+        ),
+        invoke: command(
+          "Run a read operation",
+          {
+            ...conn,
+            app: text("App", { placeholder: "name" }),
+            skill: text("Skill", { placeholder: "name" }),
+            idempotencyKey: text("Reuse when retrying", { placeholder: "key" }),
+          },
+          [
+            arg("Operation", "name"),
+            arg("JSON arguments, a file, @file or -", "args", true),
+          ],
+          pipeline.invoke,
+        ),
+        build: command(
+          "Stage and simulate an operation",
+          {
+            ...json,
+            ...signing,
+            app: text("App (default: default)", { placeholder: "name" }),
+            commit: yes("Also make the commit to sign"),
+            chainFamily: text("evm or svm when it can't be told", {
+              hidden: true,
+              placeholder: "family",
+            }),
+          },
+          [
+            arg("Operation", "name"),
+            arg("JSON arguments, a file, @file or -", "args", true),
+          ],
+          pipeline.build,
+        ),
+      },
+      { default: "ops" },
+    ),
+    deploy: routes(
+      BRIEFS.deploy,
+      {
+        run: command(
+          "Deploy the current commit",
+          {
+            ...deployFlags,
+            projectId: int("Project id; env AOMI_PROJECT_ID"),
+            branch: text("Deploy this branch's tip", { placeholder: "branch" }),
+            commit: text("Deploy this commit", { placeholder: "sha" }),
+            preflight: yes("Preview the manifest only"),
+          },
+          [],
+          deploy.deploy,
+        ),
+        status: command(
+          "The deployment's state",
+          {
+            ...deployFlags,
+            deploymentId: text("Deployment id", { placeholder: "id" }),
+            watch: yes("Poll until it is ready or failed"),
+          },
+          [],
+          deploy.status,
+        ),
+        activate: command(
+          "Promote the deployment",
+          {
+            ...deployFlags,
+            deploymentId: text("Deployment id", { placeholder: "id" }),
+          },
+          [],
+          deploy.activate,
+        ),
+      },
+      { default: "run", hidden: ["run"] },
+    ),
+    model: routes(
+      BRIEFS.model,
+      {
+        current: command("The model in use", {}, [], settings.currentModel),
+        list: command(
+          "Models you can use",
+          { ...json, ...conn },
+          [],
+          settings.models,
+        ),
+        set: command(
+          "Use this model",
+          {},
+          [arg("Model", "name")],
+          settings.setModel,
+        ),
+      },
+      { default: "current" },
+    ),
+    chain: routes(
+      BRIEFS.chain,
+      {
+        current: command("The chain in use", {}, [], settings.currentChain),
+        list: command("Supported chains", json, [], settings.chains),
+        set: command(
+          "Use this chain",
+          {},
+          [{ ...arg("Chain id", "id"), parse: parseChain }],
+          settings.setChain,
+        ),
+      },
+      { default: "current" },
+    ),
+    keys: routes(
+      BRIEFS.keys,
+      {
+        list: command(
+          "Providers with a saved key",
+          { ...json, ...conn },
+          [],
+          settings.keys,
+        ),
+        set: command(
+          "Save a provider key (from stdin or a prompt)",
+          conn,
+          [arg("Provider, e.g. anthropic", "provider")],
+          settings.setKey,
+        ),
+        remove: command(
+          "Remove a provider key",
+          conn,
+          [arg("Provider", "provider")],
+          settings.removeKey,
+        ),
+      },
+      { default: "list" },
+    ),
+    secret: routes(
+      BRIEFS.secret,
+      {
+        list: command(
+          "Secret names",
+          { ...json, ...conn },
+          [],
+          settings.secrets,
+        ),
+        add: command(
+          "Add NAME=value secrets",
+          conn,
+          { rest: arg("NAME=value", "secret") },
+          settings.addSecrets,
+        ),
+        clear: command("Remove every secret", conn, [], settings.clearSecrets),
+      },
+      { default: "list" },
+    ),
+    config: routes(
+      BRIEFS.config,
+      {
+        current: command(
+          "Backend, thread, model, app, chain",
+          { ...json, backendUrl: conn.backendUrl },
+          [],
+          settings.config,
+        ),
+        "set-backend": command(
+          "Point at another Aomi",
+          {},
+          [arg("URL", "url")],
+          settings.setBackend,
+        ),
+      },
+      { default: "current" },
+    ),
+    completion: command(
+      BRIEFS.completion,
+      {},
+      [arg("bash or zsh", "shell", true)],
+      completion,
+    ),
+  },
+);
 
 export const app = buildApplication(root, {
   name: "aomi",

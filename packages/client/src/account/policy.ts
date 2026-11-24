@@ -382,7 +382,7 @@ export const policyPaths = {
     `/v1/account/policy-changes/${encodeURIComponent(id)}/decline`,
 } as const;
 
-const { invalid, family, list, text } = responseReader("rules");
+const { invalid, family, list, text } = responseReader("policy");
 
 const DIGITS = /^[0-9]+$/;
 
@@ -752,21 +752,19 @@ export class AccountPolicyTransport {
   /**
    * Change the rules from what they are now: read, `build` the request from
    * that, write it with the revision read. When the rules moved under it
-   * (`rules_changed`) this reads and builds once more. `before` is what the
-   * request was built from.
+   * (`rules_changed`) this reads and builds once more.
    */
   async revise(
     agentWalletId: string,
     build: (held: AomiWalletPolicies) => AomiPolicyChangeRequest,
-  ): Promise<AomiPolicyChangeResult & { before: AomiWalletPolicies }> {
+  ): Promise<AomiPolicyChangeResult> {
     for (let attempt = 0; ; attempt += 1) {
-      const before = await this.get(agentWalletId);
+      const held = await this.get(agentWalletId);
       try {
-        const result = await this.change(agentWalletId, {
-          ...build(before),
-          revision: before.revision,
+        return await this.change(agentWalletId, {
+          ...build(held),
+          revision: held.revision,
         });
-        return { ...result, before };
       } catch (error) {
         if (
           attempt > 0 ||
