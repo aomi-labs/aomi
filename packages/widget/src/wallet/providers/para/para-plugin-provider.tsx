@@ -486,8 +486,15 @@ export function AomiParaPluginProvider({
       });
     const missing = () =>
       new Error("No Solana wallet is available for signing.");
-    /** Para is signed in, so a Para Solana wallet can be the active one. */
-    const embedded = exposeParaSession && Boolean(paraSession?.signMessage);
+    /**
+     * Para is signed in and no external wallet is the active one, so a Para
+     * Solana wallet can be. An active external wallet keeps only its own methods.
+     */
+    const active = svmRuntime.identity(Date.now()).address;
+    const embedded =
+      exposeParaSession &&
+      Boolean(paraSession?.signMessage) &&
+      (!active || Boolean(paraAddress(active)));
     type TransactionMethod =
       | "signSolanaTransaction"
       | "signAllSolanaTransactions"

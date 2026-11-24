@@ -4,6 +4,10 @@ import {
   type Connection as SolanaConnection,
   type Transaction as SolanaTransaction,
 } from "@solana/web3.js";
+import {
+  decodeBase64,
+  encodeBase64,
+} from "@/wallet/runtime/svm/transactions";
 import type { SafeSvmWalletState } from "@/wallet/runtime/svm/wallet-runtime";
 import {
   signParaSolanaMessage,
@@ -11,8 +15,6 @@ import {
 } from "./para-message-signing";
 
 type SolanaTx = VersionedTransaction | SolanaTransaction;
-
-const toBase64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64");
 
 /** The accounts that must sign `tx`, in the order the message lists them. */
 function requiredSigners(tx: SolanaTx): PublicKey[] {
@@ -46,9 +48,10 @@ export async function signParaSolanaTransaction<T extends SolanaTx>(
   const { signature } = await signParaSolanaMessage(
     paraSession,
     address,
-    toBase64(message),
+    encodeBase64(message),
   );
-  tx.addSignature(signer, Buffer.from(signature, "base64"));
+  // web3.js copies these bytes; only its legacy type asks for a Buffer.
+  tx.addSignature(signer, decodeBase64(signature) as Buffer);
   return tx;
 }
 

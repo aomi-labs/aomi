@@ -12,7 +12,7 @@ import {
 import type { AomiWalletKit } from "@/wallet/types";
 import type { SafeSvmWalletState } from "./wallet-runtime";
 
-function decodeBase64(value: string): Uint8Array {
+export function decodeBase64(value: string): Uint8Array {
   if (typeof Buffer !== "undefined") {
     return new Uint8Array(Buffer.from(value, "base64"));
   }
@@ -22,7 +22,7 @@ function decodeBase64(value: string): Uint8Array {
   return out;
 }
 
-function encodeBase64(bytes: Uint8Array): string {
+export function encodeBase64(bytes: Uint8Array): string {
   if (typeof Buffer !== "undefined") {
     return Buffer.from(bytes).toString("base64");
   }
@@ -206,7 +206,7 @@ export async function sendSolana(
     const signature = await connection.sendRawTransaction(
       decodeBase64(signed.signedTx),
     );
-    await connection.confirmTransaction(signature, "confirmed");
+    await confirmSubmittedTransaction(connection, signature);
     return { signature, signedTx: signed.signedTx };
   }
   throw new Error("Solana wallet provider is not ready");
