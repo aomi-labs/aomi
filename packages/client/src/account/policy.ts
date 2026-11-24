@@ -18,6 +18,7 @@
  *     -> `AomiWalletPolicies`
  * Writes are for the owner's own session: the portal or a CLI login.
  */
+import { AomiApiError } from "../api-error";
 import {
   asRecord,
   numberOrNull,
@@ -721,6 +722,32 @@ export class AccountPolicyTransport {
     if (status !== "applied" && status !== "waiting" && status !== "unchanged")
       throw invalid(`unsupported status: ${String(status)}`);
     return { status, rules: parseWalletPolicies(record?.rules) };
+  }
+
+  /**
+   * Change the rules from what they are now: read, `build` the request from
+   * that, write. The write carries no revision, so when the rules moved
+   * under it (`rules_changed`) this reads and builds once more. `before` is
+   * what the request was built from.
+   */
+  async revise(
+    agentWalletId: string,
+    build: (held: AomiWalletPolicies) => AomiPolicyChangeRequest,
+  ): Promise<AomiPolicyChangeResult & { before: AomiWalletPolicies }> {
+    for (let attempt = 0; ; attempt += 1) {
+      const before = await this.get(agentWalletId);
+      try {
+        const result = await this.change(agentWalletId, build(before));
+        return { ...result, before };
+      } catch (error) {
+        if (
+          attempt > 0 ||
+          !(error instanceof AomiApiError) ||
+          error.code !== POLICY_ERROR_CODES.changed
+        )
+          throw error;
+      }
+    }
   }
 
   /** The apps and tokens a rule can name. */

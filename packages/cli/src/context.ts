@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
+import { createInterface } from "node:readline/promises";
 import {
   Aomi,
   AomiError,
@@ -309,6 +310,30 @@ export function openUrl(url: string): void {
 export const out = (line = ""): void => void process.stdout.write(`${line}\n`);
 export const err = (line = ""): void => void process.stderr.write(`${line}\n`);
 export const json = (value: unknown): void => out(JSON.stringify(value));
+
+/** Rows as aligned columns; the first row is the header. */
+export function table(rows: string[][]): string[] {
+  const widths = rows[0]!.map((_, column) =>
+    Math.max(...rows.map((row) => row[column]!.length)),
+  );
+  return rows.map((row) =>
+    row
+      .map((cell, column) => cell.padEnd(widths[column]!))
+      .join("  ")
+      .trimEnd(),
+  );
+}
+
+/** Ask on stderr; outside a terminal the command needs `--yes`. */
+export async function confirm(question: string): Promise<boolean> {
+  if (!process.stdin.isTTY) throw usage("Pass --yes outside a terminal");
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    return /^y(es)?$/i.test((await rl.question(`${question} [y/N] `)).trim());
+  } finally {
+    rl.close();
+  }
+}
 
 /** One line: the error, the server's reason, and what to do. */
 export function messageOf(error: unknown): string {

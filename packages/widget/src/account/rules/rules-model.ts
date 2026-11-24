@@ -1,19 +1,13 @@
 import {
   AomiApiError,
-  SUPPORTED_CHAINS,
+  assetNetwork,
   shortAddress,
   type AomiPolicyTo,
   type AomiPolicyAdminWallet,
   type AomiPolicyCatalog,
 } from "@aomi-labs/client";
 
-/** Base units ("500000000") as a human amount ("0.5"), trailing zeros dropped. */
-export function fromBaseUnits(amount: string, decimals: number): string {
-  const digits = amount.padStart(decimals + 1, "0");
-  const whole = digits.slice(0, digits.length - decimals);
-  const fraction = digits.slice(digits.length - decimals).replace(/0+$/, "");
-  return fraction ? `${whole}.${fraction}` : whole;
-}
+export { assetChain, assetNetwork, fromBaseUnits } from "@aomi-labs/client";
 
 /** The token part of an asset id, shortened: an address or a mint. */
 export function shortAsset(asset: string): string {
@@ -22,16 +16,6 @@ export function shortAsset(asset: string): string {
     ? token.slice(token.indexOf(":") + 1)
     : token;
   return address === "native" ? asset : shortAddress(address);
-}
-
-/** The chain an asset id lives on, by name. */
-export function assetChain(asset: string, catalog?: AomiPolicyCatalog): string {
-  const known = catalog?.tokens.find((token) => token.asset === asset)?.chain;
-  if (known) return known;
-  const [namespace, reference] = asset.split("/")[0]!.split(":");
-  if (namespace === "solana") return "Solana";
-  const chain = SUPPORTED_CHAINS.find((item) => String(item.id) === reference);
-  return chain?.name ?? `Chain ${reference ?? ""}`.trim();
 }
 
 /** `23 h`, `40 min`, or null once the time has passed. */
@@ -44,9 +28,6 @@ export function timeUntil(
   if (seconds >= 3600) return `${Math.floor(seconds / 3600)} h`;
   return `${Math.max(1, Math.floor(seconds / 60))} min`;
 }
-
-/** The CAIP-2 chain of an asset id: `eip155:8453`, `solana:mainnet-beta`. */
-export const assetNetwork = (asset: string) => asset.split("/")[0]!;
 
 /** `Jupiter`, `Any protocol`, or `Send to 0x12ab…cdef`. */
 export function toLabel(to: AomiPolicyTo, catalog?: AomiPolicyCatalog | null) {

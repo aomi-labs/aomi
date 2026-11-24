@@ -548,11 +548,25 @@ export type {
   AomiSignableTypedData,
 } from "./account/policy-enforce";
 export {
+  AomiPolicyFieldError,
+  assetChain,
+  assetNetwork,
+  catalogOn,
+  checkPolicy,
+  fromBaseUnits,
   policyFromDraft,
+  policyFromInput,
   toBaseUnits,
   upsertPolicy,
+  withoutPolicy,
 } from "./account/policy-draft";
-export type { AomiPolicyDraft } from "./account/policy-draft";
+export type { AomiPolicyDraft, AomiPolicyInput } from "./account/policy-draft";
+export {
+  chainOnlyPolicies,
+  expectedPolicyAction,
+  policyOnChain,
+} from "./account/policy-status";
+export type { AomiPolicyOnChain } from "./account/policy-status";
 export { AomiWallets } from "./sdk/wallets";
 export type {
   AomiAccountConnection,

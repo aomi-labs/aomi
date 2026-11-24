@@ -7,6 +7,11 @@ import {
   parseWalletPolicies,
   type AomiWalletPolicies,
 } from "./policy";
+import {
+  chainOnlyPolicies,
+  expectedPolicyAction,
+  policyOnChain,
+} from "./policy-status";
 import { AomiWalletError } from "./wallets";
 
 const WALLET = "6f1c2b8e-0000-4000-8000-000000000001";
@@ -440,6 +445,84 @@ describe("wallet rules", () => {
     });
     expect(result.status).toBe("waiting");
     expect(result.rules.pending).toEqual(change);
+  });
+
+  it("revises from what it read, and reads once more when the rules moved under the write", async () => {
+    let writes = 0;
+    const { rules, calls } = backend({
+      [`GET /v1/account/agent-wallets/${WALLET}/rules`]: () =>
+        Response.json({ ...body, revision: 3 + writes }),
+      [`POST /v1/account/agent-wallets/${WALLET}/rules`]: () =>
+        (writes += 1) % 2
+          ? Response.json({ error: "rules_changed" }, { status: 409 })
+          : Response.json({ status: "applied", rules: body }),
+    });
+    const build = vi.fn((held: AomiWalletPolicies) => ({
+      rules: { ...held.rules, linked_only: false },
+    }));
+    const result = await rules.revise(WALLET, build);
+    expect(calls.map((call) => call.method)).toEqual([
+      "GET",
+      "POST",
+      "GET",
+      "POST",
+    ]);
+    expect(build.mock.calls.map(([held]) => held.revision)).toEqual([3, 4]);
+    expect(result).toMatchObject({
+      status: "applied",
+      before: { revision: 4 },
+    });
+    // Refused twice in a row: the caller hears it.
+    writes = 0;
+    const always = backend({
+      [`GET /v1/account/agent-wallets/${WALLET}/rules`]: () =>
+        Response.json(body),
+      [`POST /v1/account/agent-wallets/${WALLET}/rules`]: () =>
+        Response.json({ error: "rules_changed" }, { status: 409 }),
+    });
+    await expect(always.rules.revise(WALLET, build)).rejects.toMatchObject({
+      code: POLICY_ERROR_CODES.changed,
+    });
+    expect(always.calls).toHaveLength(4);
+  });
+
+  it("says where each policy stands on chain", () => {
+    const read = parseWalletPolicies(body);
+    const entry = (state: string, ready: boolean, rule = SOL_RULE) => ({
+      ...read.enforcement[0]!,
+      rule,
+      state: state as "on",
+      ready,
+    });
+    const stands = (enforcement: ReturnType<typeof entry>[], id = SOL_RULE) =>
+      policyOnChain({ ...read, enforcement }, id)?.kind;
+    expect(stands([entry("on", false)])).toBe("in_sync");
+    expect(stands([entry("behind", true)])).toBe("out_of_date");
+    expect(stands([entry("unverified", false)])).toBe("unverified");
+    expect(stands([entry("off", true)])).toBe("not_deployed");
+    // A provider that declines, or none at all: Aomi alone checks it.
+    expect(stands([entry("off", false)])).toBe("aomi_only");
+    expect(stands([])).toBe("aomi_only");
+    // A removed policy: only what the chain still holds counts.
+    const GONE = `${SOL}@any`;
+    expect(stands([entry("on", true, GONE)], GONE)).toBe("chain_only");
+    expect(stands([entry("off", false, GONE)], GONE)).toBeUndefined();
+    expect(
+      chainOnlyPolicies({ ...read, enforcement: [entry("on", true, GONE)] }),
+    ).toEqual([GONE]);
+    expect(chainOnlyPolicies(read)).toEqual([]);
+    expect(policyOnChain(read, SOL_RULE, "metamask")?.kind).toBe("aomi_only");
+    expect(expectedPolicyAction(read.enforcement[0]!)).toBe("transaction");
+    expect(expectedPolicyAction(read.enforcement[1]!)).toBe("typed_data");
+    expect(
+      expectedPolicyAction(
+        {
+          ...read.enforcement[1]!,
+          note: "Your revocation is signed. Send it to finish.",
+        },
+        true,
+      ),
+    ).toBe("evm_transaction");
   });
 
   it("changes the admin or Instant connections without touching the rules", async () => {

@@ -1,0 +1,9 @@
+---
+"@aomi-labs/cli": minor
+"@aomi-labs/client": minor
+"@aomi-labs/widget": patch
+---
+
+`aomi policy` replaces `aomi rules`. Breaking for CLI users: `aomi rules` is removed with no alias. `aomi policy list` prints each agent wallet's mode and authority, then a table of its policies with where each stands on chain: `in sync (<provider>)`, `not deployed`, `out of date (<provider>)`, `not verified (<provider>)`, `on chain only` or `Aomi only`. `aomi policy catalog [--chain <c>]` lists the apps and tokens a policy can name. `aomi policy set <json | path>` or `aomi policy set --amt <amount> <asset> --to <app-id|address> [--until YYYY-MM-DD] [--chain <c>]` adds or replaces one policy; `remove <policy-id>`, `mode whitelist|blacklist` and `authority self|<address>` change the rest; `approve` and `decline` keep their behaviour. Every write prints what changed, whether it LOOSENS or TIGHTENS, whether it is applied or waits, and a `Next` block with the command that brings the chain in line. `--yes` also approves a change when the authority is Aomi-managed. Every command takes `--wallet <id>` and `--json`.
+
+Client: `aomi.account.policy.revise(agentWalletId, build)` reads the policies, builds the change from them and writes it, once more when they moved in between (`rules_changed`). `checkPolicy` validates a policy against the catalog and `policyFromInput` builds one from what a person types (a symbol, an app id or address, a day); both throw `AomiPolicyFieldError`, which names the field and the nearest catalog apps. `policyOnChain` and `chainOnlyPolicies` say where a policy stands on chain, and `expectedPolicyAction` what its provider will ask the owner's wallet. `catalogOn`, `withoutPolicy`, `fromBaseUnits`, `assetChain` and `assetNetwork` are exported; the widget now takes the last three from the client.
