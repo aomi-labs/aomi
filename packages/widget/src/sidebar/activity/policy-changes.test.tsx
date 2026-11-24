@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AomiRuleChange, AomiWalletRules } from "@aomi-labs/client";
+import type { AomiPolicyChange, AomiWalletPolicies } from "@aomi-labs/client";
 import { usePolicyChanges, usePolicyWallets } from "./policy-changes";
 
 const shell = vi.hoisted(() => {
@@ -11,7 +11,7 @@ const shell = vi.hoisted(() => {
     getChange,
     get,
     catalog,
-    aomi: { account: { rules: { getChange, get, catalog } } },
+    aomi: { account: { policy: { getChange, get, catalog } } },
   };
 });
 const { getChange } = shell;
@@ -28,7 +28,7 @@ vi.mock("@/account/rules/rule-change-card", () => ({
 }));
 
 const change = (id: string, state: string) =>
-  ({ id, state, wallet_name: "Trading" }) as unknown as AomiRuleChange;
+  ({ id, state, wallet_name: "Trading" }) as unknown as AomiPolicyChange;
 
 describe("usePolicyChanges", () => {
   beforeEach(() => getChange.mockReset());
@@ -61,7 +61,7 @@ describe("usePolicyChanges", () => {
 describe("usePolicyWallets", () => {
   const wallet = { agent_wallet_id: "w1", wallet_name: "Trading" };
   beforeEach(() => {
-    shell.get.mockReset().mockResolvedValue(wallet as AomiWalletRules);
+    shell.get.mockReset().mockResolvedValue(wallet as AomiWalletPolicies);
     shell.catalog.mockReset().mockResolvedValue({ tokens: [] });
   });
 

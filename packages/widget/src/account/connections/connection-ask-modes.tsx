@@ -5,7 +5,7 @@ import { ArrowRight } from "lucide-react";
 import type {
   AomiAccountConnection,
   AomiAskMode,
-  AomiWalletRules,
+  AomiWalletPolicies,
 } from "@aomi-labs/client";
 import { useDisplayQuery } from "@aomi-labs/react";
 import { ListGroup, ListRow } from "@/ui/aomi/list-group";
@@ -54,7 +54,7 @@ export function ConnectionAskModes({
   /** Close the sheet before "Manage in Connections" moves the page. */
   onClose?: () => void;
   /** Instant needed the admin wallet's signature: the change waits in these rules. */
-  onRulesFiled?: (rules: AomiWalletRules) => void;
+  onRulesFiled?: (rules: AomiWalletPolicies) => void;
 }) {
   const aomi = useShellAomi();
   const connections = useDisplayQuery(connectionsQuery(aomi));

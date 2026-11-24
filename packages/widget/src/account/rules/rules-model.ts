@@ -2,28 +2,10 @@ import {
   AomiApiError,
   SUPPORTED_CHAINS,
   shortAddress,
-  ruleKey,
-  type AomiRule,
-  type AomiRuleTo,
-  type AomiRulesAdminWallet,
-  type AomiRulesCatalog,
+  type AomiPolicyTo,
+  type AomiPolicyAdminWallet,
+  type AomiPolicyCatalog,
 } from "@aomi-labs/client";
-
-/**
- * A human amount ("0.5") as base units ("500000000"), by string math only:
- * amounts can exceed 2^53. Null when it is not a plain decimal number or has
- * more fraction digits than the token. Commas are accepted only as thousands
- * separators ("1,250"): "1,2" is a typo, never 12.
- */
-export function toBaseUnits(human: string, decimals: number): string | null {
-  const match = /^(\d{1,3}(?:,\d{3})+|\d*)(?:\.(\d*))?$/.exec(human.trim());
-  if (!match) return null;
-  const whole = (match[1] ?? "").replace(/,/g, "");
-  const fraction = match[2] ?? "";
-  if (!whole && !fraction) return null;
-  if (fraction.length > decimals) return null;
-  return BigInt(`${whole}${fraction.padEnd(decimals, "0")}` || "0").toString();
-}
 
 /** Base units ("500000000") as a human amount ("0.5"), trailing zeros dropped. */
 export function fromBaseUnits(amount: string, decimals: number): string {
@@ -43,7 +25,7 @@ export function shortAsset(asset: string): string {
 }
 
 /** The chain an asset id lives on, by name. */
-export function assetChain(asset: string, catalog?: AomiRulesCatalog): string {
+export function assetChain(asset: string, catalog?: AomiPolicyCatalog): string {
   const known = catalog?.tokens.find((token) => token.asset === asset)?.chain;
   if (known) return known;
   const [namespace, reference] = asset.split("/")[0]!.split(":");
@@ -67,7 +49,7 @@ export function timeUntil(
 export const assetNetwork = (asset: string) => asset.split("/")[0]!;
 
 /** `Jupiter`, `Any protocol`, or `Send to 0x12ab…cdef`. */
-export function toLabel(to: AomiRuleTo, catalog?: AomiRulesCatalog | null) {
+export function toLabel(to: AomiPolicyTo, catalog?: AomiPolicyCatalog | null) {
   if (to.kind === "any_protocol") return "Any protocol";
   if (to.kind === "address") return `Send to ${shortAddress(to.address)}`;
   return (
@@ -83,22 +65,8 @@ export function validAddress(asset: string, address: string): boolean {
     : /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
 }
 
-/**
- * The rules with `rule` added, or put in place of the one with its asset
- * and destination.
- */
-export function withRule(
-  rules: readonly AomiRule[],
-  rule: AomiRule,
-): AomiRule[] {
-  const key = ruleKey(rule);
-  return rules.some((held) => ruleKey(held) === key)
-    ? rules.map((held) => (ruleKey(held) === key ? rule : held))
-    : [...rules, rule];
-}
-
 export const sameWallet = (
-  wallet: Pick<AomiRulesAdminWallet, "family" | "address">,
+  wallet: Pick<AomiPolicyAdminWallet, "family" | "address">,
   family: string,
   address: string | undefined,
 ) =>

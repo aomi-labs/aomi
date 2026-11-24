@@ -1,6 +1,9 @@
 import {
+  enforcementKey,
   normalizeSolanaCluster,
-  ruleKey,
+  policyFromDraft,
+  policyKey,
+  sendsRevocation,
   type AomiPolicy,
   type AomiPolicyTo,
   type AomiPolicyAdmin,
@@ -14,7 +17,6 @@ import {
   assetNetwork,
   fromBaseUnits,
   shortAsset,
-  toBaseUnits,
   toLabel,
 } from "@/account/rules/rules-model";
 import { explorerUrl, type IdentifierKind } from "@/thread/explorer-links";
@@ -248,22 +250,6 @@ const WARNINGS: Partial<Record<AomiPolicyEnforcement["state"], string>> = {
   unverified: "Not verified",
 };
 
-/**
- * The backend note that marks a signed revocation waiting to be sent. The
- * entry has no field for the next step, so this only picks the row's label;
- * the wallet's action always comes from `prepare`.
- */
-export const SEND_NOTE_PREFIX = "Your revocation is signed. Send it";
-
-export const sendsRevocation = (
-  entry: Pick<AomiPolicyEnforcement, "ready" | "note">,
-) => entry.ready && Boolean(entry.note?.startsWith(SEND_NOTE_PREFIX));
-
-/** One provider's step for one rule on one network. */
-export const enforcementKey = (
-  entry: Pick<AomiPolicyEnforcement, "provider" | "network" | "rule">,
-) => `${entry.provider}:${entry.network}:${entry.rule}`;
-
 const DAY = 86_400;
 
 type PolicyUnits = { symbol: string; decimals?: number | null };
@@ -284,7 +270,7 @@ export function ruleEnforcement(
   entries: readonly AomiPolicyEnforcement[],
   units?: PolicyUnits,
 ): PolicyEnforcement {
-  const id = rule.id ?? ruleKey(rule);
+  const id = rule.id ?? policyKey(rule);
   const mine = entries.filter((entry) => entry.rule === id);
   const entry =
     mine.find((candidate) => candidate.ready) ??
@@ -351,7 +337,7 @@ export function policyRows(
 ): Policy[] {
   const rows = new Map<string, Policy>();
   for (const rule of rules.rules.rules) {
-    const id = rule.id ?? ruleKey(rule);
+    const id = rule.id ?? policyKey(rule);
     const token = catalog?.tokens.find((entry) => entry.asset === rule.asset);
     const symbol = rule.symbol ?? token?.symbol;
     const decimals =
@@ -451,7 +437,7 @@ export function removedPolicies(
   catalog?: AomiPolicyCatalog | null,
 ): RemovedPolicy[] {
   const current = new Set(
-    rules.rules.rules.map((rule) => rule.id ?? ruleKey(rule)),
+    rules.rules.rules.map((rule) => rule.id ?? policyKey(rule)),
   );
   return rules.enforcement.flatMap((entry) => {
     if (current.has(entry.rule) || entry.state === "off") return [];
@@ -549,16 +535,15 @@ export function policyProviders(
 export function draftRules(draft: PolicyDraft): AomiPolicy[] | null {
   const rules: AomiPolicy[] = [];
   for (const entry of draft.chains) {
-    const amount = toBaseUnits(draft.amount, entry.decimals);
-    if (amount === null) return null;
-    rules.push({
+    const rule = policyFromDraft({
       asset: entry.asset,
-      amount,
+      decimals: entry.decimals,
+      amount: draft.amount,
       to: wireTo(draft.to),
-      ...(draft.activeUntil
-        ? { active_until: endOfLocalDay(draft.activeUntil) }
-        : {}),
+      activeUntil: draft.activeUntil ? endOfLocalDay(draft.activeUntil) : null,
     });
+    if (rule === null) return null;
+    rules.push(rule);
   }
   return rules;
 }

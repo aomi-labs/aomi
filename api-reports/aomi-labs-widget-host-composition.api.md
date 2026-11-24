@@ -16,9 +16,9 @@ import type { AomiAskMode } from '@aomi-labs/client';
 import type { AomiConnectionKind } from '@aomi-labs/client';
 import type { AomiConnectionWalletsUpdate } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
-import { AomiRuleChange } from '@aomi-labs/client';
+import { AomiPolicyChange } from '@aomi-labs/client';
 import { AomiSecretSlot } from '@aomi-labs/client';
-import { AomiWalletRules } from '@aomi-labs/client';
+import { AomiWalletPolicies } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';
 import type { Chain } from 'viem';
 import { ClassProp } from 'class-variance-authority/types';
@@ -516,9 +516,9 @@ export function requestWalletPickerOpen(): void;
 
 // @public
 export function RuleChangeCard(input: {
-    change: AomiRuleChange;
+    change: AomiPolicyChange;
     client: RulesClient;
-    onDecided: (rules: AomiWalletRules, outcome: "approved" | "declined") => void;
+    onDecided: (rules: AomiWalletPolicies, outcome: "approved" | "declined") => void;
     onStale: () => void;
     onLater?: () => void;
     className?: string;

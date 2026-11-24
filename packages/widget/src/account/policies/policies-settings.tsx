@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ruleKey,
+  enforcementKey,
+  policyKey,
+  upsertPolicy,
   type AomiPolicyCatalog,
   type AomiPolicyChangeRequest,
   type AomiWalletPolicies,
@@ -22,7 +24,6 @@ import {
   rulesFailure,
   sameWallet,
   timeUntil,
-  withRule,
 } from "@/account/rules/rules-model";
 import { useShellAomi } from "@/account/transport";
 import { AomiButton } from "@/ui/aomi/button";
@@ -37,7 +38,6 @@ import {
   adminOf,
   authorityOf,
   draftRules,
-  enforcementKey,
   policyCatalog,
   policyProviders,
   policyRows,
@@ -103,7 +103,7 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
     async (id: string) => {
       const version = (versions.current[id] = (versions.current[id] ?? 0) + 1);
       try {
-        const next = await aomi.account.rules.get(id);
+        const next = await aomi.account.policy.get(id);
         if (!live.current || version !== versions.current[id]) return null;
         patch(id, { rules: next, failed: false });
         return next;
@@ -147,7 +147,7 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
     saving.current.add(id);
     patch(id, { saving: true, error: null, notice: null });
     try {
-      const result = await aomi.account.rules.change(id, request);
+      const result = await aomi.account.policy.change(id, request);
       if (!live.current) return;
       bump(id);
       patch(id, (held) => ({
@@ -194,7 +194,11 @@ function useWalletRules(aomi: Aomi, ids: readonly string[]) {
     saving.current.add(id);
     patch(id, { saving: true, error: null });
     try {
-      decided(id, await aomi.account.rules.declineChange(changeId), "declined");
+      decided(
+        id,
+        await aomi.account.policy.declineChange(changeId),
+        "declined",
+      );
     } catch (caught) {
       fail(id, caught, "Couldn’t decline that. Try again.");
       if (rulesErrorCode(caught) === "rules_change_not_open") void load(id);
@@ -288,7 +292,7 @@ export function PoliciesSettings({
 
   const loadCatalog = useCallback(() => {
     setCatalogFailed(false);
-    aomi.account.rules.catalog().then(
+    aomi.account.policy.catalog().then(
       (next) => live.current && setCatalog(next),
       () => live.current && setCatalogFailed(true),
     );
@@ -539,7 +543,7 @@ function LiveWalletCard({
         // One change adds the policy on every picked chain.
         if (added)
           onSave({
-            rules: { ...set, rules: added.reduce(withRule, set.rules) },
+            rules: { ...set, rules: added.reduce(upsertPolicy, set.rules) },
           });
       }}
       onRemove={(policy) =>
@@ -547,7 +551,7 @@ function LiveWalletCard({
           rules: {
             ...set,
             rules: set.rules.filter(
-              (rule) => !policy.ruleIds.includes(rule.id ?? ruleKey(rule)),
+              (rule) => !policy.ruleIds.includes(rule.id ?? policyKey(rule)),
             ),
           },
         })

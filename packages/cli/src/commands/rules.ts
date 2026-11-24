@@ -1,10 +1,10 @@
 import {
   AomiApiError,
-  RULES_ERROR_CODES,
-  hasRules,
+  POLICY_ERROR_CODES,
+  hasPolicies,
   type Aomi,
-  type AomiRuleChange,
-  type AomiWalletRules,
+  type AomiPolicyChange,
+  type AomiWalletPolicies,
 } from "@aomi-labs/client";
 import {
   CliError,
@@ -25,13 +25,14 @@ function timeLeft(expiresAt: number): string {
     : `${Math.max(1, Math.floor(seconds / 60))} min left`;
 }
 
-const changeLines = (change: AomiRuleChange) =>
+const changeLines = (change: AomiPolicyChange) =>
   change.lines.map((line) => `${line.loosens ? "↑" : "-"} ${line.text}`);
 
 /** One wallet: its sentences, the admin and any waiting change. */
-export function rulesLines(rules: AomiWalletRules): string[] {
+export function rulesLines(rules: AomiWalletPolicies): string[] {
   const lines = [`${rules.wallet_name}  ${rules.agent_wallet_id}`];
-  if (rules.revision === 0 || !hasRules(rules.rules)) lines.push("  No rules");
+  if (rules.revision === 0 || !hasPolicies(rules.rules))
+    lines.push("  No rules");
   for (const sentence of rules.sentences) lines.push(`  ${sentence}`);
   if (rules.stopped_until) lines.push("  Stopped by the agent until 00:00 UTC");
   lines.push(
@@ -60,7 +61,7 @@ export async function list(flags: Flags): Promise<void> {
   if (!active.length) return out(flags.json ? "" : "No agent wallets yet");
   let first = true;
   for (const wallet of active) {
-    const rules = await aomi.account.rules.get(wallet.id);
+    const rules = await aomi.account.policy.get(wallet.id);
     if (flags.json) {
       json(rules);
       continue;
@@ -72,14 +73,14 @@ export async function list(flags: Flags): Promise<void> {
 }
 
 /** The change, when it still waits for the admin. */
-async function open(aomi: Aomi, id: string): Promise<AomiRuleChange> {
-  let change: AomiRuleChange;
+async function open(aomi: Aomi, id: string): Promise<AomiPolicyChange> {
+  let change: AomiPolicyChange;
   try {
-    change = await aomi.account.rules.getChange(id);
+    change = await aomi.account.policy.getChange(id);
   } catch (error) {
     if (
       error instanceof AomiApiError &&
-      error.code === RULES_ERROR_CODES.changeNotFound
+      error.code === POLICY_ERROR_CODES.changeNotFound
     )
       throw new CliError(`No rule change ${id} on this account`);
     throw error;
@@ -95,8 +96,8 @@ async function open(aomi: Aomi, id: string): Promise<AomiRuleChange> {
 function refusal(error: unknown, url: string): never {
   if (error instanceof AomiApiError) {
     if (
-      error.code === RULES_ERROR_CODES.changeNotOpen ||
-      error.code === RULES_ERROR_CODES.changed
+      error.code === POLICY_ERROR_CODES.changeNotOpen ||
+      error.code === POLICY_ERROR_CODES.changed
     )
       throw new CliError(
         "It was already decided, or the rules changed: aomi rules",
@@ -111,7 +112,7 @@ function refusal(error: unknown, url: string): never {
   throw error;
 }
 
-function finish(flags: Flags, rules: AomiWalletRules, done: string): void {
+function finish(flags: Flags, rules: AomiWalletPolicies, done: string): void {
   if (flags.json) return json(rules);
   out(done);
   rulesLines(rules).forEach((line) => out(line));
@@ -135,7 +136,7 @@ export async function approve(flags: Flags, id: string): Promise<void> {
     return;
   }
   try {
-    finish(flags, await aomi.account.rules.approveChange(id), "Approved");
+    finish(flags, await aomi.account.policy.approveChange(id), "Approved");
   } catch (error) {
     refusal(error, url);
   }
@@ -146,7 +147,7 @@ export async function decline(flags: Flags, id: string): Promise<void> {
   const aomi = await connect(flags);
   await open(aomi, id);
   try {
-    finish(flags, await aomi.account.rules.declineChange(id), "Declined");
+    finish(flags, await aomi.account.policy.declineChange(id), "Declined");
   } catch (error) {
     refusal(error, rulesUrl(flags, id));
   }

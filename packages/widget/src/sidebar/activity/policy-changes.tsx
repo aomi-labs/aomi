@@ -1,26 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type {
-  AomiRuleChange,
-  AomiRulesCatalog,
-  AomiWalletPolicies,
+import {
+  enforcementKey,
+  type AomiPolicyChange,
+  type AomiPolicyCatalog,
+  type AomiWalletPolicies,
 } from "@aomi-labs/client";
 import { useShellAomi } from "@/account/transport";
 import { RuleChangeCard } from "@/account/rules/rule-change-card";
 import { PolicyRow } from "@/account/policies/policies-view";
-import {
-  enforcementKey,
-  policyRows,
-  policySummary,
-} from "@/account/policies/policy-model";
+import { policyRows, policySummary } from "@/account/policies/policy-model";
 import { useRuleEnforcement } from "@/account/policies/policy-enforcement";
 import { ListGroup } from "@/ui/aomi/list-group";
 
 /** The changes in `ids` still waiting for the owner; replaced, decided or unreadable ones drop out. */
 export function usePolicyChanges(ids: readonly string[]) {
   const aomi = useShellAomi();
-  const [changes, setChanges] = useState<AomiRuleChange[]>([]);
+  const [changes, setChanges] = useState<AomiPolicyChange[]>([]);
   const [reloads, setReloads] = useState(0);
   const key = ids.join(",");
   useEffect(() => {
@@ -32,12 +29,12 @@ export function usePolicyChanges(ids: readonly string[]) {
     Promise.all(
       key
         .split(",")
-        .map((id) => aomi.account.rules.getChange(id).catch(() => null)),
+        .map((id) => aomi.account.policy.getChange(id).catch(() => null)),
     ).then((read) => {
       if (live)
         setChanges(
           read.filter(
-            (change): change is AomiRuleChange =>
+            (change): change is AomiPolicyChange =>
               change?.state === "awaiting_admin",
           ),
         );
@@ -63,7 +60,7 @@ export function PolicyChangeCard({
   onDecided,
   onStale,
 }: {
-  change: AomiRuleChange;
+  change: AomiPolicyChange;
   onDecided: (id: string) => void;
   onStale: () => void;
 }) {
@@ -83,7 +80,7 @@ export function PolicyChangeCard({
 export function usePolicyWallets(filings: readonly string[]) {
   const aomi = useShellAomi();
   const [rules, setRules] = useState<Record<string, AomiWalletPolicies>>({});
-  const [catalog, setCatalog] = useState<AomiRulesCatalog | null>(null);
+  const [catalog, setCatalog] = useState<AomiPolicyCatalog | null>(null);
   const [reloads, setReloads] = useState(0);
   const key = filings.join(",");
   const ids = [...new Set(filings)];
@@ -95,7 +92,7 @@ export function usePolicyWallets(filings: readonly string[]) {
     }
     Promise.all(
       [...new Set(key.split(","))].map((id) =>
-        aomi.account.rules.get(id).then(
+        aomi.account.policy.get(id).then(
           (read) => [id, read] as const,
           () => null,
         ),
@@ -104,7 +101,9 @@ export function usePolicyWallets(filings: readonly string[]) {
       if (live)
         setRules(
           Object.fromEntries(
-            read.filter((entry): entry is [string, AomiWalletPolicies] => !!entry),
+            read.filter(
+              (entry): entry is [string, AomiWalletPolicies] => !!entry,
+            ),
           ),
         );
     });
@@ -116,7 +115,7 @@ export function usePolicyWallets(filings: readonly string[]) {
   useEffect(() => {
     if (!wantCatalog || catalog) return;
     let live = true;
-    aomi.account.rules.catalog().then(
+    aomi.account.policy.catalog().then(
       (read) => live && setCatalog(read),
       () => undefined,
     );

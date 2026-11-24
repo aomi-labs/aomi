@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { AomiClient } from "../client";
 import {
-  RULES_ERROR_CODES,
-  hasRules,
-  parseRuleChange,
-  parseWalletRules,
-  type AomiWalletRules,
-} from "./rules";
+  POLICY_ERROR_CODES,
+  hasPolicies,
+  parsePolicyChange,
+  parseWalletPolicies,
+  type AomiWalletPolicies,
+} from "./policy";
 import { AomiWalletError } from "./wallets";
 
 const WALLET = "6f1c2b8e-0000-4000-8000-000000000001";
@@ -146,7 +146,7 @@ function backend(routes: Record<string, (body: unknown) => Response>) {
       baseUrl: "https://api.example",
       guest: false,
       fetch,
-    }).account.rules,
+    }).account.policy,
     calls,
   };
 }
@@ -158,13 +158,13 @@ describe("wallet rules", () => {
         Response.json(body),
     });
     const read = await rules.get(WALLET);
-    expect(read).toEqual(body satisfies AomiWalletRules);
+    expect(read).toEqual(body satisfies AomiWalletPolicies);
     expect(calls[0]!.headers.has("x-aomi-csrf")).toBe(false);
   });
 
   it("reads a wallet that never had rules, filling what the server left out", () => {
     expect(
-      parseWalletRules({
+      parseWalletPolicies({
         agent_wallet_id: WALLET,
         wallet_name: "New",
         revision: 0,
@@ -324,7 +324,7 @@ describe("wallet rules", () => {
       body.enforcement[1]!;
     const bare = { rule, provider, name, network, state, ready };
     expect(
-      parseWalletRules({
+      parseWalletPolicies({
         ...body,
         enforcement: [{ ...bare, signer: { family: "evm" } }],
       }).enforcement,
@@ -339,17 +339,17 @@ describe("wallet rules", () => {
     [{ left: 300000000 }, /enforcement.left must be a string/],
     [{ expires_at: "soon" }, /enforcement.expires_at must be a number/],
   ])("refuses an enforcement entry with %o", (extra, message) => {
-    expect(() => parseWalletRules(enforcementEntry(extra))).toThrow(message);
+    expect(() => parseWalletPolicies(enforcementEntry(extra))).toThrow(message);
   });
 
   it("reads the providers, defaulting a missing list and note", () => {
-    expect(parseWalletRules(body).providers).toEqual(body.providers);
+    expect(parseWalletPolicies(body).providers).toEqual(body.providers);
     const { providers: _omitted, ...older } = body;
-    expect(parseWalletRules(older).providers).toEqual([]);
+    expect(parseWalletPolicies(older).providers).toEqual([]);
     const { note: _note, ...bare } = body.providers[1]!;
-    expect(parseWalletRules({ ...body, providers: [bare] }).providers).toEqual([
-      { ...bare, note: null },
-    ]);
+    expect(
+      parseWalletPolicies({ ...body, providers: [bare] }).providers,
+    ).toEqual([{ ...bare, note: null }]);
   });
 
   it.each([
@@ -357,7 +357,7 @@ describe("wallet rules", () => {
     [{ network: 8453 }, /providers.network must be a string/],
   ])("refuses a provider with %o", (extra, message) => {
     expect(() =>
-      parseWalletRules({
+      parseWalletPolicies({
         ...body,
         providers: [{ ...body.providers[0], ...extra }],
       }),
@@ -366,7 +366,7 @@ describe("wallet rules", () => {
 
   it("keeps amounts beyond 2^53 as strings and an unknown token's null symbol", () => {
     const huge = "123456789012345678901234567890";
-    const read = parseWalletRules({
+    const read = parseWalletPolicies({
       ...body,
       rules: withRule({ amount: huge, symbol: null }),
     });
@@ -399,17 +399,17 @@ describe("wallet rules", () => {
     ["a flag that is not a boolean", { rules: { linked_only: "yes" } }],
     ["an unknown admin", { admin: { kind: "multisig" } }],
   ])("rejects %s rather than dropping it from the next write", (_, extra) => {
-    expect(() => parseWalletRules({ ...body, ...extra })).toThrow(
+    expect(() => parseWalletPolicies({ ...body, ...extra })).toThrow(
       /Invalid rules response/,
     );
   });
 
   it("reads no rules and tells them from a wallet with one", () => {
-    const none = parseWalletRules({ ...body, rules: NO_RULES }).rules;
+    const none = parseWalletPolicies({ ...body, rules: NO_RULES }).rules;
     expect(none).toEqual(NO_RULES);
-    expect(hasRules(none)).toBe(false);
-    expect(hasRules({ ...none, mode: "whitelist" })).toBe(true);
-    expect(hasRules({ ...none, linked_only: true })).toBe(true);
+    expect(hasPolicies(none)).toBe(false);
+    expect(hasPolicies({ ...none, mode: "whitelist" })).toBe(true);
+    expect(hasPolicies({ ...none, linked_only: true })).toBe(true);
   });
 
   it("changes rules with CSRF, sending a rule's asset, amount, destination and end, never its start", async () => {
@@ -420,7 +420,7 @@ describe("wallet rules", () => {
           rules: { ...body, pending: change },
         }),
     });
-    const read = parseWalletRules(body);
+    const read = parseWalletPolicies(body);
     const result = await rules.change(WALLET, { rules: read.rules });
     expect(calls[0]!.headers.get("x-aomi-csrf")).toBe("1");
     expect(calls[0]!.body).toEqual({
@@ -484,7 +484,7 @@ describe("wallet rules", () => {
       [`GET /v1/account/rule-changes/${CHANGE}`]: () => Response.json(signed),
     });
     expect(await rules.getChange(CHANGE)).toEqual(signed);
-    expect(() => parseRuleChange({ ...change, state: "paused" })).toThrow(
+    expect(() => parsePolicyChange({ ...change, state: "paused" })).toThrow(
       /unsupported change state/,
     );
   });
@@ -510,12 +510,12 @@ describe("wallet rules", () => {
   });
 
   it.each([
-    [403, RULES_ERROR_CODES.loginStale],
-    [403, RULES_ERROR_CODES.signatureRequired],
-    [409, RULES_ERROR_CODES.changeNotOpen],
-    [409, RULES_ERROR_CODES.changed],
-    [400, RULES_ERROR_CODES.periodInvalid],
-    [404, RULES_ERROR_CODES.changeNotFound],
+    [403, POLICY_ERROR_CODES.loginStale],
+    [403, POLICY_ERROR_CODES.signatureRequired],
+    [409, POLICY_ERROR_CODES.changeNotOpen],
+    [409, POLICY_ERROR_CODES.changed],
+    [400, POLICY_ERROR_CODES.periodInvalid],
+    [404, POLICY_ERROR_CODES.changeNotFound],
   ])("raises %i %s as a typed error", async (status, code) => {
     const { rules } = backend({
       [`POST /v1/account/rule-changes/${CHANGE}/approve`]: () =>

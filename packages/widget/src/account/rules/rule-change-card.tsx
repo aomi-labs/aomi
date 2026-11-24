@@ -6,9 +6,9 @@ import { ArrowUp, Minus } from "lucide-react";
 import {
   shortAddress,
   type AccountTransport,
-  type AomiRuleChange,
-  type AomiRulesAdminWallet,
-  type AomiWalletRules,
+  type AomiPolicyChange,
+  type AomiPolicyAdminWallet,
+  type AomiWalletPolicies,
 } from "@aomi-labs/client";
 import { AomiButton } from "@/ui/aomi/button";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
@@ -30,20 +30,20 @@ import {
 } from "./rules-model";
 
 /** The client a rule change is read and decided with. */
-export type RulesClient = { account: Pick<AccountTransport, "rules"> };
+export type RulesClient = { account: Pick<AccountTransport, "policy"> };
 
-const familyName = (family: AomiRulesAdminWallet["family"]) =>
+const familyName = (family: AomiPolicyAdminWallet["family"]) =>
   family === "evm" ? "EVM" : "Solana";
 
 /** The address connected here for a wallet family, if any. */
 export const connectedAddress = (
   kit: Pick<AomiWalletKit, "identity">,
-  family: AomiRulesAdminWallet["family"],
+  family: AomiPolicyAdminWallet["family"],
 ) => (family === "evm" ? kit.identity.address : kit.identity.svmAddress);
 
 /** The signer's name among the account's wallets, else its short address. */
 export function walletName(
-  wallet: AomiRulesAdminWallet,
+  wallet: AomiPolicyAdminWallet,
   kit: Pick<AomiWalletKit, "wallets">,
 ): string {
   const row = kit.wallets.find((entry) =>
@@ -58,7 +58,7 @@ export function walletName(
  * signer, else what to tell the user.
  */
 function signerProblem(
-  signer: AomiRulesAdminWallet,
+  signer: AomiPolicyAdminWallet,
   kit: AomiWalletKit,
 ): string | null {
   const connected = connectedAddress(kit, signer.family);
@@ -74,7 +74,7 @@ function signerProblem(
 
 /** Ask the connected wallet of the signer's family to sign the exact text. */
 async function signChange(
-  signer: AomiRulesAdminWallet,
+  signer: AomiPolicyAdminWallet,
   message: string,
   kit: AomiWalletKit,
 ): Promise<string> {
@@ -106,10 +106,13 @@ export function RuleChangeCard({
   onLater,
   className,
 }: {
-  change: AomiRuleChange;
+  change: AomiPolicyChange;
   client: RulesClient;
   /** The change was approved or declined; `rules` is the wallet after it. */
-  onDecided: (rules: AomiWalletRules, outcome: "approved" | "declined") => void;
+  onDecided: (
+    rules: AomiWalletPolicies,
+    outcome: "approved" | "declined",
+  ) => void;
   /** The change is no longer open, or the rules moved: read them again. */
   onStale: () => void;
   /** Close the card and leave the change waiting. */
@@ -158,7 +161,7 @@ export function RuleChangeCard({
 
   const run = async (
     step: "approve" | "decline",
-    send: () => Promise<AomiWalletRules>,
+    send: () => Promise<AomiWalletPolicies>,
   ) => {
     if (busy) return;
     setBusy(step);
@@ -192,11 +195,11 @@ export function RuleChangeCard({
 
   const approve = () =>
     run("approve", async () => {
-      if (!signer) return client.account.rules.approveChange(change.id);
+      if (!signer) return client.account.policy.approveChange(change.id);
       if (!change.sign_message) throw new Error("No message to sign");
       const signature = await signChange(signer, change.sign_message, kit);
       signed.current = true;
-      return client.account.rules.approveChange(change.id, { signature });
+      return client.account.policy.approveChange(change.id, { signature });
     });
 
   return (
@@ -224,7 +227,7 @@ export function RuleChangeCard({
       {stale ? (
         <div
           role="alert"
-          className="rounded-[16px] bg-aomi-warning/15 type-meta flex items-center justify-between gap-3 px-3 py-2"
+          className="bg-aomi-warning/15 type-meta flex items-center justify-between gap-3 rounded-[16px] px-3 py-2"
         >
           <span>For a policy change, sign in again.</span>
           <AomiButton
@@ -255,7 +258,7 @@ export function RuleChangeCard({
           disabled={busy !== null || !left}
           onClick={() =>
             void run("decline", () =>
-              client.account.rules.declineChange(change.id),
+              client.account.policy.declineChange(change.id),
             )
           }
         >
@@ -281,7 +284,7 @@ export function RuleChangeCard({
 }
 
 /** A change's lines; one that loosens gets a red up arrow. */
-function ChangeLines({ change }: { change: AomiRuleChange }) {
+function ChangeLines({ change }: { change: AomiPolicyChange }) {
   return (
     <ul className="type-control flex flex-col gap-1.5">
       {change.lines.map((line, index) => (
@@ -311,7 +314,7 @@ function ChangeLines({ change }: { change: AomiRuleChange }) {
 }
 
 const DECIDED: Record<
-  Exclude<AomiRuleChange["state"], "awaiting_admin">,
+  Exclude<AomiPolicyChange["state"], "awaiting_admin">,
   { title: string; detail: string }
 > = {
   applied: { title: "Approved", detail: "The new policies are in force." },
@@ -336,7 +339,7 @@ export type RuleChangePanelProps = {
 
 type PanelState =
   | { step: "loading" }
-  | { step: "ready"; change: AomiRuleChange }
+  | { step: "ready"; change: AomiPolicyChange }
   | { step: "failed"; title: string; detail?: string };
 
 /**
@@ -359,7 +362,7 @@ export function RuleChangePanel({
         ? { step: "loading" }
         : current,
     );
-    client.account.rules.getChange(changeId).then(
+    client.account.policy.getChange(changeId).then(
       (change) => {
         if (!stale) setState({ step: "ready", change });
       },

@@ -1,15 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
-  AomiPolicyAction,
   AomiPolicyEnforcement,
-  AomiPolicyTypedData,
+  AomiPolicySigner,
 } from "@aomi-labs/client";
-import {
-  failureText,
-  signableTypedData,
-  useRuleEnforcement,
-} from "./policy-enforcement";
+import { failureText, useRuleEnforcement } from "./policy-enforcement";
 
 const kit = vi.hoisted(() => ({
   identity: {
@@ -22,125 +17,30 @@ const kit = vi.hoisted(() => ({
 }));
 vi.mock("@/wallet/context", () => ({ useAomiWalletKit: () => kit }));
 
-const data = (overrides: Partial<AomiPolicyTypedData> = {}) =>
-  ({
-    domain: { name: "Delegation", chainId: "8453", salt: "0x01" },
-    types: {
-      Delegation: [
-        { name: "delegate", type: "address" },
-        { name: "cap", type: "uint256" },
-        { name: "nonce", type: "uint64" },
-        { name: "delta", type: "int256" },
-        { name: "caveats", type: "Caveat[]" },
-        { name: "memo", type: "string" },
-      ],
-      Caveat: [
-        { name: "limit", type: "uint256" },
-        { name: "tags", type: "uint8[]" },
-      ],
-    },
-    primaryType: "Delegation",
-    message: {
-      delegate: "0x00000000000000000000000000000000000000aa",
-      cap: "123456789012345678901234567890",
-      nonce: 7,
-      delta: "-5",
-      caveats: [{ limit: "9007199254740993", tags: ["1", "0x02"] }],
-      // A string field that looks like a number stays text.
-      memo: "42",
-    },
-    ...overrides,
-  }) satisfies AomiPolicyTypedData;
-
-describe("typed data the backend asks the owner to sign", () => {
-  it("reads every declared integer as a bigint, in structs and arrays, and the domain's chain id as a number", () => {
-    const signable = signableTypedData(data(), 8453);
-    expect(signable.domain).toEqual({
-      name: "Delegation",
-      chainId: 8453,
-      salt: "0x01",
-    });
-    expect(signable.message).toEqual({
-      delegate: "0x00000000000000000000000000000000000000aa",
-      cap: BigInt("123456789012345678901234567890"),
-      nonce: BigInt(7),
-      delta: BigInt(-5),
-      caveats: [
-        { limit: BigInt("9007199254740993"), tags: [BigInt(1), BigInt(2)] },
-      ],
-      memo: "42",
-    });
-    expect(signable.primaryType).toBe("Delegation");
-  });
-
-  const sent = (message: Record<string, unknown>) =>
-    data({ message: { ...data().message, ...message } });
-  it.each([
-    [
-      { cap: 1.2345678901234568e29 },
-      /number this wallet can't read \(message\.cap\)/,
-    ],
-    [{ cap: "12.5" }, /message\.cap/],
-    [
-      { caveats: [{ limit: "1", tags: ["x"] }] },
-      /message\.caveats\[0\]\.tags\[0\]/,
-    ],
-    [{ caveats: "none" }, /message\.caveats/],
-  ])("refuses a rounded number or non-numeric text (%#)", (message, error) => {
-    expect(() => signableTypedData(sent(message), 8453)).toThrow(error);
-  });
-
-  it("refuses a domain for another chain, and a primary type it does not define", () => {
-    expect(() => signableTypedData(data(), 10)).toThrow(
-      "The data to sign is for another chain than this policy's.",
-    );
-    expect(() =>
-      signableTypedData(data({ primaryType: "Permit" }), 8453),
-    ).toThrow("The data to sign names a type it does not define.");
-    // A domain without a chain id is signed as it is.
-    const open = data({ domain: { name: "Delegation" } });
-    expect(signableTypedData(open, 8453).domain).toEqual(open.domain);
-  });
-});
-
-describe("sending the owner's signed revocation, whatever the client parsed", () => {
+describe("the connected wallet as the SDK's policy signer", () => {
   const OWNER = "0xAbCd00000000000000000000000000000000Ef12";
-  const entry = (extra: object = {}): AomiPolicyEnforcement => ({
+  const entry = {
     rule: "eip155:8453/native@any",
     provider: "metamask",
-    name: "MetaMask",
     network: "eip155:8453",
-    state: "behind",
     ready: true,
-    left: "1",
-    expires_at: null,
-    account: null,
-    deployment_tx: null,
-    note: "Your revocation is signed. Send it from your wallet to take the grant off chain.",
+    note: "Your revocation is signed. Send it from your wallet.",
     signer: { family: "evm", address: OWNER },
-    ...extra,
-  });
-  const action = (extra: object = {}): AomiPolicyAction => ({
-    kind: "evm_transaction",
-    network: "eip155:8453",
-    to: "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
-    data: "0xcafe",
-    value: "0x0",
-    ...extra,
-  });
+  } as AomiPolicyEnforcement;
   beforeEach(() => {
     kit.identity.address = OWNER;
-    kit.identity.chainId = 8453;
+    kit.identity.chainId = 1;
     kit.switchChain.mockClear();
     kit.sendTransaction.mockClear();
   });
-  async function run(answer: AomiPolicyAction, held = entry()) {
-    const confirmEnforcement = vi.fn(async () => ({ enforcement: [] }));
+  async function run(enforce: (signer: AomiPolicySigner) => Promise<void>) {
     const client = {
       account: {
-        rules: {
-          prepareEnforcement: vi.fn(async () => answer),
-          confirmEnforcement,
+        policy: {
+          enforce: vi.fn(async (...args: unknown[]) => {
+            await enforce(args[2] as AomiPolicySigner);
+            return { policies: { enforcement: [] }, settled: true };
+          }),
         },
       },
     };
@@ -154,50 +54,29 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
       }),
     );
     await act(async () => {
-      result.current.takeOff(held, "Take it off").run();
+      result.current.takeOff(entry, "Take it off").run();
     });
-    await waitFor(() => expect(result.current.takeOff(held).busy).toBe(false));
-    return { error: result.current.takeOff(held).error, confirmEnforcement };
+    await waitFor(() => expect(result.current.takeOff(entry).busy).toBe(false));
+    return { error: result.current.takeOff(entry).error, ...client.account };
   }
 
-  it("sends nothing to an address it cannot read, to an ENS name, or with value", async () => {
-    for (const [change, message] of [
-      [{ to: "0x1234" }, /not an address/],
-      [{ to: "vitalik.eth" }, /not an address/],
-      [{ to: "0xdb9b1e94b5b69df7e401ddbede43491141047dbz" }, /not an address/],
-      [{ value: "0x1" }, /send funds/],
-    ] as const) {
-      const { error, confirmEnforcement } = await run(action(change));
-      expect(error).toMatch(message);
-      expect(confirmEnforcement).not.toHaveBeenCalled();
-    }
-    expect(kit.sendTransaction).not.toHaveBeenCalled();
-  });
-
-  it("sends nothing from another account than the owner's, or for a Solana signer", async () => {
-    kit.identity.address = "0x1111000000000000000000000000000000002222";
-    const other = await run(action());
-    expect(other.error).toMatch(/wallet that owns the policy/);
-    expect(other.confirmEnforcement).not.toHaveBeenCalled();
-    kit.identity.address = OWNER;
-    const solana = await run(
-      action(),
-      entry({
-        signer: {
-          family: "svm",
-          address: "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x",
-        },
-      }),
-    );
-    expect(solana.error).toBe("This wallet can't send that.");
-    expect(solana.confirmEnforcement).not.toHaveBeenCalled();
-    expect(kit.sendTransaction).not.toHaveBeenCalled();
-  });
-
-  it("sends the prepared transaction from the owner's wallet and nothing else", async () => {
-    kit.identity.chainId = 1;
-    const { error, confirmEnforcement } = await run(action());
+  it("switches to the chain and sends a plain transaction from the connected account", async () => {
+    const { error, policy } = await run(async (signer) => {
+      expect(signer.evmAddress).toBe(OWNER);
+      await signer.sendEvmTransaction!({
+        chainId: 8453,
+        to: "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+        data: "0xcafe",
+        value: "0x0",
+      });
+    });
     expect(error).toBeNull();
+    expect(policy.enforce).toHaveBeenCalledWith(
+      "w",
+      entry,
+      expect.anything(),
+      expect.objectContaining({ revision: 1, owner: OWNER, remove: true }),
+    );
     expect(kit.switchChain).toHaveBeenCalledWith(8453);
     expect(kit.sendTransaction).toHaveBeenCalledWith(
       {
@@ -210,7 +89,14 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
       },
       { chainIdAlreadySelected: 8453 },
     );
-    expect(confirmEnforcement).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows what the SDK refused", async () => {
+    const { error } = await run(async () => {
+      throw new Error("Aomi asked to send funds with the revocation.");
+    });
+    expect(error).toMatch(/send funds/);
+    expect(kit.sendTransaction).not.toHaveBeenCalled();
   });
 });
 

@@ -6,16 +6,16 @@
  * gives power, or changes the admin, waits for the wallet's admin.
  *
  * Hand-written wire types until the generated client covers them:
- *   - `GET  /v1/account/agent-wallets/:id/rules`     -> `AomiWalletRules`
- *   - `POST /v1/account/agent-wallets/:id/rules`     -> `AomiRulesChangeResult`
- *   - `GET  /v1/account/rules/catalog`               -> `AomiRulesCatalog`
- *   - `GET  /v1/account/rule-changes/:id`            -> `AomiRuleChange`
- *   - `POST /v1/account/rule-changes/:id/approve`    -> `AomiWalletRules`
- *   - `POST /v1/account/rule-changes/:id/decline`    -> `AomiWalletRules`
+ *   - `GET  /v1/account/agent-wallets/:id/rules`     -> `AomiWalletPolicies`
+ *   - `POST /v1/account/agent-wallets/:id/rules`     -> `AomiPolicyChangeResult`
+ *   - `GET  /v1/account/rules/catalog`               -> `AomiPolicyCatalog`
+ *   - `GET  /v1/account/rule-changes/:id`            -> `AomiPolicyChange`
+ *   - `POST /v1/account/rule-changes/:id/approve`    -> `AomiWalletPolicies`
+ *   - `POST /v1/account/rule-changes/:id/decline`    -> `AomiWalletPolicies`
  *   - `POST /v1/account/agent-wallets/:id/rules/enforcement/:provider/prepare`
- *     -> `AomiRulesAction | null`
+ *     -> `AomiPolicyAction | null`
  *   - `POST /v1/account/agent-wallets/:id/rules/enforcement/:provider/confirm`
- *     -> `AomiWalletRules`
+ *     -> `AomiWalletPolicies`
  * Writes are for the owner's own session: the portal or a CLI login.
  */
 import {
@@ -29,10 +29,15 @@ import type {
   AomiRequestOptions,
   AomiWalletFamily,
 } from "../types";
+import {
+  enforcePolicy,
+  type AomiPolicyEnforceOptions,
+  type AomiPolicySigner,
+} from "./policy-enforce";
 import { walletRequest, type RequestResponse } from "./wallets";
 
 /** Where a rule's money goes. */
-export type AomiRuleTo =
+export type AomiPolicyTo =
   /** Any listed app on the asset's chain. Never a plain send. */
   | { kind: "any_protocol" }
   /** One app, by its catalog id. */
@@ -45,7 +50,7 @@ export type AomiRuleTo =
  * `to`; `"0"` blocks it. `id`, `active_from`, `symbol` and `decimals` are
  * server-filled and never written.
  */
-export type AomiRule = {
+export type AomiPolicy = {
   /** The rule's key, `<asset>@<to>`. */
   id?: string;
   /**
@@ -54,7 +59,7 @@ export type AomiRule = {
    */
   asset: string;
   amount: string;
-  to: AomiRuleTo;
+  to: AomiPolicyTo;
   /** Unix seconds. */
   active_from?: number;
   /** Unix seconds; absent means no end. An ended rule stays in the list. */
@@ -66,22 +71,22 @@ export type AomiRule = {
 const MODES = ["whitelist", "blacklist"] as const;
 
 /** `blacklist`: all allowed unless a rule caps it. `whitelist`: only what rules list. */
-export type AomiRulesMode = (typeof MODES)[number];
+export type AomiPolicyMode = (typeof MODES)[number];
 
 /** What the agent may sign with a wallet. */
-export type AomiRuleSet = {
-  mode: AomiRulesMode;
-  rules: AomiRule[];
+export type AomiPolicySet = {
+  mode: AomiPolicyMode;
+  rules: AomiPolicy[];
   /** Sends only go to the account's own linked wallets. */
   linked_only: boolean;
 };
 
 /** False for a wallet that is unrestricted. */
-export const hasRules = (rules: AomiRuleSet): boolean =>
+export const hasPolicies = (rules: AomiPolicySet): boolean =>
   rules.mode === "whitelist" || rules.rules.length > 0 || rules.linked_only;
 
 /** A rule's key as the server writes it: `<asset>@<to>`. */
-export function ruleKey(rule: Pick<AomiRule, "asset" | "to">): string {
+export function policyKey(rule: Pick<AomiPolicy, "asset" | "to">): string {
   const { to } = rule;
   const where =
     to.kind === "any_protocol"
@@ -96,9 +101,9 @@ export function ruleKey(rule: Pick<AomiRule, "asset" | "to">): string {
  * Who may loosen a wallet's rules. `aomi_managed`: the owner approves in the
  * portal, Telegram or the CLI. `wallet`: only that wallet's signature does.
  */
-export type AomiRulesAdmin = { kind: "aomi_managed" } | AomiRulesAdminWallet;
+export type AomiPolicyAdmin = { kind: "aomi_managed" } | AomiPolicyAdminWallet;
 
-export type AomiRulesAdminWallet = {
+export type AomiPolicyAdminWallet = {
   kind: "wallet";
   family: AomiWalletFamily;
   address: string;
@@ -112,24 +117,24 @@ const CHANGE_STATES = [
   "superseded",
 ] as const;
 
-export type AomiRuleChangeState = (typeof CHANGE_STATES)[number];
+export type AomiPolicyChangeState = (typeof CHANGE_STATES)[number];
 
 /** One line of a change; `loosens` marks a line that gives the agent power. */
-export type AomiRuleChangeLine = { text: string; loosens: boolean };
+export type AomiPolicyChangeLine = { text: string; loosens: boolean };
 
 /** A filed rule change, waiting for the admin or already decided. */
-export type AomiRuleChange = {
+export type AomiPolicyChange = {
   id: string;
   agent_wallet_id: string;
   wallet_name: string;
-  lines: AomiRuleChangeLine[];
-  state: AomiRuleChangeState;
+  lines: AomiPolicyChangeLine[];
+  state: AomiPolicyChangeState;
   /** `agent:<connection key>` when the agent filed it, else `portal` or `cli`. */
   proposed_by: string;
   /** Unix seconds. */
   expires_at: number;
   /** Set when only this wallet's signature approves the change. */
-  signer: AomiRulesAdminWallet | null;
+  signer: AomiPolicyAdminWallet | null;
   /** The exact UTF-8 text `signer` signs. */
   sign_message: string | null;
 };
@@ -140,8 +145,8 @@ const ENFORCEMENT_STATES = ["off", "on", "behind", "unverified"] as const;
  * One on-chain provider's hold on one rule (one deployment each). A removed
  * rule still deployed on chain keeps an entry under its old id.
  */
-export type AomiRulesEnforcement = {
-  /** The rule's key (`AomiRule.id`) the entry is about. */
+export type AomiPolicyEnforcement = {
+  /** The rule's key (`AomiPolicy.id`) the entry is about. */
   rule: string;
   /** The id the enforcement steps take. */
   provider: string;
@@ -174,12 +179,12 @@ export type AomiRulesEnforcement = {
  * A provider/network enabled here that could hold the wallet's rules, rule
  * or not; a picker reads it before `enforcement` has entries.
  */
-export type AomiRulesProvider = {
+export type AomiPolicyProvider = {
   /** The id the enforcement steps take. */
   provider: string;
   /** The name to show. */
   name: string;
-  /** The chain, as `AomiRulesEnforcement.network` writes it. */
+  /** The chain, as `AomiPolicyEnforcement.network` writes it. */
   network: string;
   /** The minimum held on chain; `total_and_period` leaves `to` to Aomi. */
   holds: "total_and_period" | "total_period_and_destination";
@@ -188,7 +193,7 @@ export type AomiRulesProvider = {
 };
 
 /** The EIP-712 data an owner's EVM wallet signs. */
-export type AomiRulesTypedData = {
+export type AomiPolicyTypedData = {
   domain: Record<string, unknown>;
   types: Record<string, { name: string; type: string }[]>;
   primaryType: string;
@@ -200,7 +205,7 @@ export type AomiRulesTypedData = {
  * What the owner's wallet does next. An unknown `kind`, or a `network` other
  * than the one asked for, fails to parse.
  */
-export type AomiRulesAction =
+export type AomiPolicyAction =
   /** Sign this transaction and send it; `confirm` then reads the chain. */
   | {
       kind: "transaction";
@@ -213,7 +218,7 @@ export type AomiRulesAction =
       kind: "typed_data";
       /** `eip155:<chainId>`, the entry's `network`. */
       network: string;
-      typed_data: AomiRulesTypedData;
+      typed_data: AomiPolicyTypedData;
     }
   /** Send this plain EVM transaction from the owner's wallet and pay its gas; `confirm` takes no signature. */
   | {
@@ -229,7 +234,7 @@ export type AomiRulesAction =
     };
 
 /** What a step asks of a provider, for one rule. */
-export type AomiRulesEnforceRequest = {
+export type AomiPolicyEnforceRequest = {
   /** The entry's `network`. */
   network: string;
   /** The entry's `rule`: the rule to put on chain, update there, or remove. */
@@ -246,54 +251,54 @@ export type AomiRulesEnforceRequest = {
  * `signature` (0x hex) is required for `typed_data`, optional and only
  * recorded for `transaction`, and absent for `evm_transaction`.
  */
-export type AomiRulesConfirmRequest = AomiRulesEnforceRequest & {
+export type AomiPolicyConfirmRequest = AomiPolicyEnforceRequest & {
   signature?: string;
 };
 
-export type AomiWalletRules = {
+export type AomiWalletPolicies = {
   agent_wallet_id: string;
   wallet_name: string;
   /** 0: the wallet never had rules. */
   revision: number;
-  rules: AomiRuleSet;
+  rules: AomiPolicySet;
   /** The rules as sentences, in the server's order. */
   sentences: string[];
-  admin: AomiRulesAdmin;
+  admin: AomiPolicyAdmin;
   /** Unix seconds while the agent stopped the wallet for today. */
   stopped_until: number | null;
-  pending: AomiRuleChange | null;
+  pending: AomiPolicyChange | null;
   /** Who enforces each rule, by rule key: `Aomi` first, then each provider. */
   enforced_by: Record<string, string[]>;
   /** The on-chain providers that can hold these rules; Aomi always checks. */
-  enforcement: AomiRulesEnforcement[];
+  enforcement: AomiPolicyEnforcement[];
   /** One per provider and network; empty from an older backend. */
-  providers: AomiRulesProvider[];
+  providers: AomiPolicyProvider[];
   /** The account's own wallets that may become the admin. */
-  admin_wallets: AomiRulesAdminWallet[];
+  admin_wallets: AomiPolicyAdminWallet[];
 };
 
 /** A field left out keeps its current value. `rules` is the full new set. */
-export type AomiRulesChangeRequest = {
-  rules?: AomiRuleSet;
-  admin?: AomiRulesAdmin;
+export type AomiPolicyChangeRequest = {
+  rules?: AomiPolicySet;
+  admin?: AomiPolicyAdmin;
   /** Connection keys to make Instant on this wallet. */
   instant?: string[];
 };
 
 /** `waiting`: the change is in `rules.pending` until the admin approves. */
-export type AomiRulesChangeResult = {
+export type AomiPolicyChangeResult = {
   status: "applied" | "waiting" | "unchanged";
-  rules: AomiWalletRules;
+  rules: AomiWalletPolicies;
 };
 
-export type AomiRulesCatalogApp = {
+export type AomiPolicyCatalogApp = {
   id: string;
   label: string;
   /** CAIP-2 chain ids the app runs on. */
   chains: string[];
 };
 
-export type AomiRulesCatalogToken = {
+export type AomiPolicyCatalogToken = {
   asset: string;
   symbol: string;
   decimals: number;
@@ -302,12 +307,12 @@ export type AomiRulesCatalogToken = {
 };
 
 /** The apps and tokens a rule can name. */
-export type AomiRulesCatalog = {
-  apps: AomiRulesCatalogApp[];
-  tokens: AomiRulesCatalogToken[];
+export type AomiPolicyCatalog = {
+  apps: AomiPolicyCatalogApp[];
+  tokens: AomiPolicyCatalogToken[];
 };
 
-export const RULES_ERROR_CODES = {
+export const POLICY_ERROR_CODES = {
   appUnknown: "rules_app_unknown",
   assetInvalid: "rules_asset_invalid",
   /** A rule's address is not one of its asset's chain. */
@@ -349,7 +354,8 @@ export const RULES_ERROR_CODES = {
   loginStale: "login_stale",
 } as const;
 
-export const rulesPaths = {
+/** Every REST path of the policy client; the backend still says `rules`. */
+export const policyPaths = {
   wallet: (id: string) =>
     `/v1/account/agent-wallets/${encodeURIComponent(id)}/rules`,
   enforcement: (id: string, provider: string, step: "prepare" | "confirm") =>
@@ -383,7 +389,7 @@ const decimalsOf = (value: unknown): number | null =>
     ? value
     : null;
 
-function parseAdminWallet(value: unknown): AomiRulesAdminWallet {
+function parseAdminWallet(value: unknown): AomiPolicyAdminWallet {
   const record = asRecord(value);
   return {
     kind: "wallet",
@@ -392,7 +398,7 @@ function parseAdminWallet(value: unknown): AomiRulesAdminWallet {
   };
 }
 
-function parseAdmin(value: unknown): AomiRulesAdmin {
+function parseAdmin(value: unknown): AomiPolicyAdmin {
   const kind = asRecord(value)?.kind;
   if (kind === "aomi_managed") return { kind };
   if (kind === "wallet") return parseAdminWallet(value);
@@ -413,7 +419,7 @@ function period<Field extends "active_from" | "active_until">(
   >;
 }
 
-function parseTo(value: unknown): AomiRuleTo {
+function parseTo(value: unknown): AomiPolicyTo {
   const record = asRecord(value);
   const kind = record?.kind;
   if (kind === "any_protocol") return { kind };
@@ -427,7 +433,7 @@ function parseTo(value: unknown): AomiRuleTo {
  * The rule set; a missing one reads as no rules. A field this SDK does not
  * know fails: it must not be dropped from a write.
  */
-export function parseRuleSet(value: unknown): AomiRuleSet {
+export function parsePolicySet(value: unknown): AomiPolicySet {
   const record = value === undefined || value === null ? {} : asRecord(value);
   if (!record) throw invalid("rules must be an object");
   const unknown = Object.keys(record).find(
@@ -443,7 +449,7 @@ export function parseRuleSet(value: unknown): AomiRuleSet {
     mode: mode === "whitelist" ? "whitelist" : "blacklist",
     rules: list(record.rules ?? [], "rules.rules").map((entry) => {
       const rule = asRecord(entry);
-      const parsed: AomiRule = {
+      const parsed: AomiPolicy = {
         asset: text(rule?.asset, "rule.asset"),
         amount: amount(rule?.amount, "rule.amount"),
         to: parseTo(rule?.to),
@@ -452,13 +458,13 @@ export function parseRuleSet(value: unknown): AomiRuleSet {
         symbol: stringValue(rule?.symbol) ?? null,
         decimals: decimalsOf(rule?.decimals),
       };
-      return { ...parsed, id: stringValue(rule?.id) ?? ruleKey(parsed) };
+      return { ...parsed, id: stringValue(rule?.id) ?? policyKey(parsed) };
     }),
     linked_only: linked_only === true,
   };
 }
 
-export function parseRuleChange(value: unknown): AomiRuleChange {
+export function parsePolicyChange(value: unknown): AomiPolicyChange {
   const record = asRecord(value);
   if (!record) throw invalid("change must be an object");
   const state = CHANGE_STATES.find((known) => known === record.state);
@@ -489,7 +495,7 @@ function optionalSeconds(value: unknown, field: string): number | null {
     : unixSeconds(value, field);
 }
 
-function parseEnforcement(value: unknown): AomiRulesEnforcement {
+function parseEnforcement(value: unknown): AomiPolicyEnforcement {
   const record = asRecord(value);
   const signer = asRecord(record?.signer);
   const state = ENFORCEMENT_STATES.find((known) => known === record?.state);
@@ -517,7 +523,7 @@ function parseEnforcement(value: unknown): AomiRulesEnforcement {
   };
 }
 
-function parseProvider(value: unknown): AomiRulesProvider {
+function parseProvider(value: unknown): AomiPolicyProvider {
   const record = asRecord(value);
   const holds = record?.holds;
   if (holds !== "total_and_period" && holds !== "total_period_and_destination")
@@ -531,7 +537,7 @@ function parseProvider(value: unknown): AomiRulesProvider {
   };
 }
 
-function parseTypedData(value: unknown): AomiRulesTypedData {
+function parseTypedData(value: unknown): AomiPolicyTypedData {
   const record = asRecord(value);
   const types = asRecord(record?.types);
   const domain = asRecord(record?.domain);
@@ -571,7 +577,7 @@ function hex(value: unknown, field: string, pattern: RegExp, what: string) {
 function parseEvmTransaction(
   action: Record<string, unknown>,
   network: string,
-): Extract<AomiRulesAction, { kind: "evm_transaction" }> {
+): Extract<AomiPolicyAction, { kind: "evm_transaction" }> {
   if (!EVM_NETWORK.test(network))
     throw invalid("action.network must be eip155:<chain id>");
   return {
@@ -583,7 +589,7 @@ function parseEvmTransaction(
   };
 }
 
-function parseAction(value: unknown): AomiRulesAction {
+function parseAction(value: unknown): AomiPolicyAction {
   const action = asRecord(value);
   const kind = action?.kind;
   if (
@@ -604,20 +610,22 @@ function parseAction(value: unknown): AomiRulesAction {
     : { kind, network, typed_data: parseTypedData(action.typed_data) };
 }
 
-export function parseWalletRules(value: unknown): AomiWalletRules {
+export function parseWalletPolicies(value: unknown): AomiWalletPolicies {
   const record = asRecord(value);
   if (!record) throw invalid("rules must be an object");
   return {
     agent_wallet_id: text(record.agent_wallet_id, "agent_wallet_id"),
     wallet_name: text(record.wallet_name, "wallet_name"),
     revision: unixSeconds(record.revision, "revision"),
-    rules: parseRuleSet(record.rules),
+    rules: parsePolicySet(record.rules),
     sentences: list(record.sentences, "sentences").map((sentence) =>
       text(sentence, "sentences"),
     ),
     admin: parseAdmin(record.admin),
     stopped_until: numberOrNull(record.stopped_until),
-    pending: asRecord(record.pending) ? parseRuleChange(record.pending) : null,
+    pending: asRecord(record.pending)
+      ? parsePolicyChange(record.pending)
+      : null,
     enforced_by: Object.fromEntries(
       Object.entries(asRecord(record.enforced_by) ?? {}).map(
         ([rule, names]) => [
@@ -638,7 +646,7 @@ export function parseWalletRules(value: unknown): AomiWalletRules {
   };
 }
 
-export function parseRulesCatalog(value: unknown): AomiRulesCatalog {
+export function parsePolicyCatalog(value: unknown): AomiPolicyCatalog {
   const record = asRecord(value);
   return {
     apps: list(record?.apps, "apps").map((entry) => {
@@ -667,7 +675,7 @@ export function parseRulesCatalog(value: unknown): AomiRulesCatalog {
 }
 
 /** The rule set as a write sends it: no server-filled fields. */
-const wireRules = (rules: AomiRuleSet): AomiRuleSet => ({
+const wireRules = (rules: AomiPolicySet): AomiPolicySet => ({
   mode: rules.mode,
   rules: rules.rules.map(({ asset, amount, to, active_until }) => ({
     asset,
@@ -679,16 +687,16 @@ const wireRules = (rules: AomiRuleSet): AomiRuleSet => ({
 });
 
 /** An agent wallet's rules, the catalog they pick from, and rule changes. */
-export class AccountRulesTransport {
+export class AccountPolicyTransport {
   constructor(private readonly requestResponse: RequestResponse) {}
 
   /** The wallet's rules, its admin and any waiting change. */
   async get(
     agentWalletId: string,
     options: { signal?: AbortSignal } = {},
-  ): Promise<AomiWalletRules> {
-    return parseWalletRules(
-      await this.request("GET", rulesPaths.wallet(agentWalletId), options),
+  ): Promise<AomiWalletPolicies> {
+    return parseWalletPolicies(
+      await this.request("GET", policyPaths.wallet(agentWalletId), options),
     );
   }
 
@@ -699,10 +707,10 @@ export class AccountRulesTransport {
    */
   async change(
     agentWalletId: string,
-    request: AomiRulesChangeRequest,
-  ): Promise<AomiRulesChangeResult> {
+    request: AomiPolicyChangeRequest,
+  ): Promise<AomiPolicyChangeResult> {
     const record = asRecord(
-      await this.request("POST", rulesPaths.wallet(agentWalletId), {
+      await this.request("POST", policyPaths.wallet(agentWalletId), {
         body: {
           ...request,
           ...(request.rules ? { rules: wireRules(request.rules) } : {}),
@@ -712,15 +720,15 @@ export class AccountRulesTransport {
     const status = record?.status;
     if (status !== "applied" && status !== "waiting" && status !== "unchanged")
       throw invalid(`unsupported status: ${String(status)}`);
-    return { status, rules: parseWalletRules(record?.rules) };
+    return { status, rules: parseWalletPolicies(record?.rules) };
   }
 
   /** The apps and tokens a rule can name. */
   async catalog(
     options: { signal?: AbortSignal } = {},
-  ): Promise<AomiRulesCatalog> {
-    return parseRulesCatalog(
-      await this.request("GET", rulesPaths.catalog, options),
+  ): Promise<AomiPolicyCatalog> {
+    return parsePolicyCatalog(
+      await this.request("GET", policyPaths.catalog, options),
     );
   }
 
@@ -728,9 +736,9 @@ export class AccountRulesTransport {
   async getChange(
     changeId: string,
     options: { signal?: AbortSignal } = {},
-  ): Promise<AomiRuleChange> {
-    return parseRuleChange(
-      await this.request("GET", rulesPaths.change(changeId), options),
+  ): Promise<AomiPolicyChange> {
+    return parsePolicyChange(
+      await this.request("GET", policyPaths.change(changeId), options),
     );
   }
 
@@ -743,18 +751,18 @@ export class AccountRulesTransport {
   async approveChange(
     changeId: string,
     options: { signature?: string } = {},
-  ): Promise<AomiWalletRules> {
-    return parseWalletRules(
-      await this.request("POST", rulesPaths.approve(changeId), {
+  ): Promise<AomiWalletPolicies> {
+    return parseWalletPolicies(
+      await this.request("POST", policyPaths.approve(changeId), {
         body: options.signature ? { signature: options.signature } : {},
       }),
     );
   }
 
   /** Decline a waiting change; the rules stay as they are. */
-  async declineChange(changeId: string): Promise<AomiWalletRules> {
-    return parseWalletRules(
-      await this.request("POST", rulesPaths.decline(changeId), { body: {} }),
+  async declineChange(changeId: string): Promise<AomiWalletPolicies> {
+    return parseWalletPolicies(
+      await this.request("POST", policyPaths.decline(changeId), { body: {} }),
     );
   }
 
@@ -765,12 +773,12 @@ export class AccountRulesTransport {
   async prepareEnforcement(
     agentWalletId: string,
     provider: string,
-    request: AomiRulesEnforceRequest,
-  ): Promise<AomiRulesAction | null> {
+    request: AomiPolicyEnforceRequest,
+  ): Promise<AomiPolicyAction | null> {
     const record = asRecord(
       await this.request(
         "POST",
-        rulesPaths.enforcement(agentWalletId, provider, "prepare"),
+        policyPaths.enforcement(agentWalletId, provider, "prepare"),
         { body: request },
       ),
     );
@@ -786,16 +794,30 @@ export class AccountRulesTransport {
   async confirmEnforcement(
     agentWalletId: string,
     provider: string,
-    request: AomiRulesConfirmRequest,
-  ): Promise<AomiWalletRules> {
+    request: AomiPolicyConfirmRequest,
+  ): Promise<AomiWalletPolicies> {
     const record = asRecord(
       await this.request(
         "POST",
-        rulesPaths.enforcement(agentWalletId, provider, "confirm"),
+        policyPaths.enforcement(agentWalletId, provider, "confirm"),
         { body: request },
       ),
     );
-    return parseWalletRules(record?.rules);
+    return parseWalletPolicies(record?.rules);
+  }
+
+  /**
+   * Prepare, have the owner's wallet act, confirm: one enforcement entry
+   * deployed, replaced or removed, with the action checked before the wallet
+   * sees it.
+   */
+  enforce(
+    agentWalletId: string,
+    entry: AomiPolicyEnforcement,
+    signer: AomiPolicySigner,
+    options: AomiPolicyEnforceOptions,
+  ) {
+    return enforcePolicy(this, agentWalletId, entry, signer, options);
   }
 
   private request(

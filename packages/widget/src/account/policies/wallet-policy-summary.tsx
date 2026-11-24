@@ -34,7 +34,7 @@ export function AgentWalletPolicySummary({
   const [read, setRead] = useState<AomiWalletPolicies | null>(null);
   useEffect(() => {
     let live = true;
-    aomi.account.rules.get(wallet.id).then(
+    aomi.account.policy.get(wallet.id).then(
       (next) => live && setRead(next),
       () => undefined,
     );

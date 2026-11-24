@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/cn";
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { toBaseUnits } from "@aomi-labs/client";
 import {
   ArrowRight,
   Blocks,
@@ -18,7 +19,7 @@ import { getAppIcon } from "@/icons/app-map";
 import { getChainIcon } from "@/icons/chain-map";
 import { BrandMark } from "@/account/account-management/controls";
 import { AGENT_WALLET } from "@/account/account-management/wallet-model";
-import { toBaseUnits, validAddress } from "@/account/rules/rules-model";
+import { validAddress } from "@/account/rules/rules-model";
 import { AomiButton, aomiButton } from "@/ui/aomi/button";
 import { ListGroup } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";

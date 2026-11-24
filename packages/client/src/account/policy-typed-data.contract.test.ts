@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { hashTypedData } from "viem";
-import type { AomiPolicyTypedData } from "@aomi-labs/client";
-import { signableTypedData } from "./policy-enforcement";
+import type { AomiPolicyTypedData } from "./policy";
+import { signableTypedData } from "./policy-enforce";
 
 /**
  * The backend's MetaMask typed data (`typed_data` in

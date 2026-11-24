@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 import {
-  normalizeSolanaCluster,
+  enforcementKey,
+  sendsRevocation,
   shortAddress,
-  type AomiPolicyAction,
   type AomiPolicyEnforcement,
-  type AomiPolicyTypedData,
+  type AomiPolicySigner,
   type AomiWalletPolicies,
-  type WalletEip712Payload,
 } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@/wallet/context";
 import type { AomiWalletKit } from "@/wallet/types";
@@ -18,117 +17,9 @@ import {
   connectedAddress,
   type RulesClient,
 } from "@/account/rules/rule-change-card";
-import {
-  rulesErrorCode,
-  rulesFailure,
-  sameWallet,
-} from "@/account/rules/rules-model";
-import { enforcementKey, sendsRevocation } from "./policy-model";
-import {
-  DELEGATION_MANAGER,
-  SIMPLE_FACTORY,
-  deploysVaultOf,
-} from "./vault-withdraw";
+import { rulesFailure, sameWallet } from "@/account/rules/rules-model";
 
 const FAMILY = { evm: "an EVM", svm: "a Solana" };
-
-// The wallet and the backend read the chain through different nodes, so a
-// confirm can come before the backend's node shows the transaction.
-async function settled<T>(confirm: () => Promise<T>, delayMs: number) {
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      return await confirm();
-    } catch (cause) {
-      if (attempt >= 5 || rulesErrorCode(cause) !== "chain_not_settled")
-        throw cause;
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
-  }
-}
-
-const INTEGER_TYPE = /^u?int\d*$/;
-const DECIMAL = /^-?\d+$/;
-const HEX_NUMBER = /^0x[0-9a-f]+$/i;
-
-const unreadable = (path: string) =>
-  new Error(`The data to sign has a number this wallet can't read (${path}).`);
-
-/** An integer field as a bigint: never a number past 2^53, which JSON rounded. */
-function integer(value: unknown, path: string): bigint {
-  if (typeof value === "bigint") return value;
-  if (typeof value === "number" && Number.isSafeInteger(value))
-    return BigInt(value);
-  if (
-    typeof value === "string" &&
-    (DECIMAL.test(value) || HEX_NUMBER.test(value))
-  )
-    return BigInt(value);
-  throw unreadable(path);
-}
-
-/** `value` of EIP-712 `type`: integers as bigint, structs and arrays walked. */
-function typedValue(
-  type: string,
-  value: unknown,
-  types: AomiPolicyTypedData["types"],
-  path: string,
-): unknown {
-  if (type.endsWith("]")) {
-    if (!Array.isArray(value)) throw unreadable(path);
-    const item = type.slice(0, type.lastIndexOf("["));
-    return value.map((entry, index) =>
-      typedValue(item, entry, types, `${path}[${index}]`),
-    );
-  }
-  if (INTEGER_TYPE.test(type)) return integer(value, path);
-  const fields = types[type];
-  if (!fields) return value;
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw unreadable(path);
-  const record = value as Record<string, unknown>;
-  return Object.fromEntries(
-    fields.map((field) => [
-      field.name,
-      typedValue(
-        field.type,
-        record[field.name],
-        types,
-        `${path}.${field.name}`,
-      ),
-    ]),
-  );
-}
-
-/**
- * The backend's typed data as the wallet signs it: declared integers become
- * bigints (they arrive as strings past 2^53). Refuses JSON-rounded numbers
- * and a domain for another chain than `chainId`.
- */
-export function signableTypedData(data: AomiPolicyTypedData, chainId: number) {
-  if (!data.types[data.primaryType])
-    throw new Error("The data to sign names a type it does not define.");
-  const domain = { ...data.domain };
-  if (domain.chainId !== undefined) {
-    if (integer(domain.chainId, "domain.chainId") !== BigInt(chainId))
-      throw new Error(
-        "The data to sign is for another chain than this policy's.",
-      );
-    domain.chainId = chainId;
-  }
-  return {
-    domain,
-    types: data.types,
-    primaryType: data.primaryType,
-    message: typedValue(
-      data.primaryType,
-      data.message,
-      data.types,
-      "message",
-    ) as Record<string, unknown>,
-  } as NonNullable<WalletEip712Payload["typed_data"]>;
-}
-
-const PLAIN_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
 export async function switchToChain(
   kit: Pick<AomiWalletKit, "identity" | "switchChain">,
@@ -162,85 +53,39 @@ export async function sendPlainTransaction(
   );
 }
 
-async function act(
-  kit: AomiWalletKit,
-  entry: AomiPolicyEnforcement,
-  action: AomiPolicyAction,
-  description: string,
-  owner: string,
-): Promise<{ signature?: string }> {
-  if (action.network !== entry.network)
-    throw new Error(
-      "Aomi asked for a signature on another network than this policy's. Nothing was signed.",
-    );
-  if (action.kind === "typed_data") {
-    const chainId = /^eip155:(\d+)$/.exec(action.network)?.[1];
-    if (entry.signer.family !== "evm" || !chainId || !kit.signTypedData)
-      throw new Error("This wallet can't sign that.");
-    const typed_data = signableTypedData(action.typed_data, Number(chainId));
-    await switchToChain(kit, Number(chainId));
-    const { signature } = await kit.signTypedData({
-      typed_data,
-      signer: owner,
-      chainId: Number(chainId),
-      description,
-    });
-    if (!/^0x[0-9a-f]+$/i.test(signature))
-      throw new Error("Your wallet returned no signature.");
-    return { signature };
-  }
-  if (action.kind === "evm_transaction") {
-    const chainId = /^eip155:(\d+)$/.exec(action.network)?.[1];
-    if (entry.signer.family !== "evm" || !chainId || !kit.sendTransaction)
-      throw new Error("This wallet can't send that.");
-    if (!PLAIN_ADDRESS.test(action.to))
-      throw new Error(
-        "Aomi asked to send to something that is not an address. Nothing was sent.",
-      );
-    // A MetaMask revocation goes to the manager. An undeployed vault is first
-    // created by the factory, and only as this owner's vault.
-    const to = action.to.toLowerCase();
-    const deploysOwnVault =
-      to === SIMPLE_FACTORY && deploysVaultOf(action.data, owner);
-    if (
-      entry.provider === "metamask" &&
-      to !== DELEGATION_MANAGER &&
-      !deploysOwnVault
-    )
-      throw new Error("The revocation targets a different delegation manager.");
-    if (BigInt(action.value) !== BigInt(0))
-      throw new Error(
-        "Aomi asked to send funds with the revocation. Nothing was sent.",
-      );
-    if (
-      !sameWallet(
-        { family: "evm", address: owner },
-        "evm",
-        kit.identity.address,
-      )
-    )
-      throw new Error(
-        "Send this from the wallet that owns the policy. Nothing was sent.",
-      );
-    await switchToChain(kit, Number(chainId));
-    await sendPlainTransaction(kit.sendTransaction, {
-      requestId: "policy-revocation",
-      chainId: Number(chainId),
-      to: action.to,
-      data: action.data,
-      value: action.value,
-    });
-    return {};
-  }
-  const cluster = normalizeSolanaCluster(action.network);
-  if (entry.signer.family !== "svm" || !cluster || !canSendSolana(kit))
-    throw new Error("This wallet can't sign that transaction.");
-  await sendSolana(kit, {
-    unsignedTx: action.unsigned_base64,
-    description,
-    cluster,
-  });
-  return {};
+/** The connected wallet kit as the SDK's policy signer. */
+function policySigner(kit: AomiWalletKit): AomiPolicySigner {
+  const { signTypedData, sendTransaction } = kit;
+  return {
+    evmAddress: kit.identity.address,
+    ...(signTypedData
+      ? {
+          signTypedData: async ({ typedData, ...request }) => {
+            await switchToChain(kit, request.chainId);
+            return (await signTypedData({ typed_data: typedData, ...request }))
+              .signature;
+          },
+        }
+      : {}),
+    ...(sendTransaction
+      ? {
+          sendEvmTransaction: async (tx) => {
+            await switchToChain(kit, tx.chainId);
+            await sendPlainTransaction(sendTransaction, {
+              requestId: "policy-revocation",
+              ...tx,
+            });
+          },
+        }
+      : {}),
+    ...(canSendSolana(kit)
+      ? {
+          sendSolanaTransaction: async ({ unsignedBase64, ...payload }) =>
+            (await sendSolana(kit, { unsignedTx: unsignedBase64, ...payload }))
+              .signature,
+        }
+      : {}),
+  };
 }
 
 /** Why the owner's connected wallet can't take this step, or null when it can. */
@@ -287,12 +132,6 @@ export function failureText(cause: unknown): string {
     return "Your wallet’s Solana network doesn’t know the block this transaction was built on. Use a wallet on the same network as Aomi, or try again.";
   return text.length > 200 ? `${text.slice(0, 197)}…` : text;
 }
-
-/** A replacement can keep the same rule key after the old grant is disabled. */
-const stillHeld = (rules: AomiWalletPolicies, key: string) =>
-  rules.enforcement.some(
-    (entry) => enforcementKey(entry) === key && sendsRevocation(entry),
-  );
 
 /** One provider's step as a policy row shows it. */
 export type EnforcementStep = {
@@ -355,70 +194,37 @@ export function useRuleEnforcement({
     if (busy || !owner) return;
     setBusy(key);
     setErrors(({ [key]: _, ...rest }) => rest);
-    const request = {
-      network: entry.network,
-      rule: entry.rule,
-      revision,
-      owner,
-      ...(remove ? { remove } : {}),
-    };
     try {
-      const action = await client.account.rules.prepareEnforcement(
+      const { policies, settled } = await client.account.policy.enforce(
         walletId,
-        entry.provider,
-        request,
-      );
-      let signature: string | undefined;
-      if (action) {
-        if (summary && action.kind === "evm_transaction")
-          setSigning((held) => ({
-            ...held,
-            [key]: `You’re sending: ${summary}. Your wallet pays the network fee.`,
-          }));
-        // Replacing a grant: the backend asks to revoke the old one first.
-        if (summary && action.kind === "typed_data")
-          setSigning((held) => ({
-            ...held,
-            [key]: `You’re signing for: ${summary}.${
-              entry.state === "behind" && !remove
-                ? " Replacing an earlier version takes two signatures: the old one is removed first, then you sign the new one."
-                : ""
-            } Check it in your wallet.`,
-          }));
-        signature = (
-          await act(
-            kit,
-            entry,
-            action,
-            remove ? "Remove policy from chain" : "Enforce policy on chain",
-            owner,
-          )
-        ).signature;
-      }
-      const confirm = () =>
-        settled(
-          () =>
-            client.account.rules.confirmEnforcement(walletId, entry.provider, {
-              ...request,
-              ...(signature ? { signature } : {}),
-            }),
+        entry,
+        policySigner(kit),
+        {
+          revision,
+          owner,
+          remove,
           retryDelayMs,
-        );
-      let rules = await confirm();
-      // No signature proves a sent tx: rules come back unchanged until the
-      // backend's node shows it.
-      if (action?.kind === "evm_transaction") {
-        for (
-          let attempt = 0;
-          attempt < 5 && stillHeld(rules, key);
-          attempt += 1
-        ) {
-          await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
-          rules = await confirm();
-        }
-      }
-      onRules(rules);
-      if (action?.kind === "evm_transaction" && stillHeld(rules, key)) {
+          onAction: (action) => {
+            if (summary && action.kind === "evm_transaction")
+              setSigning((held) => ({
+                ...held,
+                [key]: `You’re sending: ${summary}. Your wallet pays the network fee.`,
+              }));
+            // Replacing a grant: the backend asks to revoke the old one first.
+            if (summary && action.kind === "typed_data")
+              setSigning((held) => ({
+                ...held,
+                [key]: `You’re signing for: ${summary}.${
+                  entry.state === "behind" && !remove
+                    ? " Replacing an earlier version takes two signatures: the old one is removed first, then you sign the new one."
+                    : ""
+                } Check it in your wallet.`,
+              }));
+          },
+        },
+      );
+      onRules(policies);
+      if (!settled) {
         setErrors((held) => ({
           ...held,
           [key]:

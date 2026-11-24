@@ -1,6 +1,6 @@
 // The owner redeems a short-lived, single-use delegation from their vault.
+import { DELEGATION_MANAGER } from "@aomi-labs/client";
 import {
-  decodeFunctionData,
   encodeAbiParameters,
   encodeFunctionData,
   encodePacked,
@@ -13,9 +13,7 @@ type Hex = `0x${string}`;
 
 // Delegation Framework v1.3.0, the same addresses on every chain below
 // (`delegation.rs`, checked on Base and Ethereum mainnet).
-export const DELEGATION_MANAGER = "0xdb9b1e94b5b69df7e401ddbede43491141047db3";
-/** MetaMask's factory, and its `deploy(bytes,bytes32)`: how a vault is created. */
-export const SIMPLE_FACTORY = "0x69aa2f9fe1572f1b640e1bbc512f5c3a734fc77c";
+export { DELEGATION_MANAGER };
 export const TIMESTAMP_ENFORCER = "0x1046bb45c8d673d4ea75321280db34899413c069";
 export const LIMITED_CALLS_ENFORCER =
   "0x04658b29f6b82ed55274221a06fc97d318e25416";
@@ -32,25 +30,6 @@ const ABI = parseAbi([
   "function redeemDelegations(bytes[] _permissionContexts, bytes32[] _modes, bytes[] _executionCallDatas)",
   "function transfer(address to, uint256 amount) returns (bool)",
 ]);
-const FACTORY = parseAbi([
-  "function deploy(bytes _bytecode, bytes32 _salt) returns (address)",
-]);
-
-/** A well-formed factory `deploy` whose bytecode, not its salt, names `owner`. */
-export function deploysVaultOf(data: string, owner: string): boolean {
-  try {
-    const { functionName, args } = decodeFunctionData({
-      abi: FACTORY,
-      data: data as Hex,
-    });
-    return (
-      functionName === "deploy" &&
-      args[0].toLowerCase().includes(owner.toLowerCase().slice(2))
-    );
-  } catch {
-    return false;
-  }
-}
 const DELEGATIONS = parseAbiParameters(
   "(address delegate, address delegator, bytes32 authority, (address enforcer, bytes terms, bytes args)[] caveats, uint256 salt, bytes signature)[]",
 );
