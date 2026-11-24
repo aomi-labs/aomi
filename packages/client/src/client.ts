@@ -272,7 +272,7 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
       : [];
   return {
     resource: `${url.origin}${route.resource}` as AomiOAuthResource,
-    scopes: [route.methods[upper]!, ...payment],
+    scopes: [...route.methods[upper]!.split(" "), ...payment],
     method: upper,
   };
 }

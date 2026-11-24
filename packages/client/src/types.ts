@@ -410,11 +410,11 @@ export interface AomiPublicPackage {
 
 /** What the live release's guards check on a transaction. */
 export interface AomiPackageChecks {
-  /** The checked calls, as words (`supply`, `set user e mode`), sorted; empty when only an evaluator checks. */
+  /** The checked calls, as words (`supply`, `set user e mode`), sorted; empty when none is named. */
   actions: string[];
   /** How many contracts and programs they are on, over every chain. */
   contracts: number;
-  /** The builtin evaluator of a package that declares no call of its own, e.g. `svm/jupiter`. */
+  /** The builtin evaluators that check it too, e.g. `svm/jupiter` or `evm/lido, evm/uniswap`. */
   evaluator?: string;
 }
 
@@ -439,9 +439,9 @@ export interface AomiPackage extends AomiPublicPackage {
   slots: AomiPackageSlot[];
   /** The live release's tools. */
   tools: { name: string; description: string }[];
-  /** `null`: no guard of its own. Calls outside these are not refused, only less covered. */
+  /** `null`: no guard of its own, or not verified. Calls outside these are not refused, only less covered. */
   checked: AomiPackageChecks | null;
-  /** Families it may prepare transactions on, by its own code or through the staging tools. */
+  /** Families it declares transactions, calls or approvals on. Empty with `skills`, it may still have the agent stage one. */
   prepares: AomiPackageFamily[];
 }
 

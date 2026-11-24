@@ -97,8 +97,9 @@ export class AomiAccountPackages {
   }
 
   /** Take out a package the account added with a code (`removable`): its
-   * access, choice and saved keys end, and the same code adds it again unless
-   * the owner revoked it. 404 for any other package. */
+   * access and saved keys end and it is off, and the same code adds it again
+   * unless the owner revoked it. 404 for any other package. Needs
+   * `account:packages:write` and `account:credentials:write`. */
   remove(packageId: number): Promise<{ removed: true }> {
     return this.request(packagePath(packageId), { method: "DELETE" });
   }

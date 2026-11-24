@@ -397,6 +397,23 @@ describe("portal surface: sessions", () => {
     }
   });
 
+  it("removes a package only with the packages and the credentials scope", async () => {
+    const path = "/v1/account/packages/15";
+    const remove = async (scope: string) =>
+      portal(path, {
+        method: "DELETE",
+        headers: {
+          authorization: `Bearer ${await oauthToken({ sub: "user", scope, aud: `${PORTAL}/v1/account` })}`,
+        },
+      });
+    for (const scope of ["account:packages:write", "account:credentials:write"])
+      expect((await remove(scope)).status).toBe(403);
+    expect(seen).toHaveLength(0);
+    const both = "account:packages:write account:credentials:write";
+    expect((await remove(both)).status).toBe(200);
+    expect((await upstreamBearer(seen[0])).payload.scope).toBe(both);
+  });
+
   it("mints only the scope a write needs (never custody:delegate) and refuses a guest's paid write", async () => {
     await portal("/v1/agent/chat", {
       method: "POST",

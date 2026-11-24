@@ -443,8 +443,8 @@ export type ResourceKey =
   | "agentMcp";
 
 /**
- * What a method needs: a scope on the row's resource, a capability (optionally
- * allowing anonymous callers), a signed-in portal session, or nothing. A
+ * What a method needs: scopes (space-separated, all of them) on the row's
+ * resource, a capability (optionally allowing anonymous callers), a signed-in portal session, or nothing. A
  * capability may name the scope OAuth callers need instead, on the same row's
  * resource.
  */
@@ -690,8 +690,9 @@ export const ROUTES: readonly Route[] = [
   account(/^\/v1\/account\/packages\/activate$/, {
     POST: "account:packages:write",
   }),
+  // Removing a package deletes the account's keys for it.
   account(/^\/v1\/account\/packages\/[1-9]\d*$/, {
-    DELETE: "account:packages:write",
+    DELETE: "account:packages:write account:credentials:write",
   }),
   account(/^\/v1\/account\/packages\/[1-9]\d*\/choice$/, {
     PUT: "account:packages:write",

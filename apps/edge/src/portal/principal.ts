@@ -396,7 +396,7 @@ export function needOf(
       return requirement;
     requirement = requirement.oauthScope;
   }
-  const scopes = [requirement];
+  const scopes = requirement.split(" ");
   if (row.paid && request.headers.has("payment-signature"))
     scopes.push("payments:submit");
   return { resource: resource!, scopes };

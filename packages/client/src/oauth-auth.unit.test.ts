@@ -119,7 +119,7 @@ describe("public API OAuth transport", () => {
     expect(upstream).toHaveBeenCalledTimes(2);
   });
 
-  it("requests exact Credit balance scopes and steps up signed funding events", async () => {
+  it("requests exact account scopes and steps up signed funding events", async () => {
     const upstream = vi.fn(async () => new Response("{}", { status: 200 }));
     const oauth = vi.fn(async (request: AomiOAuthTokenRequest) => ({
       accessToken: "account-token",
@@ -139,7 +139,15 @@ describe("public API OAuth transport", () => {
       method: "POST",
       headers: { "payment-signature": "signed" },
     });
+    await authorized("https://aomi.chat/v1/account/packages/7", {
+      method: "DELETE",
+    });
 
+    expect(oauth).toHaveBeenNthCalledWith(4, {
+      resource: "https://aomi.chat/v1/account",
+      scopes: ["account:packages:write", "account:credentials:write"],
+      forceRefresh: false,
+    });
     expect(oauth).toHaveBeenNthCalledWith(1, {
       resource: "https://aomi.chat/v1/account",
       scopes: ["account:credits:read"],
