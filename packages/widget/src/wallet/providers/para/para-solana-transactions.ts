@@ -4,10 +4,7 @@ import {
   type Connection as SolanaConnection,
   type Transaction as SolanaTransaction,
 } from "@solana/web3.js";
-import {
-  decodeBase64,
-  encodeBase64,
-} from "@/wallet/runtime/svm/transactions";
+import { decodeBase64, encodeBase64 } from "@/wallet/runtime/svm/transactions";
 import type { SafeSvmWalletState } from "@/wallet/runtime/svm/wallet-runtime";
 import {
   signParaSolanaMessage,
