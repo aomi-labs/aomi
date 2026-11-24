@@ -16,13 +16,7 @@ import { useCapabilityComposer } from "./provider";
 import { useCapabilityCatalog } from "./catalog";
 import { CapabilityPicker } from "./picker";
 import { testIds } from "@/test-ids";
-import {
-  CAPABILITY_MENTION_REQUEST_EVENT,
-  pickerGroups,
-  type CapabilityMentionRequest,
-  MENTION_NOUN,
-  type PickerItem,
-} from "./model";
+import { MENTION_NOUN, pickerGroups, type PickerItem } from "./model";
 import {
   clearEmptyEditorStructure,
   detectAnchoredTrigger,
@@ -114,8 +108,8 @@ export const CapabilityMentionInput: FC<{
     hintsEnabled,
     capabilityPickerRequest,
     consumeCapabilityPickerRequest,
-    agentTagRequest,
-    consumeAgentTagRequest,
+    tagRequest,
+    consumeTagRequest,
     allowAgentMentions,
   } = useCapabilityComposer();
   const items = useCapabilityCatalog();
@@ -410,92 +404,52 @@ export const CapabilityMentionInput: FC<{
     [insertItemAtRange],
   );
 
-  // A host agent tag (e.g. an "Open in chat" link) lands as a regular mention
-  // once the catalog knows the agent, exactly as if picked from the + menu.
+  // A host agent tag (e.g. an "Open in chat" link) or the Library's "Use in
+  // chat" lands as a regular mention once the catalog knows it, as if picked
+  // from the + menu, after what is already written.
   useEffect(() => {
     const editor = editorRef.current;
-    if (!agentTagRequest || !hintsEnabled || isDisabled || !editor) return;
-    const agents = items.filter((item) => item.kind === "agent");
-    const item = agents.find(
-      (candidate) => candidate.agentName === agentTagRequest.agent,
+    if (!tagRequest || isDisabled || !editor) return;
+    if (!hintsEnabled) {
+      // Direct has no tags: the package is on there, so just start writing.
+      if (tagRequest.kind === "agent") return;
+      consumeTagRequest();
+      editor.focus();
+      return;
+    }
+    const item = items.find(
+      (candidate) =>
+        candidate.kind === tagRequest.kind &&
+        (candidate.agentName ?? candidate.id) === tagRequest.id,
     );
     if (!item) return;
-    consumeAgentTagRequest();
-    if (mentions.some((mention) => mention.key === item.key)) return;
-    clearEmptyEditorStructure(editor);
-    const range = document.createRange();
-    range.selectNodeContents(editor);
-    range.collapse(false);
-    // A prefilled host link can focus the editor on mount without user input.
+    consumeTagRequest();
+    // The focus here is not the person's own.
     insertingHostTag.current = true;
     try {
+      if (mentions.some((mention) => mention.key === item.key)) {
+        if (item.kind !== "agent") editor.focus();
+        return;
+      }
+      closePicker();
+      clearEmptyEditorStructure(editor);
+      if (/\S$/.test(editor.textContent ?? "")) editor.append(" ");
+      const range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(false);
       insertItemAtRange(item, range);
     } finally {
       insertingHostTag.current = false;
     }
   }, [
-    agentTagRequest,
-    consumeAgentTagRequest,
-    hintsEnabled,
-    insertItemAtRange,
-    isDisabled,
-    items,
-    mentions,
-  ]);
-
-  useEffect(() => {
-    const insertRequestedMention = (rawEvent: Event) => {
-      if (!hintsEnabled || isDisabled) return;
-      const request = (rawEvent as CustomEvent<CapabilityMentionRequest>)
-        .detail;
-      if (!request) return;
-      const item = items.find(
-        (candidate) =>
-          candidate.kind === request.kind && candidate.id === request.id,
-      );
-      const editor = editorRef.current;
-      if (!item || !editor) return;
-      if (mentions.some((mention) => mention.key === item.key)) {
-        editor.focus();
-        return;
-      }
-
-      closePicker();
-      clearEmptyEditorStructure(editor);
-      const range = document.createRange();
-      const selection = window.getSelection();
-      const anchor = selection?.anchorNode;
-      const selectionInsideEditor =
-        selection?.isCollapsed && anchor && editor.contains(anchor);
-      const selectionInsideMention =
-        anchor instanceof Text &&
-        anchor.parentElement?.closest("[data-capability-key]");
-      if (selectionInsideEditor && !selectionInsideMention) {
-        range.setStart(anchor, selection.anchorOffset);
-      } else {
-        range.selectNodeContents(editor);
-        range.collapse(false);
-      }
-      range.collapse(true);
-      insertItemAtRange(item, range);
-    };
-
-    window.addEventListener(
-      CAPABILITY_MENTION_REQUEST_EVENT,
-      insertRequestedMention,
-    );
-    return () =>
-      window.removeEventListener(
-        CAPABILITY_MENTION_REQUEST_EVENT,
-        insertRequestedMention,
-      );
-  }, [
     closePicker,
+    consumeTagRequest,
     hintsEnabled,
     insertItemAtRange,
     isDisabled,
     items,
     mentions,
+    tagRequest,
   ]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {

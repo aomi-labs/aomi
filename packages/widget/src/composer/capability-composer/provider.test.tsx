@@ -13,7 +13,7 @@ import {
   EditCapabilityComposerProvider,
   useCapabilityComposer,
 } from "./provider";
-import type { PickerItem } from "./model";
+import { requestCapabilityMention, type PickerItem } from "./model";
 import type { DirectRoutingAgent } from "@/controls/routing";
 import { AgentIndicator } from "@/controls/agent-indicator";
 
@@ -48,6 +48,7 @@ vi.mock("@assistant-ui/react", () => ({
 vi.mock("@aomi-labs/react", () => ({
   useChatView: () => null,
   useAomiDisplayCache: () => ({
+    client: "this frame",
     aomi: { raw: { prepareGuestSession: fixture.prepareGuestSession } },
   }),
   useControl: () => fixture,
@@ -578,6 +579,80 @@ it("pre-tags a host-requested agent once, like a + picker choice", async () => {
     view.rerender(<Harness />);
   });
   expect(editor.querySelectorAll("[data-capability-key]")).toHaveLength(1);
+});
+
+describe("the Library's Use in chat", () => {
+  const aave: PickerItem = {
+    kind: "package",
+    id: "aomi/aave",
+    key: "package:aomi/aave",
+    label: "Aave",
+    searchText: "Aave",
+    Icon: () => <span aria-hidden="true" />,
+  };
+  const editor = () => screen.getByRole("textbox", { name: "Message input" });
+  const tags = () => editor().querySelectorAll("[data-capability-key]");
+  const use = (frame = "this frame") =>
+    act(async () =>
+      requestCapabilityMention({ kind: "package", id: aave.id }, frame),
+    );
+
+  it("tags the package after the draft and takes the focus, once", async () => {
+    fixture.text = "Supply 5 USDC on";
+    fixture.items = [aave];
+    render(<Harness />);
+    await use();
+    expect(editor().textContent).toBe("Supply 5 USDC on Aave ");
+    expect(editor()).toHaveFocus();
+    expect(fixture.runConfig.custom.aomiCapabilityHints).toMatchObject({
+      capabilities: [{ kind: "package", id: "aomi/aave" }],
+    });
+
+    act(() => editor().blur());
+    await use();
+    expect(tags()).toHaveLength(1);
+    expect(editor()).toHaveFocus();
+  });
+
+  it("waits for a package the catalog is still reading", async () => {
+    const view = render(<Harness />);
+    await use();
+    expect(tags()).toHaveLength(0);
+    fixture.items = [aave];
+    await act(async () => view.rerender(<Harness />));
+    expect(tags()).toHaveLength(1);
+  });
+
+  it("leaves another frame's composer and an open edit box alone", async () => {
+    fixture.items = [aave];
+    render(
+      <CapabilityComposerProvider>
+        <EditCapabilityComposerProvider>
+          <CapabilityMentionInput
+            placeholder="Edit"
+            className=""
+            ariaLabel="Edit message"
+          />
+        </EditCapabilityComposerProvider>
+        <CapabilityMentionInput placeholder="Message" className="" />
+      </CapabilityComposerProvider>,
+    );
+    await use("another frame");
+    expect(tags()).toHaveLength(0);
+    await use();
+    expect(tags()).toHaveLength(1);
+    expect(screen.getByLabelText("Edit message").textContent).toBe("");
+  });
+
+  it("only focuses a Direct chat, which has no tags", async () => {
+    fixture.defaultMode = "direct";
+    fixture.mode = "direct";
+    fixture.items = [aave];
+    render(<Harness />);
+    await use();
+    expect(tags()).toHaveLength(0);
+    expect(editor()).toHaveFocus();
+  });
 });
 
 describe("selected agent context", () => {

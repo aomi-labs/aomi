@@ -32,13 +32,22 @@ React chat widget and for first-party host composition.
   `@aomi-labs/widget/host-composition`. It must not reach into private
   `packages/widget/src` paths.
 - The Library (`packages/widget/src/library/`) lists package rows from
-  `GET /api/account/packages` in three groups: packages the thread's agent
-  lists (always on, switch disabled), other verified packages, and the rest.
-  A switch-on first shows the package's capability envelope once per device,
-  keyed by package id and envelope hash. Person keys are entered there;
-  builder keys are only explained. "Add with code" (signed-in accounts;
+  `GET /api/account/packages` in groups: packages the thread's agent lists
+  (always on), packages added with a code, other verified packages, and the
+  rest. A row and its detail footer offer one first action: "Use in chat" (on),
+  "Turn on" (off) or "Connect" (a required person key is missing). "Use in
+  chat" closes the Library and asks the same frame's composer for the package's
+  @ tag (`requestCapabilityMention`); a Direct chat is only focused. A package
+  added with a code has "Remove". Every change invalidates all of the account's
+  `account-packages` reads, so "@" in any chat follows without a reload.
+  Turning on a not verified package first shows its capability envelope once
+  per device, keyed by package id and envelope hash. The Wallet section names
+  checked calls (`checked`) only for a verified package, and is left out for a
+  host package, which declares none. Person keys are entered there; builder
+  keys are only explained. "Add with code" (signed-in accounts;
   guests see a sign-in prompt) redeems a private package code through
-  `POST /api/account/packages/activate`; the code is never stored.
+  `POST /api/account/packages/activate`; the code is never stored. The package
+  then turns on, a not verified one after its notice.
 - `AomiWidget` embeds one agent: the `agent="publisher/name"` prop (default
   `aomi/main`) is the Direct target of every new thread, sent as `agent` in the
   start intent. A thread keeps its agent; `thread_agent_mismatch` shows a

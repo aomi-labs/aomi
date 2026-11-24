@@ -1,14 +1,16 @@
 "use client";
 
 import type { AomiPackage, AomiPublicPackage } from "@aomi-labs/client";
-import { useOptionalAomiRuntime } from "@aomi-labs/react";
+import { useAomiDisplayCache, useOptionalAomiRuntime } from "@aomi-labs/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Library, Plus } from "lucide-react";
 import { useShellAomi } from "@/account/transport";
 import { useAccountOverview } from "@/account/account-overview";
+import { requestCapabilityMention } from "@/composer/capability-composer/model";
 import { useAomiWalletKit } from "@/wallet/context";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { AomiButton } from "@/ui/aomi/button";
+import { ConfirmDialog } from "@/ui/aomi/confirm-dialog";
 import {
   ModalNav,
   ModalNavItem,
@@ -49,6 +51,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   const aomi = useShellAomi();
   const accountUserId = useAccountOverview()?.user.user_id;
   const runtime = useOptionalAomiRuntime();
+  const frame = useAomiDisplayCache()?.client;
   // A chat the server has not stored yet has no agent to read; the Library
   // then shows `aomi/main`, as it does without a chat.
   const threadId =
@@ -68,11 +71,13 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
   const [actionError, setActionError] = useState<string | null>(null);
   const [noticeRow, setNoticeRow] = useState<AomiPackage | null>(null);
   const [codeOpen, setCodeOpen] = useState(false);
   const [keysRow, setKeysRow] = useState<AomiPackage | null>(null);
+  const [removeRow, setRemoveRow] = useState<AomiPackage | null>(null);
+  const [addedId, setAddedId] = useState<string | null>(null);
   const desktop = useDesktopLayout();
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -97,8 +102,8 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   /** Run one mutation, then read the rows again; errors stay in place. */
   const mutate = useCallback(
     async (row: AomiPackage, change: () => Promise<unknown>) => {
-      if (busyId !== null) return false;
-      setBusyId(row.id);
+      if (busy.has(row.id)) return false;
+      setBusy((ids) => new Set(ids).add(row.id));
       setActionError(null);
       try {
         await change();
@@ -108,10 +113,10 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
         setActionError(explainMutationError(cause, agent));
         return false;
       } finally {
-        setBusyId(null);
+        setBusy((ids) => new Set([...ids].filter((id) => id !== row.id)));
       }
     },
-    [agent, busyId, refetch],
+    [agent, busy, refetch],
   );
 
   const setChoice = (row: AomiPackage, enabled: boolean) =>
@@ -120,6 +125,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
     );
   /** A not verified package shows its notice before it first turns on. */
   const toggle = (row: AomiPackage, enabled: boolean) => {
+    if (!enabled) setAddedId(null);
     if (enabled && !row.verified && !noticeSeen(row)) setNoticeRow(row);
     else setChoice(row, enabled);
   };
@@ -134,7 +140,19 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
         if (slot.status === "ready")
           await aomi.account.packages.clearSecret(row.package_id, slot.name);
     });
-  /** Redeem a private package code; the row appears and its detail opens. */
+  const remove = async (row: AomiPackage) => {
+    if (await mutate(row, () => aomi.account.packages.remove(row.package_id)))
+      setMobileDetailOpen(false);
+  };
+  /** Tag the package in the chat behind the Library. */
+  const use = (row: AomiPackage) => {
+    requestCapabilityMention({ kind: "package", id: row.id }, frame);
+    onClose();
+  };
+  /**
+   * Redeem a package code; the row appears and its detail opens. A verified
+   * package is on; any other turns on as from its switch, notice first.
+   */
   const activate = async (code: string) => {
     try {
       const row = await aomi.account.packages.activate(code);
@@ -145,6 +163,8 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       setQuery("");
       setCodeOpen(false);
       open(row);
+      setAddedId(row.id);
+      if (row.available && !row.enabled) toggle(row, true);
       return null;
     } catch (cause) {
       return explainActivateError(cause);
@@ -152,12 +172,13 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   };
   function open(row: AomiPublicPackage) {
     setSelectedId(row.id);
+    setAddedId(null);
     setMobileDetailOpen(true);
   }
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (noticeRow || codeOpen || keysRow) return;
+      if (noticeRow || codeOpen || keysRow || removeRow) return;
       if (event.key === "Escape") {
         onClose();
         return;
@@ -177,7 +198,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
     // effect, so an Escape meant for the sheet never reaches the Library.
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [onClose, noticeRow, codeOpen, keysRow]);
+  }, [onClose, noticeRow, codeOpen, keysRow, removeRow]);
 
   useEffect(() => {
     if (listRef.current) listRef.current.scrollTop = 0;
@@ -258,10 +279,9 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
           {signedIn ? (
             <AomiButton
               className="h-9 pl-2.5"
-              disabled={busyId !== null}
               onClick={() => setCodeOpen(true)}
             >
-              <Plus /> <span className="max-md:sr-only">Add custom</span>
+              <Plus /> <span className="max-md:sr-only">Add with code</span>
             </AomiButton>
           ) : null}
         </div>
@@ -278,7 +298,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
         {actionError ? (
           <p
             role="alert"
-            className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta mt-3 px-3 py-2 max-md:hidden"
+            className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta mt-3 px-3 py-2"
           >
             {actionError}
           </p>
@@ -315,7 +335,11 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                       key={row.id}
                       row={row}
                       selected={inspector && selected?.id === row.id}
+                      busy={busy.has(row.id)}
                       onSelect={() => open(row)}
+                      onUse={use}
+                      onToggle={toggle}
+                      onConnect={setKeysRow}
                     />
                   ))}
                 </div>
@@ -344,11 +368,14 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
           <LibraryDetailPanel
             key={selected.id}
             row={selected}
-            busy={busyId === selected.id}
+            busy={busy.has(selected.id)}
+            added={addedId === selected.id}
             error={desktop ? null : actionError}
+            onUse={use}
             onToggle={toggle}
             onConnect={setKeysRow}
             onDisconnect={disconnect}
+            onRemove={setRemoveRow}
             onSignIn={() => void wallet.connect?.()}
           />
         </div>
@@ -368,6 +395,17 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
         />
       ) : null}
 
+      {removeRow ? (
+        <ConfirmDialog
+          open
+          tone="danger"
+          title={`Remove ${removeRow.display_name}?`}
+          description="It leaves your Library and your saved keys for it are deleted. You can add it again with its code."
+          confirmLabel="Remove"
+          onConfirm={() => void remove(removeRow)}
+          onOpenChange={() => setRemoveRow(null)}
+        />
+      ) : null}
       <PackageNotice
         row={noticeRow}
         onCancel={() => setNoticeRow(null)}

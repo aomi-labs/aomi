@@ -3,21 +3,26 @@ import type { AomiPackage, AomiPublicPackage } from "@aomi-labs/client";
 import { useState, type ReactNode } from "react";
 import {
   ChevronDown,
+  CircleCheck,
   FileText,
+  KeyRound,
   Loader2,
   Lock,
+  MessageCircle,
   Plus,
   Shield,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { AomiButton } from "@/ui/aomi/button";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { PackageTile } from "@/icons/package-mark";
-import { Publisher } from "./catalog-row";
+import { Publisher, type PackageActions } from "./catalog-row";
 import {
   chainItem,
   isAccountRow,
   needsConnect,
+  packageAction,
   personSlots,
   shortDigest,
   walletLines,
@@ -95,15 +100,7 @@ function WalletSection({ row }: { row: AomiPackage }) {
             />
             <span className="flex min-w-0 flex-col">
               <span className="type-control">{title}</span>
-              <span
-                className={cn(
-                  "type-meta text-aomi-muted",
-                  kind === "guard" &&
-                    "font-mono text-[11.5px] [overflow-wrap:anywhere]",
-                )}
-              >
-                {detail}
-              </span>
+              <span className="type-meta text-aomi-muted">{detail}</span>
             </span>
           </div>
         ))
@@ -152,20 +149,21 @@ function ToolsSection({ row }: { row: AomiPublicPackage }) {
   );
 }
 
-/** State on the left, the one action on the right. */
+/** The quiet or lasting choices on the left, the one main action on the right. */
 function ActivationBar({
   row,
   busy,
+  onUse,
   onToggle,
   onConnect,
+  onRemove,
   onSignIn,
 }: {
   row: AomiPublicPackage;
   busy: boolean;
-  onToggle: (row: AomiPackage, enabled: boolean) => void;
-  onConnect: (row: AomiPackage) => void;
+  onRemove: (row: AomiPackage) => void;
   onSignIn: () => void;
-}) {
+} & PackageActions) {
   if (!isAccountRow(row))
     return (
       <>
@@ -175,42 +173,53 @@ function ActivationBar({
         </AomiButton>
       </>
     );
-  if (row.agent_listed)
-    return (
-      <>
-        <Lock className="text-aomi-muted size-3.5 shrink-0" />
-        <span className="text-aomi-muted">Always on here</span>
-      </>
-    );
-  if (!row.available)
+  const action = packageAction(row);
+  if (action === "unavailable")
     return <span className="text-aomi-muted">Not in this agent</span>;
-  const action = busy ? (
-    <Loader2
-      aria-label="Saving"
-      className="text-aomi-muted size-4 animate-spin"
-    />
-  ) : needsConnect(row) ? (
-    <AomiButton variant="primary" onClick={() => onConnect(row)}>
-      Connect
-    </AomiButton>
-  ) : row.enabled ? (
-    <AomiButton onClick={() => onToggle(row, false)}>Turn off</AomiButton>
-  ) : (
-    <AomiButton variant="primary" onClick={() => onToggle(row, true)}>
-      Turn on
-    </AomiButton>
-  );
   return (
     <>
-      {row.enabled ? (
-        <>
-          <span aria-hidden className="bg-aomi-success size-1.5 rounded-full" />
-          <span className="font-medium">In your chats</span>
-        </>
-      ) : (
-        <span className="text-aomi-muted">Not in your chats</span>
-      )}
-      <span className="ml-auto flex">{action}</span>
+      {row.removable ? (
+        <AomiButton
+          variant="ghost"
+          className="text-aomi-danger hover:bg-aomi-danger/10 hover:text-aomi-danger -ml-2 px-2"
+          disabled={busy}
+          onClick={() => onRemove(row)}
+        >
+          <Trash2 /> Remove
+        </AomiButton>
+      ) : null}
+      {row.agent_listed ? (
+        <span className="text-aomi-muted flex items-center gap-1.5">
+          <Lock className="size-3.5 shrink-0" /> Always on
+        </span>
+      ) : null}
+      <span className="ml-auto flex items-center gap-1">
+        {busy ? (
+          <Loader2
+            aria-label="Saving"
+            className="text-aomi-muted size-4 animate-spin"
+          />
+        ) : action === "connect" ? (
+          <AomiButton variant="primary" onClick={() => onConnect(row)}>
+            <KeyRound /> Connect
+          </AomiButton>
+        ) : action === "turn_on" ? (
+          <AomiButton variant="primary" onClick={() => onToggle(row, true)}>
+            <Plus /> Turn on
+          </AomiButton>
+        ) : (
+          <>
+            {row.agent_listed ? null : (
+              <AomiButton variant="ghost" onClick={() => onToggle(row, false)}>
+                Turn off
+              </AomiButton>
+            )}
+            <AomiButton variant="primary" onClick={() => onUse(row)}>
+              <MessageCircle /> Use in chat
+            </AomiButton>
+          </>
+        )}
+      </span>
     </>
   );
 }
@@ -218,21 +227,25 @@ function ActivationBar({
 export function LibraryDetailPanel({
   row,
   busy,
+  added,
   error,
+  onUse,
   onToggle,
   onConnect,
   onDisconnect,
+  onRemove,
   onSignIn,
 }: {
   /** A guest's public row shows what the package is, nothing tied to an account. */
   row: AomiPublicPackage;
   busy: boolean;
+  /** Just added with a code. */
+  added: boolean;
   error: string | null;
-  onToggle: (row: AomiPackage, enabled: boolean) => void;
-  onConnect: (row: AomiPackage) => void;
   onDisconnect: (row: AomiPackage) => void;
+  onRemove: (row: AomiPackage) => void;
   onSignIn: () => void;
-}) {
+} & PackageActions) {
   const account = isAccountRow(row) ? row : null;
   const keys = account ? personSlots(account) : [];
   const chains = row.chains.map(chainItem);
@@ -325,7 +338,10 @@ export function LibraryDetailPanel({
             </Section>
           ) : null}
 
-          {account ? <WalletSection row={account} /> : null}
+          {/* A host package declares nothing here, which is not "never asks". */}
+          {account && account.live.release !== null ? (
+            <WalletSection row={account} />
+          ) : null}
 
           {row.skills.length > 0 ? (
             <Section title="Instructions" count={row.skills.length}>
@@ -393,13 +409,25 @@ export function LibraryDetailPanel({
         >
           {error}
         </p>
+      ) : added && account?.enabled ? (
+        <p
+          role="status"
+          className="bg-aomi-success/12 text-aomi-success rounded-control type-meta mx-6 mb-2 flex items-center gap-2 px-3 py-2 font-medium"
+        >
+          <CircleCheck aria-hidden className="size-3.5 shrink-0" />
+          {needsConnect(account)
+            ? "Added. Connect your key to use it."
+            : "Added and on"}
+        </p>
       ) : null}
       <div className="border-aomi-border type-control flex min-h-14 shrink-0 items-center gap-2 border-t px-6 py-3">
         <ActivationBar
           row={row}
           busy={busy}
+          onUse={onUse}
           onToggle={onToggle}
           onConnect={onConnect}
+          onRemove={onRemove}
           onSignIn={onSignIn}
         />
       </div>

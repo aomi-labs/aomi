@@ -23,6 +23,7 @@ export type CapabilityMention = {
     | { family: "svm"; networkId: string };
 };
 
+/** A tag to insert. An agent's id is its `publisher/name`. */
 export type CapabilityMentionRequest = Pick<CapabilityMention, "kind" | "id">;
 
 /** A host's request to open the composer with one agent already tagged. */
@@ -31,16 +32,18 @@ export type AgentTagRequest = { agent: string };
 export const CAPABILITY_MENTION_REQUEST_EVENT =
   "aomi:capability-mention-request";
 
-/** Ask the mounted composer to insert a catalog capability as a rich mention. */
+/**
+ * Ask a frame's composer to tag a catalog capability and take the focus.
+ * `frame` is that frame's display cache client: a page may embed several.
+ */
 export function requestCapabilityMention(
   request: CapabilityMentionRequest,
+  frame: unknown,
 ): void {
-  if (typeof window === "undefined") return;
   window.dispatchEvent(
-    new CustomEvent<CapabilityMentionRequest>(
-      CAPABILITY_MENTION_REQUEST_EVENT,
-      { detail: request },
-    ),
+    new CustomEvent(CAPABILITY_MENTION_REQUEST_EVENT, {
+      detail: { request, frame },
+    }),
   );
 }
 

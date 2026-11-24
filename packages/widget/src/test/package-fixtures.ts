@@ -19,7 +19,7 @@ export function packageRow(overrides: Partial<AomiPackage> = {}): AomiPackage {
     available: true,
     choice: null,
     enabled: true,
-    reason: "verified_default",
+    reason: "agent_default",
     envelope: {
       hash: "sha256:env1",
       hosts: ["api.jup.ag"],
@@ -28,7 +28,9 @@ export function packageRow(overrides: Partial<AomiPackage> = {}): AomiPackage {
     },
     slots: [],
     tools: [],
-    guards: [],
+    removable: false,
+    checked: null,
+    prepares: ["svm"],
     ...overrides,
   };
 }
@@ -41,6 +43,7 @@ export const AGENT_LISTED = packageRow({
   skills: [{ id: "aave", description: "Supply and borrow." }],
   chains: ["ethereum", "base", "arbitrum"],
   tags: ["lending"],
+  prepares: ["evm"],
   agent_listed: true,
   reason: "agent_listed",
 });
@@ -55,6 +58,7 @@ export const NOT_VERIFIED = packageRow({
   skills: [{ id: "trade", description: "Buy or sell a token." }],
   chains: ["robinhood"],
   tags: [],
+  prepares: ["evm"],
   verified: false,
   enabled: false,
   reason: "off_by_default",
@@ -79,6 +83,7 @@ export const NEEDS_KEY = packageRow({
   description: "Prediction market prices, positions and bets.",
   skills: [{ id: "markets", description: "Read markets." }],
   chains: ["polygon"],
+  prepares: [],
   tags: ["prediction"],
   slots: [
     {

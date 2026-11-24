@@ -1,6 +1,10 @@
 "use client";
 
-import { useDisplayQuery, type DisplayQuery } from "@aomi-labs/react";
+import {
+  useAomiDisplayCache,
+  useDisplayQuery,
+  type DisplayQuery,
+} from "@aomi-labs/react";
 import {
   parsePackageCatalog,
   type Aomi,
@@ -41,6 +45,7 @@ export function publicPackageQuery(
  * the public catalog: listed packages only, nothing tied to an account.
  */
 export function usePackageCatalog(accountUserId?: string, threadId?: string) {
+  const cache = useAomiDisplayCache();
   const signedIn = accountUserId != null;
   const account = useDisplayQuery({
     ...packageCatalogQuery(useShellAomi(), accountUserId, threadId),
@@ -63,6 +68,14 @@ export function usePackageCatalog(accountUserId?: string, threadId?: string) {
     rows,
     agent: account.data?.agent.display_name ?? "Your agent",
     failure,
-    refetch: () => query.refetch(),
+    // A choice or a key is the account's: every chat's rows are old after one,
+    // and "@" reads them.
+    refetch: async () => {
+      if (signedIn && cache)
+        await cache.client.invalidateQueries({
+          queryKey: cache.key("account-packages"),
+        });
+      else await query.refetch();
+    },
   };
 }

@@ -13,7 +13,12 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
-import { useControl, useThreadContext, useChatView } from "@aomi-labs/react";
+import {
+  useAomiDisplayCache,
+  useChatView,
+  useControl,
+  useThreadContext,
+} from "@aomi-labs/react";
 import {
   normalizeAomiRouting,
   sameDirectRoutingAgent,
@@ -22,10 +27,12 @@ import {
   type DirectRoutingAgent,
 } from "@/controls/routing";
 import { buildCapabilityHintPayload } from "@/thread/capability-hint-payload";
-import type {
-  AgentTagRequest,
-  CapabilityMention,
-  ExecutionPolicy,
+import {
+  CAPABILITY_MENTION_REQUEST_EVENT,
+  type AgentTagRequest,
+  type CapabilityMention,
+  type CapabilityMentionRequest,
+  type ExecutionPolicy,
 } from "./model";
 
 type CapabilityComposerContextValue = {
@@ -36,9 +43,9 @@ type CapabilityComposerContextValue = {
   hintsEnabled: boolean;
   hostError: string | null;
   capabilityPickerRequest: number;
-  /** Host agent tag waiting for the input to insert it as a mention. */
-  agentTagRequest: AgentTagRequest | null;
-  consumeAgentTagRequest: () => void;
+  /** A host agent tag or the Library's "Use in chat", waiting for the input. */
+  tagRequest: CapabilityMentionRequest | null;
+  consumeTagRequest: () => void;
   openCapabilityPicker: () => void;
   consumeCapabilityPickerRequest: () => void;
   addMention: (mention: CapabilityMention) => void;
@@ -132,19 +139,30 @@ export function CapabilityComposerProvider({
   }, [view, mentions]);
 
   // Offer the host's agent tag once, after the mount-time mention reset above.
-  const [agentTagRequest, setAgentTagRequest] =
-    useState<AgentTagRequest | null>(null);
+  const [tagRequest, setTagRequest] = useState<CapabilityMentionRequest | null>(
+    null,
+  );
   const agentTagKey = initialAgentTag ? initialAgentTag.agent : "";
   const offeredAgentTag = useRef("");
   useEffect(() => {
     if (!initialAgentTag || offeredAgentTag.current === agentTagKey) return;
     offeredAgentTag.current = agentTagKey;
-    setAgentTagRequest(initialAgentTag);
+    setTagRequest({ kind: "agent", id: initialAgentTag.agent });
   }, [agentTagKey, initialAgentTag]);
-  const consumeAgentTagRequest = useCallback(
-    () => setAgentTagRequest(null),
-    [],
-  );
+  const frame = useAomiDisplayCache()?.client;
+  useEffect(() => {
+    const receive = (event: Event) => {
+      const { detail } = event as CustomEvent<{
+        request: CapabilityMentionRequest;
+        frame: unknown;
+      }>;
+      if (detail.frame === frame) setTagRequest(detail.request);
+    };
+    window.addEventListener(CAPABILITY_MENTION_REQUEST_EVENT, receive);
+    return () =>
+      window.removeEventListener(CAPABILITY_MENTION_REQUEST_EVENT, receive);
+  }, [frame]);
+  const consumeTagRequest = useCallback(() => setTagRequest(null), []);
 
   useEffect(() => {
     if (normalizedRouting.error) return;
@@ -205,8 +223,8 @@ export function CapabilityComposerProvider({
       hintsEnabled,
       hostError: normalizedRouting.error,
       capabilityPickerRequest,
-      agentTagRequest,
-      consumeAgentTagRequest,
+      tagRequest,
+      consumeTagRequest,
       openCapabilityPicker,
       consumeCapabilityPickerRequest,
       addMention,
@@ -217,10 +235,9 @@ export function CapabilityComposerProvider({
     }),
     [
       addMention,
-      agentTagRequest,
       capabilityPickerRequest,
-      consumeAgentTagRequest,
       consumeCapabilityPickerRequest,
+      consumeTagRequest,
       enabledAgentIds,
       hintsEnabled,
       mentions,
@@ -230,6 +247,7 @@ export function CapabilityComposerProvider({
       prepareSubmit,
       retainMentions,
       selectedAgent,
+      tagRequest,
     ],
   );
 
@@ -289,7 +307,7 @@ const noop = () => {};
 
 /**
  * An edit box's own mentions under the thread composer's routing. The thread
- * composer's picker and agent-tag requests stay with the thread composer.
+ * composer's picker and tag requests stay with the thread composer.
  */
 export function EditCapabilityComposerProvider({
   children,
@@ -310,8 +328,8 @@ export function EditCapabilityComposerProvider({
       addMention,
       retainMentions,
       capabilityPickerRequest: 0,
-      agentTagRequest: null,
-      consumeAgentTagRequest: noop,
+      tagRequest: null,
+      consumeTagRequest: noop,
       openCapabilityPicker: noop,
       consumeCapabilityPickerRequest: noop,
     }),

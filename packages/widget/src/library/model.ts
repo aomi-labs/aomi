@@ -1,5 +1,6 @@
 import type {
   AomiPackage,
+  AomiPackageChecks,
   AomiPackageFamily,
   AomiPackageSlot,
   AomiPublicPackage,
@@ -117,6 +118,15 @@ export function needsConnect(row: AomiPackage): boolean {
   return personSlots(row).some(
     (slot) => slot.required && slot.status === "missing",
   );
+}
+
+/** What a row and its footer offer first. */
+export type PackageAction = "use" | "turn_on" | "connect" | "unavailable";
+
+export function packageAction(row: AomiPackage): PackageAction {
+  if (!row.available && !row.agent_listed) return "unavailable";
+  if (needsConnect(row)) return "connect";
+  return row.enabled ? "use" : "turn_on";
 }
 
 export function inView(row: AomiPublicPackage, view: LibraryView): boolean {
@@ -246,6 +256,35 @@ const FAMILY_WORDS: Record<AomiPackageFamily, string> = {
   svm: "Solana",
 };
 
+/** The most calls one sentence names. */
+const NAMED_CALLS = 6;
+
+/** What is checked, as one sentence. "supply" also stands for "supply eth". */
+function checkedCalls(
+  { actions, contracts }: AomiPackageChecks,
+  prepares: readonly AomiPackageFamily[],
+): string {
+  if (!actions.length)
+    return "Aomi’s built-in check covers the calls it knows.";
+  const calls = [
+    ...new Set(
+      actions
+        .filter((call) => !actions.some((own) => call.startsWith(`${own} `)))
+        .map((call) => call.replace(/^set .*collateral$/, "set collateral")),
+    ),
+  ];
+  const named =
+    calls.length > NAMED_CALLS
+      ? [
+          ...calls.slice(0, NAMED_CALLS - 1),
+          `${calls.length - NAMED_CALLS + 1} more calls`,
+        ]
+      : calls;
+  const list = new Intl.ListFormat("en-GB").format(named);
+  const on = prepares.includes("evm") ? "contract" : "program";
+  return `${list[0]!.toUpperCase()}${list.slice(1)} on ${contracts} ${on}${contracts === 1 ? "" : "s"}.`;
+}
+
 export interface WalletLine {
   kind: "transactions" | "signature" | "guard";
   icon: LucideIcon;
@@ -255,20 +294,18 @@ export interface WalletLine {
 
 /** What the package may ask of the person's wallet; empty when nothing. */
 export function walletLines(row: AomiPackage): WalletLine[] {
-  const { transactions, signatures } = row.envelope;
   const signs = new Set(
-    signatures.map((signature) =>
+    row.envelope.signatures.map((signature) =>
       signature.kind.endsWith("-message") ? "a message" : "typed data",
     ),
   );
-  const guards = row.guards ?? [];
   return [
-    ...(transactions.length
+    ...(row.prepares.length
       ? [
           {
             kind: "transactions" as const,
             icon: Send,
-            title: `Prepares ${transactions.map((family) => FAMILY_WORDS[family]).join(" and ")} transactions`,
+            title: `Prepares ${row.prepares.map((family) => FAMILY_WORDS[family]).join(" and ")} transactions`,
             detail: "You approve each one in your wallet.",
           },
         ]
@@ -279,13 +316,14 @@ export function walletLines(row: AomiPackage): WalletLine[] {
       title: `Asks you to sign ${what}`,
       detail: "You sign each one in your wallet.",
     })),
-    ...(guards.length
+    // A package that is not verified checks nothing by its own declaration.
+    ...(row.verified && row.checked
       ? [
           {
             kind: "guard" as const,
             icon: ShieldCheck,
-            title: "Checked by a guard before you approve",
-            detail: guards.join(", "),
+            title: "Checked before you approve",
+            detail: checkedCalls(row.checked, row.prepares),
           },
         ]
       : []),

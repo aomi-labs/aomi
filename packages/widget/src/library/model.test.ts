@@ -8,6 +8,7 @@ import {
   matches,
   networkItems,
   noticeSeen,
+  packageAction,
   shortDigest,
   tagItems,
   walletLines,
@@ -99,10 +100,10 @@ describe("library model", () => {
     expect(
       lines(
         packageRow({
-          guards: ["svm/jupiter"],
+          prepares: ["evm", "svm"],
+          checked: { actions: [], contracts: 0, evaluator: "svm/jupiter" },
           envelope: {
             ...VERIFIED.envelope,
-            transactions: ["evm", "svm"],
             signatures: [
               { kind: "svm-message", domains: [], primary_types: [] },
             ],
@@ -115,12 +116,81 @@ describe("library model", () => {
         "You approve each one in your wallet.",
       ],
       ["Asks you to sign a message", "You sign each one in your wallet."],
-      ["Checked by a guard before you approve", "svm/jupiter"],
+      [
+        "Checked before you approve",
+        "Aomi’s built-in check covers the calls it knows.",
+      ],
     ]);
-    const quiet = packageRow({
-      envelope: { ...VERIFIED.envelope, transactions: [], signatures: [] },
-    });
-    expect(walletLines(quiet)).toEqual([]);
+    expect(walletLines(packageRow({ prepares: [] }))).toEqual([]);
+    // A text-only package stages through the host's tools.
+    expect(
+      lines(
+        packageRow({
+          prepares: ["evm"],
+          envelope: { ...VERIFIED.envelope, transactions: [] },
+        }),
+      ),
+    ).toEqual([
+      ["Prepares EVM transactions", "You approve each one in your wallet."],
+    ]);
+  });
+
+  it("says what is checked in one sentence, and only for a verified package", () => {
+    const detail = (
+      actions: string[],
+      contracts: number,
+      row: Partial<Parameters<typeof walletLines>[0]> = {},
+    ) =>
+      walletLines(
+        packageRow({
+          prepares: ["evm"],
+          checked: { actions, contracts },
+          ...row,
+        }),
+      ).find((line) => line.kind === "guard")?.detail;
+    expect(
+      detail(
+        ["borrow", "repay", "set using as collateral", "supply", "withdraw"],
+        13,
+      ),
+    ).toBe(
+      "Borrow, repay, set collateral, supply and withdraw on 13 contracts.",
+    );
+    expect(
+      detail(
+        [
+          "borrow",
+          "borrow eth",
+          "deposit eth",
+          "repay",
+          "repay with a tokens",
+          "set user use reserve as collateral",
+          "supply",
+          "withdraw",
+        ],
+        1,
+      ),
+    ).toBe(
+      "Borrow, deposit eth, repay, set collateral, supply and withdraw on 1 contract.",
+    );
+    expect(
+      detail(["a", "b", "c", "d", "e", "f", "g"], 2, { prepares: ["svm"] }),
+    ).toBe("A, b, c, d, e and 2 more calls on 2 programs.");
+    expect(detail(["supply"], 1, { verified: false })).toBeUndefined();
+  });
+
+  it("offers one first action per state", () => {
+    const missing = NEEDS_KEY.slots;
+    expect(
+      [
+        VERIFIED,
+        AGENT_LISTED,
+        NOT_VERIFIED,
+        NEEDS_KEY,
+        packageRow({ enabled: false, slots: missing }),
+        packageRow({ available: false, enabled: false }),
+      ].map(packageAction),
+    ).toEqual(["use", "use", "turn_on", "connect", "connect", "unavailable"]);
   });
 
   it("names the chains the backend resolved, guessing nothing", () => {

@@ -9,6 +9,9 @@ import {
   within,
 } from "@testing-library/react";
 import type { AomiPackage } from "@aomi-labs/client";
+import { useAomiDisplayCache } from "@aomi-labs/react";
+import { usePackagePickerItems } from "@/composer/capability-composer/catalog";
+import { CAPABILITY_MENTION_REQUEST_EVENT } from "@/composer/capability-composer/model";
 import { PackagesModal } from "@/library/packages-modal";
 import {
   AccountOverviewFixture,
@@ -49,12 +52,25 @@ const PRIVATE: AomiPackage = {
   id: "acme/secret-tool",
   display_name: "Secret Tool",
   listed: false,
+  removable: true,
+};
+
+/** What the backend answers for a verified package's code. */
+const PRIVATE_ON: AomiPackage = {
+  ...PRIVATE,
+  verified: true,
+  enabled: true,
+  choice: true,
+  reason: "chosen_on",
 };
 
 type Call = { method: string; path: string; body: unknown };
 
 /** The Library backend: rows change as the person switches and connects. */
-function installBackend(initial: AomiPackage[]) {
+function installBackend(
+  initial: AomiPackage[],
+  privateRow: AomiPackage = PRIVATE,
+) {
   let rows = initial.map((row) => ({ ...row }));
   const calls: Call[] = [];
   const listQueries: string[] = [];
@@ -95,8 +111,14 @@ function installBackend(initial: AomiPackage[]) {
       if (url.pathname === "/api/account/packages/activate") {
         if ((body as { code: string }).code !== "good-code")
           return Response.json({ error: "code_invalid" }, { status: 404 });
-        rows = [...rows, PRIVATE];
-        return Response.json(PRIVATE);
+        const added = { ...privateRow };
+        rows = [...rows, added];
+        return Response.json(added);
+      }
+      const own = url.pathname.match(/^\/api\/account\/packages\/(\d+)$/);
+      if (own && method === "DELETE") {
+        rows = rows.filter((row) => row.package_id !== Number(own[1]));
+        return Response.json({ removed: true });
       }
       const choice = url.pathname.match(
         /^\/api\/account\/packages\/(\d+)\/choice$/,
@@ -178,6 +200,17 @@ const actOn = (name: string, action: string) => {
   fireEvent.click(within(details(name)).getByRole("button", { name: action }));
 };
 
+const rowOf = (name: string) =>
+  within(screen.getByLabelText(`Open ${name} details`).closest("article")!);
+
+const addWithCode = (code: string) => {
+  fireEvent.click(screen.getByRole("button", { name: "Add with code" }));
+  fireEvent.change(screen.getByLabelText("Activation code"), {
+    target: { value: code },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Add" }));
+};
+
 const footerAction = async (name: string, action: string) =>
   waitFor(() =>
     expect(
@@ -209,28 +242,181 @@ describe("packages modal", () => {
       .map((heading) => heading.textContent);
     expect(headings.join("|")).toMatch(/Used by Aomi.*Verified.*Not verified/);
     expect(screen.queryAllByRole("switch")).toEqual([]);
-    // The first package listed is open; its row says it is on.
-    expect(within(details("Aave")).getByText("Always on here")).toBeTruthy();
+    // The first package listed is open and locked on.
+    const aave = within(details("Aave"));
+    expect(aave.getByText("Always on")).toBeTruthy();
+    expect(aave.getByRole("button", { name: "Use in chat" })).toBeTruthy();
+    expect(aave.queryByRole("button", { name: /Turn|Remove/ })).toBeNull();
+  });
+
+  it("offers each state's action on the row, beside its details", async () => {
+    const backend = installBackend([
+      AGENT_LISTED,
+      VERIFIED,
+      { ...NOT_VERIFIED, verified: true },
+      NEEDS_KEY,
+      {
+        ...VERIFIED,
+        package_id: 1,
+        id: "aomi/scheduling",
+        display_name: "Scheduling",
+        available: false,
+        enabled: false,
+      },
+    ]);
+    await renderModal();
+    const actions = (name: string) =>
+      rowOf(name)
+        .getAllByRole("button")
+        .map((button) => button.getAttribute("aria-label"));
+    expect(actions("Aave")).toEqual(["Open Aave details", "Use in chat: Aave"]);
+    expect(actions("Jupiter")).toEqual([
+      "Open Jupiter details",
+      "Use in chat: Jupiter",
+    ]);
+    expect(actions("Hoodit trade")).toEqual([
+      "Open Hoodit trade details",
+      "Turn on Hoodit trade",
+    ]);
+    expect(actions("Polymarket")).toEqual([
+      "Open Polymarket details",
+      "Connect Polymarket",
+    ]);
+    expect(actions("Scheduling")).toEqual(["Open Scheduling details"]);
+    expect(rowOf("Scheduling").getByText("Not in this agent")).toBeTruthy();
+    expect(screen.queryByText("On", { selector: "article *" })).toBeNull();
+
+    // A row's action works without opening its details.
+    fireEvent.click(
+      rowOf("Hoodit trade").getByRole("button", { name: /^Turn on/ }),
+    );
     expect(
-      within(details("Aave")).queryByRole("button", { name: /Turn/ }),
-    ).toBeNull();
-    expect(
-      within(screen.getByLabelText("Open Aave details")).getByText("On"),
+      await rowOf("Hoodit trade").findByRole("button", {
+        name: /^Use in chat/,
+      }),
     ).toBeTruthy();
+    expect(details("Aave")).toBeTruthy();
+    expect(backend.writes()).toHaveLength(1);
+    fireEvent.click(
+      rowOf("Polymarket").getByRole("button", { name: /^Connect/ }),
+    );
     expect(
-      within(screen.getByLabelText("Open Hoodit trade details")).queryByText(
-        "On",
+      await screen.findByRole("dialog", { name: "Connect Polymarket" }),
+    ).toBeTruthy();
+  });
+
+  it("uses a package in the chat behind it: closes and asks that frame's composer for the tag", async () => {
+    installBackend([VERIFIED]);
+    const onClose = vi.fn();
+    const asked = vi.fn();
+    const listen = (event: Event) => asked((event as CustomEvent).detail);
+    window.addEventListener(CAPABILITY_MENTION_REQUEST_EVENT, listen);
+    let frame: unknown;
+    function Frame() {
+      frame = useAomiDisplayCache()?.client;
+      return <PackagesModal onClose={onClose} />;
+    }
+    render(<Frame />, { wrapper: AccountOverviewFixture });
+    await screen.findByLabelText("Open Jupiter details");
+    fireEvent.click(
+      rowOf("Jupiter").getByRole("button", { name: /^Use in chat/ }),
+    );
+    expect(onClose).toHaveBeenCalledOnce();
+    actOn("Jupiter", "Use in chat");
+    window.removeEventListener(CAPABILITY_MENTION_REQUEST_EVENT, listen);
+    expect(frame).toBeTruthy();
+    expect(asked.mock.calls).toEqual(
+      Array(2).fill([
+        { request: { kind: "package", id: "aomi/jupiter" }, frame },
+      ]),
+    );
+  });
+
+  it("removes a package added with a code, after a confirm", async () => {
+    const backend = installBackend([VERIFIED, PRIVATE_ON]);
+    await renderModal();
+    expect(
+      within(details("Secret Tool")).getByRole("button", { name: "Turn off" }),
+    ).toBeTruthy();
+    actOn("Secret Tool", "Remove");
+    const confirm = within(await screen.findByRole("alertdialog"));
+    expect(confirm.getByText("Remove Secret Tool?")).toBeTruthy();
+    expect(
+      confirm.getByText(
+        "It leaves your Library and your saved keys for it are deleted. You can add it again with its code.",
       ),
+    ).toBeTruthy();
+    fireEvent.click(confirm.getByRole("button", { name: "Cancel" }));
+    expect(backend.writes()).toEqual([]);
+
+    actOn("Secret Tool", "Remove");
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Remove",
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByLabelText("Open Secret Tool details")).toBeNull(),
+    );
+    expect(backend.writes()).toEqual([
+      { method: "DELETE", path: "/api/account/packages/9100", body: undefined },
+    ]);
+    expect(
+      within(details("Jupiter")).queryByRole("button", { name: "Remove" }),
     ).toBeNull();
+  });
+
+  it('offers a change in "@" at once, in the open chat and in the next one', async () => {
+    installBackend([
+      { ...VERIFIED, enabled: false, choice: false, reason: "chosen_off" },
+      PRIVATE_ON,
+    ]);
+    host.runtime = { currentThreadId: "new", isRemoteThread: () => false };
+    const offered = () => screen.getByTestId("offered").textContent;
+    function At() {
+      return (
+        <p data-testid="offered">
+          {usePackagePickerItems()
+            .map((item) => item.label)
+            .join(", ")}
+        </p>
+      );
+    }
+    const chat = () => (
+      <>
+        <At />
+        <PackagesModal onClose={() => undefined} />
+      </>
+    );
+    const view = render(chat(), { wrapper: AccountOverviewFixture });
+    await waitFor(() => expect(offered()).toBe("Secret Tool"));
+
+    // On with a new chat open.
+    actOn("Jupiter", "Turn on");
+    await waitFor(() => expect(offered()).toContain("Jupiter"));
+
+    // Off and removed in a saved chat: the new chat read its rows before that.
+    host.runtime = { currentThreadId: "saved", isRemoteThread: () => true };
+    view.rerender(chat());
+    await waitFor(() => expect(offered()).toContain("Jupiter"));
+    await footerAction("Jupiter", "Turn off");
+    actOn("Jupiter", "Turn off");
+    await waitFor(() => expect(offered()).toBe("Secret Tool"));
+    actOn("Secret Tool", "Remove");
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Remove",
+      }),
+    );
+    await waitFor(() => expect(offered()).toBe(""));
+    host.runtime = { currentThreadId: "new", isRemoteThread: () => false };
+    view.rerender(chat());
+    await waitFor(() => expect(offered()).toBe(""));
   });
 
   it("shows the notice once per device and again for a wider envelope", async () => {
     const backend = installBackend([NOT_VERIFIED]);
     await renderModal();
-    expect(
-      within(details("Hoodit trade")).getByText("Not in your chats"),
-    ).toBeTruthy();
-
     actOn("Hoodit trade", "Turn on");
     const notice = await screen.findByRole("alertdialog");
     expect(within(notice).getByText("Talks to: api.gmgn.ai")).toBeTruthy();
@@ -245,9 +431,6 @@ describe("packages modal", () => {
       }),
     );
     await footerAction("Hoodit trade", "Turn off");
-    expect(
-      within(details("Hoodit trade")).getByText("In your chats"),
-    ).toBeTruthy();
     expect(backend.writes()).toEqual([
       {
         method: "PUT",
@@ -336,7 +519,9 @@ describe("packages modal", () => {
     render(<PackagesModal onClose={onClose} />, {
       wrapper: AccountOverviewFixture,
     });
-    fireEvent.click(await screen.findByRole("button", { name: "Add custom" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Add with code" }),
+    );
     const sheet = await screen.findByRole("dialog", {
       name: "Add a private package",
     });
@@ -451,7 +636,7 @@ describe("packages modal", () => {
           { name: "quote", description: "Read a swap quote." },
           { name: "prepare", description: "Prepare a swap." },
         ],
-        guards: ["svm/jupiter"],
+        checked: { actions: ["route", "swap"], contracts: 2 },
         live: { release: 4, digest: "sha256:7c21deadbeef9a" },
         slots: [
           {
@@ -466,7 +651,8 @@ describe("packages modal", () => {
       {
         ...AGENT_LISTED,
         tool_count: 0,
-        envelope: { ...AGENT_LISTED.envelope, transactions: [], hosts: [] },
+        prepares: [],
+        envelope: { ...AGENT_LISTED.envelope, hosts: [] },
       },
     ]);
     await renderModal();
@@ -477,7 +663,8 @@ describe("packages modal", () => {
     ).toEqual(["Chains", "Wallet", "Instructions", "Tools2", "Connects to"]);
     expect(panel.getByText("Solana")).toBeTruthy();
     expect(panel.getByText("Prepares Solana transactions")).toBeTruthy();
-    expect(panel.getByText("svm/jupiter")).toBeTruthy();
+    expect(panel.getByText("Checked before you approve")).toBeTruthy();
+    expect(panel.getByText("Route and swap on 2 programs.")).toBeTruthy();
     expect(panel.getByText("api.jup.ag")).toBeTruthy();
     expect(panel.getByText("The publisher provides the API key.")).toBeTruthy();
     expect(panel.getByText(/Release 4/)).toHaveTextContent(
@@ -497,7 +684,7 @@ describe("packages modal", () => {
     expect(aave.queryByText("Connects to")).toBeNull();
   });
 
-  it("host_row_has_no_release_line", async () => {
+  it("host_row_has_no_release_line_and_claims_nothing_about_the_wallet", async () => {
     installBackend([
       {
         ...VERIFIED,
@@ -506,7 +693,6 @@ describe("packages modal", () => {
         live: { release: null, digest: "sha256:1a2b3c4d5e6f" },
         envelope: { hash: null, hosts: [], transactions: [], signatures: [] },
         slots: [],
-        guards: [],
       },
     ]);
     await renderModal();
@@ -514,6 +700,7 @@ describe("packages modal", () => {
     const panel = within(details("Scheduling"));
     expect(panel.queryByText(/Release/)).toBeNull();
     expect(panel.queryByText(/1a2b/)).toBeNull();
+    expect(panel.queryByText(/Never asks/)).toBeNull();
   });
 
   it("unavailable_host_row_has_no_turn_on", async () => {
@@ -598,8 +785,9 @@ describe("packages modal", () => {
         .getAllByRole("button")
         .map((item) => item.textContent),
     ).toEqual(["All packages2", "Verified1", "Not verified1"]);
-    expect(screen.queryByRole("button", { name: "Add custom" })).toBeNull();
-    expect(screen.queryByText("On")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add with code" })).toBeNull();
+    for (const row of screen.getAllByRole("article"))
+      expect(within(row).getAllByRole("button")).toHaveLength(1);
 
     const panel = within(details("Jupiter"));
     expect(panel.getByText("Instructions")).toBeTruthy();
@@ -616,18 +804,17 @@ describe("packages modal", () => {
     ]);
   });
 
-  it("adds a private package with a code and opens its detail", async () => {
-    const backend = installBackend([VERIFIED]);
+  it("adds a private package with a code and opens its detail, on", async () => {
+    const backend = installBackend([VERIFIED], PRIVATE_ON);
     await renderModal();
-    fireEvent.click(screen.getByRole("button", { name: "Add custom" }));
-    fireEvent.change(screen.getByLabelText("Activation code"), {
-      target: { value: "good-code" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    addWithCode("good-code");
     expect(
       await screen.findByRole("button", { name: "Open Secret Tool details" }),
     ).toBeTruthy();
-    expect(details("Secret Tool")).toBeTruthy();
+    const panel = within(details("Secret Tool"));
+    expect(panel.getByRole("status")).toHaveTextContent("Added and on");
+    expect(panel.getByRole("button", { name: "Use in chat" })).toBeTruthy();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(backend.writes()).toEqual([
       {
         method: "POST",
@@ -640,14 +827,44 @@ describe("packages modal", () => {
     expect(JSON.stringify({ ...sessionStorage })).not.toContain("good-code");
   });
 
+  it("asks about a not verified package it added, then turns it on", async () => {
+    const backend = installBackend([VERIFIED]);
+    await renderModal();
+    addWithCode("good-code");
+    const notice = within(await screen.findByRole("alertdialog"));
+    expect(notice.getByText("Turn on Secret Tool?")).toBeTruthy();
+    fireEvent.click(notice.getByRole("button", { name: "Turn on" }));
+    await footerAction("Secret Tool", "Use in chat");
+    expect(
+      within(details("Secret Tool")).getByRole("status"),
+    ).toHaveTextContent("Added and on");
+    expect(backend.writes().map((call) => call.path)).toEqual([
+      "/api/account/packages/activate",
+      "/api/account/packages/9100/choice",
+    ]);
+    // Off again: the note goes with it.
+    actOn("Secret Tool", "Turn off");
+    await footerAction("Secret Tool", "Turn on");
+    expect(within(details("Secret Tool")).queryByRole("status")).toBeNull();
+  });
+
+  it("asks for the key of a package it added", async () => {
+    installBackend([VERIFIED], { ...PRIVATE_ON, slots: NEEDS_KEY.slots });
+    await renderModal();
+    addWithCode("good-code");
+    await footerAction("Secret Tool", "Connect");
+    expect(
+      within(details("Secret Tool")).getByRole("status"),
+    ).toHaveTextContent("Added. Connect your key to use it.");
+    expect(
+      within(details("Secret Tool")).getByRole("button", { name: "Remove" }),
+    ).toBeTruthy();
+  });
+
   it("shows an invalid code in place", async () => {
     installBackend([VERIFIED]);
     await renderModal();
-    fireEvent.click(screen.getByRole("button", { name: "Add custom" }));
-    fireEvent.change(screen.getByLabelText("Activation code"), {
-      target: { value: "nope" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    addWithCode("nope");
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "That code isn’t valid",
     );
