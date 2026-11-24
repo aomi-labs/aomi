@@ -2620,8 +2620,16 @@ describe("Solana tool chips", () => {
         packages: { "aomi/swap": ["swap_quote"] },
       },
     });
-    expect(search.title).toBe("Search tools");
+    expect(search.title).toBe("Searching for a tool");
     expect(labelsFor(search.chips)).toContain("swap quote");
+    const empty = (already_loaded: string[]) =>
+      decode({
+        toolName: "tool_search",
+        argsText: '{"query":"flights"}',
+        result: { loaded: [], already_loaded, packages: {} },
+      });
+    expect(empty([]).title).toBe("No tool found");
+    expect(empty(["swap_quote"]).title).toBe("Searching for a tool");
   });
 
   it("totals the priced EVM holdings in USD as Solana does", () => {

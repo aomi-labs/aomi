@@ -84,7 +84,12 @@ export const matchWebFetch: ToolMatcher = ({
     : null;
 };
 
-/** A package tool search: its query, then the tools it loaded. */
+const names = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter((name): name is string => typeof name === "string")
+    : [];
+
+/** A package tool search: its query, then the tools it loaded, if any. */
 export const matchToolSearch: ToolMatcher = ({
   rawLabel,
   parsedArgs,
@@ -92,12 +97,9 @@ export const matchToolSearch: ToolMatcher = ({
 }) => {
   if (isErrorResult(resultRecord)) return null;
   const query = asString(asRecord(parsedArgs)?.query)?.trim();
-  const loaded = Array.isArray(resultRecord?.loaded)
-    ? resultRecord.loaded.filter(
-        (name): name is string => typeof name === "string",
-      )
-    : [];
-  return operation("tool.search", rawLabel, [
+  const loaded = names(resultRecord?.loaded);
+  const found = names(resultRecord?.already_loaded).length + loaded.length;
+  const search = operation("tool.search", rawLabel, [
     ...(query
       ? [{ kind: "query" as const, value: query, source: "args" as const }]
       : []),
@@ -107,4 +109,7 @@ export const matchToolSearch: ToolMatcher = ({
       source: "result" as const,
     })),
   ]);
+  return Array.isArray(resultRecord?.loaded) && found === 0
+    ? { ...search, title: "No tool found" }
+    : search;
 };

@@ -261,7 +261,7 @@ const descriptorById: Record<string, Descriptor> = {
   },
   "tool.search": {
     title: "fixed",
-    fixedTitle: "Search tools",
+    fixedTitle: "Searching for a tool",
     icon: SHAPE_ICONS.search,
     chipPlan: [{ kind: "query" }, { kind: "function", repeat: true }],
   },
