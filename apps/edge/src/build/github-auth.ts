@@ -113,14 +113,13 @@ async function startGitHubOAuth(
   ctx: BuildContext,
   continuation: GitHubOAuthContinuation,
 ): Promise<Response> {
+  // The environment's one-shot App (Manager's index 2); its secret stays in
+  // Manager, which exchanges the code. The id is public.
+  const clientId = ctx.config.githubClientId;
+  if (!clientId) return Response.json({ error: "Build GitHub sign-in is not configured" }, { status: 503 });
   const oauthState = randomHex(32);
   const authorize = new URL("https://github.com/login/oauth/authorize");
-  authorize.searchParams.set(
-    "client_id",
-    // The one-shot App OAuth client ids (app index 2). Their secrets stay in
-    // Manager's index-2 config; the ids are public.
-    ctx.production ? "Iv23li4wPpAfoGOJ6v0Q" : "Iv23lilgvJz13pJekLSZ",
-  );
+  authorize.searchParams.set("client_id", clientId);
   authorize.searchParams.set("redirect_uri", new URL(GITHUB_CALLBACK_PATH, ctx.buildOrigin).toString());
   authorize.searchParams.set("state", oauthState);
   const response = redirect(authorize);

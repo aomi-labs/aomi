@@ -147,6 +147,8 @@ this repository:
 - the hosts and policies `PORTAL_HOSTS`, `BUILD_HOSTS`, `LANDING_HOSTS`,
   `CORS_ALLOWED_HOST_PATTERNS`, `TASK_CORS_PUBLIC_ORIGINS`,
   `APP_CATALOG_PLATFORMS` and `BUILD_DEFAULT_PLATFORM`;
+- `BUILD_GITHUB_CLIENT_ID`, the environment's one-shot GitHub App client id,
+  required wherever `BUILD_HOSTS` is set;
 - the optional auth settings `PORTAL_TRUSTED_ORIGINS`,
   `AOMI_TRUSTED_ORIGINS` and `AOMI_AUTH_DOMAIN` (the SIWE domain, default the
   `BETTER_AUTH_URL` host);

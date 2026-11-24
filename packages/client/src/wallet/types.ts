@@ -86,6 +86,12 @@ export interface EvmWallet {
 
 export interface SvmWallet {
   address: string;
+  /**
+   * The wallet signs Solana v1 transactions (SIMD-0385). The session reports
+   * it as `can_sign_v1_transaction`, and the backend then builds v1 where the
+   * app names no version. Leave it unset unless the wallet really signs v1.
+   */
+  canSignV1Transaction?: boolean;
   broadcastTransaction?: (
     signedTransaction: string,
     cluster: string,

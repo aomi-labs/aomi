@@ -189,6 +189,95 @@ describe("buildSvmTransactionMethods", () => {
     );
     expect(confirmTransaction).toHaveBeenCalledWith("signature", "confirmed");
   });
+
+  describe("v1 transactions", () => {
+    // A v1 transaction opens with its 0x81 version prefix; web3.js 1.x
+    // cannot decode it, so these bytes only need the prefix to route.
+    const v1Unsigned = Uint8Array.from([0x81, 1, 2, 3]);
+    const v1Signed = Uint8Array.from([0x81, 9, 9, 9]);
+    const v1Base64 = Buffer.from(v1Unsigned).toString("base64");
+
+    it("signs v1 bytes through the raw signer, never through web3.js", async () => {
+      const signTransaction = vi.fn();
+      const signV1Transactions = vi.fn(async (txs: readonly Uint8Array[]) =>
+        txs.map(() => v1Signed),
+      );
+      const execution = buildSvmTransactionMethods(
+        wallet({ signTransaction, signV1Transactions }),
+        { preferDirectSend: false, rpcHttpUrl: "https://solana.example" },
+      );
+
+      const { signedTx } = await execution.signSolanaTransaction!({
+        unsignedTx: v1Base64,
+      });
+
+      expect(signV1Transactions).toHaveBeenCalledWith([v1Unsigned]);
+      expect(signTransaction).not.toHaveBeenCalled();
+      expect(signedTx).toBe(Buffer.from(v1Signed).toString("base64"));
+    });
+
+    it("refuses v1 bytes when the wallet did not list version 1", async () => {
+      const signTransaction = vi.fn();
+      const execution = buildSvmTransactionMethods(
+        wallet({ signTransaction }),
+        { preferDirectSend: false, rpcHttpUrl: "https://solana.example" },
+      );
+
+      await expect(
+        execution.signSolanaTransaction!({ unsignedTx: v1Base64 }),
+      ).rejects.toThrow("cannot sign v1");
+      expect(signTransaction).not.toHaveBeenCalled();
+    });
+
+    it("signs a batch holding v1 in one raw prompt", async () => {
+      const signAllTransactions = vi.fn();
+      const signV1Transactions = vi.fn(async (txs: readonly Uint8Array[]) =>
+        txs.map(() => v1Signed),
+      );
+      const execution = buildSvmTransactionMethods(
+        wallet({ signAllTransactions, signV1Transactions }),
+        { preferDirectSend: false, rpcHttpUrl: "https://solana.example" },
+      );
+
+      const signed = await execution.signAllSolanaTransactions!([
+        { unsignedTx: v1Base64 },
+        { unsignedTx: v1Base64 },
+      ]);
+
+      expect(signV1Transactions).toHaveBeenCalledOnce();
+      expect(signAllTransactions).not.toHaveBeenCalled();
+      expect(signed).toHaveLength(2);
+    });
+
+    it("sends signed v1 bytes raw and confirms the signature", async () => {
+      const sendTransaction = vi.fn();
+      const signV1Transactions = vi.fn(async (txs: readonly Uint8Array[]) =>
+        txs.map(() => v1Signed),
+      );
+      const sendRawTransaction = vi
+        .spyOn(Connection.prototype, "sendRawTransaction")
+        .mockResolvedValue("v1-signature");
+      const confirmTransaction = vi
+        .spyOn(Connection.prototype, "confirmTransaction")
+        .mockResolvedValue({ context: { slot: 1 }, value: { err: null } });
+      const execution = buildSvmTransactionMethods(
+        wallet({ sendTransaction, signV1Transactions }),
+        { preferDirectSend: true, rpcHttpUrl: "https://solana.example" },
+      );
+
+      const result = await execution.signAndSendSolanaTransaction!({
+        unsignedTx: v1Base64,
+      });
+
+      expect(sendTransaction).not.toHaveBeenCalled();
+      expect(sendRawTransaction).toHaveBeenCalledWith(v1Signed);
+      expect(confirmTransaction).toHaveBeenCalledWith(
+        "v1-signature",
+        "confirmed",
+      );
+      expect(result.signature).toBe("v1-signature");
+    });
+  });
 });
 
 describe("sendSolana", () => {

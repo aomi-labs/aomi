@@ -96,6 +96,12 @@ export interface EdgeEnv {
   BUILD_RUNNER?: { fetch(request: Request): Promise<Response> };
   BUILD_PAGES?: { fetch(request: Request): Promise<Response> };
   BUILD_HOSTS?: string;
+  /**
+   * Public OAuth client id of this environment's one-shot GitHub App (Manager's
+   * index 2), which Build's GitHub sign-in sends users to. Manager exchanges the
+   * code with the same App's secret, so the two must name one App.
+   */
+  BUILD_GITHUB_CLIENT_ID?: string;
   /** Where the Vercel Build app is reached from the edge (its *.vercel.app alias). */
   BUILD_UPSTREAM_ORIGIN?: string;
   /**

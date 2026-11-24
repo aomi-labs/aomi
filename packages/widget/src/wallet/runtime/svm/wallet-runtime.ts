@@ -59,6 +59,15 @@ export type SafeSvmWalletState = {
         connection: SolanaConnection,
       ) => Promise<string>)
     | undefined;
+  /**
+   * Signs transaction wire bytes without decoding them, through the wallet's
+   * Wallet Standard `solana:signTransaction` feature. Set only when that
+   * feature lists version 1, because web3.js 1.x cannot decode a v1
+   * transaction and the adapter's `signTransaction` would reject it.
+   */
+  signV1Transactions?: (
+    transactions: readonly Uint8Array[],
+  ) => Promise<Uint8Array[]>;
 };
 
 const DISCONNECTED_SVM_WALLET: SafeSvmWalletState = {
@@ -106,13 +115,71 @@ function isMissingSvmProviderContext(
   return Boolean(Object.getOwnPropertyDescriptor(wallet, "publicKey")?.get);
 }
 
+/** The slice of a Wallet Standard wallet the v1 signer reads. */
+type StandardSolanaWallet = {
+  accounts: readonly { address: string; features: readonly string[] }[];
+  features: Record<string, unknown>;
+};
+
+type StandardSignTransactionFeature = {
+  supportedTransactionVersions?: readonly (string | number)[];
+  signTransaction: (
+    ...inputs: { account: unknown; transaction: Uint8Array }[]
+  ) => Promise<readonly { signedTransaction: Uint8Array }[]>;
+};
+
+const SOLANA_SIGN_TRANSACTION = "solana:signTransaction";
+
+/**
+ * A raw v1 signer for the connected account, when its Wallet Standard
+ * wallet's `solana:signTransaction` feature lists version 1 in
+ * `supportedTransactionVersions`. Any other wallet (a legacy adapter, an
+ * embedded provider, a wallet that lists only legacy and 0) gets none, so
+ * the backend never builds a v1 transaction for it.
+ */
+export function standardV1Signer(
+  adapter: unknown,
+  address: string | undefined,
+): SafeSvmWalletState["signV1Transactions"] {
+  if (!address || !adapter || typeof adapter !== "object") return undefined;
+  const wallet = (adapter as { wallet?: StandardSolanaWallet }).wallet;
+  if (!(adapter as { standard?: boolean }).standard || !wallet) {
+    return undefined;
+  }
+  const feature = wallet.features?.[SOLANA_SIGN_TRANSACTION] as
+    | StandardSignTransactionFeature
+    | undefined;
+  if (
+    typeof feature?.signTransaction !== "function" ||
+    !feature.supportedTransactionVersions?.includes(1)
+  ) {
+    return undefined;
+  }
+  const account = wallet.accounts?.find(
+    (candidate) =>
+      candidate.address === address &&
+      candidate.features.includes(SOLANA_SIGN_TRANSACTION),
+  );
+  if (!account) return undefined;
+  return async (transactions) => {
+    const outputs = await feature.signTransaction(
+      ...transactions.map((transaction) => ({ account, transaction })),
+    );
+    if (outputs.length !== transactions.length) {
+      throw new Error("The wallet did not sign every transaction.");
+    }
+    return outputs.map((output) => output.signedTransaction);
+  };
+}
+
 export function useSafeSvmWallet(): SafeSvmWalletState {
   const context = useSolanaWallet();
   if (isMissingSvmProviderContext(context)) {
     return DISCONNECTED_SVM_WALLET;
   }
+  const publicKey = context.publicKey?.toBase58();
   return {
-    publicKey: context.publicKey?.toBase58(),
+    publicKey,
     connected: context.connected,
     connecting: context.connecting,
     disconnecting: context.disconnecting,
@@ -125,6 +192,7 @@ export function useSafeSvmWallet(): SafeSvmWalletState {
     signAllTransactions: context.signAllTransactions,
     signMessage: context.signMessage,
     sendTransaction: context.sendTransaction,
+    signV1Transactions: standardV1Signer(context.wallet?.adapter, publicKey),
   };
 }
 
@@ -325,6 +393,7 @@ export function getSvmCapabilitySnapshot(
     canSignAllTransactions: Boolean(wallet.signAllTransactions),
     canSendTransaction: Boolean(wallet.sendTransaction),
     canSignAndSendTransaction: Boolean(wallet.sendTransaction),
+    canSignV1Transaction: Boolean(wallet.signV1Transactions),
   };
 }
 

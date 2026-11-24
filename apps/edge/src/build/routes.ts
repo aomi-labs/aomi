@@ -101,5 +101,26 @@ export async function handleBuildRequest(request: Request, ctx: BuildContext): P
     return run(route.operation, withKey && !route.keys ? refuseKey : route.handle, request, ctx);
   }
   if (withKey) return run("pass_through", refuseKey, request, ctx);
+  const canonical = legacyPageRedirect(request, ctx);
+  if (canonical) return canonical;
   return passThrough(request, ctx);
+}
+
+/**
+ * The first BUILD_HOSTS entry is the canonical Build host. A page on any other
+ * listed host (production's old build.aomi.dev) answers 308 there, so pages
+ * and GitHub sign-in live on one origin. Its /api/ and /v1/ paths keep being
+ * served in place: an API client following a cross-origin redirect would drop
+ * its Authorization header.
+ */
+function legacyPageRedirect(request: Request, ctx: BuildContext): Response | null {
+  const url = new URL(request.url);
+  const [canonical] = ctx.config.hosts;
+  if (!canonical || url.host.toLowerCase() === canonical) return null;
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+  if (/^\/(?:api|v1)(?:\/|$)/.test(url.pathname)) return null;
+  return new Response(null, {
+    status: 308,
+    headers: { "cache-control": "no-store", location: `https://${canonical}${url.pathname}${url.search}` },
+  });
 }

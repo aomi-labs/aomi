@@ -28,6 +28,7 @@ const DEV_PUBLIC_KEY = [
 
 const env: EdgeEnv = {
   BUILD_HOSTS: "build.example",
+  BUILD_GITHUB_CLIENT_ID: "Iv23staging",
   BUILD_UPSTREAM_ORIGIN: UPSTREAM,
   BUILD_SESSION_SECRET: SECRET,
   BACKEND_ORIGINS: BACKEND,
@@ -119,12 +120,12 @@ beforeEach(() => {
 });
 
 describe("build surface: GitHub sign-in", () => {
-  it("starts OAuth at GitHub with the staging app and a signed request cookie", async () => {
+  it("starts OAuth at GitHub with the environment's app and a signed request cookie", async () => {
     const response = await build("/api/build/auth/github/login?resume=template&platform=web");
     expect(response.status).toBe(302);
     const location = new URL(response.headers.get("location")!);
     expect(location.origin + location.pathname).toBe("https://github.com/login/oauth/authorize");
-    expect(location.searchParams.get("client_id")).toBe("Iv23lilgvJz13pJekLSZ");
+    expect(location.searchParams.get("client_id")).toBe("Iv23staging");
     expect(location.searchParams.get("redirect_uri")).toBe(`${BUILD}/api/build/auth/github/callback`);
     const cookie = cookiesOf(response).aomi_github_oauth_request;
     expect(cookie.raw).toMatch(/HttpOnly; SameSite=Lax; Max-Age=600; Secure/);
@@ -144,11 +145,17 @@ describe("build surface: GitHub sign-in", () => {
     expect(wrong.headers.get("allow")).toBe("GET");
   });
 
+  it("refuses to start sign-in without the environment's client id", async () => {
+    const unset: EdgeEnv = { ...env, BUILD_GITHUB_CLIENT_ID: " " };
+    const response = await handleRequest(new Request(`${BUILD}/api/build/auth/github/login`), unset, world);
+    expect(response.status).toBe(503);
+  });
+
   it.each([
-    { topology: "default", expected: "Iv23lilgvJz13pJekLSZ" },
-    { topology: "production", expected: "Iv23li4wPpAfoGOJ6v0Q" },
-  ] as const)("selects the committed OAuth client for $topology", async ({ topology, expected }) => {
-    const deployment: EdgeEnv = { ...env, EDGE_TOPOLOGY: topology };
+    { topology: "rc", expected: "Iv23rc" },
+    { topology: "production", expected: "Iv23production" },
+  ] as const)("uses the configured OAuth client on $topology", async ({ topology, expected }) => {
+    const deployment: EdgeEnv = { ...env, EDGE_TOPOLOGY: topology, BUILD_GITHUB_CLIENT_ID: expected };
     const login = await handleRequest(new Request(`${BUILD}/api/build/auth/github/login`), deployment, world);
     const authorize = new URL(login.headers.get("location")!);
     expect(authorize.searchParams.get("client_id")).toBe(expected);
@@ -432,5 +439,29 @@ describe("build surface: install start and passthrough", () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "build_unconfigured" });
     expect(seen).toEqual([]);
+  });
+});
+
+describe("build surface: legacy host", () => {
+  const legacy = { ...env, BUILD_HOSTS: "build.example,old-build.example" };
+
+  it("redirects pages on a non-canonical Build host to the canonical one", async () => {
+    const response = await handleRequest(new Request("https://old-build.example/deployments?tab=1"), legacy, world);
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe("https://build.example/deployments?tab=1");
+    expect(seen).toHaveLength(0);
+  });
+
+  it("keeps serving API paths and non-GET requests on the old host", async () => {
+    await handleRequest(new Request("https://old-build.example/api/integrations/x"), legacy, world);
+    await handleRequest(new Request("https://old-build.example/v1/thing"), legacy, world);
+    await handleRequest(new Request("https://old-build.example/form", { method: "POST", body: "x" }), legacy, world);
+    expect(seen.map((s) => new URL(s.url).pathname)).toEqual(["/api/integrations/x", "/v1/thing", "/form"]);
+  });
+
+  it("serves pages in place on the canonical host", async () => {
+    const response = await handleRequest(new Request("https://build.example/deployments"), legacy, world);
+    expect(response.status).not.toBe(308);
+    expect(seen).toHaveLength(1);
   });
 });

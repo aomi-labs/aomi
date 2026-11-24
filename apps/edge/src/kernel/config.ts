@@ -30,6 +30,8 @@ export type Config = {
   build: {
     hosts: ReadonlySet<string>;
     upstream: string | null;
+    /** The environment's one-shot GitHub App client id; sign-in is off without it. */
+    githubClientId: string | null;
     /** Fallback when a request does not name a platform. */
     defaultPlatform: string;
   };
@@ -120,6 +122,7 @@ export function config(env: EdgeEnv): Config {
     build: {
       hosts: hosts(env.BUILD_HOSTS),
       upstream: origin(env.BUILD_UPSTREAM_ORIGIN),
+      githubClientId: env.BUILD_GITHUB_CLIENT_ID?.trim() || null,
       defaultPlatform: env.BUILD_DEFAULT_PLATFORM?.trim() || "web",
     },
   };

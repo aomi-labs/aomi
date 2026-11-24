@@ -19,13 +19,6 @@ export default defineConfig({
   projects: [
     { name: "preview", testMatch: /preview-smoke\.spec\.ts/ },
     {
-      name: "hosted-wallet",
-      testMatch: /hosted-wallet-journeys\.spec\.ts/,
-      retries: 0,
-      workers: 1,
-      use: { trace: "off", screenshot: "off", video: "off" },
-    },
-    {
       // Started by scripts/test-browser-contracts.mjs.
       name: "browser-contracts",
       testMatch:
