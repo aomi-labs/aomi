@@ -703,6 +703,15 @@ answer({});
       .split("\n")
       .map((line) => JSON.parse(line) as string[]);
 
+  /** A tool's schema as the Pipeline serves it: every key is required. */
+  const wants = (keys: Record<string, string | string[]>) => ({
+    type: "object",
+    properties: Object.fromEntries(
+      Object.entries(keys).map(([key, type]) => [key, { type }]),
+    ),
+    required: Object.keys(keys),
+  });
+
   it("contracts add looks an address up in Aomi's registry and hands the answer to aomi-build-core", async () => {
     mkdirSync(STATE, { recursive: true });
     writeFileSync(
@@ -724,7 +733,19 @@ answer({});
     };
     answers[`GET ${operation}`] = Response.json({
       name: "evm_get_contract",
-      inputSchema: { type: "object" },
+      inputSchema: wants({
+        address: "string",
+        chain_id: "number",
+        mode: "string",
+        auto_resolve_proxy: "boolean",
+        function: "string",
+        symbol: "string",
+        name: "string",
+        protocol: "string",
+        contract_type: "string",
+        version: "string",
+        topic: "string",
+      }),
     });
     answers[`POST ${operation}`] = Response.json({ result: found });
 
@@ -747,11 +768,9 @@ answer({});
     expect(stderr).toBe("");
     expect(code).toBe(0);
     expect(sent.at(-1)!.auth).toBe("Bearer guest-token");
-    expect(JSON.parse(new TextDecoder().decode(sent.at(-1)!.body))).toEqual({
-      address: "0xa0b8",
-      chain_id: 1,
-      mode: "abi",
-    });
+    expect(
+      JSON.parse(new TextDecoder().decode(sent.at(-1)!.body)),
+    ).toMatchObject({ address: "0xa0b8", chain_id: 1, mode: "abi" });
     expect(JSON.parse(readFileSync(join(root, "lookup.json"), "utf8"))).toEqual(
       found,
     );
@@ -762,6 +781,39 @@ answer({});
       "--package",
       join(root, "packages/price"),
     ]);
+  });
+
+  it("contracts add looks a Solana program up", async () => {
+    mkdirSync(STATE, { recursive: true });
+    writeFileSync(
+      join(STATE, "cli.json"),
+      JSON.stringify({ guest: { baseUrl: CHAT, token: "guest-token" } }),
+    );
+    process.env.AOMI_BACKEND_URL = CHAT;
+    const operation = "/v1/pipeline/operations/svm_get_program";
+    answers[`GET ${operation}`] = Response.json({
+      name: "svm_get_program",
+      inputSchema: wants({
+        program_id: ["string", "null"],
+        name: ["string", "null"],
+        framework: ["string", "null"],
+        mode: "string",
+        instruction: ["string", "null"],
+        topic: "string",
+      }),
+    });
+    answers[`POST ${operation}`] = Response.json({ result: { programs: [] } });
+    const { code, stderr } = await cli(
+      "build",
+      "contracts",
+      "add",
+      "jup",
+      "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+      "--package",
+      join(root, "packages/price"),
+    );
+    expect(stderr).toBe("");
+    expect(code).toBe(0);
   });
 
   it("pack writes each package's checked bundle to --out, and names an unknown package", async () => {

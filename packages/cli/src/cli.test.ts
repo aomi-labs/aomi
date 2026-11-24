@@ -13,6 +13,7 @@ const dir = vi.hoisted(() => {
 });
 
 import { main, rootHelp } from "./app";
+import { signsWith } from "./commands/wallets";
 
 const BASE = "https://chat.example";
 const at = Date.parse("2026-10-28T00:00:00Z");
@@ -664,6 +665,15 @@ describe("aomi tx", () => {
       false,
     );
   });
+});
+
+it("names a wallet signed in by message, not its protocol", () => {
+  expect(
+    signsWith({ kind: "connected", label: "w", provider: "siwe" } as never),
+  ).toBe("you sign in your wallet");
+  expect(
+    signsWith({ kind: "connected", label: "w", provider: "para" } as never),
+  ).toBe("you sign in Para");
 });
 
 describe("aomi library", () => {

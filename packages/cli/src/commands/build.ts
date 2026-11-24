@@ -318,9 +318,28 @@ export async function addContract(
     result: unknown;
   }>(
     evm ? "evm_get_contract" : "svm_get_program",
+    // Both schemas want every key: the EVM one takes "" for "any", the
+    // Solana one null.
     evm
-      ? { address, chain_id: flags.chain, mode: "abi" }
-      : { program_id: address, mode: "idl" },
+      ? {
+          address,
+          chain_id: flags.chain,
+          mode: "abi",
+          auto_resolve_proxy: true,
+          function: "",
+          symbol: "",
+          name: "",
+          protocol: "",
+          contract_type: "",
+          version: "",
+        }
+      : {
+          program_id: address,
+          mode: "idl",
+          name: null,
+          framework: null,
+          instruction: null,
+        },
   );
   const dir = mkdtempSync(join(tmpdir(), "aomi-lookup-"));
   try {

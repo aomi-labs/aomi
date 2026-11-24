@@ -22,6 +22,9 @@ function table(rows: string[][]): string[] {
 /** How a wallet signs what the agent prepares, in a few words. */
 export function signsWith(wallet: AomiAccountWallet): string {
   if (wallet.kind !== "agent") {
+    // A wallet that signed in by message has only its protocol's name.
+    if (!wallet.browser_app && /^siw[es]$/.test(wallet.provider ?? ""))
+      return "you sign in your wallet";
     const app = wallet.browser_app ?? wallet.provider ?? wallet.label;
     return `you sign in ${app.charAt(0).toUpperCase()}${app.slice(1)}`;
   }
