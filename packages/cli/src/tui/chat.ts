@@ -379,21 +379,29 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       return undefined;
     const { commit, view } = card;
     const approves = view.state === "awaiting_approval";
-    if (key === "a" && approves) void decide(commit, view, "approve");
-    else if (key === "r") void decide(commit, view, "reject");
-    // `s` also starts a message, so a signature takes a second, explicit key.
-    else if (key === "s" && !approves && commit.canSign())
+    const action =
+      key === "r"
+        ? "reject"
+        : key === "a" && approves
+          ? "approve"
+          : key === "s" && !approves && commit.canSign()
+            ? "sign"
+            : undefined;
+    // These keys also start a message, so a decision takes a second, explicit key.
+    if (action)
       pick(
         [
           { value: "no", label: "Cancel" },
           {
             value: "yes",
-            label: "Sign",
+            label: { approve: "Approve", sign: "Sign", reject: "Reject" }[
+              action
+            ],
             description: `${reviewSummary(commit.review)} with ${short(view.signer)}`,
           },
         ],
         "no",
-        (answer) => void (answer === "yes" && decide(commit, view, "sign")),
+        (answer) => void (answer === "yes" && decide(commit, view, action)),
       );
     else if (key === "o" && commit.signUrl) {
       openUrl(commit.signUrl);

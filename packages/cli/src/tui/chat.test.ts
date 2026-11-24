@@ -304,6 +304,32 @@ describe("a commit that needs your signature", () => {
     await close();
   });
 
+  it.each([
+    ["a", "awaiting_approval", "Approve"],
+    ["r", "needs_signature", "Reject"],
+  ])(
+    "%s decides nothing without an explicit yes",
+    async (key, state, label) => {
+      const { commit, drawn, close } = await open();
+      const approve = vi.fn(async () => commit.view);
+      const reject = vi.fn(async () => commit.view);
+      Object.assign(commit, { approve, reject });
+      commit.view = { ...commit.view, state };
+      drawn();
+      screen.input!(key);
+      expect(screen.list!.items[0]).toEqual({ value: "no", label: "Cancel" });
+      expect(screen.list!.items[1]).toMatchObject({ label });
+      screen.list!.onSelect({ value: "no" });
+      expect(approve).not.toHaveBeenCalled();
+      expect(reject).not.toHaveBeenCalled();
+      screen.input!(key);
+      screen.list!.onSelect({ value: "yes" });
+      const called = key === "a" ? approve : reject;
+      await vi.waitFor(() => expect(called).toHaveBeenCalledTimes(1));
+      await close();
+    },
+  );
+
   it("shows a commit that changed again instead of signing it", async () => {
     const { commit, drawn, close } = await open(
       vi.fn(async () => {
