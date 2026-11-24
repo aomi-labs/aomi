@@ -858,7 +858,7 @@ describe("discarded staged transactions", () => {
           : ({
               ...meta(4, "turn-2"),
               type,
-              tool_call_id: "discard-1",
+              id: "discard-1",
               tool_name: "evm_discard_tx",
               result,
             } as Event);

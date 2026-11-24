@@ -1247,7 +1247,8 @@ describe("aomi policy", () => {
         1,
         "No provider metamask on this wallet: swig",
       ],
-    ])("refuses %s", async (_, argv, { wallets, ...held }, exit, error) => {
+    ])("refuses %s", async (_, argv, state, exit, error) => {
+      const { wallets, ...held } = state as { wallets?: object[] };
       if (wallets) routes[owns] = { wallets };
       routes[paths.rules] = { ...(routes[paths.rules] as object), ...held };
       const { code, stderr } = await run(...argv, "--yes");

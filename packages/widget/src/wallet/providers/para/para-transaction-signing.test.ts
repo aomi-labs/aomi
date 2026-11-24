@@ -104,7 +104,9 @@ describe("Para commit transaction signing", () => {
       expect(fields.slice(9)).toEqual(["0x", "0x", "0x"]);
       const parsed = parseTransaction(signed);
       // viem omits zero-valued value when parsing its empty RLP integer.
-      expect({ ...parsed, value: parsed.value ?? 0n }).toMatchObject(prepared);
+      expect({ ...parsed, value: parsed.value ?? BigInt(0) }).toMatchObject(
+        prepared,
+      );
       await expect(
         recoverTransactionAddress({
           serializedTransaction: signed as `0x02${string}`,
