@@ -101,7 +101,7 @@ beforeEach(() => {
   );
   writeFileSync(
     join(bin, "gh"),
-    '#!/bin/sh\nprintf "%s\\n" "$@" >> "$GH_CALL_LOG"\nprintf "%s\\n" "${GH_MOCK_RUN_ID-123}"\n',
+    '#!/bin/sh\nprintf "%s\\n" "$@" >> "$GH_CALL_LOG"\ncase "$*" in\n  */jobs\\?*) printf "%s\\n" "${GH_MOCK_WIDGET_JOB_ID-456}" ;;\n  *) printf "%s\\n" "${GH_MOCK_RUN_ID-123}" ;;\nesac\n',
   );
   for (const name of ["git", "gh"]) chmodSync(join(bin, name), 0o755);
   mkdirSync(join(directory, "scripts"));
@@ -173,9 +173,12 @@ describe("immutable package publication policy", () => {
       ...publicPackages.map((name) => `packages/${name}`),
       "verified-cli-install",
     ]);
-    expect(readFileSync(environment.GH_CALL_LOG, "utf8")).toContain(
-      `widget-package-contracts.yml/runs?branch=main&head_sha=${candidate}`,
+    const calls = readFileSync(environment.GH_CALL_LOG, "utf8");
+    expect(calls).toContain(
+      `ci.yml/runs?branch=main&event=push&head_sha=${candidate}`,
     );
+    expect(calls).toContain("actions/runs/123/jobs?filter=latest");
+    expect(calls).toContain('.conclusion == "success"');
   });
 
   it("publishes the Account dependency before Account in the token workflow", () => {
@@ -239,6 +242,9 @@ describe("immutable package publication policy", () => {
 
   it("rejects missing tag contracts, mismatched checkout SHA and modified tracked content", () => {
     expect(publish({ GH_MOCK_RUN_ID: "" }).stderr).toContain(
+      "same-SHA main CI",
+    );
+    expect(publish({ GH_MOCK_WIDGET_JOB_ID: "" }).stderr).toContain(
       "same-SHA widget package contracts",
     );
     expect(publish({ GITHUB_SHA: "0".repeat(40) }).stderr).toContain(
