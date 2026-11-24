@@ -328,9 +328,7 @@ export class AccountPolicyTransport {
         signal?: AbortSignal;
     }): Promise<AomiPolicyChange>;
     prepareEnforcement(agentWalletId: string, provider: string, request: AomiPolicyEnforceRequest): Promise<AomiPolicyAction | null>;
-    revise(agentWalletId: string, build: (held: AomiWalletPolicies) => AomiPolicyChangeRequest): Promise<AomiPolicyChangeResult & {
-        before: AomiWalletPolicies;
-    }>;
+    revise(agentWalletId: string, build: (held: AomiWalletPolicies) => AomiPolicyChangeRequest): Promise<AomiPolicyChangeResult>;
 }
 
 // @public (undocumented)
@@ -1789,7 +1787,7 @@ export type AomiPolicyOnChain =
     kind: "not_deployed";
     entry: AomiPolicyEnforcement;
 }
-/** The chain holds an earlier version. */
+/** The chain holds an earlier version, or one its owner must still act on. */
 | {
     kind: "out_of_date";
     entry: AomiPolicyEnforcement;
@@ -1837,6 +1835,7 @@ export type AomiPolicySet = {
 // @public
 export type AomiPolicySigner = {
     evmAddress?: string;
+    solanaAddress?: string;
     signTypedData?: (request: {
         typedData: AomiSignableTypedData;
         signer: string;
