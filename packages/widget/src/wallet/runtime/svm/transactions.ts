@@ -30,14 +30,6 @@ function encodeBase64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
-/**
- * A v1 transaction (SIMD-0385) opens with its version prefix, 0x81. Legacy
- * and v0 transactions open with their signature count, which is below 0x80.
- */
-export function isV1TransactionBytes(bytes: Uint8Array): boolean {
-  return bytes[0] === 0x81;
-}
-
 function deserializeSolanaTransaction(
   bytes: Uint8Array,
 ): VersionedTransaction | SolanaTransaction {
@@ -55,6 +47,28 @@ function serializeSigned(signed: VersionedTransaction | SolanaTransaction) {
       ? signed.serialize()
       : signed.serialize({ requireAllSignatures: false }),
   );
+}
+
+// A v1 transaction opens with its version byte; legacy and v0 open with a
+// signature count below 0x80. web3.js 1.x cannot decode v1.
+const V1_PREFIX = 0x81;
+
+async function signV1(wallet: SafeSvmWalletState, txs: Uint8Array[]) {
+  if (!wallet.signV1Transactions) {
+    throw new Error("The connected Solana wallet cannot sign v1 transactions.");
+  }
+  return wallet.signV1Transactions(txs);
+}
+
+async function sendV1(
+  wallet: SafeSvmWalletState,
+  connection: SolanaConnection,
+  bytes: Uint8Array,
+) {
+  const [signed] = await signV1(wallet, [bytes]);
+  const signature = await connection.sendRawTransaction(signed);
+  await confirmSubmittedTransaction(connection, signature);
+  return { signature };
 }
 
 async function confirmSubmittedTransaction(
@@ -102,67 +116,40 @@ export function buildSvmTransactionMethods(
   const signAllTransactions = wallet.signAllTransactions;
   const signMessage = wallet.signMessage;
   const sendTransaction = wallet.sendTransaction;
-  const signV1Transactions = wallet.signV1Transactions;
-
-  // web3.js 1.x cannot decode v1, so a v1 transaction goes to the wallet as
-  // bytes. Only a wallet that listed version 1 gets a v1 transaction.
-  const signV1 = async (all: Uint8Array[]): Promise<Uint8Array[]> => {
-    if (!signV1Transactions) {
-      throw new Error(
-        "The connected Solana wallet cannot sign v1 transactions.",
-      );
-    }
-    return signV1Transactions(all);
-  };
-  const sendV1 = async (bytes: Uint8Array) => {
-    const [signed] = await signV1([bytes]);
-    const connection = new SolanaConnection(config.rpcHttpUrl, "confirmed");
-    const signature = await connection.sendRawTransaction(signed);
-    await confirmSubmittedTransaction(connection, signature);
-    return { signature, signedTx: encodeBase64(signed) };
-  };
-  const unsignedBytes = (payload: WalletSolanaSignPayload) => {
-    if (!payload.unsignedTx) {
-      throw new Error("Missing unsigned_tx payload");
-    }
-    return decodeBase64(payload.unsignedTx);
-  };
 
   return {
-    signSolanaTransaction:
-      signTransaction || signV1Transactions
-        ? async (payload: WalletSolanaSignPayload) => {
-            const bytes = unsignedBytes(payload);
-            if (isV1TransactionBytes(bytes)) {
-              const [signed] = await signV1([bytes]);
-              return { signedTx: encodeBase64(signed) };
-            }
-            if (!signTransaction) {
-              throw new Error("The connected Solana wallet cannot sign.");
-            }
-            const tx = deserializeSolanaTransaction(bytes);
-            return { signedTx: serializeSigned(await signTransaction(tx)) };
+    signSolanaTransaction: signTransaction
+      ? async (payload: WalletSolanaSignPayload) => {
+          if (!payload.unsignedTx) {
+            throw new Error("Missing unsigned_tx payload");
           }
-        : undefined,
-    signAllSolanaTransactions:
-      signAllTransactions || signV1Transactions
-        ? async (payloads: WalletSolanaSignPayload[]) => {
-            const all = payloads.map(unsignedBytes);
-            if (all.some(isV1TransactionBytes)) {
-              // The Wallet Standard feature signs bytes of any version in one
-              // prompt, so a mixed batch stays one prompt too.
-              const signed = await signV1(all);
-              return signed.map((bytes) => ({ signedTx: encodeBase64(bytes) }));
-            }
-            if (!signAllTransactions) {
-              throw new Error("The connected Solana wallet cannot sign.");
-            }
-            const signed = await signAllTransactions(
-              all.map(deserializeSolanaTransaction),
-            );
-            return signed.map((tx) => ({ signedTx: serializeSigned(tx) }));
+          const bytes = decodeBase64(payload.unsignedTx);
+          if (bytes[0] === V1_PREFIX) {
+            const [signed] = await signV1(wallet, [bytes]);
+            return { signedTx: encodeBase64(signed) };
           }
-        : undefined,
+          const tx = deserializeSolanaTransaction(bytes);
+          return { signedTx: serializeSigned(await signTransaction(tx)) };
+        }
+      : undefined,
+    signAllSolanaTransactions: signAllTransactions
+      ? async (payloads: WalletSolanaSignPayload[]) => {
+          const all = payloads.map((payload) => {
+            if (!payload.unsignedTx) {
+              throw new Error("Missing unsigned_tx payload");
+            }
+            return decodeBase64(payload.unsignedTx);
+          });
+          if (all.some((bytes) => bytes[0] === V1_PREFIX)) {
+            const signed = await signV1(wallet, all);
+            return signed.map((bytes) => ({ signedTx: encodeBase64(bytes) }));
+          }
+          const signed = await signAllTransactions(
+            all.map(deserializeSolanaTransaction),
+          );
+          return signed.map((tx) => ({ signedTx: serializeSigned(tx) }));
+        }
+      : undefined,
     signSolanaMessage: signMessage
       ? async (payload: WalletSolanaSignMessagePayload) => {
           if (payload.signer && payload.signer !== wallet.publicKey) {
@@ -177,12 +164,15 @@ export function buildSvmTransactionMethods(
       : undefined,
     sendSolanaTransaction: sendTransaction
       ? async (payload: WalletSolanaSignPayload) => {
-          const bytes = unsignedBytes(payload);
-          if (isV1TransactionBytes(bytes)) return sendV1(bytes);
+          if (!payload.unsignedTx) {
+            throw new Error("Missing unsigned_tx payload");
+          }
           const connection = new SolanaConnection(
             config.rpcHttpUrl,
             "confirmed",
           );
+          const bytes = decodeBase64(payload.unsignedTx);
+          if (bytes[0] === V1_PREFIX) return sendV1(wallet, connection, bytes);
           const tx = deserializeSolanaTransaction(bytes);
           const signature = await sendTransaction(tx, connection);
           await confirmSubmittedTransaction(connection, signature);
@@ -192,12 +182,17 @@ export function buildSvmTransactionMethods(
     signAndSendSolanaTransaction:
       sendTransaction && config.preferDirectSend
         ? async (payload: WalletSolanaSignPayload) => {
-            const bytes = unsignedBytes(payload);
-            if (isV1TransactionBytes(bytes)) return sendV1(bytes);
+            if (!payload.unsignedTx) {
+              throw new Error("Missing unsigned_tx payload");
+            }
             const connection = new SolanaConnection(
               config.rpcHttpUrl,
               "confirmed",
             );
+            const bytes = decodeBase64(payload.unsignedTx);
+            if (bytes[0] === V1_PREFIX) {
+              return sendV1(wallet, connection, bytes);
+            }
             const tx = deserializeSolanaTransaction(bytes);
             const signature = await sendTransaction(tx, connection);
             await confirmSubmittedTransaction(connection, signature);
