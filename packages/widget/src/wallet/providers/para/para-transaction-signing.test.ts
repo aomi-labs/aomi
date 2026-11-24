@@ -179,7 +179,7 @@ describe("Para commit transaction signing", () => {
       name: "ParaSigningIncompleteError",
       reason: "timeout",
       outcome: "unknown",
-      message: expect.stringContaining("at most one can go through"),
+      message: expect.stringContaining("signs the same call"),
     });
     await vi.advanceTimersByTimeAsync(PARA_REVIEW_TIMEOUT_MS + 30_000);
     expect(canceled?.()).toBe(true);
