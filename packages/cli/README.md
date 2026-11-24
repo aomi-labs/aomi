@@ -11,7 +11,7 @@ aomi --help                           # every command
 ```
 
 `aomi <command> --help` lists a command's flags; `--help-all` adds the hidden
-ones (`--backend-url`, `--api-key`, `--rpc-url`, `--build-url`).
+ones (`--backend-url`, `--api-key`, `--build-url`).
 
 ## Sign in
 
@@ -26,7 +26,12 @@ Two ways, nothing else:
   `--solana-private-key <key>` (or `AOMI_SOLANA_PRIVATE_KEY`, base58 or a
   `solana-keygen` JSON array) does the same with SIWS, on `--cluster`
   (`mainnet`, `devnet` or `testnet`; default the signer's saved cluster, else
-  mainnet). `--rpc-url` serves that cluster when it signs.
+  mainnet).
+
+What a local key signs goes out on `--rpc-url`, which is kept for this backend
+and chain once it answers as that chain. Without one, production uses the
+public RPC; any other backend asks for one, since its chains may be local
+copies. `tx sign` shows what it signs and asks; `--yes` skips the question.
 
 Without either you are a guest: chat and public reads work, and the guest's
 threads stay yours on this machine.
@@ -114,6 +119,6 @@ for a run. Esc stops a turn; ctrl+c quits.
 ## State
 
 Everything lives under `~/.aomi` (`AOMI_STATE_DIR` overrides it): `cli.json`
-(backend, thread, model, chain, local signer keys) and `grants.json`.
+(backend, thread, model, chain, RPCs, local signer keys) and `grants.json`.
 `AOMI_BACKEND_URL` or `aomi config set-backend`
 point the CLI at another Aomi, e.g. `https://staging.aomi.chat`.

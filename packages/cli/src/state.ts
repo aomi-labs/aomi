@@ -20,6 +20,8 @@ export type CliState = {
   evmKey?: string;
   svmKey?: string;
   cluster?: SvmCluster;
+  /** The RPC per chain (`eip155:8453`, `solana:mainnet`), by backend. */
+  rpc?: Record<string, Record<string, string>>;
 };
 
 const STATE_DIR = process.env.AOMI_STATE_DIR ?? join(homedir(), ".aomi");

@@ -40,9 +40,11 @@ import { signIn } from "../commands/account";
 import { signsWith } from "../commands/wallets";
 import {
   baseUrlOf,
+  CliError,
   connect,
   openUrl,
   ownerOf,
+  rpcReady,
   turnOptions,
   type ShowCode,
 } from "../context";
@@ -95,6 +97,7 @@ const SLASH = [
   { name: "threads", description: "Continue another thread" },
   { name: "guard", description: "Strict, Balanced or Yolo for this thread" },
   { name: "new", description: "Start a new thread" },
+  { name: "rpc", description: "The RPC that sends what you sign here" },
   { name: "login", description: "Sign in with a device code" },
   { name: "help", description: "Keys and commands" },
   { name: "exit", description: "Quit" },
@@ -105,6 +108,7 @@ const HELP = [
   "/wallet                the wallet this thread trades with, and how it signs",
   "/threads               continue another thread",
   "/guard [strict | balanced | yolo]  how guards gate this thread's actions",
+  "/rpc <url>             the RPC that sends what you sign here",
   "/new                   start a new thread",
   "/login                 sign in with a device code",
   "esc stops a turn · ctrl+o expands steps · ctrl+c quits",
@@ -429,6 +433,11 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       }
       if (how !== "elsewhere") show(paint.yellow("◐ Signing and sending…"));
       if (how === "sign") {
+        await rpcReady(flags, shown, async (chain) => {
+          throw new CliError(
+            `This Aomi is not production: /rpc <url> sets the RPC for ${chain}, then sign`,
+          );
+        });
         await commit.sign(undefined, reviewed(shown));
         if (!isTerminalCommit(commit.view))
           show(paint.yellow("◐ Submitted; confirming…"));
@@ -579,6 +588,14 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       loadGuard();
       loadMentions();
       return note("New thread");
+    }
+    if (name === "rpc") {
+      if (!arg || !card)
+        return note("/rpc <url>, while a card waits to be signed");
+      await rpcReady({ ...flags, rpcUrl: arg }, card.view, async () => arg);
+      // The signer reads these flags too; the saved RPC takes over.
+      flags.rpcUrl = undefined;
+      return note(`RPC saved for chain ${card.view.chain_ref}`);
     }
     if (name === "threads") {
       const { threads } = await aomi.agent.threads

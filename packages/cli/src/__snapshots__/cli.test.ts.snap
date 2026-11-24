@@ -41,7 +41,7 @@ COMMANDS
 
 exports[`help > prints ["chat"] --help 1`] = `
 "USAGE
-  aomi chat [--prompt message] [--thread id] [--new] [--agent name] [--model name] [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [<message>]
+  aomi chat [--prompt message] [--thread id] [--new] [--agent name] [--model name] [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--rpc-url url] [--chain id] [<message>]
   aomi chat --help
 
 Ask once or continue a thread
@@ -56,6 +56,7 @@ FLAGS
      [--private-key]         Sign in with this EVM key (SIWE) and sign with it; env AOMI_PRIVATE_KEY
      [--solana-private-key]  Sign in with this Solana key (SIWS) and sign with it; env AOMI_SOLANA_PRIVATE_KEY
      [--cluster]             Solana cluster: mainnet, devnet or testnet
+     [--rpc-url]             RPC URL that sends what you sign here; kept for its chain
      [--chain]               Chain id
   -h  --help                 Print help information and exit
 
@@ -66,7 +67,7 @@ ARGUMENTS
 
 exports[`help > prints ["pipeline","stage"] --help 1`] = `
 "USAGE
-  aomi pipeline stage [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [--agent publisher/name] [--package publisher/name] [--commit] <name> [<args>]
+  aomi pipeline stage [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--rpc-url url] [--chain id] [--agent publisher/name] [--package publisher/name] [--commit] <name> [<args>]
   aomi pipeline stage --help
 
 Stage and simulate an operation
@@ -76,6 +77,7 @@ FLAGS
      [--private-key]         Sign in with this EVM key (SIWE) and sign with it; env AOMI_PRIVATE_KEY
      [--solana-private-key]  Sign in with this Solana key (SIWS) and sign with it; env AOMI_SOLANA_PRIVATE_KEY
      [--cluster]             Solana cluster: mainnet, devnet or testnet
+     [--rpc-url]             RPC URL that sends what you sign here; kept for its chain
      [--chain]               Chain id
      [--agent]               Agent (default: the main agent)
      [--package]             Only this package's operations
@@ -159,7 +161,7 @@ exports[`help > prints ["tx"] --help 1`] = `
   aomi tx review [--json] [--private-key hex] [--solana-private-key key] [--cluster name] <ref>
   aomi tx approve [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--yes] [--wait] <ref>
   aomi tx reject [--json] [--private-key hex] [--solana-private-key key] [--cluster name] <ref>
-  aomi tx sign [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [--yes] <ref>
+  aomi tx sign [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--rpc-url url] [--chain id] [--yes] <ref>
   aomi tx export [--private-key hex] [--solana-private-key key] [--cluster name] <ref>
   aomi tx --help
 

@@ -580,12 +580,53 @@ describe("aomi tx", () => {
       },
     },
   };
+  const sign = (...more: string[]) =>
+    cli("tx", "sign", ref, "--yes", "--private-key", KEY, ...more);
   beforeEach(() => {
     routes[`GET /v1/commits/${ref}`] = waiting;
+    routes["POST /"] = { result: "0x2105" };
   });
   afterEach(() => {
+    delete routes["POST /"];
     for (const key of Object.keys(routes))
       if (key.includes(`/v1/commits/${ref}`)) delete routes[key];
+  });
+
+  it("asks for an RPC where the backend is not production, before signing", async () => {
+    const { code, stderr } = await sign();
+    expect(code).toBe(2);
+    expect(stderr).toContain("No RPC for eip155:8453: pass --rpc-url");
+    expect(requests.some((r) => r.key.startsWith("POST /v1/commits"))).toBe(
+      false,
+    );
+  });
+
+  it("refuses an RPC on another chain before signing, and keeps none", async () => {
+    routes["POST /"] = { result: "0x1" };
+    const { code, stderr } = await sign("--rpc-url", "https://rpc.example/");
+    expect(code).toBe(1);
+    expect(stderr).toContain(
+      "The RPC is on eip155:1, the commit on eip155:8453",
+    );
+    expect(requests.some((r) => r.key.startsWith("POST /v1/commits"))).toBe(
+      false,
+    );
+    expect(() => readFileSync(join(dir, "cli.json"), "utf8")).toThrow();
+  });
+
+  it("keeps a matching RPC for this backend and chain only", async () => {
+    const wrote = () =>
+      requests.some((r) => r.key.startsWith(`POST /v1/commits/${ref}/`));
+    await sign("--rpc-url", "https://rpc.example/");
+    expect(wrote()).toBe(true);
+    expect(JSON.parse(readFileSync(join(dir, "cli.json"), "utf8")).rpc).toEqual(
+      { [BASE]: { "eip155:8453": "https://rpc.example/" } },
+    );
+    requests = [];
+    await sign();
+    expect(wrote()).toBe(true);
+    const other = await sign("--backend-url", "https://other.example");
+    expect(other.stderr).toContain("No RPC for eip155:8453");
   });
 
   it("reviews the decoded steps, what they allow and the guard line", async () => {
@@ -616,14 +657,7 @@ describe("aomi tx", () => {
 
   it("does not sign a commit that changed after it was shown", async () => {
     routes[`GET /v1/commits/${ref}`] = [waiting, { ...waiting, version: 2 }];
-    const { code, stderr } = await cli(
-      "tx",
-      "sign",
-      ref,
-      "--yes",
-      "--private-key",
-      KEY,
-    );
+    const { code, stderr } = await sign("--rpc-url", "https://rpc.example/");
     expect(code).toBe(1);
     expect(stderr).toContain(`It changed; aomi tx sign ${ref} again`);
     expect(requests.some((r) => r.key.startsWith("POST /v1/commits"))).toBe(

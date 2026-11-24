@@ -73,6 +73,8 @@ vi.mock("../state", () => ({
   updateState: (value: object) => screen.updates.push(value),
 }));
 vi.mock("../context", () => ({
+  CliError: Error,
+  rpcReady: vi.fn(),
   connect: vi.fn(),
   baseUrlOf: () => "https://chat.example",
   ownerOf: () => "guest",
@@ -93,7 +95,7 @@ vi.mock("../commands/tx", () => ({
 }));
 
 import { CommitStaleError } from "@aomi-labs/client";
-import { connect } from "../context";
+import { connect, rpcReady } from "../context";
 import { runTui } from "./chat";
 
 function deferred<T>() {
@@ -284,7 +286,9 @@ describe("a commit that needs your signature", () => {
     drawn();
     expect(commit.sign).not.toHaveBeenCalled();
     screen.list!.onSelect({ value: "yes" });
-    expect(commit.sign).toHaveBeenCalledExactlyOnceWith(undefined, 3);
+    await vi.waitFor(() =>
+      expect(commit.sign).toHaveBeenCalledExactlyOnceWith(undefined, 3),
+    );
     await vi.waitFor(() => expect(drawn()).toContain("Confirmed · 0xhash"));
     await close();
   });
@@ -303,6 +307,25 @@ describe("a commit that needs your signature", () => {
     expect(commit.refresh).toHaveBeenCalled();
     expect(drawn()).toContain("Sign transaction");
     expect(commit.sign).toHaveBeenCalledTimes(1);
+    await close();
+  });
+
+  it("signs nothing until its RPC is ready, and takes one with /rpc", async () => {
+    vi.mocked(rpcReady).mockImplementationOnce(
+      async (_flags, _view, missing) => {
+        await missing("eip155:8453");
+      },
+    );
+    const { commit, drawn, close } = await open();
+    screen.input!("s");
+    screen.list!.onSelect({ value: "yes" });
+    await vi.waitFor(() => expect(drawn()).toContain("/rpc <url>"));
+    expect(commit.sign).not.toHaveBeenCalled();
+    screen.editor!.onSubmit("/rpc https://rpc.example/");
+    await vi.waitFor(() => expect(drawn()).toContain("RPC saved"));
+    screen.input!("s");
+    screen.list!.onSelect({ value: "yes" });
+    await vi.waitFor(() => expect(commit.sign).toHaveBeenCalledTimes(1));
     await close();
   });
 

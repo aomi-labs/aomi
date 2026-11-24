@@ -10,12 +10,14 @@ import {
   type CommitReview,
 } from "@aomi-labs/client";
 import {
+  ask,
   confirm,
   CliError,
   connect,
   err,
   json,
   out,
+  rpcReady,
   usage,
   type ConnectFlags,
 } from "../context";
@@ -231,6 +233,12 @@ export async function sign(
       reviewLines(view, review).forEach((line) => err(line));
       if (!flags.yes && !(await confirm("Sign?")))
         throw new CliError("Not signed");
+      await rpcReady(flags, view, (chain) =>
+        ask(
+          `RPC URL for ${chain} (this Aomi is not production): `,
+          `No RPC for ${chain}: pass --rpc-url`,
+        ),
+      );
       try {
         await member.sign(undefined, reviewed(view));
       } catch (error) {

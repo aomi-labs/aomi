@@ -7,12 +7,14 @@ import {
   AomiError,
   CLIENT_TYPE_TS_CLI,
   createGuestSessionProvider,
+  isMessageCommit,
   normalizeSolanaCluster,
   oauth,
   UserState,
   wallet,
   type AomiAuthStrategy,
   type AgentTarget,
+  type CommitView,
   type SvmCluster,
 } from "@aomi-labs/client";
 import { viemSigner } from "@aomi-labs/client/viem";
@@ -33,15 +35,21 @@ export class CliError extends Error {
   }
 }
 
-export async function confirm(question: string): Promise<boolean> {
-  if (!process.stdin.isTTY) throw usage("Pass --yes outside a terminal");
+/** One typed line; `otherwise` is the usage error without a terminal. */
+export async function ask(text: string, otherwise: string): Promise<string> {
+  if (!process.stdin.isTTY) throw usage(otherwise);
   const rl = createInterface({ input: process.stdin, output: process.stderr });
   try {
-    return /^y(es)?$/i.test((await rl.question(`${question} [y/N] `)).trim());
+    return (await rl.question(text)).trim();
   } finally {
     rl.close();
   }
 }
+
+export const confirm = async (question: string): Promise<boolean> =>
+  /^y(es)?$/i.test(
+    await ask(`${question} [y/N] `, "Pass --yes outside a terminal"),
+  );
 
 export const usage = (message: string) => new CliError(message, 2);
 
@@ -160,23 +168,40 @@ export async function connect(
   const evmKey = key ?? (state.evmKey as `0x${string}` | undefined);
   const svmKey = solanaKey ?? state.svmKey;
   const cluster = clusterOf(flags, state);
+  // Each signs for any chain and sends on that chain's own RPC.
+  const evmOn = (id: number, rpcUrl?: string) =>
+    viemSigner(
+      createWalletClient({
+        account: privateKeyToAccount(evmKey!),
+        chain: chainOf(id),
+        transport: http(rpcUrl),
+      }),
+    );
+  // Loaded only when used: @solana/web3.js is heavy and warns on import.
+  const solana = svmKey ? await import("@aomi-labs/client/solana") : undefined;
+  const svmOn = (id: SvmCluster, rpcUrl?: string) =>
+    solana!.solanaSigner(svmKey!, {
+      cluster: id,
+      rpcUrls: rpcUrl ? { [id]: rpcUrl } : undefined,
+    });
   const signer = {
     evm: evmKey
-      ? viemSigner(
-          createWalletClient({
-            account: privateKeyToAccount(evmKey),
-            chain: chainOf(flags.chain ?? state.chain ?? 1),
-            transport: http(flags.rpcUrl),
-          }),
-        )
+      ? {
+          ...evmOn(flags.chain ?? state.chain ?? 1, flags.rpcUrl),
+          broadcastTransaction: async (signed: string, id: number) =>
+            evmOn(id, rpcOf(flags, "evm", String(id))).broadcastTransaction!(
+              signed,
+              id,
+            ),
+        }
       : undefined,
-    // Loaded only when used: @solana/web3.js is heavy and warns on import.
-    // `--rpc-url` serves the chosen cluster; other clusters use public RPCs.
     svm: svmKey
-      ? (await import("@aomi-labs/client/solana")).solanaSigner(svmKey, {
-          cluster,
-          rpcUrls: flags.rpcUrl ? { [cluster]: flags.rpcUrl } : undefined,
-        })
+      ? {
+          ...svmOn(cluster),
+          broadcastTransaction: async (signed: string, name: string) =>
+            svmOn(parseCluster(name), rpcOf(flags, "svm", name))
+              .broadcastTransaction!(signed, name),
+        }
       : undefined,
   };
   const common = {
@@ -196,6 +221,84 @@ export async function connect(
   if (await signedIn(baseUrl))
     return new Aomi({ ...common, auth: await deviceAuth(baseUrl, onCode) });
   return new Aomi({ ...common, guest: persistedGuest(baseUrl, state) });
+}
+
+/** Where public RPCs reach the chains the commits are on; elsewhere (a local
+ * stack) they reach the real chain, which a signed copy would then be sent to. */
+const PRODUCTION = new Set(["aomi.chat", "api.aomi.dev"]);
+
+const chainKey = (family: string, ref: string) =>
+  family === "svm" ? parseCluster(ref) : `eip155:${ref}`;
+
+/** The RPC that sends on a chain; undefined is the public one. Saved per
+ * backend, so a local stack never shares one with production. */
+function rpcOf(
+  flags: ConnectFlags,
+  family: string,
+  ref: string,
+): string | undefined {
+  const state = loadState();
+  const base = baseUrlOf(flags, state);
+  const url = flags.rpcUrl ?? state.rpc?.[base]?.[chainKey(family, ref)];
+  if (!url && !PRODUCTION.has(new URL(base).hostname))
+    throw new CliError(`No RPC for ${chainKey(family, ref)}: pass --rpc-url`);
+  return url;
+}
+
+/** Each cluster by the start of its genesis hash, as CAIP-2 names it. */
+const GENESIS: Record<string, SvmCluster> = {
+  "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp": "solana:mainnet",
+  EtWTRABZaYq6iMfeYKouRu166VU2xqa1: "solana:devnet",
+  "4uhcVJyU9pJkvQyS88uRDiswHScCKQY3": "solana:testnet",
+};
+
+/**
+ * Before a local key signs what this machine then sends: an RPC for the
+ * commit's chain (asked for with `missing` when there is none), kept once it
+ * answers as that chain. Signed bytes it cannot send would hold the nonce.
+ */
+export async function rpcReady(
+  flags: ConnectFlags,
+  view: CommitView,
+  missing: (chain: string) => Promise<string>,
+): Promise<void> {
+  if (view.broadcaster !== "wallet" || isMessageCommit(view)) return;
+  const { chain_family: family, chain_ref: ref } = view;
+  const chain = chainKey(family, ref);
+  let url: string | undefined;
+  try {
+    url = rpcOf(flags, family, ref);
+    if (!url) return;
+  } catch {
+    url = await missing(chain);
+  }
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: family === "svm" ? "getGenesisHash" : "eth_chainId",
+      params: [],
+    }),
+  })
+    .then((answer) => answer.json() as Promise<{ result?: string }>)
+    // Its URL may hold a key, so no error names it.
+    .catch(() => undefined);
+  const result = response?.result;
+  if (!result) throw new CliError(`The RPC doesn't answer for ${chain}`);
+  const is =
+    family === "svm"
+      ? // A local copy has a genesis of its own.
+        (GENESIS[result.slice(0, 32)] ?? chain)
+      : `eip155:${Number(result)}`;
+  if (is !== chain)
+    throw new CliError(`The RPC is on ${is}, the commit on ${chain}`);
+  const state = loadState();
+  const base = baseUrlOf(flags, state);
+  updateState({
+    rpc: { ...state.rpc, [base]: { ...state.rpc?.[base], [chain]: url } },
+  });
 }
 
 /** The guest bearer outlives the process, so its threads stay reachable. */
