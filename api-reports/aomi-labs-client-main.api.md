@@ -1826,6 +1826,15 @@ export type AomiPolicyProvider = {
 };
 
 // @public
+export class AomiPolicySentError extends Error {
+    constructor(transaction: string, cause: unknown);
+    // (undocumented)
+    readonly cause: unknown;
+    // (undocumented)
+    readonly transaction: string;
+}
+
+// @public
 export type AomiPolicySet = {
     mode: AomiPolicyMode;
     rules: AomiPolicy[];
