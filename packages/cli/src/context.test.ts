@@ -90,7 +90,12 @@ it("answers the hash of a sent transaction whose receipt does not come, and refu
     };
     expect(await send()).toBe("0xhash");
     receipt.wait = async () => ({ status: "reverted" });
-    await expect(send()).rejects.toThrow("The transaction reverted: 0xhash");
+    // The SDK's error for a sent transaction, so `--json` names the hash.
+    await expect(send()).rejects.toMatchObject({
+      name: "AomiPolicySentError",
+      transaction: "0xhash",
+      message: "The transaction reverted: 0xhash",
+    });
   } finally {
     receipt.wait = held;
   }

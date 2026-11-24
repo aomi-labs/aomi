@@ -5,6 +5,7 @@ import { createInterface } from "node:readline/promises";
 import {
   Aomi,
   AomiError,
+  AomiPolicySentError,
   CLIENT_TYPE_TS_CLI,
   createGuestSessionProvider,
   normalizeSolanaCluster,
@@ -252,7 +253,10 @@ export function policySigner(
               .waitForTransactionReceipt({ hash })
               .catch(() => null);
             if (receipt && receipt.status !== "success")
-              throw new CliError(`The transaction reverted: ${hash}`);
+              throw new AomiPolicySentError(
+                hash,
+                new CliError(`The transaction reverted: ${hash}`),
+              );
             return hash;
           },
         }
