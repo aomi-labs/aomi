@@ -22,7 +22,6 @@ jobs:
       portal: ${{ steps.select.outputs.portal }}
       build: ${{ steps.select.outputs.build }}
       landing: ${{ steps.select.outputs.landing }}
-      journeys: ${{ steps.select.outputs.journeys }}
       browser_contracts: ${{ steps.select.outputs.browser_contracts }}
       consumer_compat: ${{ steps.select.outputs.consumer_compat }}
       workflow_policy: ${{ steps.select.outputs.workflow_policy }}
@@ -242,68 +241,6 @@ jobs:
             AOMI_DEPLOY_TARGET=cloudflare pnpm --filter landing build:app
           fi
 
-  journeys:
-    name: Journeys · Portal, Vite embed and mobile on the fake agent
-    needs: changes
-    if: needs.changes.outputs.journeys == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    services:
-      auth-postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: aomi_auth_loopback_test_ci
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_USER: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d aomi_auth_loopback_test_ci"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      AOMI_TEST_DATABASE_DISPOSABLE: "1"
-      AOMI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
-    steps:
-      - name: Checkout exact source
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: Enable corepack
-        run: corepack enable
-
-      - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install matching Chromium
-        run: pnpm exec playwright install chromium
-
-      - name: Typecheck browser suites
-        run: pnpm exec tsc --project tsconfig.journeys.json --noEmit
-
-      - name: Build packages
-        run: pnpm run build:packages
-
-      - name: Run journeys
-        run: pnpm run test:journeys
-
-      - name: Upload traces, videos and agent request logs
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: journeys-${{ github.sha }}
-          path: |
-            output/playwright/journeys/
-            output/playwright/journeys.json
-          if-no-files-found: warn
-          retention-days: 14
-
   browser-contracts:
     name: Production Browser Contracts · auth and packaged widget
     needs: changes
@@ -415,6 +352,9 @@ jobs:
 
       - name: Install matching Chromium
         run: pnpm exec playwright install chromium
+
+      - name: Typecheck browser suites
+        run: pnpm exec tsc --project tsconfig.journeys.json --noEmit
 
       - name: Run against the production Portal and packed consumers
         run: pnpm run test:browser:consumers
@@ -582,7 +522,6 @@ jobs:
         changes,
         packages,
         apps,
-        journeys,
         browser-contracts,
         packed-consumers,
         consumer-compat,
@@ -601,8 +540,6 @@ jobs:
           PACKAGES_RESULT: ${{ needs.packages.result }}
           APPS_SELECTED: ${{ needs.changes.outputs.apps }}
           APPS_RESULT: ${{ needs.apps.result }}
-          JOURNEYS_SELECTED: ${{ needs.changes.outputs.journeys }}
-          JOURNEYS_RESULT: ${{ needs.journeys.result }}
           BROWSER_SELECTED: ${{ needs.changes.outputs.browser_contracts }}
           BROWSER_RESULT: ${{ needs.browser-contracts.result }}
           PACKED_RESULT: ${{ needs.packed-consumers.result }}
@@ -632,7 +569,6 @@ jobs:
           test "$CHANGES_RESULT" = success
           require_selected "$PACKAGES_SELECTED" "$PACKAGES_RESULT" packages
           require_selected "$APPS_SELECTED" "$APPS_RESULT" apps
-          require_selected "$JOURNEYS_SELECTED" "$JOURNEYS_RESULT" journeys
           require_selected "$BROWSER_SELECTED" "$BROWSER_RESULT" browser-contracts
           require_selected "$BROWSER_SELECTED" "$PACKED_RESULT" packed-consumers
           require_selected "$CONSUMER_SELECTED" "$CONSUMER_RESULT" consumer-compat

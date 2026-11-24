@@ -151,6 +151,8 @@ Portal's internal BFF JWT. It fails if any mandatory Playwright case is
 missing, skipped, flaky, or unexpected. `pnpm run test:browser:consumers` uses
 the same hosts plus a packed Next.js consumer to run the journeys and the
 ordinary-turn performance gate on all four hosts.
+CI runs the journeys once, in the Packed Consumers job, which also
+typechecks `tsconfig.journeys.json`; there is no separate dev-build journeys job.
 
 The Portal cases cover EVM and SIWS sign-in, reload persistence, explicit wallet
 linking, signature rejection, sign-out/account switching, canonical identity,

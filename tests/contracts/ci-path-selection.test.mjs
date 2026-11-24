@@ -98,7 +98,6 @@ test("changed-file detection compares deployment SHAs and fails open for missing
 test("portal changes select portal and its browser surfaces", () => {
   const selected = classifyPaths(["apps/portal/src/app/page.tsx"]);
   assert.equal(selected.portal, true);
-  assert.equal(selected.journeys, true);
   assert.equal(selected.browser_contracts, true);
   assert.equal(selected.preview, true);
   assert.equal(selected.consumer_compat, false);
@@ -110,7 +109,6 @@ test("renames and deletions select from both reported paths", () => {
     "apps/portal/src/app/replacement/page.tsx",
   ]);
   assert.equal(selected.portal, true);
-  assert.equal(selected.journeys, true);
   assert.equal(selected.preview, true);
 });
 
@@ -118,7 +116,6 @@ test("shared package changes fan out to every dependent surface", () => {
   const selected = classifyPaths(["packages/react/src/runtime.ts"]);
   assert.equal(selected.packages, true);
   assert.equal(selected.consumer_compat, true);
-  assert.equal(selected.journeys, true);
   assert.equal(selected.browser_contracts, true);
   for (const app of ["portal", "build", "landing"]) {
     assert.equal(selected[app], true);
@@ -199,14 +196,13 @@ test("both embed examples retain packed install and browser gates", () => {
   }
 });
 
-test("journey harness changes run the journeys and the packed browser jobs only", () => {
+test("journey harness changes run the packed browser jobs only", () => {
   for (const path of [
     "tests/e2e/journeys/cold-load.spec.ts",
     "tests/e2e/fake-backend/backend.ts",
     "playwright.journeys.config.ts",
   ]) {
     const selected = classifyPaths([path]);
-    assert.equal(selected.journeys, true, path);
     assert.equal(selected.browser_contracts, true, path);
     assert.equal(selected.packages, false, path);
   }
