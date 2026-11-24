@@ -233,6 +233,41 @@ describe("a step follows the entry's `next` when the backend sends one", () => {
     expect(stepOf(null, false)).toMatchObject({ disabled: false, hint: null });
   });
 
+  it("needs no connected wallet for a step that asks nothing of one, only a known owner", () => {
+    const step = (owner: string | null) => {
+      const entry = {
+        rule: "r",
+        provider: "swig",
+        network: "solana:mainnet-beta",
+        ready: true,
+        note: null,
+        next: null,
+        signer: { family: "svm", address: owner },
+      } as AomiPolicyEnforcement;
+      const { result } = renderHook(() =>
+        usePolicyEnforcement({
+          client: {} as never,
+          walletId: "w",
+          revision: 1,
+          onConfirmed: vi.fn(),
+          onStale: vi.fn(),
+        }),
+      );
+      return result.current.step(entry);
+    };
+    // No Solana wallet is connected; the policy's owner is on record.
+    kit.identity.svmAddress = undefined;
+    expect(step("4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x")).toMatchObject({
+      disabled: false,
+      hint: null,
+    });
+    // No owner to name in the request: it still takes a wallet.
+    expect(step(null)).toMatchObject({
+      disabled: true,
+      hint: "Connect a Solana wallet to sign.",
+    });
+  });
+
   it("judges the wallet by the action named, not the signer's family", () => {
     expect(stepOf("evm_transaction", false)).toMatchObject({
       disabled: false,

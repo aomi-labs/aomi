@@ -141,6 +141,13 @@ const solanaKeyOf = (flags: ConnectFlags) =>
   undefined;
 
 /**
+ * The EVM key `connect` gave each client. A policy transaction is sent with
+ * it, never with a key read again later: the saved one can change while the
+ * owner is asked, and what was checked and shown is this one.
+ */
+const EVM_KEYS = new WeakMap<Aomi, Hex>();
+
+/**
  * One `Aomi` for the command: signed in with `--private-key` (SIWE) or
  * `--solana-private-key` (SIWS), else with the device grant from
  * `aomi login`, else as a guest. The signer is the keys from the flags or
@@ -181,18 +188,23 @@ export async function connect(
     apiKey: flags.apiKey ?? process.env.AOMI_API_KEY,
     ...(signer.evm || signer.svm ? { signer } : {}),
   };
+  const made = (options: ConstructorParameters<typeof Aomi>[0]) => {
+    const aomi = new Aomi(options);
+    if (evmKey) EVM_KEYS.set(aomi, evmKey);
+    return aomi;
+  };
   if (key)
-    return new Aomi({
+    return made({
       ...common,
       auth: wallet(privateKeyToAccount(key), {
         chainId: flags.chain ?? state.chain,
       }),
     });
   if (solanaKey && signer.svm)
-    return new Aomi({ ...common, auth: wallet(signer.svm) });
+    return made({ ...common, auth: wallet(signer.svm) });
   if (await signedIn(baseUrl))
-    return new Aomi({ ...common, auth: await deviceAuth(baseUrl, onCode) });
-  return new Aomi({ ...common, guest: persistedGuest(baseUrl, state) });
+    return made({ ...common, auth: await deviceAuth(baseUrl, onCode) });
+  return made({ ...common, guest: persistedGuest(baseUrl, state) });
 }
 
 /**
@@ -205,7 +217,7 @@ export function policySigner(
   flags: ConnectFlags,
 ): AomiPolicySigner {
   const { evm, svm } = aomi.wallet ?? {};
-  const key = privateKeyOf(flags) ?? (loadState().evmKey as Hex | undefined);
+  const key = EVM_KEYS.get(aomi);
   const { signTypedData } = evm ?? {};
   const { signTransaction, broadcastTransaction } = svm ?? {};
   return {
@@ -238,6 +250,7 @@ export function policySigner(
             ).waitForTransactionReceipt({ hash });
             if (receipt.status !== "success")
               throw new CliError(`The transaction reverted: ${hash}`);
+            return hash;
           },
         }
       : {}),

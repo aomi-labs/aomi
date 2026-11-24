@@ -113,8 +113,18 @@ const authorityOf = (admin: AomiPolicyAdmin) =>
     ? `${admin.address} (${admin.family}), approves by signing`
     : "self-approval";
 
+/**
+ * ` --wallet <id>` for a command printed to run next. Left out only when the
+ * account's `only` agent wallet was used without being named.
+ */
+const walletArg = (policies: AomiWalletPolicies, only: boolean) =>
+  only ? "" : ` --wallet ${policies.agent_wallet_id}`;
+
 /** One wallet: mode and authority, its policies, any waiting change. */
-export function policyLines(policies: AomiWalletPolicies): string[] {
+export function policyLines(
+  policies: AomiWalletPolicies,
+  only = false,
+): string[] {
   const { rules } = policies;
   const lines = [
     `${policies.wallet_name}  ${policies.agent_wallet_id}`,
@@ -144,7 +154,9 @@ export function policyLines(policies: AomiWalletPolicies): string[] {
     for (const line of changeLines(pending)) lines.push(`    ${line}`);
   }
   for (const id of removed)
-    lines.push(`  On chain only: ${id}. Run aomi policy undeploy ${id}`);
+    lines.push(
+      `  On chain only: ${id}. Run aomi policy undeploy ${id}${walletArg(policies, only)}`,
+    );
   return lines;
 }
 
@@ -173,8 +185,10 @@ export function nextLines(
   flags: ConnectFlags,
   policies: AomiWalletPolicies,
   focus?: Pick<AomiPolicy, "asset" | "to">,
+  only = false,
 ): string[] {
   const lines: string[] = [];
+  const wallet = walletArg(policies, only);
   const pending = policies.pending;
   if (pending)
     lines.push(
@@ -192,10 +206,12 @@ export function nextLines(
   ]) {
     const status = policyOnChain(policies, id);
     if (status?.kind === "not_deployed")
-      lines.push(`aomi policy deploy ${id}   not on chain yet; put it there`);
+      lines.push(
+        `aomi policy deploy ${id}${wallet}   not on chain yet; put it there`,
+      );
     else if (status?.kind === "out_of_date")
       lines.push(
-        `aomi policy deploy ${id}   the chain holds an earlier version; replace it`,
+        `aomi policy deploy ${id}${wallet}   the chain holds an earlier version; replace it`,
       );
     else if (status?.kind === "unverified")
       lines.push(`aomi policy list   ${status.entry.name} could not be read`);
@@ -206,7 +222,7 @@ export function nextLines(
       const network = assetNetwork(focus!.asset);
       if (policies.providers.some((provider) => provider.network === network))
         lines.push(
-          `aomi policy deploy ${id}   once approved: not on chain yet; put it there`,
+          `aomi policy deploy ${id}${wallet}   once approved: not on chain yet; put it there`,
         );
       else aomiOnly = true;
     }
@@ -215,7 +231,7 @@ export function nextLines(
     const status = policyOnChain(policies, id);
     const name = status && "entry" in status ? status.entry.name : "The chain";
     lines.push(
-      `Still on chain: ${name} holds ${id}. Run aomi policy undeploy ${id}`,
+      `Still on chain: ${name} holds ${id}. Run aomi policy undeploy ${id}${wallet}`,
     );
   }
   if (aomiOnly)
@@ -263,7 +279,9 @@ export async function list(flags: Flags): Promise<void> {
     }
     if (!first) out();
     first = false;
-    policyLines(policies).forEach((line) => out(line));
+    policyLines(policies, !flags.wallet && ids.length === 1).forEach((line) =>
+      out(line),
+    );
   }
 }
 
@@ -307,8 +325,12 @@ export async function catalog({ chain, ...flags }: OnChain<Flags>) {
   ]).forEach((row) => out(`  ${row}`));
 }
 
-/** The change, when it still waits for the admin. */
-async function open(aomi: Aomi, id: string): Promise<AomiPolicyChange> {
+/** The change, when it still waits for the admin and is `--wallet`'s. */
+async function open(
+  aomi: Aomi,
+  id: string,
+  { wallet }: Flags,
+): Promise<AomiPolicyChange> {
   let change: AomiPolicyChange;
   try {
     change = await aomi.account.policy.getChange(id);
@@ -323,6 +345,10 @@ async function open(aomi: Aomi, id: string): Promise<AomiPolicyChange> {
   if (change.state !== "awaiting_admin")
     throw new CliError(
       `This change isn't waiting for approval (${change.state})`,
+    );
+  if (wallet && wallet !== change.agent_wallet_id)
+    throw new CliError(
+      `Change ${id} is for wallet ${change.agent_wallet_id}, not ${wallet}. Nothing was decided`,
     );
   return change;
 }
@@ -372,7 +398,7 @@ function needsSignature(flags: Flags, change: AomiPolicyChange): void {
  */
 export async function approve(flags: Flags, id: string): Promise<void> {
   const aomi = await connect(flags);
-  const change = await open(aomi, id);
+  const change = await open(aomi, id, flags);
   if (change.signer) return needsSignature(flags, change);
   try {
     decided(flags, await aomi.account.policy.approveChange(id), "Approved");
@@ -384,7 +410,7 @@ export async function approve(flags: Flags, id: string): Promise<void> {
 /** `aomi policy decline <id>`: the policies stay as they are. */
 export async function decline(flags: Flags, id: string): Promise<void> {
   const aomi = await connect(flags);
-  await open(aomi, id);
+  await open(aomi, id, flags);
   try {
     decided(flags, await aomi.account.policy.declineChange(id), "Declined");
   } catch (error) {
@@ -442,12 +468,14 @@ async function change(
   } else {
     out(built.title);
     const changed = built.rows.filter(([, before, after]) => before !== after);
-    if (status === "unchanged" || !changed.length) out("No change");
+    // The server says whether anything changed; the rows only show what.
+    if (status === "unchanged") out("No change");
     else {
       out(loosens ? "LOOSENS" : "TIGHTENS");
-      table([["FIELD", "BEFORE", "AFTER"], ...changed]).forEach((row) =>
-        out(`  ${row}`),
-      );
+      if (changed.length)
+        table([["FIELD", "BEFORE", "AFTER"], ...changed]).forEach((row) =>
+          out(`  ${row}`),
+        );
       out(
         status === "applied"
           ? "Applied"
@@ -458,9 +486,10 @@ async function change(
       out(
         `--yes was not applied: authority is wallet ${signer.address}, which must sign`,
       );
-    printNext(nextLines(flags, policies, built.focus));
+    printNext(nextLines(flags, policies, built.focus, !flags.wallet));
   }
-  if (signer && status === "waiting") process.exitCode = 3;
+  // Waiting for an approval or a signature, as `aomi policy approve` exits.
+  if (status === "waiting") process.exitCode = 3;
 }
 
 /** What the agent may do with a token no policy names. */
@@ -539,13 +568,16 @@ export async function remove(
 ): Promise<void> {
   const aomi = await connect(flags);
   const walletId = await walletOf(aomi, flags);
+  // Resolved once: a retry removes this policy or nothing, never another
+  // one the same prefix has come to match.
+  let id: string | undefined;
   await change(flags, aomi, walletId, (held) => {
-    const id = named(held, typed);
+    id ??= named(held, typed);
     const policy = held.rules.rules.find((one) => idOf(one) === id);
     if (!policy)
       throw new CliError(
         policyOnChain(held, id)
-          ? `Aomi no longer holds ${id}, the chain does: aomi policy undeploy ${id}`
+          ? `Aomi no longer holds ${id}, the chain does: aomi policy undeploy ${id}${walletArg(held, !flags.wallet)}`
           : `No policy ${id} on this wallet: aomi policy list`,
       );
     return {
@@ -589,8 +621,11 @@ export async function authority(
     const admin: AomiPolicyAdmin | undefined =
       wanted === "self"
         ? { kind: "aomi_managed" }
-        : held.admin_wallets.find(
-            (wallet) => wallet.address.toLowerCase() === wanted.toLowerCase(),
+        : held.admin_wallets.find((wallet) =>
+            // Only an EVM address reads the same in either case.
+            wallet.family === "evm"
+              ? wallet.address.toLowerCase() === wanted.toLowerCase()
+              : wallet.address === wanted,
           );
     if (!admin)
       throw new CliError(
@@ -650,7 +685,7 @@ async function enforce(
     throw new CliError(`Nothing on chain for ${id}`);
   if (!remove && status.kind === "chain_only")
     throw new CliError(
-      `Aomi no longer holds ${id}. To take it off the chain: aomi policy undeploy ${id}`,
+      `Aomi no longer holds ${id}. To take it off the chain: aomi policy undeploy ${id}${walletArg(held, !flags.wallet)}`,
     );
   if (status.kind === "aomi_only")
     throw new CliError(
@@ -713,7 +748,13 @@ async function enforce(
     act &&
     (async (input: In) => {
       const result = await act(input);
-      row("sign + send", kind === "typed_data" ? "signed" : "sent");
+      // A sent transaction is named at once: whatever follows, it is out.
+      row(
+        "sign + send",
+        kind === "typed_data"
+          ? "signed"
+          : `sent${typeof result === "string" ? ` ${result}` : ""}`,
+      );
       return result;
     });
   let result;
@@ -745,10 +786,15 @@ async function enforce(
   } catch (error) {
     refusal(error, baseUrlOf(flags));
   }
-  const { policies, settled } = result;
-  const now = policyOnChain(policies, id);
+  const { policies, settled, transaction } = result;
+  const now = policyOnChain(policies, id, flags.provider);
   if (flags.json)
-    return json({ settled, on_chain: now?.kind ?? null, rules: policies });
+    return json({
+      settled,
+      ...(transaction ? { transaction } : {}),
+      on_chain: now?.kind ?? null,
+      rules: policies,
+    });
   if (!asked) {
     row("prepare", "the chain already matches");
     row("sign + send", "nothing to sign");
@@ -757,8 +803,10 @@ async function enforce(
   out(`On chain: ${now ? onChain(now) : "nothing"}`);
   printNext(
     settled
-      ? nextLines(flags, policies)
-      : ["aomi policy list   check again before sending anything more"],
+      ? nextLines(flags, policies, undefined, !flags.wallet)
+      : [
+          `aomi policy list   ${transaction ? `${transaction} was sent; ` : ""}check again before sending anything more`,
+        ],
   );
 }
 

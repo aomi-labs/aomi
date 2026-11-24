@@ -261,11 +261,14 @@ export function usePolicyEnforcement({
     // `takeOff` is for a removed policy, which `next` describes too.
     const kind = expectedPolicyAction(entry, { remove });
     const verb = kind === "evm_transaction" ? "send" : "sign";
-    const blocked = canSign
-      ? unable(kit, kind, remove)
-      : owner && owner !== connected
-        ? `Only the wallet that set this policy can change it on chain. Connect ${shortAddress(owner)} to ${verb}.`
-        : `Connect ${FAMILY[entry.signer.family]} wallet to ${verb}.`;
+    // A step that asks nothing of a wallet needs only the owner's name, which
+    // the backend takes from the binding or from one of the account's wallets.
+    const blocked =
+      canSign || (kind === null && owner)
+        ? unable(kit, kind, remove)
+        : owner && owner !== connected
+          ? `Only the wallet that set this policy can change it on chain. Connect ${shortAddress(owner)} to ${verb}.`
+          : `Connect ${FAMILY[entry.signer.family]} wallet to ${verb}.`;
     return {
       busy: busy === key,
       disabled: busy !== null || blocked !== null,

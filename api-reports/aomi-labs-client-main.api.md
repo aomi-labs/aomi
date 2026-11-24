@@ -319,6 +319,7 @@ export class AccountPolicyTransport {
     enforce(agentWalletId: string, entry: AomiPolicyEnforcement, signer: AomiPolicySigner, options: AomiPolicyEnforceOptions): Promise<{
         policies: AomiWalletPolicies;
         settled: boolean;
+        transaction?: string;
     }>;
     get(agentWalletId: string, options?: {
         signal?: AbortSignal;
@@ -1839,7 +1840,7 @@ export type AomiPolicySigner = {
         to: string;
         data: string;
         value: string;
-    }) => Promise<void>;
+    }) => Promise<string | void>;
     sendSolanaTransaction?: (transaction: {
         unsignedBase64: string;
         cluster: SvmCluster;

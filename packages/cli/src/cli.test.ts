@@ -604,7 +604,8 @@ describe("aomi policy", () => {
       "--until",
       "2099-12-31",
     );
-    expect(code).toBe(0);
+    // Filed and waiting for an approval, like any wait: exit 3.
+    expect(code).toBe(3);
     expect(written()).toEqual([
       {
         rules: {
@@ -875,8 +876,9 @@ describe("aomi policy", () => {
     const { code, stdout } = await policy("approve", CHANGE);
     expect(code).toBe(0);
     expect(stdout).toContain("Approved\nTrading wallet");
+    // The change named the wallet, so the command to run next names it too.
     expect(stdout).toContain(
-      `Next\n  aomi policy deploy ${SOL_ID}   not on chain yet; put it there\n`,
+      `Next\n  aomi policy deploy ${SOL_ID} --wallet ${WALLET}   not on chain yet; put it there\n`,
     );
     const sent = requests.find((r) => r.key === paths.approve);
     expect(sent).toMatchObject({ auth: "Bearer session-token", body: "{}" });
@@ -906,6 +908,138 @@ describe("aomi policy", () => {
     expect(late.stderr).toContain(
       "This change isn't waiting for approval (applied)",
     );
+  });
+
+  it.each(["approve", "decline"])(
+    "refuses to %s a change of another wallet than --wallet",
+    async (verb) => {
+      const OTHER = "6f1c2b8e-0000-4000-8000-000000000002";
+      const { code, stderr } = await policy(verb, CHANGE, "--wallet", OTHER);
+      expect(code).toBe(1);
+      expect(stderr).toContain(
+        `error: Change ${CHANGE} is for wallet ${WALLET}, not ${OTHER}. Nothing was decided`,
+      );
+      expect(requests.some((r) => r.key.endsWith(`/${verb}`))).toBe(false);
+      expect((await policy(verb, CHANGE, "--wallet", WALLET)).code).toBe(0);
+    },
+  );
+
+  it("names --wallet in the commands to run next when the wallet was named", async () => {
+    const GONE = `${SOL}@protocol:jito`;
+    routes[paths.write] = {
+      status: "applied",
+      rules: {
+        ...body,
+        rules: { ...body.rules, rules: [usdc] },
+        enforcement: [swig(SOL_ID, "on"), swig(GONE, "on")],
+      },
+    };
+    const removed = await policy("remove", SOL_ID, "--wallet", WALLET);
+    expect(removed.stdout).toContain(
+      `  Still on chain: Swig holds ${SOL_ID}. Run aomi policy undeploy ${SOL_ID} --wallet ${WALLET}\n`,
+    );
+    routes[paths.write] = {
+      status: "applied",
+      rules: { ...body, enforcement: [swig(SOL_ID, "behind")] },
+    };
+    const set = await policy(
+      ...["set", "--amt", "0.1", "SOL", "--to", "jupiter"],
+      ...["--wallet", WALLET],
+    );
+    expect(set.stdout).toContain(
+      `  aomi policy deploy ${SOL_ID} --wallet ${WALLET}   the chain holds an earlier version; replace it\n`,
+    );
+    routes[paths.rules] = {
+      ...body,
+      enforcement: [swig(SOL_ID, "on"), swig(GONE, "on")],
+    };
+    const listed = await policy("list", "--wallet", WALLET);
+    expect(listed.stdout).toContain(
+      `  On chain only: ${GONE}. Run aomi policy undeploy ${GONE} --wallet ${WALLET}\n`,
+    );
+  });
+
+  it("takes the server's word on whether anything changed, not the rows it shows", async () => {
+    // The same amount and end as held, and the server still applied a change.
+    routes[paths.write] = { status: "applied", rules: body };
+    const same = ["set", "--amt", "0.5", "SOL", "--to", "jupiter"];
+    const applied = await policy(...same, "--until", "2099-12-11");
+    expect(applied.stdout.split("\n")).toEqual([
+      "Up to 0.5 SOL on Jupiter (Solana), until 2099-12-11 UTC",
+      "TIGHTENS",
+      "Applied",
+      "Next",
+      "  Nothing: Aomi and the chain agree",
+      "",
+    ]);
+    routes[paths.write] = {
+      status: "waiting",
+      rules: { ...body, pending: change },
+    };
+    const waiting = await policy(...same, "--until", "2099-12-11");
+    expect(waiting.code).toBe(3);
+    expect(waiting.stdout).toContain(
+      `LOOSENS\nFiled as ${CHANGE} · waiting for approval\n`,
+    );
+    // Rows that differ do not make a change the server says it did not make.
+    routes[paths.write] = { status: "unchanged", rules: body };
+    const unchanged = await policy(
+      "set",
+      "--amt",
+      "2",
+      "SOL",
+      "--to",
+      "jupiter",
+    );
+    expect(unchanged.code).toBe(0);
+    expect(unchanged.stdout).toContain("No change\nNext\n");
+    expect(unchanged.stdout).not.toContain("FIELD");
+  });
+
+  it("removes the policy the prefix named first, or nothing, when the policies moved under the write", async () => {
+    const JITO = { ...sol(), id: `${SOL}@protocol:jito` };
+    let reads = 0;
+    // Jupiter is gone by the second read, and the same prefix now names Jito.
+    routes[paths.rules] = () =>
+      (reads += 1) === 1
+        ? body
+        : {
+            ...body,
+            revision: 4,
+            rules: { ...body.rules, rules: [JITO] },
+            enforcement: [],
+          };
+    routes[paths.write] = () =>
+      Response.json({ error: "rules_changed" }, { status: 409 });
+    const { code, stderr } = await policy("remove", `${SOL}@protocol:j`);
+    expect(code).toBe(1);
+    expect(stderr).toContain(`error: No policy ${SOL_ID} on this wallet`);
+    expect(reads).toBe(2);
+    expect(written()).toHaveLength(1);
+  });
+
+  it("matches a Solana authority address exactly, and an EVM one in either case", async () => {
+    const OWNER = SOLANA.publicKey.toBase58();
+    routes[paths.rules] = {
+      ...body,
+      admin_wallets: [
+        { kind: "wallet", family: "svm", address: OWNER },
+        ...body.admin_wallets,
+      ],
+    };
+    routes[paths.write] = { status: "applied", rules: body };
+    const other = await policy("authority", OWNER.toLowerCase());
+    expect(other.code).toBe(1);
+    expect(other.stderr).toContain(
+      `authority: ${OWNER.toLowerCase()} is not a wallet linked to this account`,
+    );
+    expect(written()).toEqual([]);
+    expect((await policy("authority", OWNER)).code).toBe(0);
+    expect((await policy("authority", "0xADMIN")).code).toBe(0);
+    expect(written().map((sent) => sent.admin.address)).toEqual([
+      OWNER,
+      "0xAdmin",
+    ]);
   });
 
   describe("deploy and undeploy", () => {
@@ -951,7 +1085,7 @@ describe("aomi policy", () => {
         `  signer       ${OWNER} (local key) will own it on chain`,
         "  action       Solana transaction",
         "  prepare      ready to sign",
-        "  sign + send  sent",
+        "  sign + send  sent 5igSent",
         "  confirm      Aomi read the chain",
         "On chain: in sync (Swig)",
         "Next",
@@ -1138,6 +1272,67 @@ describe("aomi policy", () => {
       expect(surprised.stderr).toContain("Nothing was signed");
       expect(sent("confirm")).toHaveLength(1);
       expect(chain.signed).toEqual([]);
+    });
+
+    it("reads the status after a deploy from the provider it named", async () => {
+      const other = (state: string) => ({
+        ...swig(SOL_ID, state),
+        provider: "other",
+        name: "Other",
+      });
+      routes[paths.rules] = {
+        ...body,
+        enforcement: [other("on"), swig(SOL_ID, "off")],
+      };
+      routes[steps.confirm] = {
+        rules: { ...body, enforcement: [other("on"), swig(SOL_ID, "behind")] },
+      };
+      const argv = ["deploy", SOL_ID, "--provider", "swig", "--yes"];
+      const { stdout } = await run(...argv);
+      expect(stdout).toContain("On chain: out of date (Swig)\n");
+      const { stdout: asJson } = await run(...argv, "--json");
+      expect(JSON.parse(asJson)).toMatchObject({ on_chain: "out_of_date" });
+    });
+
+    it("names the transaction it sent when Aomi's node never shows it, and exits without an error", async () => {
+      routes[steps.confirm] = () =>
+        Response.json({ error: "chain_not_settled" }, { status: 409 });
+      const unsettled = async (...argv: string[]) => {
+        requests = [];
+        const timer = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+          wake: () => void,
+        ) => {
+          queueMicrotask(wake);
+          return 0;
+        }) as never);
+        try {
+          return await run("deploy", SOL_ID, "--yes", ...argv);
+        } finally {
+          timer.mockRestore();
+        }
+      };
+      const { code, stdout } = await unsettled();
+      expect(code).toBe(0);
+      expect(stdout).toContain(
+        [
+          "  sign + send  sent 5igSent",
+          "  confirm      not on Aomi's node yet",
+          "On chain: not deployed",
+          "Next",
+          "  aomi policy list   5igSent was sent; check again before sending anything more",
+          "",
+        ].join("\n"),
+      );
+      // The same retry limit as before, then one read of where it stands.
+      expect(sent("confirm")).toHaveLength(6);
+      expect(requests.at(-1)!.key).toBe(paths.rules);
+      expect(chain.sent).toHaveLength(1);
+      const asJson = await unsettled("--json");
+      expect(JSON.parse(asJson.stdout)).toMatchObject({
+        settled: false,
+        transaction: "5igSent",
+        on_chain: "not_deployed",
+      });
     });
 
     it("says a policy already in sync has nothing to deploy", async () => {

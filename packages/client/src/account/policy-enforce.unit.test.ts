@@ -4,6 +4,7 @@ import type {
   AomiPolicyEnforcement,
   AomiPolicyTypedData,
 } from "./policy";
+import { AomiApiError } from "../api-error";
 import {
   enforcePolicy,
   signableTypedData,
@@ -88,6 +89,106 @@ describe("typed data the backend asks the owner to sign", () => {
     // A domain without a chain id is signed as it is.
     const open = data({ domain: { name: "Delegation" } });
     expect(signableTypedData(open, 8453).domain).toEqual(open.domain);
+  });
+});
+
+describe("a transaction that was sent and the backend's node never shows", () => {
+  const SOLANA_OWNER = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x";
+  const entry = {
+    rule: "solana:mainnet-beta/native@any",
+    provider: "swig",
+    network: "solana:mainnet-beta",
+    ready: true,
+    note: null,
+    signer: { family: "svm", address: SOLANA_OWNER },
+  } as AomiPolicyEnforcement;
+  const unsettled = () =>
+    new AomiApiError(409, "chain_not_settled", "not settled");
+  const flow = (
+    action: AomiPolicyAction | null,
+    confirm: () => Promise<unknown>,
+    signer: AomiPolicySigner,
+    held = entry,
+  ) => {
+    const transport = {
+      get: vi.fn(async () => ({ enforcement: [], revision: 2 })),
+      prepareEnforcement: vi.fn(async () => action),
+      confirmEnforcement: vi.fn(confirm),
+    };
+    const result = enforcePolicy(transport as never, "w", held, signer, {
+      revision: 1,
+      owner: held.signer.address!,
+      retryDelayMs: 0,
+    });
+    return { transport, result };
+  };
+  const transaction: AomiPolicyAction = {
+    kind: "transaction",
+    network: "solana:mainnet-beta",
+    unsigned_base64: "dW5zaWduZWQ=",
+  };
+  const sendSolanaTransaction = async () => "5igSent";
+
+  it("answers the signature with settled false and the policies as they stand, after the same retries", async () => {
+    const { transport, result } = flow(
+      transaction,
+      async () => {
+        throw unsettled();
+      },
+      { sendSolanaTransaction },
+    );
+    await expect(result).resolves.toEqual({
+      policies: { enforcement: [], revision: 2 },
+      settled: false,
+      transaction: "5igSent",
+    });
+    expect(transport.confirmEnforcement).toHaveBeenCalledTimes(6);
+    expect(transport.get).toHaveBeenCalledWith("w");
+  });
+
+  it("answers the signature once it settles, and reads nothing more", async () => {
+    let calls = 0;
+    const { transport, result } = flow(
+      transaction,
+      async () => {
+        if ((calls += 1) < 3) throw unsettled();
+        return { enforcement: [], revision: 3 };
+      },
+      { sendSolanaTransaction },
+    );
+    await expect(result).resolves.toEqual({
+      policies: { enforcement: [], revision: 3 },
+      settled: true,
+      transaction: "5igSent",
+    });
+    expect(transport.get).not.toHaveBeenCalled();
+  });
+
+  it("still throws when nothing was sent, and any other refusal", async () => {
+    const nothing = flow(
+      null,
+      async () => {
+        throw unsettled();
+      },
+      {},
+    );
+    await expect(nothing.result).rejects.toMatchObject({
+      code: "chain_not_settled",
+    });
+    expect(nothing.transport.get).not.toHaveBeenCalled();
+    const refusedAfterSend = flow(
+      transaction,
+      async () => {
+        throw new AomiApiError(409, "rules_changed", "changed");
+      },
+      { sendSolanaTransaction },
+    );
+    await expect(refusedAfterSend.result).rejects.toMatchObject({
+      code: "rules_changed",
+    });
+    expect(refusedAfterSend.transport.confirmEnforcement).toHaveBeenCalledTimes(
+      1,
+    );
   });
 });
 

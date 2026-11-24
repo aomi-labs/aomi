@@ -136,6 +136,35 @@ describe("policy drafts", () => {
     ]);
   });
 
+  it("finds a typed app by its id first, then by its label among the apps on the token's chain", () => {
+    const apps = [
+      { id: "swap-eth", label: "Swap", chains: ["eip155:1"] },
+      { id: "swap-base", label: "Swap", chains: ["eip155:8453"] },
+      {
+        id: "jupiter-legacy",
+        label: "Jupiter",
+        chains: ["solana:mainnet-beta"],
+      },
+      ...catalog.apps,
+    ];
+    const to = (input: { asset: string; to: string; chain?: string }) =>
+      policyFromInput({ amount: "1", ...input }, { ...catalog, apps }, NOW).to;
+    // The label is on two chains: the token's chain picks.
+    expect(to({ asset: "USDC", to: "Swap", chain: "base" })).toEqual({
+      kind: "protocol",
+      id: "swap-base",
+    });
+    // An id wins over another app's label, wherever each is listed.
+    expect(to({ asset: "SOL", to: "jupiter" })).toEqual({
+      kind: "protocol",
+      id: "jupiter",
+    });
+    // An id named outright is not swapped for a namesake on the right chain.
+    expect(
+      refused(() => to({ asset: "USDC", to: "swap-eth", chain: "base" })),
+    ).toEqual(["to.id", "swap-base"]);
+  });
+
   it("refuses a policy by the field that is wrong, with the nearest apps", () => {
     const typed = (input: object) => () =>
       policyFromInput(

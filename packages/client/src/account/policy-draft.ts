@@ -330,11 +330,14 @@ export function policyFromInput(
   const token = tokenOf(catalog, input);
   const network = assetNetwork(token.asset);
   const named = input.to.trim();
-  const app = catalog.apps.find(
-    (known) =>
-      known.id === named.toLowerCase() ||
-      known.label.toLowerCase() === named.toLowerCase(),
-  );
+  const lower = named.toLowerCase();
+  // An id names its app outright; a label only among the apps on this chain.
+  const app =
+    catalog.apps.find((known) => known.id === lower) ??
+    catalog.apps.find(
+      (known) =>
+        known.chains.includes(network) && known.label.toLowerCase() === lower,
+    );
   const to: AomiPolicyTo =
     named === "any"
       ? { kind: "any_protocol" }

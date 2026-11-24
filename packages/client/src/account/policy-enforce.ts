@@ -36,13 +36,16 @@ export type AomiPolicySigner = {
     chainId: number;
     description: string;
   }) => Promise<string>;
-  /** Send from the connected account on `chainId` and wait for the receipt. */
+  /**
+   * Send from the connected account on `chainId` and wait for the receipt;
+   * answers the transaction's hash when the wallet gives one.
+   */
   sendEvmTransaction?: (transaction: {
     chainId: number;
     to: string;
     data: string;
     value: string;
-  }) => Promise<void>;
+  }) => Promise<string | void>;
   /** Sign and send an unsigned base64 transaction; answers its signature. */
   sendSolanaTransaction?: (transaction: {
     unsignedBase64: string;
@@ -92,6 +95,9 @@ function deploysVaultOf(data: string, owner: string): boolean {
   }
 }
 
+const notSettled = (cause: unknown) =>
+  cause instanceof AomiApiError && cause.code === "chain_not_settled";
+
 // The wallet and the backend read the chain through different nodes, so a
 // confirm can come before the backend's node shows the transaction.
 async function settled<T>(confirm: () => Promise<T>, delayMs: number) {
@@ -99,12 +105,7 @@ async function settled<T>(confirm: () => Promise<T>, delayMs: number) {
     try {
       return await confirm();
     } catch (cause) {
-      if (
-        attempt >= 5 ||
-        !(cause instanceof AomiApiError) ||
-        cause.code !== "chain_not_settled"
-      )
-        throw cause;
+      if (attempt >= 5 || !notSettled(cause)) throw cause;
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
@@ -200,7 +201,7 @@ async function act(
   action: AomiPolicyAction,
   description: string,
   owner: string,
-): Promise<{ signature?: string }> {
+): Promise<{ signature?: string; transaction?: string }> {
   if (action.network !== entry.network)
     throw new Error(
       "Aomi asked for a signature on another network than this policy's. Nothing was signed.",
@@ -246,13 +247,13 @@ async function act(
       throw new Error(
         "Send this from the wallet that owns the policy. Nothing was sent.",
       );
-    await signer.sendEvmTransaction({
+    const hash = await signer.sendEvmTransaction({
       chainId: Number(chainId),
       to: action.to,
       data: action.data,
       value: action.value,
     });
-    return {};
+    return { transaction: hash || undefined };
   }
   const cluster = normalizeSolanaCluster(action.network);
   if (
@@ -261,12 +262,13 @@ async function act(
     !signer.sendSolanaTransaction
   )
     throw new Error("This wallet can't sign that transaction.");
-  await signer.sendSolanaTransaction({
-    unsignedBase64: action.unsigned_base64,
-    cluster,
-    description,
-  });
-  return {};
+  return {
+    transaction: await signer.sendSolanaTransaction({
+      unsignedBase64: action.unsigned_base64,
+      cluster,
+      description,
+    }),
+  };
 }
 
 /** A replacement can keep the same rule key after the old grant is disabled. */
@@ -290,12 +292,13 @@ export type AomiPolicyEnforceOptions = {
 /**
  * Deploy, replace or `remove` the entry's policy with the owner's wallet.
  * `settled` is false when a sent transaction is not on the backend's node
- * yet: read again before sending anything more.
+ * yet: read again before sending anything more. `transaction` is what the
+ * wallet sent, a Solana signature or an EVM hash, when it said.
  */
 export async function enforcePolicy(
   transport: Pick<
     AccountPolicyTransport,
-    "prepareEnforcement" | "confirmEnforcement"
+    "get" | "prepareEnforcement" | "confirmEnforcement"
   >,
   agentWalletId: string,
   entry: AomiPolicyEnforcement,
@@ -307,7 +310,11 @@ export async function enforcePolicy(
     onAction,
     retryDelayMs = 2_000,
   }: AomiPolicyEnforceOptions,
-): Promise<{ policies: AomiWalletPolicies; settled: boolean }> {
+): Promise<{
+  policies: AomiWalletPolicies;
+  settled: boolean;
+  transaction?: string;
+}> {
   const key = enforcementKey(entry);
   const request = {
     network: entry.network,
@@ -322,18 +329,19 @@ export async function enforcePolicy(
     request,
   );
   let signature: string | undefined;
+  let transaction: string | undefined;
   if (action) {
     onAction?.(action);
-    signature = (
-      await act(
-        signer,
-        entry,
-        action,
-        remove ? "Remove policy from chain" : "Enforce policy on chain",
-        owner,
-      )
-    ).signature;
+    ({ signature, transaction } = await act(
+      signer,
+      entry,
+      action,
+      remove ? "Remove policy from chain" : "Enforce policy on chain",
+      owner,
+    ));
   }
+  const onChain = action ? action.kind !== "typed_data" : false;
+  /** Null when the backend's node never showed a transaction that was sent. */
   const confirm = () =>
     settled(
       () =>
@@ -342,18 +350,29 @@ export async function enforcePolicy(
           ...(signature ? { signature } : {}),
         }),
       retryDelayMs,
-    );
+    ).catch((cause: unknown) => {
+      if (onChain && notSettled(cause)) return null;
+      throw cause;
+    });
   let policies = await confirm();
   // No signature proves a sent tx: policies come back unchanged until the
   // backend's node shows it.
   const sent = action?.kind === "evm_transaction";
   for (
     let attempt = 0;
-    sent && attempt < 5 && stillHeld(policies, key);
+    sent && attempt < 5 && policies && stillHeld(policies, key);
     attempt += 1
   ) {
     await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
     policies = await confirm();
   }
-  return { policies, settled: !(sent && stillHeld(policies, key)) };
+  const said = transaction ? { transaction } : {};
+  // Sent and still unseen: the caller keeps the transaction, not an error.
+  if (!policies)
+    return {
+      policies: await transport.get(agentWalletId),
+      settled: false,
+      ...said,
+    };
+  return { policies, settled: !(sent && stillHeld(policies, key)), ...said };
 }
