@@ -501,6 +501,13 @@ describe("wallet rules", () => {
     const stands = (enforcement: ReturnType<typeof entry>[], id = SOL_RULE) =>
       policyOnChain({ ...read, enforcement }, id)?.kind;
     expect(stands([entry("on", false)])).toBe("in_sync");
+    // On chain, with a revocation still to send: not in sync.
+    for (const [next, kind] of [
+      ["evm_transaction", "out_of_date"],
+      ["typed_data", "out_of_date"],
+      [null, "in_sync"],
+    ] as const)
+      expect(stands([{ ...entry("on", true), next }])).toBe(kind);
     expect(stands([entry("behind", true)])).toBe("out_of_date");
     expect(stands([entry("unverified", false)])).toBe("unverified");
     expect(stands([entry("off", true)])).toBe("not_deployed");

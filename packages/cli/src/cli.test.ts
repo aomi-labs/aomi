@@ -578,6 +578,14 @@ describe("aomi policy", () => {
     expect(requests.some((r) => r.key === paths.wallets)).toBe(false);
   });
 
+  it("does not call a policy in sync while its provider still asks the owner for something", async () => {
+    const asks = { ...swig(SOL_ID, "on", true), next: "evm_transaction" };
+    routes[paths.rules] = { ...body, enforcement: [asks] };
+    const { stdout } = await policy("list");
+    expect(stdout).toContain("2099-12-11 UTC  out of date (Swig)\n");
+    expect(stdout).not.toContain("in sync");
+  });
+
   it("prints the catalog, or one chain of it", async () => {
     const { stdout } = await policy("catalog", "--chain", "base");
     expect(stdout.split("\n")).toEqual([

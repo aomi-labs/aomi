@@ -17,7 +17,7 @@ export type AomiPolicyOnChain =
   | { kind: "in_sync"; entry: AomiPolicyEnforcement }
   /** A provider can hold it and nothing is on chain yet. */
   | { kind: "not_deployed"; entry: AomiPolicyEnforcement }
-  /** The chain holds an earlier version. */
+  /** The chain holds an earlier version, or one its owner must still act on. */
   | { kind: "out_of_date"; entry: AomiPolicyEnforcement }
   /** The chain could not be read. */
   | { kind: "unverified"; entry: AomiPolicyEnforcement }
@@ -85,7 +85,12 @@ export function policyOnChain(
   }
   for (const state of ["on", "behind", "unverified"] as const) {
     const entry = mine.find((candidate) => candidate.state === state);
-    if (entry) return { kind: ON_CHAIN[state], entry };
+    // On chain, and its owner is still asked for something: not as it stands.
+    if (entry)
+      return {
+        kind: state === "on" && entry.next ? "out_of_date" : ON_CHAIN[state],
+        entry,
+      };
   }
   const entry = mine.find((candidate) => candidate.ready);
   if (entry) return { kind: "not_deployed", entry };
