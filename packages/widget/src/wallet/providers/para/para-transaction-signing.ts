@@ -45,8 +45,8 @@ export const PARA_SIGNATURE_GRACE_MS = 15_000;
  * outcome is still unknown: Para's server co-signs every signature and an
  * approved review may finish signing after this page stopped waiting. Para
  * never broadcasts it. Any such signature is bound to this prepared
- * transaction's nonce and is void once that nonce is used. A retry signs the
- * same call, renewed to the signer's next nonce and the fees of that moment.
+ * transaction's nonce, so it and a retry (which signs the same transaction,
+ * same nonce) cannot both land, and it is void once that nonce is used.
  */
 export class ParaSigningIncompleteError extends Error {
   /** Never proof that signing did not happen. */
@@ -61,7 +61,7 @@ export class ParaSigningIncompleteError extends Error {
         reason === "timeout"
           ? "Para didn't return a signature in time"
           : "Para didn't return a signature"
-      }, so Aomi sent nothing. If you approved it in Para, that approval only covers this exact transaction, and Para doesn't send it. Trying again signs the same call, with its nonce and fees brought up to date.`,
+      }, so Aomi sent nothing. If you approved it in Para, that approval only covers this exact transaction: trying again signs the same transaction, and at most one can go through.`,
       options,
     );
     this.name = "ParaSigningIncompleteError";
