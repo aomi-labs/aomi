@@ -4601,6 +4601,7 @@ export interface SvmWallet {
     address: string;
     // (undocumented)
     broadcastTransaction?: (signedTransaction: string, cluster: string) => Promise<string>;
+    canSignV1Transaction?: boolean;
     // (undocumented)
     cluster?: string | (() => string | undefined);
     // (undocumented)

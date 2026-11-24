@@ -2,6 +2,8 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   executeSvmWalletConnect,
+  getSvmCapabilitySnapshot,
+  standardV1Signer,
   useMergedSvmWallet,
   useSafeSvmWallet,
   type SafeSvmWalletState,
@@ -153,5 +155,78 @@ describe("generic Solana wallet composition", () => {
     await attempt;
 
     expect(connect).not.toHaveBeenCalled();
+  });
+});
+
+describe("v1 signing capability", () => {
+  const address = "So11111111111111111111111111111111111111112";
+
+  function standardAdapter(versions: readonly (string | number)[]) {
+    const signTransaction = vi.fn(
+      async (...inputs: { transaction: Uint8Array }[]) =>
+        inputs.map(({ transaction }) => ({ signedTransaction: transaction })),
+    );
+    return {
+      signTransaction,
+      adapter: {
+        standard: true,
+        wallet: {
+          accounts: [{ address, features: ["solana:signTransaction"] }],
+          features: {
+            "solana:signTransaction": {
+              supportedTransactionVersions: versions,
+              signTransaction,
+            },
+          },
+        },
+      },
+    };
+  }
+
+  it("signs raw bytes when the wallet lists version 1", async () => {
+    const { adapter, signTransaction } = standardAdapter(["legacy", 0, 1]);
+    const signer = standardV1Signer(adapter, address);
+    const bytes = Uint8Array.from([0x81, 1]);
+
+    expect(signer).toBeTypeOf("function");
+    await expect(signer!([bytes])).resolves.toEqual([bytes]);
+    expect(signTransaction).toHaveBeenCalledWith({
+      account: adapter.wallet.accounts[0],
+      transaction: bytes,
+    });
+  });
+
+  it.each([
+    [
+      "lists only legacy and 0",
+      standardAdapter(["legacy", 0]).adapter,
+      address,
+    ],
+    [
+      "is not a Wallet Standard wallet",
+      { ...standardAdapter([1]).adapter, standard: false },
+      address,
+    ],
+    [
+      "has no account for the connected key",
+      standardAdapter([1]).adapter,
+      "AnotherWallet",
+    ],
+    ["is disconnected", standardAdapter([1]).adapter, undefined],
+  ])("gives no v1 signer when the wallet %s", (_case, adapter, key) => {
+    expect(standardV1Signer(adapter, key)).toBeUndefined();
+  });
+
+  it("reports canSignV1Transaction only with a v1 signer", () => {
+    const connected = walletState({ publicKey: address });
+    expect(getSvmCapabilitySnapshot(connected)?.canSignV1Transaction).toBe(
+      false,
+    );
+    expect(
+      getSvmCapabilitySnapshot({
+        ...connected,
+        signV1Transactions: async (txs) => [...txs],
+      })?.canSignV1Transaction,
+    ).toBe(true);
   });
 });

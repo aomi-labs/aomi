@@ -26,6 +26,9 @@ export function walletUserState(wallets: Wallets): UserState | undefined {
           svm: {
             address: wallets.svm.address,
             ...(cluster === undefined ? {} : { cluster }),
+            ...(wallets.svm.canSignV1Transaction
+              ? { capabilities: ["can_sign_v1_transaction"] }
+              : {}),
           },
         }
       : {}),
