@@ -11,7 +11,7 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 import type { SafeSvmWalletState } from "./wallet-runtime";
-import { buildSvmTransactionMethods } from "./transactions";
+import { buildSvmTransactionMethods, sendSolana } from "./transactions";
 
 function wallet(
   overrides: Partial<SafeSvmWalletState> = {},
@@ -188,5 +188,47 @@ describe("buildSvmTransactionMethods", () => {
       approvedBlockhash,
     );
     expect(confirmTransaction).toHaveBeenCalledWith("signature", "confirmed");
+  });
+});
+
+describe("sendSolana", () => {
+  const devnet = {
+    id: "solana-devnet",
+    label: "Devnet",
+    cluster: "solana:devnet" as const,
+    rpcHttpUrl: "https://devnet.example",
+  };
+  const sender = (selectedSolanaNetwork?: typeof devnet) => {
+    const signAndSendSolanaTransaction = vi.fn(async () => ({
+      signature: "signature",
+    }));
+    return { signAndSendSolanaTransaction, selectedSolanaNetwork };
+  };
+
+  it("sends only on the cluster the transaction names", async () => {
+    const onDevnet = sender(devnet);
+    await expect(
+      sendSolana(onDevnet, { unsignedTx: "dHg=", cluster: "solana:mainnet" }),
+    ).rejects.toThrow(
+      "This transaction is for solana:mainnet, and your Solana wallet here is on solana:devnet. Nothing was sent.",
+    );
+    // A cluster it cannot read is not the wallet's.
+    await expect(
+      sendSolana(onDevnet, { unsignedTx: "dHg=", cluster: "solana:localnet" }),
+    ).rejects.toThrow(/Nothing was sent/);
+    expect(onDevnet.signAndSendSolanaTransaction).not.toHaveBeenCalled();
+
+    // Any spelling of the same cluster, and a payload that names none.
+    await sendSolana(onDevnet, { unsignedTx: "dHg=", cluster: "devnet" });
+    await sendSolana(onDevnet, { unsignedTx: "dHg=" });
+    expect(onDevnet.signAndSendSolanaTransaction).toHaveBeenCalledTimes(2);
+
+    // No network selected: the runtime's RPC is the default cluster's.
+    const unset = sender();
+    await sendSolana(unset, { unsignedTx: "dHg=", cluster: "mainnet-beta" });
+    await expect(
+      sendSolana(unset, { unsignedTx: "dHg=", cluster: "solana:devnet" }),
+    ).rejects.toThrow(/Nothing was sent/);
+    expect(unset.signAndSendSolanaTransaction).toHaveBeenCalledTimes(1);
   });
 });

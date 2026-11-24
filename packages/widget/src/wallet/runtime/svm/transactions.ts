@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  normalizeSolanaCluster,
   type WalletSolanaSignMessagePayload,
   type WalletSolanaSignPayload,
 } from "@aomi-labs/client";
@@ -9,6 +10,7 @@ import {
   Transaction as SolanaTransaction,
   VersionedTransaction,
 } from "@solana/web3.js";
+import { DEFAULT_SVM_CLUSTER } from "@/wallet/catalog/svm-networks";
 import type { AomiWalletKit } from "@/wallet/types";
 import type { SafeSvmWalletState } from "./wallet-runtime";
 
@@ -161,6 +163,7 @@ type SolanaSender = Pick<
   | "sendSolanaTransaction"
   | "signSolanaTransaction"
   | "solanaRpcHttpUrl"
+  | "selectedSolanaNetwork"
 >;
 
 /** Whether this wallet can get a Solana transaction on chain at all. */
@@ -172,11 +175,20 @@ export function canSendSolana(kit: SolanaSender): boolean {
   );
 }
 
-/** Sign and send with the best path the wallet has: direct send, else sign then broadcast. */
+/**
+ * Sign and send with the best path the wallet has: direct send, else sign
+ * then broadcast. Only on the cluster the payload names: the wallet's RPC is
+ * the selected network's.
+ */
 export async function sendSolana(
   kit: SolanaSender,
   payload: WalletSolanaSignPayload,
 ): Promise<{ signature: string; signedTx?: string }> {
+  const here = kit.selectedSolanaNetwork?.cluster ?? DEFAULT_SVM_CLUSTER;
+  if (payload.cluster && normalizeSolanaCluster(payload.cluster) !== here)
+    throw new Error(
+      `This transaction is for ${payload.cluster}, and your Solana wallet here is on ${here}. Nothing was sent.`,
+    );
   if (kit.signAndSendSolanaTransaction) {
     return kit.signAndSendSolanaTransaction(payload);
   }
