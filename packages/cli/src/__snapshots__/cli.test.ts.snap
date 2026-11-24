@@ -224,7 +224,7 @@ WALLETS & TRADES
   guard      Spending limits for signing
 
 AGENTS
-  library    Turn packages on or off, connect keys
+  library    Add packages, turn them on or off, connect keys
   pipeline   Call operations directly
 
 BUILD

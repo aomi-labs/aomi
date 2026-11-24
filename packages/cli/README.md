@@ -54,28 +54,28 @@ sign-in.
 
 ## Commands
 
-| Command                           | What it does                                                                                                                       |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `chat [message]`                  | Ask once (`-p`) or open the chat screen. `--thread`, `--new`, `--agent`, `--model`                                                 |
-| `threads`                         | `list`, `open <id>`, `new`, `rename <id> <title>`, `archive <id>`                                                                  |
-| `login`, `logout`, `whoami`       | Sign in and out                                                                                                                    |
-| `account`                         | Profile; `connections`, `unlink`, `credits`, `fund`, `statement`                                                                   |
-| `wallets`                         | Agent wallets: `list`, `balance <id>`, `use <id>`; the local `signer` (`show`, `set`, `clear`)                                     |
-| `rules`                           | Each agent wallet's rules, today's use and waiting change; `approve <change-id>`, `decline <change-id>`                            |
-| `tx`                              | `list`, `review <ref>`, `approve <ref>`, `reject <ref>`, `sign <ref>`, `export <ref>`                                              |
-| `guard [strict\|balanced\|yolo]`  | The thread's guard, or `--account`'s default                                                                                       |
-| `library`                         | `list [--thread]`, `on <id> [--yes]`, `off <id>`, `reset <id>`, `connect <id> <slot>`, `disconnect <id> <slot>`                    |
-| `pipeline`                        | `ops`, `op`, `agents`, `packages`, `package`, `invoke`, `stage [--commit]`                                                         |
-| `build`                           | Author packages and agents: `init`, `new package\|agent`, `contracts add`, `tool add`, `gen`, `doctor`, `test`, `pack`             |
-| `build publish`                   | Build and upload the root `aomi.toml`'s packages and agents. `--promote`, `--package`, `--agent`, `--no-build`, `--wasm name=path` |
-| `build promote`, `build rollback` | `<package\|agent> <name> <number>`: make a release live; rollback names the release to go back to                                  |
-| `build codes`                     | `create <package> [--agent <id>]`, `list <package>`, `revoke <package> <id>`: activation codes for a private package               |
-| `build releases`                  | `<package\|agent> <name>`: every release, newest first                                                                             |
-| `model`, `chain`                  | `current`, `list`, `set`                                                                                                           |
-| `keys`                            | Your own provider keys: `list`, `set <provider>`, `remove`                                                                         |
-| `secret`                          | `list`, `add NAME=value…`, `clear`                                                                                                 |
-| `config`                          | `current`, `set-backend <url>`                                                                                                     |
-| `completion`                      | `eval "$(aomi completion)"`                                                                                                        |
+| Command                           | What it does                                                                                                                                                                                |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `chat [message]`                  | Ask once (`-p`) or open the chat screen. `--thread`, `--new`, `--agent`, `--model`                                                                                                          |
+| `threads`                         | `list`, `open <id>`, `new`, `rename <id> <title>`, `archive <id>`                                                                                                                           |
+| `login`, `logout`, `whoami`       | Sign in and out                                                                                                                                                                             |
+| `account`                         | Profile; `connections`, `unlink`, `credits`, `fund`, `statement`                                                                                                                            |
+| `wallets`                         | Agent wallets: `list`, `balance <id>`, `use <id>`; the local `signer` (`show`, `set`, `clear`)                                                                                              |
+| `rules`                           | Each agent wallet's rules, today's use and waiting change; `approve <change-id>`, `decline <change-id>`                                                                                     |
+| `tx`                              | `list`, `review <ref>`, `approve <ref>`, `reject <ref>`, `sign <ref>`, `export <ref>`                                                                                                       |
+| `guard [strict\|balanced\|yolo]`  | The thread's guard, or `--account`'s default                                                                                                                                                |
+| `library`                         | `list [--search --chain --tag --on]`, `show <id>`, `on <id>`, `off <id>`, `reset <id>` (each with `--thread`), `add <code>`, `remove <id>`, `connect <id> <slot>`, `disconnect <id> <slot>` |
+| `pipeline`                        | `ops`, `op`, `agents`, `packages`, `package`, `invoke`, `stage [--commit]`                                                                                                                  |
+| `build`                           | Author packages and agents: `init`, `new package\|agent`, `contracts add`, `tool add`, `gen`, `doctor`, `test`, `pack`                                                                      |
+| `build publish`                   | Build and upload the root `aomi.toml`'s packages and agents. `--promote`, `--package`, `--agent`, `--no-build`, `--wasm name=path`                                                          |
+| `build promote`, `build rollback` | `<package\|agent> <name> <number>`: make a release live; rollback names the release to go back to                                                                                           |
+| `build codes`                     | `create <package> [--agent <id>]`, `list <package>`, `revoke <package> <id>`: activation codes for a private package                                                                        |
+| `build releases`                  | `<package\|agent> <name>`: every release, newest first                                                                                                                                      |
+| `model`, `chain`                  | `current`, `list`, `set`                                                                                                                                                                    |
+| `keys`                            | Your own provider keys: `list`, `set <provider>`, `remove`                                                                                                                                  |
+| `secret`                          | `list`, `add NAME=value…`, `clear`                                                                                                                                                          |
+| `config`                          | `current`, `set-backend <url>`                                                                                                                                                              |
+| `completion`                      | `eval "$(aomi completion)"`                                                                                                                                                                 |
 
 Credential and key values come from stdin or a hidden prompt, never argv.
 `--chain` takes a decimal chain id.

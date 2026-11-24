@@ -125,6 +125,12 @@ const arg = (brief: string, placeholder: string, optional = false) => ({
   optional,
 });
 
+const packageArg = arg("Package, publisher/name", "package");
+/** Whose Library a command reads and changes. */
+const inThread = {
+  thread: text("The thread whose agent it is for", { placeholder: "id" }),
+};
+
 /** One command. Errors print as one line and set the exit code. */
 function command(
   brief: string,
@@ -187,7 +193,7 @@ const BRIEFS = {
   rules: "What the agent may sign",
   tx: "Review, approve, sign, export",
   guard: "Spending limits for signing",
-  library: "Turn packages on or off, connect keys",
+  library: "Add packages, turn them on or off, connect keys",
   pipeline: "Call operations directly",
   build: "Make, check and publish packages and agents",
   model: "Pick the model",
@@ -470,39 +476,65 @@ const root = routes("the Aomi agent in your terminal", {
         {
           ...json,
           ...conn,
-          thread: text("The thread's agent", { placeholder: "id" }),
+          ...inThread,
+          search: text("Names and descriptions containing this", {
+            placeholder: "text",
+          }),
+          chain: text("Works on this chain, e.g. base", {
+            placeholder: "name",
+          }),
+          tag: text("Has this tag, e.g. lending", { placeholder: "tag" }),
+          on: yes("Only those that are on"),
         },
         [],
         packages.list,
       ),
+      show: command(
+        "What a package may do, what is checked, and what is in it",
+        { ...json, ...conn, ...inThread },
+        [packageArg],
+        packages.show,
+      ),
       on: command(
         "Turn a package on",
-        { ...json, ...conn, yes: yes("Skip the confirmation") },
-        [arg("Package, publisher/name", "package")],
+        { ...json, ...conn, ...inThread, yes: yes("Skip the confirmation") },
+        [packageArg],
         packages.on,
       ),
       off: command(
         "Turn a package off",
-        { ...json, ...conn },
-        [arg("Package, publisher/name", "package")],
+        { ...json, ...conn, ...inThread },
+        [packageArg],
         packages.off,
       ),
       reset: command(
         "Go back to the package's default",
-        { ...json, ...conn },
-        [arg("Package, publisher/name", "package")],
+        { ...json, ...conn, ...inThread },
+        [packageArg],
         packages.reset,
+      ),
+      add: command(
+        "Add a private package with its code, and turn it on",
+        { ...json, ...conn, yes: yes("Skip the confirmation") },
+        [arg("Access code", "code")],
+        packages.add,
+      ),
+      remove: command(
+        "Remove a package you added with a code",
+        { ...json, ...conn, yes: yes("Skip the confirmation") },
+        [packageArg],
+        packages.remove,
       ),
       connect: command(
         "Add your key for a slot (value from stdin or a prompt)",
         { ...json, ...conn },
-        [arg("Package, publisher/name", "package"), arg("Slot", "slot")],
+        [packageArg, arg("Slot", "slot")],
         packages.connectSlot,
       ),
       disconnect: command(
         "Remove your key for a slot",
         conn,
-        [arg("Package, publisher/name", "package"), arg("Slot", "slot")],
+        [packageArg, arg("Slot", "slot")],
         packages.disconnectSlot,
       ),
     },

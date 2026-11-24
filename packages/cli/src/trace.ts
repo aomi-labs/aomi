@@ -30,6 +30,13 @@ export const paint = {
   strike: (text: string) => `${ESC}9m${text}${ESC}29m`,
 };
 
+/** Text from a package, a token or a message, with nothing a terminal acts on. */
+export const plain = (text: string) =>
+  text.replace(
+    /[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]+/gu,
+    " ",
+  );
+
 export const chipsOf = (step: InterpretedToolStep) =>
   step.chips.map((chip) => chip.label).join(" · ");
 

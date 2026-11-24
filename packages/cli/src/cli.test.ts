@@ -520,29 +520,34 @@ describe("aomi library", () => {
     description: "",
     icon_url: null,
     chains: ["ethereum", "base"],
-    tags: [],
+    tags: ["lending"],
     tool_count: 1,
     skills: [],
     live: { release: 1, digest: "d" },
     verified: true,
     listed: true,
     agent_listed: false,
+    removable: false,
+    available: true,
     choice: null,
     enabled: false,
     reason: "off_by_default",
     envelope: {
       hash: "h",
       hosts: ["api.acme.dev"],
-      transactions: ["evm"],
+      transactions: [],
       signatures: [],
     },
     slots: [],
+    tools: [],
+    checked: null,
+    prepares: ["evm"],
     ...more,
   });
   const packages = [
     row(1, "swap", {
       enabled: true,
-      reason: "verified_default",
+      reason: "agent_default",
       slots: [
         {
           name: "API_KEY",
@@ -558,7 +563,19 @@ describe("aomi library", () => {
       agent_listed: true,
       reason: "agent_listed",
     }),
-    row(3, "lend"),
+    row(3, "lend", {
+      checked: { actions: ["borrow", "supply"], contracts: 2 },
+      tools: [{ name: "get_rates", description: "Rates now" }],
+      skills: [{ id: "lend", description: "How to lend" }],
+    }),
+    row(4, "vault", {
+      display_name: "Vault\u001b[2K",
+      chains: ["solana"],
+      verified: false,
+      listed: false,
+      removable: true,
+      prepares: ["evm", "svm"],
+    }),
   ];
 
   beforeEach(() => {
@@ -570,6 +587,12 @@ describe("aomi library", () => {
       ...packages[2],
       enabled: true,
     };
+    routes["PUT /api/account/packages/4/choice"] = {
+      ...packages[3],
+      enabled: true,
+    };
+    routes["POST /api/account/packages/activate"] = packages[3];
+    routes["DELETE /api/account/packages/4"] = { removed: true };
     routes["PUT /api/account/packages/1/secrets/API_KEY"] = {
       slot: "API_KEY",
       status: "ready",
@@ -587,6 +610,7 @@ describe("aomi library", () => {
       "acme/swap  on (on by default)  verified  ethereum+base  needs API_KEY",
       "acme/core  on (the agent lists it)  verified  ethereum+base",
       "acme/lend  off (off by default)  verified  ethereum+base",
+      "acme/vault  off (off by default)  unverified  solana",
       "",
     ]);
   });
@@ -601,7 +625,11 @@ describe("aomi library", () => {
     );
     expect(code).toBe(2);
     expect(stdout).toContain("reach api.acme.dev");
-    expect(stdout).toContain("approve evm transactions");
+    // A text-only package has no transactions of its own, and still prepares.
+    expect(stdout).toContain("prepare EVM transactions for you to approve");
+    expect(stdout).toContain(
+      "checked before you approve: borrow, supply on 2 contracts; other calls are partly covered",
+    );
     expect(stderr).toContain("--yes");
     expect(requests.some((r) => r.key.startsWith("PUT"))).toBe(false);
   });
@@ -619,6 +647,93 @@ describe("aomi library", () => {
     expect(stdout).toBe("acme/lend is on\n");
     const sent = requests.find((r) => r.key.startsWith("PUT"));
     expect(sent?.body).toBe('{"enabled":true}');
+  });
+
+  it("filters by search, chain, tag and state", async () => {
+    const ids = async (...flags: string[]) =>
+      (await cli("library", "list", "--private-key", KEY, ...flags)).stdout
+        .trim()
+        .split("\n")
+        .map((line) => line.split("  ")[0]);
+    expect(await ids("--search", "VAULT")).toEqual(["acme/vault"]);
+    expect(await ids("--chain", "solana")).toEqual(["acme/vault"]);
+    expect(await ids("--on", "--tag", "lending")).toEqual([
+      "acme/swap",
+      "acme/core",
+    ]);
+    expect(await ids("--tag", "dex")).toEqual([""]);
+  });
+
+  it("shows one package, with nothing its name could do to the terminal", async () => {
+    const lend = await cli(
+      "library",
+      "show",
+      "acme/lend",
+      "--private-key",
+      KEY,
+    );
+    expect(lend.code).toBe(0);
+    expect(lend.stdout).toContain(
+      "off (off by default) · verified · release 1",
+    );
+    expect(lend.stdout).toContain("Tools\n  get_rates  Rates now");
+    expect(lend.stdout).toContain("Instructions\n  lend  How to lend");
+    const vault = await cli("library", "show", "4", "--private-key", KEY);
+    expect(vault.stdout).toContain("EVM and Solana transactions");
+    expect(vault.stdout).toContain("no check of its own");
+    expect(vault.stdout).toContain("Not verified by Aomi.");
+    expect(vault.stdout).not.toContain("\u001b");
+  });
+
+  it("switches a package in the named thread", async () => {
+    const thread = ["--thread", "t 1", "--private-key", KEY];
+    await cli("library", "on", "acme/lend", "--yes", ...thread);
+    const sent = requests.filter((r) => r.key.includes("/packages"));
+    expect(sent.map((r) => new URL(r.url).search)).toEqual([
+      "?thread_id=t%201",
+      "?thread_id=t%201",
+    ]);
+  });
+
+  it("adds an unverified package off until its notice is accepted", async () => {
+    const asked = await cli("library", "add", " code ", "--private-key", KEY);
+    expect(asked.code).toBe(2);
+    expect(asked.stderr).toContain("acme/vault is added, but off");
+    expect(asked.stdout).toContain("Not verified by Aomi.");
+    expect(requests.some((r) => r.key.startsWith("PUT"))).toBe(false);
+    expect(requests.find((r) => r.key.endsWith("activate"))?.body).toBe(
+      '{"code":"code"}',
+    );
+    const yes = await cli("library", "add", "c", "--yes", "--private-key", KEY);
+    expect(yes.code).toBe(0);
+    expect(yes.stdout).toBe("acme/vault is on\n");
+  });
+
+  it("adds a verified package on, without asking", async () => {
+    routes["POST /api/account/packages/activate"] = packages[0];
+    const { code, stdout } = await cli(
+      "library",
+      "add",
+      "code",
+      "--private-key",
+      KEY,
+    );
+    expect(code).toBe(0);
+    expect(stdout).toBe("acme/swap is added and on\n");
+    expect(requests.some((r) => r.key.startsWith("PUT"))).toBe(false);
+  });
+
+  it("removes only a package added with a code, once confirmed", async () => {
+    const remove = (...args: string[]) =>
+      cli("library", "remove", ...args, "--private-key", KEY);
+    expect((await remove("acme/vault")).code).toBe(2);
+    expect((await remove("acme/lend", "--yes")).stderr).toContain(
+      "was not added with a code",
+    );
+    expect(requests.some((r) => r.key.startsWith("DELETE"))).toBe(false);
+    expect((await remove("acme/vault", "--yes")).stdout).toBe(
+      "acme/vault is removed\n",
+    );
   });
 
   it("refuses off for an agent-listed package and exits non-zero", async () => {
