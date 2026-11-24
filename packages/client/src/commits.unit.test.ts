@@ -1599,7 +1599,7 @@ describe("Commit view surfaces", () => {
   it("keeps advertised commits on sign and broadcast for legacy consumers", async () => {
     const sign = vi.fn().mockResolvedValue(["signed-bytes"]);
     const request = vi.fn(async (method: string, _path: string, options) => {
-      if (method === "GET") return external;
+      if (method === "GET" || options.body.kind === "renew") return external;
       expect(options.body).toEqual({
         kind: "signed",
         payloads: ["signed-bytes"],
@@ -3042,9 +3042,13 @@ describe("embedded wallets that sign before broadcast", () => {
     supported_transports: ["sign_and_broadcast", "browser_send", "send_calls"],
     action: { kind: "sign", payload: arc },
   };
+  const renewed: CommitView = {
+    ...prepared,
+    action: { kind: "sign", payload: { ...arc, nonce: 4 } },
+  };
   const awaitingBroadcast: CommitView = {
     ...prepared,
-    version: 2,
+    version: 9,
     state: "awaiting_broadcast",
     action: {
       kind: "broadcast",
@@ -3054,7 +3058,7 @@ describe("embedded wallets that sign before broadcast", () => {
   };
   const sent: CommitView = {
     ...awaitingBroadcast,
-    version: 3,
+    version: 10,
     state: "submitted",
     action: null,
     transaction_id: "0xhash",
@@ -3070,14 +3074,20 @@ describe("embedded wallets that sign before broadcast", () => {
         if (path.endsWith("/wallet-attempts"))
           throw new Error("no wallet attempt may be created");
         const body = options?.body as { kind?: string };
-        current = body.kind === "signed" ? awaitingBroadcast : sent;
+        // Renewing fixes the nonce the wallet signs.
+        current =
+          body.kind === "renew"
+            ? { ...renewed, version: current.version + 1 }
+            : body.kind === "signed"
+              ? awaitingBroadcast
+              : sent;
         return current;
       },
     );
     return { request, writes, current: () => current };
   }
 
-  it("signs the pinned nonce, stores it, then broadcasts once; no wallet attempt", async () => {
+  it("signs the renewed nonce, stores it, then broadcasts once; no wallet attempt", async () => {
     const { request, writes } = server();
     const signTransaction = vi.fn().mockResolvedValue("0xsigned");
     const broadcastTransaction = vi.fn().mockResolvedValue("0xhash");
@@ -3101,12 +3111,12 @@ describe("embedded wallets that sign before broadcast", () => {
     });
     expect(view.state).toBe("submitted");
     expect(signTransaction).toHaveBeenCalledWith(
-      expect.objectContaining({ chain_id: 5042, nonce: 0 }),
+      expect.objectContaining({ chain_id: 5042, nonce: 4 }),
     );
     // The signed bytes reach Commit Service before the broadcast.
     expect(
       writes.map((write) => (write.body as { kind: string }).kind),
-    ).toEqual(["signed", "broadcast"]);
+    ).toEqual(["renew", "signed", "broadcast"]);
     expect(broadcastTransaction).toHaveBeenCalledTimes(1);
     expect(
       writes.some((write) => write.path.endsWith("/wallet-attempts")),
@@ -3114,8 +3124,52 @@ describe("embedded wallets that sign before broadcast", () => {
     controller.close();
   });
 
-  it("an unfinished signature leaves nothing to reconcile, and a retry re-signs the same nonce", async () => {
+  it("signs again when another transaction took the nonce; the refused bytes are never replayed", async () => {
     const { request, writes } = server();
+    const serve = request.getMockImplementation()!;
+    let refusals = 0;
+    request.mockImplementation(async (method, path, options) => {
+      const body = options?.body as { kind?: string } | undefined;
+      if (body?.kind === "signed" && refusals++ === 0)
+        throw new Error(
+          'HTTP 409: Conflict\n{"code":"commit_version_conflict"}',
+        );
+      return serve(method, path, options);
+    });
+    const signTransaction = vi
+      .fn()
+      .mockResolvedValueOnce("0xstale")
+      .mockResolvedValueOnce("0xsigned");
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      prepared.thread_id,
+      commitCapabilities(
+        {
+          evm: {
+            address: external.signer,
+            signTransaction,
+            broadcastTransaction: vi.fn().mockResolvedValue("0xhash"),
+          },
+        },
+        recoveryStore().store,
+      ),
+    );
+    await expect(controller.execute(prepared.commit_id)).rejects.toThrow(
+      "commit_version_conflict",
+    );
+    const view = await controller.execute(prepared.commit_id);
+    expect(view.state).toBe("submitted");
+    expect(writes.map((write) => write.body)).toEqual([
+      expect.objectContaining({ kind: "renew" }),
+      expect.objectContaining({ kind: "renew" }),
+      { kind: "signed", payloads: ["0xsigned"] },
+      expect.objectContaining({ kind: "broadcast" }),
+    ]);
+    controller.close();
+  });
+
+  it("an unfinished signature leaves nothing to reconcile, and a retry signs again", async () => {
+    const { request, writes, current } = server();
     const signTransaction = vi
       .fn()
       .mockRejectedValueOnce(
@@ -3146,8 +3200,10 @@ describe("embedded wallets that sign before broadcast", () => {
     await expect(
       controller.execute(prepared.commit_id, review),
     ).rejects.toThrow("did not finish");
-    // Not reported as a rejection, nothing written, nothing broadcast.
-    expect(writes).toEqual([]);
+    // Not reported as a rejection, nothing signed, nothing broadcast.
+    expect(
+      writes.map((write) => (write.body as { kind: string }).kind),
+    ).toEqual(["renew"]);
     expect(broadcastTransaction).not.toHaveBeenCalled();
     expect(
       projectCommitLifecycle(
@@ -3156,9 +3212,12 @@ describe("embedded wallets that sign before broadcast", () => {
       ).phase,
     ).not.toBe("rejected");
 
-    await controller.execute(prepared.commit_id, review);
+    await controller.execute(prepared.commit_id, {
+      ...review,
+      expectedVersion: current().version,
+    });
     const nonces = signTransaction.mock.calls.map(([payload]) => payload.nonce);
-    expect(nonces).toEqual([0, 0]);
+    expect(nonces).toEqual([4, 4]);
     expect(broadcastTransaction).toHaveBeenCalledTimes(1);
     controller.close();
   });
@@ -3168,6 +3227,7 @@ describe("embedded wallets that sign before broadcast", () => {
     // Commit Service stores the signed bytes, but the response never arrives.
     const lose = request.getMockImplementation()!;
     request
+      .mockImplementationOnce(lose)
       .mockImplementationOnce(lose)
       .mockImplementationOnce(
         async (method: string, path: string, options?: { body?: unknown }) => {

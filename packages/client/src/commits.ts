@@ -1162,17 +1162,25 @@ export class CommitController {
     // A renew is asked again at its current version on the next attempt,
     // never replayed: a lost response must not pin a stale version.
     if (body.kind !== "renew") this.pending.set(id, body);
-    const view = this.threadBound
-      ? await this.send<CommitView>(
-          "POST",
-          `${this.paths(id).view}/manual`,
-          body,
-        )
-      : await this.manualByRef(
-          id,
-          body,
-          basis ?? this.views.get(id) ?? (await this.refresh(id)),
-        );
+    const view = await (
+      this.threadBound
+        ? this.send<CommitView>("POST", `${this.paths(id).view}/manual`, body)
+        : this.manualByRef(
+            id,
+            body,
+            basis ?? this.views.get(id) ?? (await this.refresh(id)),
+          )
+    ).catch((error: unknown) => {
+      // Bytes refused for a commit that changed are never replayed: the next
+      // attempt signs what it asks for then.
+      if (
+        body.kind === "signed" &&
+        (error instanceof CommitStaleError ||
+          String(error).includes(COMMIT_REF_ERROR_CODES.versionConflict))
+      )
+        this.pending.delete(id);
+      throw error;
+    });
     if (view.commit_id !== id)
       throw new Error("Commit response identity mismatch");
     this.pending.delete(id);
@@ -1244,6 +1252,16 @@ export class CommitController {
       if (view.action.payload.kind === "svm_transaction")
         view = await this.signSvm(view, sign);
       else {
+        // An unsigned EVM transaction holds no nonce: renewing gives it the
+        // signer's next one, at today's fees.
+        if (view.action.payload.kind === "evm_transaction")
+          view = await this.manual(
+            id,
+            { kind: "renew", version: view.version },
+            view,
+          );
+        if (view.action?.kind !== "sign")
+          throw new Error("Commit is no longer awaiting a signature");
         const payloads = await sign(view, view.action.payload);
         if (this.closed) throw new Error("Commit session closed");
         view = await this.manual(id, signedWrite(view, payloads), view);
