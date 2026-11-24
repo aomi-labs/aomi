@@ -303,6 +303,7 @@ export type {
   AomiPackage,
   AomiPublicPackage,
   AomiPackageCatalog,
+  AomiPackageChecks,
   AomiPackageEnvelope,
   AomiPackageFamily,
   AomiPackageReason,

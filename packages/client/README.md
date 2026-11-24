@@ -199,6 +199,9 @@ await aomi.account.packages.setSecret(jupiter.package_id, "JUP_KEY", token);
 await aomi.account.packages.setChoice(jupiter.package_id, true);
 await aomi.account.packages.clearChoice(jupiter.package_id); // back to its default
 await aomi.account.packages.clearSecret(jupiter.package_id, "JUP_KEY");
+
+const added = await aomi.account.packages.activate(code); // on when verified
+await aomi.account.packages.remove(added.package_id); // and its saved keys
 ```
 
 For event-driven Agent integrations, retain the run object:

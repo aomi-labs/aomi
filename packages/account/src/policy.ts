@@ -690,6 +690,9 @@ export const ROUTES: readonly Route[] = [
   account(/^\/v1\/account\/packages\/activate$/, {
     POST: "account:packages:write",
   }),
+  account(/^\/v1\/account\/packages\/[1-9]\d*$/, {
+    DELETE: "account:packages:write",
+  }),
   account(/^\/v1\/account\/packages\/[1-9]\d*\/choice$/, {
     PUT: "account:packages:write",
     DELETE: "account:packages:write",

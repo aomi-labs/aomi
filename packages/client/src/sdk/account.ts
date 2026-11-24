@@ -83,8 +83,9 @@ export class AomiAccountPackages {
   }
 
   /**
-   * Add a private package with its access code. The row comes back off until
-   * switched on; an unknown, revoked or used-up code is a 404 `code_invalid`.
+   * Add a private package with its access code. A verified one comes back
+   * on; an unverified one stays off until switched on. An unknown or revoked
+   * code is a 404 `code_invalid`.
    * The code is sent once and never kept.
    */
   activate(code: string): Promise<AomiPackage> {
@@ -93,6 +94,13 @@ export class AomiAccountPackages {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code }),
     });
+  }
+
+  /** Take out a package the account added with a code (`removable`): its
+   * access, choice and saved keys end, and the same code adds it again unless
+   * the owner revoked it. 404 for any other package. */
+  remove(packageId: number): Promise<{ removed: true }> {
+    return this.request(packagePath(packageId), { method: "DELETE" });
   }
 
   /** Switch a package on or off in `threadId`'s chat, as `list` reads it.

@@ -353,7 +353,7 @@ export interface AomiListSecretsResponse {
 /** Why a package is on or off for the next turn (`GET /api/account/packages`). */
 export type AomiPackageReason =
   | "agent_listed"
-  | "verified_default"
+  | "agent_default"
   | "chosen_on"
   | "chosen_off"
   | "off_by_default";
@@ -382,7 +382,7 @@ export interface AomiPackageSignature {
 export interface AomiPackageEnvelope {
   hash: string | null;
   hosts: string[];
-  /** Families it may ask the person to approve transactions on. */
+  /** Families its own code may ask transactions on; `prepares` has all of them. */
   transactions: AomiPackageFamily[];
   signatures: AomiPackageSignature[];
 }
@@ -408,6 +408,16 @@ export interface AomiPublicPackage {
   verified: boolean;
 }
 
+/** What the live release's guards check on a transaction. */
+export interface AomiPackageChecks {
+  /** The checked calls, as words (`supply`, `set user e mode`), sorted; empty when only an evaluator checks. */
+  actions: string[];
+  /** How many contracts and programs they are on, over every chain. */
+  contracts: number;
+  /** The builtin evaluator of a package that declares no call of its own, e.g. `svm/jupiter`. */
+  evaluator?: string;
+}
+
 /** One Library row: a package with a live release and this account's effective state. */
 export interface AomiPackage extends AomiPublicPackage {
   package_id: number;
@@ -416,6 +426,8 @@ export interface AomiPackage extends AomiPublicPackage {
   listed: boolean;
   /** The agent lists it: always on, the switch is disabled. */
   agent_listed: boolean;
+  /** The account added it with a code: `account.packages.remove` takes it out. */
+  removable: boolean;
   /** False for a host package this agent doesn't list: it can't be turned on (409 `not_listed_by_agent`). */
   available: boolean;
   /** The person's explicit choice; `null` means none. */
@@ -427,8 +439,10 @@ export interface AomiPackage extends AomiPublicPackage {
   slots: AomiPackageSlot[];
   /** The live release's tools. */
   tools: { name: string; description: string }[];
-  /** Guard evaluator ids from the live release, e.g. `svm/jupiter`. */
-  guards: string[];
+  /** `null`: no guard of its own. Calls outside these are not refused, only less covered. */
+  checked: AomiPackageChecks | null;
+  /** Families it may prepare transactions on, by its own code or through the staging tools. */
+  prepares: AomiPackageFamily[];
 }
 
 /** `GET /api/account/packages`: the thread's agent and every package row. */

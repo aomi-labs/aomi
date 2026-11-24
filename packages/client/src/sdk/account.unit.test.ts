@@ -130,22 +130,28 @@ describe("aomi.account", () => {
     );
   });
 
-  it("adds a private package with its code and reports an invalid code", async () => {
-    const row = { package_id: 9100, id: "acme/private", enabled: false };
+  it("adds a private package with its code, removes it and reports an invalid code", async () => {
+    const row = { package_id: 9100, id: "acme/private", enabled: true };
     const { aomi, calls } = backend({
       "POST /api/account/packages/activate": (body) =>
         (body as { code: string }).code === "good"
           ? Response.json(row)
           : Response.json({ error: "code_invalid" }, { status: 404 }),
+      "DELETE /api/account/packages/9100": () =>
+        Response.json({ removed: true }),
     });
     await expect(aomi.account.packages.activate("good")).resolves.toEqual(row);
     await expect(aomi.account.packages.activate("bad")).rejects.toSatisfy(
       (error) => error instanceof AccountGraphApiError && error.status === 404,
     );
+    await expect(aomi.account.packages.remove(9100)).resolves.toEqual({
+      removed: true,
+    });
     expect(calls.map(({ method, path, csrf }) => [method, path, csrf])).toEqual(
       [
         ["POST", "/api/account/packages/activate", true],
         ["POST", "/api/account/packages/activate", true],
+        ["DELETE", "/api/account/packages/9100", true],
       ],
     );
   });
