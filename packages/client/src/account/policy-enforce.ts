@@ -52,9 +52,9 @@ export type AomiPolicySigner = {
 };
 
 /**
- * The backend note that marks a signed revocation waiting to be sent. The
- * entry has no field for the next step, so this only picks the row's label;
- * the wallet's action always comes from `prepare`.
+ * The backend note that marks a signed revocation waiting to be sent. It
+ * names the step for an entry without `next` and picks the row's label; the
+ * wallet's action always comes from `prepare`.
  */
 const SEND_NOTE_PREFIX = "Your revocation is signed. Send it";
 

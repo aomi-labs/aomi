@@ -163,8 +163,8 @@ const agentRow = (
   }) as WalletRow;
 const rows = [agentRow(EVM, "12"), agentRow(SVM, "13", true)];
 
-/** `GET /v1/account/agent-wallets/g-trading/rules`. */
-const walletRules = (extra: object = {}) => ({
+/** `GET /v1/account/agent-wallets/g-trading/policy`. */
+const walletPolicies = (extra: object = {}) => ({
   agent_wallet_id: "g-trading",
   wallet_name: "Trading",
   revision: 1,
@@ -469,9 +469,9 @@ describe("Agent wallets band", () => {
       ...extra,
     });
     respond = (_method, path) =>
-      path.endsWith("/rules")
+      path.endsWith("/policy")
         ? Response.json(
-            walletRules({
+            walletPolicies({
               rules: {
                 mode: "whitelist",
                 rules: [
@@ -519,7 +519,7 @@ describe("Agent wallets band", () => {
       );
       expect(
         calls.some(
-          (call) => call.path === "/v1/account/agent-wallets/g-trading/rules",
+          (call) => call.path === "/v1/account/agent-wallets/g-trading/policy",
         ),
       ).toBe(true);
       fireEvent.click(
@@ -543,7 +543,7 @@ describe("Agent wallets band", () => {
           name: "Connections and policies",
         }),
       ).toBeNull();
-      expect(calls.some((call) => call.path.includes("g-old/rules"))).toBe(
+      expect(calls.some((call) => call.path.includes("g-old/policy"))).toBe(
         false,
       );
     } finally {
@@ -564,13 +564,13 @@ describe("Agent wallets band", () => {
       sign_message: "Aomi rule change ch-9",
     };
     respond = (method, path) => {
-      if (path.endsWith("/rules"))
+      if (path.endsWith("/policy"))
         return method === "POST"
           ? Response.json({
               status: "waiting",
-              rules: walletRules({ pending }),
+              rules: walletPolicies({ pending }),
             })
-          : Response.json(walletRules());
+          : Response.json(walletPolicies());
       if (method === "PUT" && path.endsWith("/wallets"))
         return Response.json(
           { error: "rules_signature_required" },
@@ -608,7 +608,7 @@ describe("Agent wallets band", () => {
       },
       {
         method: "POST",
-        path: "/v1/account/agent-wallets/g-trading/rules",
+        path: "/v1/account/agent-wallets/g-trading/policy",
         body: { instant: ["oauth:c1"] },
       },
     ]);
@@ -691,9 +691,9 @@ describe("Agent wallets band", () => {
       world,
     ];
     respond = (_method, path) =>
-      path.endsWith("/rules")
+      path.endsWith("/policy")
         ? Response.json(
-            walletRules({
+            walletPolicies({
               enforcement: [
                 {
                   rule: "solana:mainnet-beta/native@any",

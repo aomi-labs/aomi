@@ -14,6 +14,12 @@ export type SettingsTab =
   | "policy"
   | "usage";
 
+/**
+ * A link into Settings › Policies (`?settings=policies&wallet=&policy=`): the
+ * agent wallet's id and, to point at one policy, its id.
+ */
+export type PolicyFocus = { wallet: string; policy?: string };
+
 /** Switches the open Settings modal to `tab`; null outside it. */
 export const SettingsNavContext = createContext<
   ((tab: SettingsTab) => void) | null

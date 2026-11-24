@@ -37,7 +37,7 @@ import {
   type ActivityTransaction,
 } from "./model";
 import {
-  PolicyChangeCard,
+  WaitingPolicyChange,
   usePolicyChanges,
   usePolicyWallets,
   WalletSignatures,
@@ -297,7 +297,7 @@ function ActivitySidebarContent() {
         <Group title="Review policy change" count={policy.changes.length}>
           <div className="flex flex-col gap-3">
             {policy.changes.map((change) => (
-              <PolicyChangeCard
+              <WaitingPolicyChange
                 key={change.id}
                 change={change}
                 onDecided={(id) => {
@@ -315,10 +315,10 @@ function ActivitySidebarContent() {
           <div className="flex flex-col gap-3">
             {policyWallets.signing.map((wallet) => (
               <WalletSignatures
-                key={wallet.rules.agent_wallet_id}
-                wallet={wallet.rules}
+                key={wallet.policies.agent_wallet_id}
+                wallet={wallet.policies}
                 rows={wallet.rows}
-                onRules={policyWallets.update}
+                onConfirmed={policyWallets.update}
                 onStale={policyWallets.reload}
               />
             ))}

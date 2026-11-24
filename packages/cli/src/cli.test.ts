@@ -480,12 +480,12 @@ describe("aomi policy", () => {
   };
   const paths = {
     wallets: "GET /v1/account/agent-wallets",
-    rules: `GET /v1/account/agent-wallets/${WALLET}/rules`,
-    write: `POST /v1/account/agent-wallets/${WALLET}/rules`,
-    catalog: "GET /v1/account/rules/catalog",
-    change: `GET /v1/account/rule-changes/${CHANGE}`,
-    approve: `POST /v1/account/rule-changes/${CHANGE}/approve`,
-    decline: `POST /v1/account/rule-changes/${CHANGE}/decline`,
+    rules: `GET /v1/account/agent-wallets/${WALLET}/policy`,
+    write: `POST /v1/account/agent-wallets/${WALLET}/policy`,
+    catalog: "GET /v1/account/policy/catalog",
+    change: `GET /v1/account/policy-changes/${CHANGE}`,
+    approve: `POST /v1/account/policy-changes/${CHANGE}/approve`,
+    decline: `POST /v1/account/policy-changes/${CHANGE}/decline`,
   };
   const policy = (...argv: string[]) =>
     cli("policy", ...argv, "--private-key", KEY);
@@ -547,10 +547,10 @@ describe("aomi policy", () => {
     expect(stdout.split("\n")).toEqual([
       `Trading wallet  ${WALLET}`,
       "  Mode: blacklist · Authority: self-approval",
-      `  ${"ID".padEnd(USDC_ID.length)}  POLICY                             UNTIL       ON CHAIN`,
-      `  ${SOL_ID.padEnd(USDC_ID.length)}  Up to 0.5 SOL on Jupiter (Solana)  2099-12-11  in sync (Swig)`,
-      `  ${USDC_ID}  Up to 200 USDC on any app (Base)   always      Aomi only`,
-      `  ${GONE.padEnd(USDC_ID.length)}  removed from Aomi                  -           on chain only`,
+      `  ${"ID".padEnd(USDC_ID.length)}  POLICY                             UNTIL           ON CHAIN`,
+      `  ${SOL_ID.padEnd(USDC_ID.length)}  Up to 0.5 SOL on Jupiter (Solana)  2099-12-11 UTC  in sync (Swig)`,
+      `  ${USDC_ID}  Up to 200 USDC on any app (Base)   always          Aomi only`,
+      `  ${GONE.padEnd(USDC_ID.length)}  removed from Aomi                  -               on chain only`,
       "  Sends only to your linked wallets",
       `  Pending ${CHANGE} · 23 h left`,
       "    ↑ SOL on Jupiter: 0.5 → 2",
@@ -568,7 +568,7 @@ describe("aomi policy", () => {
   ])("shows a provider's %s policy as %s", async (state, shown) => {
     routes[paths.rules] = { ...body, enforcement: [swig(SOL_ID, state)] };
     const { stdout } = await policy("list", "--wallet", WALLET);
-    expect(stdout).toContain(`2099-12-11  ${shown}\n`);
+    expect(stdout).toContain(`2099-12-11 UTC  ${shown}\n`);
     // --wallet reads that wallet only.
     expect(requests.some((r) => r.key === paths.wallets)).toBe(false);
   });
@@ -620,14 +620,16 @@ describe("aomi policy", () => {
           ],
           linked_only: true,
         },
+        // The revision the change was built from.
+        revision: 3,
       },
     ]);
     expect(stdout.split("\n")).toEqual([
-      "Up to 2 SOL on Jupiter (Solana), until 2099-12-31",
+      "Up to 2 SOL on Jupiter (Solana), until 2099-12-31 UTC",
       "LOOSENS",
-      "  FIELD   BEFORE      AFTER",
-      "  amount  0.5 SOL     2 SOL",
-      "  until   2099-12-11  2099-12-31",
+      "  FIELD   BEFORE          AFTER",
+      "  amount  0.5 SOL         2 SOL",
+      "  until   2099-12-11 UTC  2099-12-31 UTC",
       `Filed as ${CHANGE} · waiting for approval`,
       "Next",
       `  aomi policy approve ${CHANGE}   waiting for approval`,
@@ -755,7 +757,7 @@ describe("aomi policy", () => {
     expect(code).toBe(0);
     expect(stdout).toContain("TIGHTENS");
     expect(
-      requests.map((r) => r.key).filter((key) => key.endsWith("/rules")),
+      requests.map((r) => r.key).filter((key) => key.endsWith("/policy")),
     ).toEqual([paths.rules, paths.write, paths.rules, paths.write]);
     // A second refusal is not retried.
     writes = -5;
@@ -816,7 +818,7 @@ describe("aomi policy", () => {
         `Filed as ${CHANGE} · waiting for approval`,
         "--yes was not applied: authority is wallet 0xAdmin, which must sign",
         "Next",
-        `  Sign at ${BASE}/rules/${CHANGE}   0xAdmin must sign`,
+        `  Sign at ${BASE}/policy/${CHANGE}   0xAdmin must sign`,
       ].join("\n"),
     );
   });
@@ -855,8 +857,11 @@ describe("aomi policy", () => {
     );
     await policy("authority", "0xadmin");
     expect(written()).toEqual([
-      { rules: { ...written()[0].rules, mode: "whitelist" } },
-      { admin: { kind: "wallet", family: "evm", address: "0xAdmin" } },
+      { rules: { ...written()[0].rules, mode: "whitelist" }, revision: 3 },
+      {
+        admin: { kind: "wallet", family: "evm", address: "0xAdmin" },
+        revision: 3,
+      },
     ]);
     expect((await policy("mode", "open")).code).toBe(2);
     const stranger = await policy("authority", "0xNobody");
@@ -886,7 +891,7 @@ describe("aomi policy", () => {
     const { code, stdout } = await policy("approve", CHANGE);
     expect(code).toBe(3);
     expect(stdout).toContain(
-      `Needs the signature of 0xAdmin. Sign at ${BASE}/rules/${CHANGE}`,
+      `Needs the signature of 0xAdmin. Sign at ${BASE}/policy/${CHANGE}`,
     );
     expect(requests.some((r) => r.key === paths.approve)).toBe(false);
   });
@@ -907,8 +912,8 @@ describe("aomi policy", () => {
     const OWNER = SOLANA.publicKey.toBase58();
     const GONE = `${SOL}@protocol:jito`;
     const steps = {
-      prepare: `POST /v1/account/agent-wallets/${WALLET}/rules/enforcement/swig/prepare`,
-      confirm: `POST /v1/account/agent-wallets/${WALLET}/rules/enforcement/swig/confirm`,
+      prepare: `POST /v1/account/agent-wallets/${WALLET}/policy/enforcement/swig/prepare`,
+      confirm: `POST /v1/account/agent-wallets/${WALLET}/policy/enforcement/swig/confirm`,
     };
     const owned = (rule: string, state: string) => ({
       ...swig(rule, state),
@@ -1083,9 +1088,56 @@ describe("aomi policy", () => {
       const { code, stderr } = await policy("deploy", SOL_ID, "--yes");
       expect(code).toBe(3);
       expect(stderr).toContain(
-        `No local Solana key for the wallet that owns this policy: aomi wallets signer set, or deploy it at ${BASE}`,
+        `No local Solana key for the wallet that owns this policy: aomi wallets signer set, or deploy it at ${BASE}/?settings=policies&wallet=${WALLET}&policy=${encodeURIComponent(SOL_ID)}\n`,
       );
       expect(sent("prepare")).toEqual([]);
+    });
+
+    it("takes a prefix only one policy id starts with, and lists the ids an ambiguous one matches", async () => {
+      const { code, stdout } = await run("deploy", "solana:", "--yes");
+      expect(code).toBe(0);
+      expect(stdout).toContain("Deploy: Up to 0.5 SOL on Jupiter (Solana)\n");
+      expect(sent("prepare")).toMatchObject([{ rule: SOL_ID }]);
+      routes[paths.rules] = {
+        ...body,
+        enforcement: [swig(SOL_ID, "off"), owned(GONE, "on")],
+      };
+      const both = await run("undeploy", `${SOL}@protocol:j`, "--yes");
+      expect(both.code).toBe(1);
+      expect(both.stderr).toContain(
+        `error: ${SOL}@protocol:j matches 2 policies: ${SOL_ID}, ${GONE}`,
+      );
+      expect(sent("prepare")).toHaveLength(1);
+    });
+
+    it("follows the entry's next: no wallet action needs no local key, and an action that shows up is refused", async () => {
+      // An EVM key only, and the chain needs nothing from the Solana owner.
+      routes[paths.rules] = {
+        ...body,
+        enforcement: [{ ...owned(GONE, "behind"), next: null }],
+      };
+      delete routes[steps.prepare];
+      routes[steps.prepare] = { action: null };
+      const { code, stdout } = await policy("undeploy", GONE, "--yes");
+      expect(code).toBe(0);
+      expect(stdout).toContain(`  signer       ${OWNER} owns this policy\n`);
+      expect(stdout).toContain(
+        "  action       none; Aomi only reads the chain\n",
+      );
+      expect(stdout).toContain("  sign + send  nothing to sign\n");
+      expect(sent("confirm")).toHaveLength(1);
+      routes[steps.prepare] = {
+        action: {
+          kind: "transaction",
+          network: "solana:mainnet-beta",
+          unsigned_base64: "dW5zaWduZWQ=",
+        },
+      };
+      const surprised = await policy("undeploy", GONE, "--yes");
+      expect(surprised.code).toBe(1);
+      expect(surprised.stderr).toContain("Nothing was signed");
+      expect(sent("confirm")).toHaveLength(1);
+      expect(chain.signed).toEqual([]);
     });
 
     it("says a policy already in sync has nothing to deploy", async () => {

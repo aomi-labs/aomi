@@ -1688,6 +1688,7 @@ export type AomiPolicyChangeLine = {
 
 // @public
 export type AomiPolicyChangeRequest = {
+    revision?: number;
     rules?: AomiPolicySet;
     admin?: AomiPolicyAdmin;
     instant?: string[];
@@ -1729,6 +1730,7 @@ export type AomiPolicyEnforcement = {
     account: string | null;
     deployment_tx: string | null;
     note: string | null;
+    next?: AomiPolicyAction["kind"] | null;
     signer: {
         family: AomiWalletFamily;
         address: string | null;
@@ -3277,7 +3279,10 @@ export interface ExpectedCallsOptions {
 }
 
 // @public
-export const expectedPolicyAction: (entry: Pick<AomiPolicyEnforcement, "signer" | "ready" | "note">, remove?: boolean) => AomiPolicyAction["kind"];
+export const expectedPolicyAction: (entry: Pick<AomiPolicyEnforcement, "signer" | "ready" | "note" | "next">, input?: {
+    remove?: boolean | undefined;
+    inForce?: boolean | undefined;
+}) => AomiPolicyAction["kind"] | null;
 
 // @public (undocumented)
 export function extractBatchTransactionHashes(batchResult: unknown): string[];
@@ -3413,6 +3418,9 @@ export type Logger = {
 
 // @public (undocumented)
 export const MANUAL_SIGNATURE_ADMISSION_UNAVAILABLE = "Manual EVM execution signatures are unavailable because a fresh safety admission cannot be claimed.";
+
+// @public
+export function matchPolicyIds(policies: Pick<AomiWalletPolicies, "rules" | "enforcement">, typed: string): string[];
 
 // @public
 export const MAX_AUTO_FEE_WEI: bigint;

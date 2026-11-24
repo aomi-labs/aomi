@@ -415,7 +415,7 @@ const root = routes("the Aomi agent in your terminal", {
       remove: command(
         "Remove one policy",
         policyWrite,
-        [arg("Policy id", "policy-id")],
+        [arg("Policy id, or the start of one", "policy-id")],
         policy.remove,
       ),
       mode: command(
@@ -433,13 +433,13 @@ const root = routes("the Aomi agent in your terminal", {
       deploy: command(
         "Put a policy on chain with the local signer",
         policyEnforce,
-        [arg("Policy id", "policy-id")],
+        [arg("Policy id, or the start of one", "policy-id")],
         policy.deploy,
       ),
       undeploy: command(
         "Take a policy off the chain with the local signer",
         policyEnforce,
-        [arg("Policy id", "policy-id")],
+        [arg("Policy id, or the start of one", "policy-id")],
         policy.undeploy,
       ),
       approve: command(

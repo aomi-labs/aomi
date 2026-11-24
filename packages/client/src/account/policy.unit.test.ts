@@ -10,6 +10,7 @@ import {
 import {
   chainOnlyPolicies,
   expectedPolicyAction,
+  matchPolicyIds,
   policyOnChain,
 } from "./policy-status";
 import { AomiWalletError } from "./wallets";
@@ -159,7 +160,7 @@ function backend(routes: Record<string, (body: unknown) => Response>) {
 describe("wallet rules", () => {
   it("reads a wallet's rules with their periods, admin and admin wallets", async () => {
     const { rules, calls } = backend({
-      [`GET /v1/account/agent-wallets/${WALLET}/rules`]: () =>
+      [`GET /v1/account/agent-wallets/${WALLET}/policy`]: () =>
         Response.json(body),
     });
     const read = await rules.get(WALLET);
@@ -192,7 +193,7 @@ describe("wallet rules", () => {
   });
 
   const step = (provider: string) =>
-    `/v1/account/agent-wallets/${WALLET}/rules/enforcement/${provider}`;
+    `/v1/account/agent-wallets/${WALLET}/policy/enforcement/${provider}`;
   const EVM_REQUEST = { network: "eip155:8453", rule: USDC_RULE, revision: 4 };
   const SOL_REQUEST = {
     network: "solana:mainnet-beta",
@@ -419,7 +420,7 @@ describe("wallet rules", () => {
 
   it("changes rules with CSRF, sending a rule's asset, amount, destination and end, never its start", async () => {
     const { rules, calls } = backend({
-      [`POST /v1/account/agent-wallets/${WALLET}/rules`]: () =>
+      [`POST /v1/account/agent-wallets/${WALLET}/policy`]: () =>
         Response.json({
           status: "waiting",
           rules: { ...body, pending: change },
@@ -450,9 +451,9 @@ describe("wallet rules", () => {
   it("revises from what it read, and reads once more when the rules moved under the write", async () => {
     let writes = 0;
     const { rules, calls } = backend({
-      [`GET /v1/account/agent-wallets/${WALLET}/rules`]: () =>
+      [`GET /v1/account/agent-wallets/${WALLET}/policy`]: () =>
         Response.json({ ...body, revision: 3 + writes }),
-      [`POST /v1/account/agent-wallets/${WALLET}/rules`]: () =>
+      [`POST /v1/account/agent-wallets/${WALLET}/policy`]: () =>
         (writes += 1) % 2
           ? Response.json({ error: "rules_changed" }, { status: 409 })
           : Response.json({ status: "applied", rules: body }),
@@ -468,6 +469,12 @@ describe("wallet rules", () => {
       "POST",
     ]);
     expect(build.mock.calls.map(([held]) => held.revision)).toEqual([3, 4]);
+    // Each write carries the revision it was built from.
+    expect(
+      calls
+        .filter((call) => call.method === "POST")
+        .map((call) => (call.body as { revision: number }).revision),
+    ).toEqual([3, 4]);
     expect(result).toMatchObject({
       status: "applied",
       before: { revision: 4 },
@@ -475,9 +482,9 @@ describe("wallet rules", () => {
     // Refused twice in a row: the caller hears it.
     writes = 0;
     const always = backend({
-      [`GET /v1/account/agent-wallets/${WALLET}/rules`]: () =>
+      [`GET /v1/account/agent-wallets/${WALLET}/policy`]: () =>
         Response.json(body),
-      [`POST /v1/account/agent-wallets/${WALLET}/rules`]: () =>
+      [`POST /v1/account/agent-wallets/${WALLET}/policy`]: () =>
         Response.json({ error: "rules_changed" }, { status: 409 }),
     });
     await expect(always.rules.revise(WALLET, build)).rejects.toMatchObject({
@@ -520,14 +527,43 @@ describe("wallet rules", () => {
           ...read.enforcement[1]!,
           note: "Your revocation is signed. Send it to finish.",
         },
-        true,
+        { remove: true },
       ),
     ).toBe("evm_transaction");
+    // An id, or a prefix of one or more ids, held by Aomi or only on chain.
+    const both = { ...read, enforcement: [entry("on", true, GONE)] };
+    expect(matchPolicyIds(both, SOL_RULE)).toEqual([SOL_RULE]);
+    expect(matchPolicyIds(both, `${SOL}@a`)).toEqual([GONE]);
+    expect(matchPolicyIds(both, `${SOL}@`)).toEqual([SOL_RULE, GONE]);
+    expect(matchPolicyIds(both, "nope")).toEqual([]);
+    // The backend's `next` wins over the inference; null is no wallet action.
+    const evm = read.enforcement[1]!;
+    expect(expectedPolicyAction({ ...evm, next: "evm_transaction" })).toBe(
+      "evm_transaction",
+    );
+    expect(
+      expectedPolicyAction({ ...evm, next: null }, { remove: true }),
+    ).toBeNull();
+    // `next` is about holding a policy still in force, not removing it.
+    expect(
+      expectedPolicyAction(
+        { ...evm, next: null },
+        { remove: true, inForce: true },
+      ),
+    ).toBe("typed_data");
+    const next = (value: unknown) =>
+      parseWalletPolicies({
+        ...body,
+        enforcement: [{ ...body.enforcement[0], next: value }],
+      }).enforcement[0]!.next;
+    expect(read.enforcement[0]).not.toHaveProperty("next");
+    expect([next(null), next("transaction")]).toEqual([null, "transaction"]);
+    expect(() => next("sign_message")).toThrow(/unsupported enforcement next/);
   });
 
   it("changes the admin or Instant connections without touching the rules", async () => {
     const { rules, calls } = backend({
-      [`POST /v1/account/agent-wallets/${WALLET}/rules`]: () =>
+      [`POST /v1/account/agent-wallets/${WALLET}/policy`]: () =>
         Response.json({ status: "unchanged", rules: body }),
     });
     await rules.change(WALLET, {
@@ -552,7 +588,7 @@ describe("wallet rules", () => {
       tokens: [{ asset: USDC, symbol: "USDC", decimals: 6, chain: "Base" }],
     };
     const { rules } = backend({
-      "GET /v1/account/rules/catalog": () => Response.json(catalog),
+      "GET /v1/account/policy/catalog": () => Response.json(catalog),
     });
     expect(await rules.catalog()).toEqual(catalog);
   });
@@ -564,7 +600,7 @@ describe("wallet rules", () => {
       sign_message: "Aomi rule change",
     };
     const { rules } = backend({
-      [`GET /v1/account/rule-changes/${CHANGE}`]: () => Response.json(signed),
+      [`GET /v1/account/policy-changes/${CHANGE}`]: () => Response.json(signed),
     });
     expect(await rules.getChange(CHANGE)).toEqual(signed);
     expect(() => parsePolicyChange({ ...change, state: "paused" })).toThrow(
@@ -574,9 +610,9 @@ describe("wallet rules", () => {
 
   it("approves with an empty body or a signature, and declines", async () => {
     const { rules, calls } = backend({
-      [`POST /v1/account/rule-changes/${CHANGE}/approve`]: () =>
+      [`POST /v1/account/policy-changes/${CHANGE}/approve`]: () =>
         Response.json(body),
-      [`POST /v1/account/rule-changes/${CHANGE}/decline`]: () =>
+      [`POST /v1/account/policy-changes/${CHANGE}/decline`]: () =>
         Response.json(body),
     });
     await rules.approveChange(CHANGE);
@@ -601,7 +637,7 @@ describe("wallet rules", () => {
     [404, POLICY_ERROR_CODES.changeNotFound],
   ])("raises %i %s as a typed error", async (status, code) => {
     const { rules } = backend({
-      [`POST /v1/account/rule-changes/${CHANGE}/approve`]: () =>
+      [`POST /v1/account/policy-changes/${CHANGE}/approve`]: () =>
         Response.json({ error: code }, { status }),
     });
     const error = await rules.approveChange(CHANGE).catch((caught) => caught);

@@ -44,7 +44,7 @@ export function ConnectionAskModes({
   brand,
   disabled = false,
   onClose,
-  onRulesFiled,
+  onPoliciesFiled,
 }: {
   /** The agent wallet whose ask modes this sets; omitted, the ask modes are fixed. */
   agentWallet?: { id: string; name: string };
@@ -54,13 +54,13 @@ export function ConnectionAskModes({
   /** Close the sheet before "Manage in Connections" moves the page. */
   onClose?: () => void;
   /** Instant needed the admin wallet's signature: the change waits in these rules. */
-  onRulesFiled?: (rules: AomiWalletPolicies) => void;
+  onPoliciesFiled?: (policies: AomiWalletPolicies) => void;
 }) {
   const aomi = useShellAomi();
   const connections = useDisplayQuery(connectionsQuery(aomi));
   const agents = useDisplayQuery(agentWalletsQuery(aomi));
   const goTo = useContext(SettingsNavContext);
-  const { write, saving, error, dialog } = useAccessWrite(onRulesFiled);
+  const { write, saving, error, dialog } = useAccessWrite(onPoliciesFiled);
   const rows = (connections.data?.connections ?? []).filter(
     (connection) => connection.kind !== "portal",
   );

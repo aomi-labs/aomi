@@ -18,7 +18,7 @@ import {
   fromBaseUnits,
   shortAsset,
   toLabel,
-} from "@/account/rules/rules-model";
+} from "@/account/policies/policy-format";
 import { explorerUrl, type IdentifierKind } from "@/thread/explorer-links";
 
 /** "Policy" on screen, "rule" on the wire. One row may span chains, each with its own total. */
@@ -56,7 +56,7 @@ export type PolicyEnforcement = {
 export type Policy = {
   id: string;
   /** One rule per chain. */
-  ruleIds: readonly string[];
+  policyIds: readonly string[];
   symbol: string;
   /** In token units, as shown: `1,000`. */
   amount: string;
@@ -265,7 +265,7 @@ const leftLine = (left: string, symbol: string, decimals?: number | null) =>
  * A rule's "Onchain Enforcement" line. No entry, or one off and not ready (a
  * provider declining), means only Aomi enforces it.
  */
-export function ruleEnforcement(
+export function policyEnforcement(
   rule: Pick<AomiPolicy, "id" | "asset" | "to" | "active_until">,
   entries: readonly AomiPolicyEnforcement[],
   units?: PolicyUnits,
@@ -345,7 +345,7 @@ export function policyRows(
     const known = symbol !== undefined && typeof decimals === "number";
     const ended =
       typeof rule.active_until === "number" && rule.active_until * 1000 <= now;
-    const held = ruleEnforcement(
+    const held = policyEnforcement(
       rule,
       rules.enforcement,
       known ? { symbol, decimals } : undefined,
@@ -358,7 +358,7 @@ export function policyRows(
     };
     const policy: Policy = {
       id,
-      ruleIds: [id],
+      policyIds: [id],
       symbol: known ? symbol : shortAsset(rule.asset),
       amount: known
         ? policyAmount(fromBaseUnits(rule.amount, decimals))
@@ -401,7 +401,7 @@ export function policyRows(
     if (row)
       rows.set(key, {
         ...row,
-        ruleIds: [...row.ruleIds, id],
+        policyIds: [...row.policyIds, id],
         chains: [...row.chains, chain],
       });
     else rows.set(key, policy);
@@ -410,7 +410,10 @@ export function policyRows(
 }
 
 /** A `<asset>@<to>` key in parts; `to` is null when the key does not say. */
-function ruleKeyParts(id: string): { asset: string; to: AomiPolicyTo | null } {
+function policyKeyParts(id: string): {
+  asset: string;
+  to: AomiPolicyTo | null;
+} {
   const at = id.lastIndexOf("@");
   if (at < 0) return { asset: id, to: null };
   const asset = id.slice(0, at);
@@ -441,7 +444,7 @@ export function removedPolicies(
   );
   return rules.enforcement.flatMap((entry) => {
     if (current.has(entry.rule) || entry.state === "off") return [];
-    const { asset, to } = ruleKeyParts(entry.rule);
+    const { asset, to } = policyKeyParts(entry.rule);
     const token = catalog?.tokens.find(
       (candidate) => candidate.asset.toLowerCase() === asset.toLowerCase(),
     );
@@ -532,7 +535,7 @@ export function policyProviders(
 }
 
 /** One rule per picked chain; null when the amount does not fit the token. */
-export function draftRules(draft: PolicyDraft): AomiPolicy[] | null {
+export function draftPolicies(draft: PolicyDraft): AomiPolicy[] | null {
   const rules: AomiPolicy[] = [];
   for (const entry of draft.chains) {
     const rule = policyFromDraft({

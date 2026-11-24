@@ -6,15 +6,15 @@
  * gives power, or changes the admin, waits for the wallet's admin.
  *
  * Hand-written wire types until the generated client covers them:
- *   - `GET  /v1/account/agent-wallets/:id/rules`     -> `AomiWalletPolicies`
- *   - `POST /v1/account/agent-wallets/:id/rules`     -> `AomiPolicyChangeResult`
- *   - `GET  /v1/account/rules/catalog`               -> `AomiPolicyCatalog`
- *   - `GET  /v1/account/rule-changes/:id`            -> `AomiPolicyChange`
- *   - `POST /v1/account/rule-changes/:id/approve`    -> `AomiWalletPolicies`
- *   - `POST /v1/account/rule-changes/:id/decline`    -> `AomiWalletPolicies`
- *   - `POST /v1/account/agent-wallets/:id/rules/enforcement/:provider/prepare`
+ *   - `GET  /v1/account/agent-wallets/:id/policy`    -> `AomiWalletPolicies`
+ *   - `POST /v1/account/agent-wallets/:id/policy`    -> `AomiPolicyChangeResult`
+ *   - `GET  /v1/account/policy/catalog`              -> `AomiPolicyCatalog`
+ *   - `GET  /v1/account/policy-changes/:id`          -> `AomiPolicyChange`
+ *   - `POST /v1/account/policy-changes/:id/approve`  -> `AomiWalletPolicies`
+ *   - `POST /v1/account/policy-changes/:id/decline`  -> `AomiWalletPolicies`
+ *   - `POST /v1/account/agent-wallets/:id/policy/enforcement/:provider/prepare`
  *     -> `AomiPolicyAction | null`
- *   - `POST /v1/account/agent-wallets/:id/rules/enforcement/:provider/confirm`
+ *   - `POST /v1/account/agent-wallets/:id/policy/enforcement/:provider/confirm`
  *     -> `AomiWalletPolicies`
  * Writes are for the owner's own session: the portal or a CLI login.
  */
@@ -172,6 +172,13 @@ export type AomiPolicyEnforcement = {
   deployment_tx: string | null;
   /** Why the provider cannot hold the rule, or what is wrong. */
   note: string | null;
+  /**
+   * The kind of action `prepare` asks the owner's wallet for, to hold the
+   * rule as it stands or take off one that is gone. Null: none (`confirm`
+   * alone finishes), or the chain could not be read. Absent from an older
+   * backend.
+   */
+  next?: AomiPolicyAction["kind"] | null;
   /** The owner's wallet that signs; its address once a rule is on chain. */
   signer: { family: AomiWalletFamily; address: string | null };
 };
@@ -280,6 +287,11 @@ export type AomiWalletPolicies = {
 
 /** A field left out keeps its current value. `rules` is the full new set. */
 export type AomiPolicyChangeRequest = {
+  /**
+   * The `revision` the change was built from. The backend refuses it with
+   * `rules_changed` when the rules moved since; left out, it overwrites.
+   */
+  revision?: number;
   rules?: AomiPolicySet;
   admin?: AomiPolicyAdmin;
   /** Connection keys to make Instant on this wallet. */
@@ -355,18 +367,19 @@ export const POLICY_ERROR_CODES = {
   loginStale: "login_stale",
 } as const;
 
-/** Every REST path of the policy client; the backend still says `rules`. */
+/** Every REST path of the policy client. */
 export const policyPaths = {
   wallet: (id: string) =>
-    `/v1/account/agent-wallets/${encodeURIComponent(id)}/rules`,
+    `/v1/account/agent-wallets/${encodeURIComponent(id)}/policy`,
   enforcement: (id: string, provider: string, step: "prepare" | "confirm") =>
-    `/v1/account/agent-wallets/${encodeURIComponent(id)}/rules/enforcement/${encodeURIComponent(provider)}/${step}`,
-  catalog: "/v1/account/rules/catalog",
-  change: (id: string) => `/v1/account/rule-changes/${encodeURIComponent(id)}`,
+    `/v1/account/agent-wallets/${encodeURIComponent(id)}/policy/enforcement/${encodeURIComponent(provider)}/${step}`,
+  catalog: "/v1/account/policy/catalog",
+  change: (id: string) =>
+    `/v1/account/policy-changes/${encodeURIComponent(id)}`,
   approve: (id: string) =>
-    `/v1/account/rule-changes/${encodeURIComponent(id)}/approve`,
+    `/v1/account/policy-changes/${encodeURIComponent(id)}/approve`,
   decline: (id: string) =>
-    `/v1/account/rule-changes/${encodeURIComponent(id)}/decline`,
+    `/v1/account/policy-changes/${encodeURIComponent(id)}/decline`,
 } as const;
 
 const { invalid, family, list, text } = responseReader("rules");
@@ -496,6 +509,17 @@ function optionalSeconds(value: unknown, field: string): number | null {
     : unixSeconds(value, field);
 }
 
+const ACTION_KINDS = ["transaction", "typed_data", "evm_transaction"] as const;
+
+/** An entry's `next`: left out when an older backend sent none. */
+function nextOf(value: unknown): Pick<AomiPolicyEnforcement, "next"> {
+  if (value === undefined) return {};
+  if (value === null) return { next: null };
+  const next = ACTION_KINDS.find((known) => known === value);
+  if (!next) throw invalid(`unsupported enforcement next: ${String(value)}`);
+  return { next };
+}
+
 function parseEnforcement(value: unknown): AomiPolicyEnforcement {
   const record = asRecord(value);
   const signer = asRecord(record?.signer);
@@ -517,6 +541,7 @@ function parseEnforcement(value: unknown): AomiPolicyEnforcement {
     account: stringValue(record?.account) ?? null,
     deployment_tx: stringValue(record?.deployment_tx) ?? null,
     note: stringValue(record?.note) ?? null,
+    ...nextOf(record?.next),
     signer: {
       family: family(signer?.family),
       address: stringValue(signer?.address) ?? null,
@@ -726,9 +751,9 @@ export class AccountPolicyTransport {
 
   /**
    * Change the rules from what they are now: read, `build` the request from
-   * that, write. The write carries no revision, so when the rules moved
-   * under it (`rules_changed`) this reads and builds once more. `before` is
-   * what the request was built from.
+   * that, write it with the revision read. When the rules moved under it
+   * (`rules_changed`) this reads and builds once more. `before` is what the
+   * request was built from.
    */
   async revise(
     agentWalletId: string,
@@ -737,7 +762,10 @@ export class AccountPolicyTransport {
     for (let attempt = 0; ; attempt += 1) {
       const before = await this.get(agentWalletId);
       try {
-        const result = await this.change(agentWalletId, build(before));
+        const result = await this.change(agentWalletId, {
+          ...build(before),
+          revision: before.revision,
+        });
         return { ...result, before };
       } catch (error) {
         if (

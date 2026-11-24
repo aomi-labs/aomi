@@ -564,6 +564,7 @@ export type { AomiPolicyDraft, AomiPolicyInput } from "./account/policy-draft";
 export {
   chainOnlyPolicies,
   expectedPolicyAction,
+  matchPolicyIds,
   policyOnChain,
 } from "./account/policy-status";
 export type { AomiPolicyOnChain } from "./account/policy-status";

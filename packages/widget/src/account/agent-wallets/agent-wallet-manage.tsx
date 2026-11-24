@@ -178,7 +178,7 @@ export function AgentWalletManage({
           brand="Aomi"
           disabled={paused}
           onClose={archived ? onClose : undefined}
-          onRulesFiled={setFiled}
+          onPoliciesFiled={setFiled}
         />
         {paused ? (
           <p className="type-meta text-aomi-muted -mt-2 flex items-start gap-1.5">

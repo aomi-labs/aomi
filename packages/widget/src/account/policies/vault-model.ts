@@ -1,5 +1,5 @@
 import { toBaseUnits, type AomiPolicyEnforcement } from "@aomi-labs/client";
-import { assetChain, fromBaseUnits } from "@/account/rules/rules-model";
+import { assetChain, fromBaseUnits } from "@/account/policies/policy-format";
 import {
   networkExplorer,
   policyAmount,

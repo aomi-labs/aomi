@@ -20,6 +20,7 @@ import {
   usePortalWalletAccountMenu,
   useRuntimeAccount,
   useSettingsOpenRequest,
+  type PolicyFocus,
   type SettingsTab,
   type WalletAccountMenuOptions,
 } from "@aomi-labs/widget/host-composition";
@@ -381,6 +382,7 @@ export function PortalAomiFrame() {
     "none",
   );
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
+  const [policyFocus, setPolicyFocus] = useState<PolicyFocus>();
   const [initialTopUp, setInitialTopUp] = useState(false);
   const [handoffMismatch, setHandoffMismatch] = useState(false);
   const [handoffOwner, setHandoffOwner] = useState<string | null>(null);
@@ -439,12 +441,20 @@ export function PortalAomiFrame() {
   }, []);
   // In-chat controls (the composer's safety menu) deep-link into Settings.
   useSettingsOpenRequest(openSettings);
-  // `/?settings=<tab>` (from /settings/account) opens Settings once.
+  // `/?settings=<tab>` (from /settings/account) opens Settings once;
+  // `settings=policies&wallet=<id>&policy=<id>` opens it on that policy.
   useEffect(() => {
     const url = new URL(window.location.href);
     const tab = url.searchParams.get("settings");
     if (tab === null) return;
     url.searchParams.delete("settings");
+    if (tab === "policies") {
+      const wallet = url.searchParams.get("wallet");
+      const policy = url.searchParams.get("policy") ?? undefined;
+      if (wallet) setPolicyFocus({ wallet, policy });
+      url.searchParams.delete("wallet");
+      url.searchParams.delete("policy");
+    }
     window.history.replaceState(window.history.state, "", url);
     if (SETTINGS_TABS.includes(tab as SettingsTab))
       openSettings(tab as SettingsTab);
@@ -580,9 +590,11 @@ export function PortalAomiFrame() {
                   key={settingsTab}
                   initialTab={settingsTab}
                   initialTopUp={initialTopUp}
+                  policyFocus={policyFocus}
                   onClose={() => {
                     setHandoffOwner(null);
                     setInitialTopUp(false);
+                    setPolicyFocus(undefined);
                     setOverlay("none");
                   }}
                 />

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RuleChangePanel } from "./rule-change-card";
+import { PolicyChangePanel } from "./policy-change-card";
 
 const kit = vi.hoisted(() => ({
   identity: {
@@ -62,12 +62,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("RuleChangePanel", () => {
+describe("PolicyChangePanel", () => {
   const client = async () =>
     (await import("@/account/transport")).createShellTransport().aomi;
   const show = async () =>
     render(
-      <RuleChangePanel
+      <PolicyChangePanel
         client={await client()}
         changeId="ch-1"
         onClose={vi.fn()}

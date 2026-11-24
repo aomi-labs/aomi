@@ -23,8 +23,8 @@ vi.mock("@/account/policies/policy-model", async (original) => ({
 }));
 // The shell's client is one object for the life of the page.
 vi.mock("@/account/transport", () => ({ useShellAomi: () => shell.aomi }));
-vi.mock("@/account/rules/rule-change-card", () => ({
-  RuleChangeCard: () => null,
+vi.mock("@/account/policies/policy-change-card", () => ({
+  PolicyChangeCard: () => null,
 }));
 
 const change = (id: string, state: string) =>

@@ -70,16 +70,38 @@ export function chainOnlyPolicies(
 }
 
 /**
- * The action `prepare` answers for the entry, to show before asking: a
- * Solana provider takes a transaction, an EVM one a signature, and a signed
- * revocation is sent as a transaction.
+ * The ids `typed` names among the policies Aomi or a chain holds: that id,
+ * else every id it starts. One means it is unambiguous.
+ */
+export function matchPolicyIds(
+  policies: Pick<AomiWalletPolicies, "rules" | "enforcement">,
+  typed: string,
+): string[] {
+  const ids = [
+    ...policies.rules.rules.map((policy) => policy.id ?? policyKey(policy)),
+    ...chainOnlyPolicies(policies),
+  ];
+  return ids.includes(typed)
+    ? [typed]
+    : ids.filter((id) => id.startsWith(typed));
+}
+
+/**
+ * The action `prepare` answers for the entry, to show before asking; null
+ * when it asks for none and `confirm` alone finishes. The entry's `next`
+ * says it. It is inferred from the signer when an older backend sent no
+ * `next`, and for `inForce`, a removal of a policy Aomi still holds, which
+ * `next` does not describe: a Solana provider takes a transaction, an EVM
+ * one a signature, and a signed revocation is sent as a transaction.
  */
 export const expectedPolicyAction = (
-  entry: Pick<AomiPolicyEnforcement, "signer" | "ready" | "note">,
-  remove = false,
-): AomiPolicyAction["kind"] =>
-  entry.signer.family === "svm"
-    ? "transaction"
-    : remove && sendsRevocation(entry)
-      ? "evm_transaction"
-      : "typed_data";
+  entry: Pick<AomiPolicyEnforcement, "signer" | "ready" | "note" | "next">,
+  { remove = false, inForce = false } = {},
+): AomiPolicyAction["kind"] | null =>
+  entry.next !== undefined && !(remove && inForce)
+    ? entry.next
+    : entry.signer.family === "svm"
+      ? "transaction"
+      : remove && sendsRevocation(entry)
+        ? "evm_transaction"
+        : "typed_data";

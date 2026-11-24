@@ -36,7 +36,11 @@ import { useAomiSession, type AomiSessionStatus } from "./aomi-session-bridge";
  * Tab ids are stable deep-link keys; "policy" is labelled Safety and
  * "policies" holds the agent wallets' policies.
  */
-import { SettingsNavContext, type SettingsTab } from "./settings-events";
+import {
+  SettingsNavContext,
+  type PolicyFocus,
+  type SettingsTab,
+} from "./settings-events";
 
 // Load with their tab, off the host bundle.
 const AccountSettings = lazy(() =>
@@ -55,7 +59,7 @@ const PoliciesSettings = lazy(() =>
   })),
 );
 
-export type { SettingsTab };
+export type { PolicyFocus, SettingsTab };
 
 const NAV: {
   id: SettingsTab;
@@ -167,9 +171,12 @@ export function SettingsModal({
   initialTab = "general",
   accountOnly = false,
   initialTopUp = false,
+  policyFocus,
 }: {
   onClose: () => void;
   initialTab?: SettingsTab;
+  /** The wallet and policy the Policies tab opens on. */
+  policyFocus?: PolicyFocus;
   accountOnly?: boolean;
   initialTopUp?: boolean;
 }) {
@@ -259,7 +266,10 @@ export function SettingsModal({
               </Suspense>
             ) : id === "policies" ? (
               <Suspense fallback={<LoadingPane label="Loading policies" />}>
-                <PoliciesSettings active={tab === "policies"} />
+                <PoliciesSettings
+                  active={tab === "policies"}
+                  focus={policyFocus}
+                />
               </Suspense>
             ) : id === "usage" ? (
               <BillingSettings initialTopUp={initialTopUp} />

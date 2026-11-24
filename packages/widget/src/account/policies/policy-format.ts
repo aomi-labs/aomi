@@ -57,8 +57,8 @@ export const sameWallet = (
     ? wallet.address.toLowerCase() === address!.toLowerCase()
     : wallet.address === address);
 
-/** A failed rules request's code, or undefined for anything else. */
-export const rulesErrorCode = (error: unknown): string | undefined =>
+/** A failed policy request's code, or undefined for anything else. */
+export const policyErrorCode = (error: unknown): string | undefined =>
   error instanceof AomiApiError ? error.code : undefined;
 
 const FAILURES: Record<string, string> = {
@@ -86,11 +86,8 @@ const FAILURES: Record<string, string> = {
   guest_account: "Sign in on Aomi to change policies.",
 };
 
-/**
- * What a refused rules request means for the person on the page, who knows
- * rules as policies.
- */
-export function rulesFailure(error: unknown, fallback: string): string {
-  const code = rulesErrorCode(error);
+/** What a refused policy request means for the person on the page. */
+export function policyFailure(error: unknown, fallback: string): string {
+  const code = policyErrorCode(error);
   return (code && FAILURES[code]) ?? fallback;
 }

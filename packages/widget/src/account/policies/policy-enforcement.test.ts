@@ -4,7 +4,7 @@ import type {
   AomiPolicyEnforcement,
   AomiPolicySigner,
 } from "@aomi-labs/client";
-import { failureText, useRuleEnforcement } from "./policy-enforcement";
+import { failureText, usePolicyEnforcement } from "./policy-enforcement";
 
 const kit = vi.hoisted(() => ({
   identity: {
@@ -45,11 +45,11 @@ describe("the connected wallet as the SDK's policy signer", () => {
       },
     };
     const { result } = renderHook(() =>
-      useRuleEnforcement({
+      usePolicyEnforcement({
         client: client as never,
         walletId: "w",
         revision: 1,
-        onRules: vi.fn(),
+        onConfirmed: vi.fn(),
         onStale: vi.fn(),
       }),
     );
@@ -183,11 +183,11 @@ describe("a step the connected wallet cannot take is disabled, with the reason",
       signer,
     } as AomiPolicyEnforcement;
     const { result } = renderHook(() =>
-      useRuleEnforcement({
+      usePolicyEnforcement({
         client: {} as never,
         walletId: "w",
         revision: 1,
-        onRules: vi.fn(),
+        onConfirmed: vi.fn(),
         onStale: vi.fn(),
       }),
     );
@@ -196,6 +196,58 @@ describe("a step the connected wallet cannot take is disabled, with the reason",
     for (const key of Object.keys(methods))
       delete (kit as Record<string, unknown>)[key];
     kit.sendTransaction = vi.fn(async () => ({ txHash: "0xsent" }));
+  });
+});
+
+describe("a step follows the entry's `next` when the backend sends one", () => {
+  const OWNER = "0xAbCd00000000000000000000000000000000Ef12";
+  const NO_SEND =
+    "This wallet can’t send transactions here. Connect another EVM wallet to send it.";
+  const stepOf = (next: AomiPolicyEnforcement["next"], remove: boolean) => {
+    kit.identity.address = OWNER;
+    const entry = {
+      rule: "r",
+      provider: "metamask",
+      network: "eip155:8453",
+      ready: true,
+      note: null,
+      next,
+      signer: { family: "evm", address: OWNER },
+    } as AomiPolicyEnforcement;
+    const { result } = renderHook(() =>
+      usePolicyEnforcement({
+        client: {} as never,
+        walletId: "w",
+        revision: 1,
+        onConfirmed: vi.fn(),
+        onStale: vi.fn(),
+      }),
+    );
+    return result.current[remove ? "takeOff" : "step"](entry);
+  };
+
+  it("does not ask for a signing method when no wallet action is needed", () => {
+    // This wallet cannot sign typed data, which the signer's family implies.
+    expect(stepOf(undefined, true).disabled).toBe(true);
+    expect(stepOf(null, true)).toMatchObject({ disabled: false, hint: null });
+    expect(stepOf(null, false)).toMatchObject({ disabled: false, hint: null });
+  });
+
+  it("judges the wallet by the action named, not the signer's family", () => {
+    expect(stepOf("evm_transaction", false)).toMatchObject({
+      disabled: false,
+      hint: null,
+    });
+    const send = kit.sendTransaction;
+    kit.sendTransaction = undefined as never;
+    expect(stepOf("evm_transaction", false)).toMatchObject({
+      disabled: true,
+      hint: NO_SEND,
+    });
+    kit.sendTransaction = send;
+    expect(stepOf("typed_data", true).hint).toBe(
+      "This wallet can’t sign this policy here. Connect another EVM wallet to take it off.",
+    );
   });
 });
 

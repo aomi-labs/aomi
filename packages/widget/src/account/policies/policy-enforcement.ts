@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   enforcementKey,
-  sendsRevocation,
+  expectedPolicyAction,
   shortAddress,
   type AomiPolicyEnforcement,
   type AomiPolicySigner,
@@ -15,9 +15,9 @@ import { isExpectedWalletCancellation } from "@/wallet/picker/wallet-cancellatio
 import { canSendSolana, sendSolana } from "@/wallet/runtime/svm/transactions";
 import {
   connectedAddress,
-  type RulesClient,
-} from "@/account/rules/rule-change-card";
-import { rulesFailure, sameWallet } from "@/account/rules/rules-model";
+  type PolicyClient,
+} from "@/account/policies/policy-change-card";
+import { policyFailure, sameWallet } from "@/account/policies/policy-format";
 
 const FAMILY = { evm: "an EVM", svm: "a Solana" };
 
@@ -88,15 +88,19 @@ function policySigner(kit: AomiWalletKit): AomiPolicySigner {
   };
 }
 
-/** Why the owner's connected wallet can't take this step, or null when it can. */
+/**
+ * Why the owner's connected wallet can't take this step, or null when it can
+ * or the step asks nothing of a wallet.
+ */
 function unable(
   kit: AomiWalletKit,
-  entry: AomiPolicyEnforcement,
+  kind: ReturnType<typeof expectedPolicyAction>,
   remove: boolean,
 ): string | null {
-  const send = remove && sendsRevocation(entry);
+  if (kind === null) return null;
+  const send = kind === "evm_transaction";
   const end = `wallet to ${send ? "send it" : remove ? "take it off" : "deploy"}.`;
-  if (entry.signer.family === "svm")
+  if (kind === "transaction")
     return canSendSolana(kit)
       ? null
       : `This wallet can’t sign Solana transactions here. Connect another Solana ${end}`;
@@ -144,22 +148,22 @@ export type EnforcementStep = {
 };
 
 /**
- * Prepare, sign in the owner's wallet, confirm: one rule on chain, the same
+ * Prepare, sign in the owner's wallet, confirm: one policy on chain, the same
  * for every provider. `step` backs "Sign to deploy"; `takeOff` backs a
  * removed policy still on chain.
  */
-export function useRuleEnforcement({
+export function usePolicyEnforcement({
   client,
   walletId,
   revision,
-  onRules,
+  onConfirmed,
   onStale,
   retryDelayMs = 2_000,
 }: {
-  client: RulesClient;
+  client: PolicyClient;
   walletId: string;
   revision: number;
-  onRules: (rules: AomiWalletPolicies) => void;
+  onConfirmed: (policies: AomiWalletPolicies) => void;
   /** A step failed; what is shown may be out of date. */
   onStale: () => void;
   retryDelayMs?: number;
@@ -223,7 +227,7 @@ export function useRuleEnforcement({
           },
         },
       );
-      onRules(policies);
+      onConfirmed(policies);
       if (!settled) {
         setErrors((held) => ({
           ...held,
@@ -238,7 +242,7 @@ export function useRuleEnforcement({
         ...held,
         [key]: isExpectedWalletCancellation(cause)
           ? "Signature declined. Nothing changed."
-          : rulesFailure(cause, raw || "That didn’t go through. Try again."),
+          : policyFailure(cause, raw || "That didn’t go through. Try again."),
       }));
       onStale();
     } finally {
@@ -254,9 +258,11 @@ export function useRuleEnforcement({
   ): EnforcementStep => {
     const key = enforcementKey(entry);
     const { connected, owner, canSign } = signerOf(entry);
-    const verb = remove && sendsRevocation(entry) ? "send" : "sign";
+    // `takeOff` is for a removed policy, which `next` describes too.
+    const kind = expectedPolicyAction(entry, { remove });
+    const verb = kind === "evm_transaction" ? "send" : "sign";
     const blocked = canSign
-      ? unable(kit, entry, remove)
+      ? unable(kit, kind, remove)
       : owner && owner !== connected
         ? `Only the wallet that set this policy can change it on chain. Connect ${shortAddress(owner)} to ${verb}.`
         : `Connect ${FAMILY[entry.signer.family]} wallet to ${verb}.`;

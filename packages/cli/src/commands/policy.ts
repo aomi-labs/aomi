@@ -10,6 +10,7 @@ import {
   expectedPolicyAction,
   fromBaseUnits,
   hasPolicies,
+  matchPolicyIds,
   policyFromInput,
   policyKey,
   policyOnChain,
@@ -40,7 +41,7 @@ import {
 } from "../context";
 import { readArgs } from "./pipeline";
 
-/** On screen a policy; on the wire, and in the SDK's paths, a rule. */
+/** On screen and in the paths a policy; in the wire's field names, a rule. */
 export type Flags = ConnectFlags & { json?: boolean; wallet?: string };
 
 function timeLeft(expiresAt: number): string {
@@ -85,9 +86,10 @@ export function sentence(
   return `${/^0+$/.test(policy.amount) ? `No ${amount.split(" ")[1]}` : `Up to ${amount}`} ${where} (${assetChain(policy.asset, catalog)})`;
 }
 
+/** The policy's last day; `--until` and this are both UTC days. */
 const untilOf = (policy: AomiPolicy) =>
   typeof policy.active_until === "number"
-    ? new Date(policy.active_until * 1000).toISOString().slice(0, 10)
+    ? `${new Date(policy.active_until * 1000).toISOString().slice(0, 10)} UTC`
     : "always";
 
 const ON_CHAIN: Record<AomiPolicyOnChain["kind"], string> = {
@@ -147,7 +149,21 @@ export function policyLines(policies: AomiWalletPolicies): string[] {
 }
 
 const changeUrl = (flags: ConnectFlags, id: string) =>
-  `${baseUrlOf(flags)}/rules/${encodeURIComponent(id)}`;
+  `${baseUrlOf(flags)}/policy/${encodeURIComponent(id)}`;
+
+/** Settings › Policies on the wallet, at the policy. */
+const policyUrl = (flags: ConnectFlags, walletId: string, id: string) =>
+  `${baseUrlOf(flags)}/?${new URLSearchParams({ settings: "policies", wallet: walletId, policy: id })}`;
+
+/** The policy `typed` names: its id, or the one id that starts with it. */
+function named(policies: AomiWalletPolicies, typed: string): string {
+  const ids = matchPolicyIds(policies, typed);
+  if (ids.length > 1)
+    throw new CliError(
+      `${typed} matches ${ids.length} policies: ${ids.join(", ")}`,
+    );
+  return ids[0] ?? typed;
+}
 
 /**
  * The commands that bring the chain in line with Aomi. `focus` is the policy
@@ -519,11 +535,12 @@ export async function set(
 /** `aomi policy remove <policy-id>`. */
 export async function remove(
   flags: Flags & { yes?: boolean },
-  id: string,
+  typed: string,
 ): Promise<void> {
   const aomi = await connect(flags);
   const walletId = await walletOf(aomi, flags);
   await change(flags, aomi, walletId, (held) => {
+    const id = named(held, typed);
     const policy = held.rules.rules.find((one) => idOf(one) === id);
     if (!policy)
       throw new CliError(
@@ -598,6 +615,7 @@ const ACTIONS: Record<AomiPolicyAction["kind"], string> = {
   typed_data: "EIP-712 signature; nothing is sent",
   evm_transaction: "EVM transaction; the signer pays the gas",
 };
+const NO_ACTION = "none; Aomi only reads the chain";
 
 /**
  * One policy onto the chain, or off it: the checks, the question, then the
@@ -605,12 +623,13 @@ const ACTIONS: Record<AomiPolicyAction["kind"], string> = {
  */
 async function enforce(
   flags: EnforceFlags,
-  id: string,
+  typed: string,
   remove: boolean,
 ): Promise<void> {
   const aomi = await connect(flags);
   const walletId = await walletOf(aomi, flags);
   const held = await aomi.account.policy.get(walletId);
+  const id = named(held, typed);
   if (
     flags.provider &&
     !held.enforcement.some((entry) => entry.provider === flags.provider)
@@ -649,24 +668,31 @@ async function enforce(
   }
   const { family } = entry.signer;
   const local = aomi.wallet?.[family]?.address;
-  const owner = entry.signer.address ?? local;
   const verb = remove ? "undeploy" : "deploy";
-  if (!local || !owner)
+  // `next` is about a policy as Aomi holds it, not one `undeploy` forces off.
+  const kind = expectedPolicyAction(entry, {
+    remove,
+    inForce: status.kind !== "chain_only",
+  });
+  // A step that asks nothing of a wallet needs no key, only the owner's name.
+  const owner = entry.signer.address ?? local;
+  if (!owner || (kind && !local))
     throw new CliError(
       `No local ${family === "evm" ? "EVM" : "Solana"} key for the wallet that owns this policy${
         entry.signer.address ? ` (${entry.signer.address})` : ""
-      }: aomi wallets signer set, or ${verb} it at ${baseUrlOf(flags)}`,
+      }: aomi wallets signer set, or ${verb} it at ${policyUrl(flags, walletId, id)}`,
       3,
     );
   if (
-    family === "evm"
+    local &&
+    kind &&
+    (family === "evm"
       ? local.toLowerCase() !== owner.toLowerCase()
-      : local !== owner
+      : local !== owner)
   )
     throw new CliError(
       `The local signer ${local} is not ${owner}, the wallet that owns this policy. Nothing was signed`,
     );
-  const kind = expectedPolicyAction(entry, remove);
   const policy = held.rules.rules.find((one) => idOf(one) === id);
   const say = (line: string) => void (flags.json || out(line));
   const row = (name: string, text: string) =>
@@ -675,10 +701,10 @@ async function enforce(
   row("provider", `${entry.name} on ${entry.network}`);
   row(
     "signer",
-    `${owner} (local key) ${entry.signer.address ? "owns this policy" : "will own it on chain"}`,
+    `${owner}${local === owner ? " (local key)" : ""} ${entry.signer.address ? "owns this policy" : "will own it on chain"}`,
   );
-  row("action", ACTIONS[kind]);
-  if (!flags.yes && !(await confirm("Sign and send?")))
+  row("action", kind ? ACTIONS[kind] : NO_ACTION);
+  if (!flags.yes && !(await confirm(kind ? "Sign and send?" : "Confirm?")))
     throw new CliError("Not sent");
   let asked = false;
   const signer = policySigner(aomi, flags);

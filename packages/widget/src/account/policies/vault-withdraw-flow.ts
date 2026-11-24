@@ -1,6 +1,6 @@
 import { shortAddress, type WalletEip712Payload } from "@aomi-labs/client";
-import { connectedAddress } from "@/account/rules/rule-change-card";
-import { sameWallet } from "@/account/rules/rules-model";
+import { connectedAddress } from "@/account/policies/policy-change-card";
+import { sameWallet } from "@/account/policies/policy-format";
 import type { AomiWalletKit } from "@/wallet/types";
 import { sendPlainTransaction, switchToChain } from "./policy-enforcement";
 import type { VaultReader } from "./vault-chain";

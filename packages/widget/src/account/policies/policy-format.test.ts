@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fromBaseUnits } from "./rules-model";
+import { fromBaseUnits } from "./policy-format";
 
 describe("rules amounts", () => {
   it("converts human amounts with string math, past 2^53", () => {
