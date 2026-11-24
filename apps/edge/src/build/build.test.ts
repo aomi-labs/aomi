@@ -434,3 +434,27 @@ describe("build surface: install start and passthrough", () => {
     expect(seen).toEqual([]);
   });
 });
+
+describe("build surface: legacy host", () => {
+  const legacy = { ...env, BUILD_HOSTS: "build.example,old-build.example" };
+
+  it("redirects pages on a non-canonical Build host to the canonical one", async () => {
+    const response = await handleRequest(new Request("https://old-build.example/deployments?tab=1"), legacy, world);
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe("https://build.example/deployments?tab=1");
+    expect(seen).toHaveLength(0);
+  });
+
+  it("keeps serving API paths and non-GET requests on the old host", async () => {
+    await handleRequest(new Request("https://old-build.example/api/integrations/x"), legacy, world);
+    await handleRequest(new Request("https://old-build.example/v1/thing"), legacy, world);
+    await handleRequest(new Request("https://old-build.example/form", { method: "POST", body: "x" }), legacy, world);
+    expect(seen.map((s) => new URL(s.url).pathname)).toEqual(["/api/integrations/x", "/v1/thing", "/form"]);
+  });
+
+  it("serves pages in place on the canonical host", async () => {
+    const response = await handleRequest(new Request("https://build.example/deployments"), legacy, world);
+    expect(response.status).not.toBe(308);
+    expect(seen).toHaveLength(1);
+  });
+});
