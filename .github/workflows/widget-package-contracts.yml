@@ -5,19 +5,6 @@ on:
     secrets:
       AOMI_DOCS_READ_TOKEN:
         required: false
-  push:
-    branches: [main]
-    paths:
-      [
-        "packages/**",
-        "scripts/check-*widget*",
-        "scripts/check-package-api.mjs",
-        "scripts/fixtures/widget-consumer/**",
-        "api-reports/**",
-        ".changeset/**",
-        ".github/workflows/widget-package-contracts.yml",
-        "pnpm-lock.yaml",
-      ]
   workflow_dispatch:
 
 permissions:

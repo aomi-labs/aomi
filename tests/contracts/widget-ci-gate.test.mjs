@@ -23,7 +23,7 @@ function job(name) {
   return block[1];
 }
 
-test("main CI calls the full widget guard without duplicate PR runs", () => {
+test("main CI calls the full widget guard without duplicate automatic runs", () => {
   const guard = job("widget-contracts");
   // The guard installs and builds on its own, so it must not wait for (or be
   // skipped by) the Packages job.
@@ -35,8 +35,7 @@ test("main CI calls the full widget guard without duplicate PR runs", () => {
   );
   assert.match(contracts, /^  workflow_call:/m);
   assert.doesNotMatch(contracts, /^  pull_request:/m);
-  // Same-SHA main runs remain the publication proof required by the tag workflow.
-  assert.match(contracts, /^  push:\n    branches: \[main\]/m);
+  assert.doesNotMatch(contracts, /^  push:/m);
   for (const command of [
     "check:package-changesets",
     "check:package-api",
