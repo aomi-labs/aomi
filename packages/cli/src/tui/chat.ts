@@ -20,10 +20,13 @@ import {
   modelLabel,
   TRANSACTION_SAFETY_NAMES,
   type Turn,
+  CommitStaleError,
+  isTerminalCommit,
   type Aomi,
   type AomiAccountWallet,
   type AomiActiveWallet,
   type CommitHandle,
+  type CommitRefView,
   type MentionItem,
   type TransactionSafetyMode,
 } from "@aomi-labs/client";
@@ -32,7 +35,7 @@ import { MentionAutocomplete, mentionCatalog, walletGroups } from "./mentions";
 import packageJson from "../../package.json";
 import type { ChatFlags } from "../commands/chat";
 import { guardMode } from "../commands/guard";
-import { reviewLines, reviewSummary } from "../commands/tx";
+import { metaLines, reviewed, reviewSummary } from "../commands/tx";
 import { signIn } from "../commands/account";
 import { signsWith } from "../commands/wallets";
 import {
@@ -43,6 +46,7 @@ import {
   turnOptions,
   type ShowCode,
 } from "../context";
+import { cardLines, guardLine } from "../review";
 import { loadState, updateState } from "../state";
 import { GLYPHS, chipsOf, paint, statusOf } from "../trace";
 
@@ -104,7 +108,7 @@ const HELP = [
   "/new                   start a new thread",
   "/login                 sign in with a device code",
   "esc stops a turn · ctrl+o expands steps · ctrl+c quits",
-  "a r o d on an approval: approve, reject, open, details",
+  "a s r o d on a waiting transaction: approve, sign, reject, open, details",
 ].join("\n");
 
 const short = (address: string) =>
@@ -171,6 +175,8 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     selectList: listTheme,
   });
 
+  /** A list has the keys. */
+  let picking = false;
   /** A list above the input; enter picks, esc leaves things as they are. */
   function pick(
     items: SelectItem[],
@@ -184,7 +190,9 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         items.findIndex((item) => item.value === current),
       ),
     );
+    picking = true;
     const close = () => {
+      picking = false;
       tui.removeChild(list);
       tui.setFocus(editor);
       tui.requestRender();
@@ -206,15 +214,22 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   const mentions = new MentionAutocomplete(SLASH, () => catalog);
   editor.setAutocompleteProvider(mentions);
 
-  /** Commits you already approved or rejected: one decision each. */
+  /** Commits being approved, signed or rejected: one decision at a time. */
   const deciding = new Set<string>();
+  /** The batch member that waits for your approval or signature. */
   const pending = () =>
     turns
       .flatMap((turn) => turn.commits)
+      .map((commit) => commit.next)
       .find(
         (commit) =>
-          commit.state === "awaiting_approval" && !deciding.has(commit.ref),
+          !deciding.has(commit.ref) &&
+          (commit.state === "awaiting_approval" ||
+            (commit.state === "needs_signature" &&
+              commit.view.action !== null)),
       );
+  /** The card as last drawn: keys decide that version, not a newer one. */
+  let card: { commit: CommitHandle; view: CommitRefView } | undefined;
 
   const transcript: Component = {
     invalidate() {},
@@ -226,8 +241,9 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         lines.push("", ...turnLines(turn, index === turns.length - 1, width)),
       );
       const commit = pending();
+      card = commit && { commit, view: commit.view };
       if (commit)
-        lines.push("", ...approveBox(commit, Math.min(width, 60), details));
+        lines.push("", ...commitBox(commit, Math.min(width, 76), details));
       if (signing) lines.push("", ...signInBox(signing, width));
       lines.push("");
       return lines
@@ -272,15 +288,6 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       }
     if (turn.reply) lines.push("", ...replyLines(turn, width));
     if (turn.error) lines.push("", paint.red(turn.error));
-    for (const commit of turn.commits)
-      if (
-        commit.state !== "awaiting_approval" &&
-        !["confirmed", "failed", "rejected", "expired"].includes(commit.state)
-      )
-        lines.push(
-          "",
-          `${paint.yellow("Sign it")}  aomi tx sign ${commit.ref}`,
-        );
     if (turn.decision) lines.push("", turn.decision);
     return lines;
   }
@@ -352,41 +359,83 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       openUrl(signing.url);
       return { consume: true };
     }
-    const commit = pending();
-    if (!commit || editor.getText() || !/^[arod]$/.test(key)) return undefined;
-    if (key === "o" && commit.signUrl) openUrl(commit.signUrl);
-    if (key === "d") details = !details;
-    if (key === "a" || key === "r") void decide(commit, key === "a");
+    if (!card || picking || editor.getText() || !/^[asrod]$/.test(key))
+      return undefined;
+    const { commit, view } = card;
+    const approves = view.state === "awaiting_approval";
+    if (key === "a" && approves) void decide(commit, view, "approve");
+    else if (key === "r") void decide(commit, view, "reject");
+    // `s` also starts a message, so a signature takes a second, explicit key.
+    else if (key === "s" && !approves && commit.canSign())
+      pick(
+        [
+          { value: "no", label: "Cancel" },
+          {
+            value: "yes",
+            label: "Sign",
+            description: `${reviewSummary(commit.review)} with ${short(view.signer)}`,
+          },
+        ],
+        "no",
+        (answer) => void (answer === "yes" && decide(commit, view, "sign")),
+      );
+    else if (key === "o" && commit.signUrl) {
+      openUrl(commit.signUrl);
+      if (!approves) void decide(commit, view, "elsewhere");
+    } else if (key === "d") details = !details;
+    else return undefined;
     tui.requestRender();
     return { consume: true };
   });
 
-  /** Approve or reject `commit` once, its progress on its turn's last line. */
-  async function decide(commit: CommitHandle, approve: boolean) {
+  /** Batches whose outcome a turn's last line already follows. */
+  const following = new Set<CommitHandle>();
+
+  /** Act on `commit` as `shown`, its progress on its turn's last line. */
+  async function decide(
+    commit: CommitHandle,
+    shown: CommitRefView,
+    how: "approve" | "sign" | "reject" | "elsewhere",
+  ) {
     const own = revision;
     const source = thread;
-    const turn = turns.findLast((entry) => entry.commits.includes(commit));
-    if (!turn || deciding.has(commit.ref)) return;
-    deciding.add(commit.ref);
+    const holds = (entry: CommitHandle) =>
+      entry.batch.some((member) => member.commit_id === commit.ref);
+    const turn = turns.findLast((entry) => entry.commits.some(holds));
+    const leader = turn?.commits.find(holds);
+    if (!turn || !leader || deciding.has(commit.ref)) return;
+    if (how !== "elsewhere") deciding.add(commit.ref);
+    const follows = following.has(leader);
     const show = (line: string) => {
       turn.decision = line;
       tui.requestRender();
     };
     try {
-      if (!approve) {
+      if (how === "reject") {
         await commit.reject();
         return show(paint.dim("✗ Rejected"));
       }
-      show(paint.yellow("◐ Approving…"));
       // The agent answers once it settles; count what it has said so far.
-      const said = aomi.agent
-        .thread(thread)
-        .history()
-        .then((history) => history.messages.length)
-        .catch(() => undefined);
-      await commit.approve(commit.view);
-      show(paint.yellow("◐ Signing and sending…"));
-      const last = await commit.settled({ signal: closing.signal });
+      const said = follows
+        ? undefined
+        : aomi.agent
+            .thread(thread)
+            .history()
+            .then((history) => history.messages.length)
+            .catch(() => undefined);
+      if (how === "approve") {
+        show(paint.yellow("◐ Approving…"));
+        await commit.approve(shown);
+      }
+      if (how !== "elsewhere") show(paint.yellow("◐ Signing and sending…"));
+      if (how === "sign") {
+        await commit.sign(undefined, reviewed(shown));
+        if (!isTerminalCommit(commit.view))
+          show(paint.yellow("◐ Submitted; confirming…"));
+      }
+      if (follows) return;
+      following.add(leader);
+      const last = await leader.settled({ signal: closing.signal });
       show(
         paint.green(
           last.signature
@@ -397,6 +446,11 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       if (own === revision) void followUp(await said, source, own);
     } catch (error) {
       deciding.delete(commit.ref);
+      if (!follows) following.delete(leader);
+      if (error instanceof CommitStaleError) {
+        await leader.refresh().catch(() => undefined);
+        return show(paint.yellow("It changed; review it again"));
+      }
       show(paint.red(error instanceof Error ? error.message : String(error)));
     }
   }
@@ -788,34 +842,61 @@ function signInBox(
   ];
 }
 
-/** The commit waiting for you, with its keys. */
-function approveBox(
+/** The commit waiting for you: what it does, what checks it, and its keys. */
+function commitBox(
   commit: CommitHandle,
   width: number,
   details: boolean,
 ): string[] {
+  const { view, review } = commit;
   const inner = width - 4;
-  const row = (text: string) =>
-    `${paint.yellow("│")} ${truncateToWidth(text, inner, "…", true)} ${paint.yellow("│")}`;
-  const label = commit.kind.endsWith("message") ? "message" : "transaction";
-  const titleText = `┌ Approve ${label} `;
-  const lines = [
+  const rows = (text: string) =>
+    wrapTextWithAnsi(text, inner).map(
+      (line) =>
+        `${paint.yellow("│")} ${truncateToWidth(line, inner, "…", true)} ${paint.yellow("│")}`,
+    );
+  const approves = view.state === "awaiting_approval";
+  const signs = !approves && commit.canSign();
+  const { batch } = view;
+  const titleText = `┌ ${approves ? "Approve" : "Sign"} ${commit.kind.endsWith("message") ? "message" : "transaction"}${batch && batch.ordered_commit_ids.length > 1 ? ` ${batch.index + 1} of ${batch.ordered_commit_ids.length}` : ""} `;
+  const guard = guardLine(review);
+  const color = guard.startsWith("Covered")
+    ? paint.green
+    : /^(Blocked|Not cleared)/.test(guard)
+      ? paint.red
+      : paint.yellow;
+  const key = (letter: string, label: string) =>
+    `${paint.cyan(paint.bold(letter))} ${label}`;
+  return [
     paint.yellow(
       `${titleText}${"─".repeat(Math.max(0, width - visibleWidth(titleText) - 1))}┐`,
     ),
-    row(reviewSummary(commit.review)),
-    row(
-      `${paint.dim("Signs with")} ${short(commit.view.signer)} ${paint.dim("· Ask")}`,
+    ...cardLines(view, review, details).flatMap((line) =>
+      rows(line.startsWith("! ") ? paint.yellow(line) : line),
     ),
-  ];
-  if (details)
-    for (const line of reviewLines(commit.view, commit.review))
-      lines.push(row(paint.dim(line)));
-  lines.push(
-    row(
-      `${paint.cyan(paint.bold("a"))} Approve   ${paint.cyan(paint.bold("r"))} Reject   ${paint.cyan(paint.bold("o"))} Open in browser   ${paint.cyan(paint.bold("d"))} Details`,
+    ...rows(color(guard)),
+    ...rows(
+      `${paint.dim("Signs with")} ${short(view.signer)} ${paint.dim(
+        approves
+          ? "· Ask"
+          : signs
+            ? "· key on this machine"
+            : color === paint.red
+              ? "· stopped by guards"
+              : "· your wallet, on the sign page",
+      )}`,
+    ),
+    ...(details
+      ? metaLines(view).flatMap((line) => rows(paint.dim(line)))
+      : []),
+    ...rows(
+      [
+        ...(approves ? [key("a", "Approve")] : signs ? [key("s", "Sign")] : []),
+        key("r", "Reject"),
+        key("o", approves ? "Open in browser" : "Open sign page"),
+        key("d", "Details"),
+      ].join("   "),
     ),
     paint.yellow(`└${"─".repeat(width - 2)}┘`),
-  );
-  return lines;
+  ];
 }

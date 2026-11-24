@@ -159,7 +159,7 @@ exports[`help > prints ["tx"] --help 1`] = `
   aomi tx review [--json] [--private-key hex] [--solana-private-key key] [--cluster name] <ref>
   aomi tx approve [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--yes] [--wait] <ref>
   aomi tx reject [--json] [--private-key hex] [--solana-private-key key] [--cluster name] <ref>
-  aomi tx sign [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] <ref>
+  aomi tx sign [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [--yes] <ref>
   aomi tx export [--private-key hex] [--solana-private-key key] [--cluster name] <ref>
   aomi tx --help
 
@@ -173,7 +173,7 @@ COMMANDS
   review   One commit: state, chain, signer, review
   approve  Approve a commit waiting for you
   reject   Reject a commit
-  sign     Sign a commit with the local signer
+  sign     Show a commit, then sign it with the local signer
   export   The exact reviewed commit, for an external signer
 "
 `;

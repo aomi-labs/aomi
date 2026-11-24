@@ -164,14 +164,17 @@ beforeEach(() => {
         auth: request.headers.get("authorization"),
         body: await request.text(),
       });
-      const answer = routes[key];
+      // A list answers in order, its last entry from then on.
+      const listed = routes[key];
+      const answer =
+        Array.isArray(listed) && listed.length > 1 ? listed.shift() : listed;
       if (key === "POST /api/auth/siwe/verify")
         return Response.json(answer, {
           headers: { "set-auth-token": "session-token" },
         });
       return answer === undefined
         ? Response.json({ error: `unexpected ${key}` }, { status: 500 })
-        : Response.json(answer);
+        : Response.json(Array.isArray(answer) ? answer[0] : answer);
     }),
   );
 });
@@ -509,6 +512,123 @@ describe("aomi pipeline", () => {
     };
     expect((await cli("pipeline", "ops")).code).toBe(0);
     expect(requests.at(-1)?.url).toBe(`${BASE}/v1/pipeline/operations`);
+  });
+});
+
+describe("aomi tx", () => {
+  const ref = "9a1b";
+  const waiting = {
+    ...view(ref, "needs_signature"),
+    signer: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    broadcaster: "wallet",
+    sign_url: `${BASE}/sign/${ref}`,
+    origin: "cli",
+    origin_agent_id: null,
+    initiator: "turn",
+    review: {
+      digest: "sha256:review",
+      request: {
+        type: "execute_evm",
+        transactions: [
+          {
+            chain_id: 8453,
+            from: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+            to: "0x00000000000000000000000000000000000000aa",
+            data: "0x12345678",
+            label: "Deposit\npool.deposit(amount: 2000000)",
+            kind: "call",
+          },
+        ],
+        simulation: {
+          status: "passed",
+          balanceChanges: [],
+          approvals: [
+            {
+              account: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              spender: "0x00000000000000000000000000000000000000bb",
+              asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              kind: "allowance",
+              standard: "erc20",
+              unlimited: true,
+              symbol: "USDC",
+              decimals: 6,
+            },
+          ],
+          fees: [],
+          warnings: [],
+          guards: [],
+          gas: null,
+          logs: [],
+        },
+      },
+    },
+    action: {
+      kind: "sign",
+      payload: {
+        kind: "evm_transaction",
+        chain_id: 8453,
+        nonce: 1,
+        signer: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        transaction: {
+          to: "0x00000000000000000000000000000000000000aa",
+          data: "0x12345678",
+          value: "0",
+          gas_limit: "21000",
+          max_fee_per_gas: "1",
+          max_priority_fee_per_gas: "1",
+        },
+      },
+    },
+  };
+  beforeEach(() => {
+    routes[`GET /v1/commits/${ref}`] = waiting;
+  });
+  afterEach(() => {
+    for (const key of Object.keys(routes))
+      if (key.includes(`/v1/commits/${ref}`)) delete routes[key];
+  });
+
+  it("reviews the decoded steps, what they allow and the guard line", async () => {
+    const { code, stdout } = await cli(
+      "tx",
+      "review",
+      ref,
+      "--private-key",
+      KEY,
+    );
+    expect(code).toBe(0);
+    expect(stdout).toContain("1. Deposit\n   pool.deposit(amount: 2000000)\n");
+    expect(stdout).toContain(
+      "! allow 0x00000000000000000000000000000000000000bb to spend unlimited USDC (0x8335…2913)",
+    );
+    expect(stdout).toContain("Guard coverage not reported");
+  });
+
+  it("shows what it signs, and signs nothing without --yes", async () => {
+    const { code, stderr } = await cli("tx", "sign", ref, "--private-key", KEY);
+    expect(code).toBe(2);
+    expect(stderr).toContain("1. Deposit");
+    expect(stderr).toContain("Pass --yes outside a terminal");
+    expect(requests.some((r) => r.key.startsWith("POST /v1/commits"))).toBe(
+      false,
+    );
+  });
+
+  it("does not sign a commit that changed after it was shown", async () => {
+    routes[`GET /v1/commits/${ref}`] = [waiting, { ...waiting, version: 2 }];
+    const { code, stderr } = await cli(
+      "tx",
+      "sign",
+      ref,
+      "--yes",
+      "--private-key",
+      KEY,
+    );
+    expect(code).toBe(1);
+    expect(stderr).toContain(`It changed; aomi tx sign ${ref} again`);
+    expect(requests.some((r) => r.key.startsWith("POST /v1/commits"))).toBe(
+      false,
+    );
   });
 });
 

@@ -443,8 +443,8 @@ const root = routes("the Aomi agent in your terminal", {
       ),
       reject: command("Reject a commit", { ...json, ...conn }, ref, tx.reject),
       sign: command(
-        "Sign a commit with the local signer",
-        { ...json, ...signing },
+        "Show a commit, then sign it with the local signer",
+        { ...json, ...signing, yes: yes("Sign without asking") },
         ref,
         tx.sign,
       ),

@@ -19,7 +19,9 @@ import {
   usage,
   type ConnectFlags,
 } from "../context";
+import { cardLines, guardLine } from "../review";
 import { loadState } from "../state";
+import { plain } from "../trace";
 
 type Flags = ConnectFlags & { json?: boolean };
 const TIMEOUT_MS = 120_000;
@@ -38,13 +40,13 @@ async function open(aomi: Aomi, ref: string): Promise<CommitHandle> {
 export function reviewSummary(review: CommitReview | undefined): string {
   if (!review) return "no review";
   if (review.type === "sign")
-    return (
-      review.description ?? `${review.chainFamily.toUpperCase()} signature`
+    return plain(
+      review.description ?? `${review.chainFamily.toUpperCase()} signature`,
     );
   const count = review.transactions.length;
   const labels = review.transactions.flatMap((transaction) =>
     "label" in transaction && typeof transaction.label === "string"
-      ? [transaction.label]
+      ? [plain(transaction.label)]
       : [],
   );
   const simulation = review.simulation?.status
@@ -53,10 +55,8 @@ export function reviewSummary(review: CommitReview | undefined): string {
   return `${count} ${review.type === "execute_evm" ? "EVM" : "SVM"} transaction${count === 1 ? "" : "s"}${labels.length ? `: ${labels.join("; ")}` : ""}${simulation}`;
 }
 
-export function reviewLines(
-  view: CommitRefView,
-  review: CommitReview | undefined,
-): string[] {
+/** The commit itself: where it stands, its chain and who signs. */
+export function metaLines(view: CommitRefView): string[] {
   const rows: [string, string][] = [
     ["Commit", view.commit_id],
     ["State", `${view.state} (version ${view.version})`],
@@ -66,13 +66,22 @@ export function reviewLines(
       "Origin",
       `${view.origin}${view.origin_agent_id !== null ? ` (agent ${view.origin_agent_id})` : ""} · initiated by ${view.initiator}`,
     ],
-    ["Review", reviewSummary(review)],
   ];
   if (view.transaction_id)
     rows.push(["Transaction", view.transaction_url ?? view.transaction_id]);
   rows.push(["Sign URL", view.sign_url]);
   return rows.map(([label, value]) => `${label.padEnd(11)}  ${value}`);
 }
+
+const reviewLines = (
+  view: CommitRefView,
+  review: CommitReview | undefined,
+): string[] => [
+  ...metaLines(view),
+  "",
+  ...cardLines(view, review),
+  guardLine(review),
+];
 
 /** Where the commit ended up. */
 function outcome(view: CommitRefView): string {
@@ -88,13 +97,15 @@ function outcome(view: CommitRefView): string {
 /** Follow the whole batch until it is over, or the timeout. */
 async function follow(
   handle: CommitHandle,
-  sign = false,
+  sign?: (member: CommitHandle) => Promise<void>,
 ): Promise<CommitRefView> {
-  const deadline = Date.now() + TIMEOUT_MS;
+  let deadline = Date.now() + TIMEOUT_MS;
   while (!handle.settlement.done && Date.now() < deadline) {
     const next = handle.next;
-    if (sign && next.view.action && next.canSign()) await next.sign();
-    else await new Promise((resolve) => setTimeout(resolve, 1000));
+    if (sign && next.view.action && next.canSign()) {
+      await sign(next);
+      deadline = Date.now() + TIMEOUT_MS;
+    } else await new Promise((resolve) => setTimeout(resolve, 1000));
     await handle.refresh();
   }
   const { done, failed, last } = handle.settlement;
@@ -133,7 +144,11 @@ export async function review(flags: Flags, ref: string): Promise<void> {
   const handle = await open(await connect(flags), ref);
   try {
     if (flags.json)
-      json({ ...handle.view, review_summary: reviewSummary(handle.review) });
+      json({
+        ...handle.view,
+        review_summary: reviewSummary(handle.review),
+        guard: guardLine(handle.review),
+      });
     else reviewLines(handle.view, handle.review).forEach((line) => out(line));
   } finally {
     handle.close();
@@ -191,19 +206,42 @@ export async function reject(flags: Flags, ref: string): Promise<void> {
   }
 }
 
-/** Sign with the local signer, every member of the batch in order. */
-export async function sign(flags: Flags, ref: string): Promise<void> {
+/** What a person was shown, which is all a signature may be for. */
+export const reviewed = (view: CommitRefView) => ({
+  expectedVersion: view.version,
+  expectedReviewDigest: view.review?.digest,
+});
+
+/** Sign with the local signer, every member of the batch in order, each shown first. */
+export async function sign(
+  flags: Flags & { yes?: boolean },
+  ref: string,
+): Promise<void> {
   const handle = await open(await connect(flags), ref);
   try {
     if (handle.state === "awaiting_approval")
       throw new CliError(`It waits for approval: aomi tx approve ${ref}`, 3);
     if (!handle.next.canSign())
       throw new CliError(
-        "No local signer for it: pass --private-key or --solana-private-key, or aomi wallets signer set",
+        `No local signer for it: pass --private-key or --solana-private-key, aomi wallets signer set, or sign at ${handle.signUrl}`,
         3,
       );
-    reviewLines(handle.view, handle.review).forEach((line) => err(line));
-    finish(flags, await follow(handle, true));
+    const signed = await follow(handle, async (member) => {
+      const { view, review } = member;
+      reviewLines(view, review).forEach((line) => err(line));
+      if (!flags.yes && !(await confirm("Sign?")))
+        throw new CliError("Not signed");
+      try {
+        await member.sign(undefined, reviewed(view));
+      } catch (error) {
+        if (!(error instanceof CommitStaleError)) throw error;
+        // Nobody saw what it is now, so only a person is asked again.
+        if (flags.yes)
+          throw new CliError(`It changed; aomi tx sign ${ref} again`);
+        err("It changed; review it again");
+      }
+    });
+    finish(flags, signed);
   } finally {
     handle.close();
   }
