@@ -1,14 +1,13 @@
+import { randomUUID } from "node:crypto";
 import {
-  closeSync,
+  linkSync,
   mkdirSync,
-  openSync,
   readFileSync,
   renameSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, hostname } from "node:os";
 import { join } from "node:path";
 import type { SvmCluster } from "@aomi-labs/client";
 import { fileGrants } from "@aomi-labs/client/node";
@@ -57,22 +56,62 @@ export function loadState(): CliState {
   return state as CliState;
 }
 
-/** Run `write` as the only writer; a lock its process left is taken over. */
-function locked<T>(write: () => T): T {
-  const lock = `${STATE_FILE}.lock`;
-  for (;;) {
-    try {
-      closeSync(openSync(lock, "wx", 0o600));
-      break;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+/** `act`'s answer, or undefined for the error `code`. */
+function unless<T>(code: string, act: () => T): T | undefined {
+  try {
+    return act();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== code) throw error;
+    return undefined;
+  }
+}
+
+/** Whether a lock's process is gone; only this machine's can be asked. */
+function gone(pid: string, host: string): boolean {
+  if (host !== hostname()) return false;
+  try {
+    process.kill(Number(pid), 0);
+    return false;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ESRCH";
+  }
+}
+
+/**
+ * Run `write` as the only writer. The lock names its process and is taken over
+ * only once that is gone: a paused one still writes when it goes on.
+ */
+function locked<T>(lock: string, write: (id: string) => T): T {
+  const id = randomUUID();
+  const own = `${lock}.${id}`;
+  writeFileSync(own, `${process.pid}@${hostname()}@${id}`, {
+    mode: 0o600,
+    flag: "wx",
+  });
+  const held = () => unless("ENOENT", () => readFileSync(lock, "utf8"));
+  const take = () => unless("EEXIST", () => (linkSync(own, lock), true));
+  try {
+    for (const until = Date.now() + 10_000; !take(); ) {
+      const holder = held();
+      const [pid, host, left] = holder?.split("@") ?? [];
+      if (left && gone(pid!, host!))
+        // Under its own lock, so that no one removes the next writer's.
+        locked(`${lock}.${left}.gone`, () => {
+          if (held() !== holder) return;
+          rmSync(`${STATE_FILE}.${left}`, { force: true });
+          rmSync(lock);
+        });
+      else if (Date.now() > until)
+        throw new Error(
+          `Another aomi is writing ${STATE_FILE}; if none is running, delete ${lock}`,
+        );
+      else Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
     }
-    const since = statSync(lock, { throwIfNoEntry: false })?.mtimeMs;
-    if (since && Date.now() - since > 5000) rmSync(lock, { force: true });
-    else Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+  } finally {
+    rmSync(own, { force: true });
   }
   try {
-    return write();
+    return write(id);
   } finally {
     rmSync(lock, { force: true });
   }
@@ -83,19 +122,22 @@ export function updateState(
   patch: Partial<CliState> | ((state: CliState) => Partial<CliState>),
 ): CliState {
   mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 });
-  return locked(() => {
+  return locked(`${STATE_FILE}.lock`, (id) => {
     const state = loadState();
     const next = {
       ...state,
       ...(typeof patch === "function" ? patch(state) : patch),
     };
-    const fresh = `${STATE_FILE}.new`;
-    rmSync(fresh, { force: true });
-    writeFileSync(fresh, `${JSON.stringify(next, null, 2)}\n`, {
-      mode: 0o600,
-      flag: "wx",
-    });
-    renameSync(fresh, STATE_FILE);
+    const fresh = `${STATE_FILE}.${id}`;
+    try {
+      writeFileSync(fresh, `${JSON.stringify(next, null, 2)}\n`, {
+        mode: 0o600,
+        flag: "wx",
+      });
+      renameSync(fresh, STATE_FILE);
+    } finally {
+      rmSync(fresh, { force: true });
+    }
     return next;
   });
 }
