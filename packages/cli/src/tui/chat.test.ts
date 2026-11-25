@@ -432,7 +432,7 @@ describe("a commit that waits for you", () => {
     screen.list!.onSelect({ value: "yes" });
     await vi.waitFor(() => expect(drawn()).toContain("/rpc <url>"));
     expect(act).not.toHaveBeenCalled();
-    screen.editor!.onSubmit("/rpc https://rpc.example/key");
+    screen.editor!.onSubmit("/ rpc https://rpc.example/key");
     await vi.waitFor(() => expect(drawn()).toContain("RPC saved"));
     expect(screen.recalled).toEqual(["deposit"]);
     screen.input!("s");
@@ -520,7 +520,7 @@ describe("packages and agents", () => {
 
   it("adds a package with its code, off until accepted, and removes one", async () => {
     const { store, slash, choose, drawn, close } = await open();
-    slash("/library add s3cret");
+    slash("/\tlibrary  add s3cret");
     await choose("no");
     expect(store.activate).toHaveBeenCalledWith("s3cret");
     expect(drawn()).toContain("acme/vault is added, but off");

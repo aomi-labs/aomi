@@ -582,8 +582,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     }
   }
 
-  async function slash(line: string) {
-    const [name, ...rest] = line.slice(1).trim().split(/\s+/);
+  async function slash([name, ...rest]: string[]) {
     const arg = rest.join(" ");
     if (name === "exit") return exit();
     if (running && name !== "help") return note("Still working; esc stops it");
@@ -846,12 +845,14 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   editor.onSubmit = (raw) => {
     const text = raw.trim();
     if (!text) return;
+    const command = text.startsWith("/") && text.slice(1).trim().split(/\s+/);
     // A code or an RPC's key stays out of recall.
-    if (!/^\/(library\s+add|rpc)\b/u.test(text)) editor.addToHistory?.(text);
-    if (text.startsWith("/")) {
+    if (!command || !/^(library add|rpc)\b/u.test(command.join(" ")))
+      editor.addToHistory?.(text);
+    if (command) {
       if (commandRunning) return note("A command is still working");
       commandRunning = true;
-      void slash(text)
+      void slash(command)
         .catch((error: unknown) => note(messageOf(error)))
         .finally(() => {
           commandRunning = false;
