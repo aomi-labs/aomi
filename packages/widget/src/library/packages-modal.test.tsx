@@ -1057,6 +1057,25 @@ describe("packages modal", () => {
     expect(within(details("Secret Tool")).queryByRole("status")).toBeNull();
   });
 
+  it.each([true, false])(
+    "leaves a package switched off when its code comes again (verified: %s)",
+    async (verified) => {
+      const off = { enabled: false, choice: false, reason: "chosen_off" };
+      const backend = installBackend([VERIFIED], {
+        ...PRIVATE_ON,
+        ...off,
+        verified,
+      } as AomiPackage);
+      await renderModal();
+      addWithCode("good-code");
+      await footerAction("Secret Tool", "Turn on");
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(backend.writes().map((call) => call.path)).toEqual([
+        "/api/account/packages/activate",
+      ]);
+    },
+  );
+
   it("asks for the key of a package it added", async () => {
     installBackend([VERIFIED], { ...PRIVATE_ON, slots: NEEDS_KEY.slots });
     await renderModal();

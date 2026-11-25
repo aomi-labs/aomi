@@ -216,7 +216,8 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   };
   /**
    * Redeem a package code; the row appears and its detail opens. A verified
-   * package is on; any other turns on as from its switch, notice first.
+   * package is on; any other turns on as from its switch, notice first. One
+   * the person switched off stays off.
    */
   const activate = async (code: string) => {
     try {
@@ -230,7 +231,8 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       setCodeOpen(false);
       open(row);
       setAddedId(row.id);
-      if (row.available && !row.enabled) toggle(row, true);
+      if (row.available && !row.enabled && row.choice !== false)
+        toggle(row, true);
       return null;
     } catch (cause) {
       return explainActivateError(cause);
