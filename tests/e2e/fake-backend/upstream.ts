@@ -904,7 +904,12 @@ function enforcementOf(state: FakeRules) {
   const entry = (
     key: string,
     id: string,
-    extra: { state: string; ready: boolean; note?: string; amount?: string },
+    extra: {
+      state: string;
+      ready: boolean;
+      note?: string;
+      next?: string;
+    },
     until?: number,
   ) => {
     const provider = PROVIDERS[id]!;
@@ -922,6 +927,13 @@ function enforcementOf(state: FakeRules) {
       account: held ? provider.owner : null,
       deployment_tx: held?.tx ?? null,
       note: extra.note ?? null,
+      next:
+        extra.next ??
+        (!extra.ready
+          ? null
+          : provider.family === "svm"
+            ? "transaction"
+            : "typed_data"),
       signer: {
         family: provider.family,
         address: held ? provider.owner : null,
@@ -976,6 +988,7 @@ function enforcementOf(state: FakeRules) {
         {
           state: "behind",
           ready: true,
+          ...(state.deployed[key]?.revoked ? { next: "evm_transaction" } : {}),
           note: state.deployed[key]?.revoked
             ? "Your revocation is signed. Send it from your wallet to take the grant off chain, or wait for Aomi to send it where the network supports that."
             : "This rule was removed or has ended. Sign to take off what the chain holds for it.",

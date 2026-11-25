@@ -175,10 +175,9 @@ export type AomiPolicyEnforcement = {
   /**
    * The kind of action `prepare` asks the owner's wallet for, to hold the
    * rule as it stands or take off one that is gone. Null: none (`confirm`
-   * alone finishes), or the chain could not be read. Absent from an older
-   * backend.
+   * alone finishes), or the chain could not be read.
    */
-  next?: AomiPolicyAction["kind"] | null;
+  next: AomiPolicyAction["kind"] | null;
   /** The owner's wallet that signs; its address once a rule is on chain. */
   signer: { family: AomiWalletFamily; address: string | null };
 };
@@ -512,13 +511,11 @@ function optionalSeconds(value: unknown, field: string): number | null {
 
 const ACTION_KINDS = ["transaction", "typed_data", "evm_transaction"] as const;
 
-/** An entry's `next`: left out when an older backend sent none. */
-function nextOf(value: unknown): Pick<AomiPolicyEnforcement, "next"> {
-  if (value === undefined) return {};
-  if (value === null) return { next: null };
+function nextOf(value: unknown): AomiPolicyEnforcement["next"] {
+  if (value === null) return null;
   const next = ACTION_KINDS.find((known) => known === value);
   if (!next) throw invalid(`unsupported enforcement next: ${String(value)}`);
-  return { next };
+  return next;
 }
 
 function parseEnforcement(value: unknown): AomiPolicyEnforcement {
@@ -542,7 +539,7 @@ function parseEnforcement(value: unknown): AomiPolicyEnforcement {
     account: stringValue(record?.account) ?? null,
     deployment_tx: stringValue(record?.deployment_tx) ?? null,
     note: stringValue(record?.note) ?? null,
-    ...nextOf(record?.next),
+    next: nextOf(record?.next),
     signer: {
       family: family(signer?.family),
       address: stringValue(signer?.address) ?? null,

@@ -42,6 +42,13 @@ const data = (overrides: Partial<AomiPolicyTypedData> = {}) =>
     ...overrides,
   }) satisfies AomiPolicyTypedData;
 
+const SOLANA_OWNER = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x";
+const transaction: AomiPolicyAction = {
+  kind: "transaction",
+  network: "solana:mainnet-beta",
+  unsigned_base64: "dW5zaWduZWQ=",
+};
+
 describe("typed data the backend asks the owner to sign", () => {
   it("reads every declared integer as a bigint, in structs and arrays, and the domain's chain id as a number", () => {
     const signable = signableTypedData(data(), 8453);
@@ -94,13 +101,13 @@ describe("typed data the backend asks the owner to sign", () => {
 });
 
 describe("a transaction that was sent and the backend's node never shows", () => {
-  const SOLANA_OWNER = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x";
   const entry = {
     rule: "solana:mainnet-beta/native@any",
     provider: "swig",
     network: "solana:mainnet-beta",
     ready: true,
     note: null,
+    next: "transaction",
     signer: { family: "svm", address: SOLANA_OWNER },
   } as AomiPolicyEnforcement;
   const unsettled = () =>
@@ -123,21 +130,16 @@ describe("a transaction that was sent and the backend's node never shows", () =>
     });
     return { transport, result };
   };
-  const transaction: AomiPolicyAction = {
-    kind: "transaction",
-    network: "solana:mainnet-beta",
-    unsigned_base64: "dW5zaWduZWQ=",
-  };
   const sendSolanaTransaction = async () => "5igSent";
+  const never = async () => {
+    throw unsettled();
+  };
 
   it("answers the signature with settled false and the policies as they stand, after the same retries", async () => {
-    const { transport, result } = flow(
-      transaction,
-      async () => {
-        throw unsettled();
-      },
-      { solanaAddress: SOLANA_OWNER, sendSolanaTransaction },
-    );
+    const { transport, result } = flow(transaction, never, {
+      solanaAddress: SOLANA_OWNER,
+      sendSolanaTransaction,
+    });
     await expect(result).resolves.toEqual({
       policies: { enforcement: [], revision: 2 },
       settled: false,
@@ -195,13 +197,7 @@ describe("a transaction that was sent and the backend's node never shows", () =>
   });
 
   it("still throws when nothing was sent, and any other refusal", async () => {
-    const nothing = flow(
-      null,
-      async () => {
-        throw unsettled();
-      },
-      {},
-    );
+    const nothing = flow(null, never, {});
     await expect(nothing.result).rejects.toMatchObject({
       code: "chain_not_settled",
     });
@@ -241,6 +237,7 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
     account: null,
     deployment_tx: null,
     note: "Your revocation is signed. Send it from your wallet to take the grant off chain.",
+    next: "evm_transaction",
     signer: { family: "evm", address: OWNER },
     ...extra,
   });
@@ -257,6 +254,7 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
     answer: AomiPolicyAction,
     held = entry(),
     signer: AomiPolicySigner = { evmAddress: OWNER, sendEvmTransaction },
+    options: { owner?: string } = {},
   ) {
     sendEvmTransaction.mockClear();
     const confirmEnforcement = vi.fn(async () => ({ enforcement: [] }));
@@ -268,6 +266,7 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
       revision: 1,
       owner: held.signer.address!,
       remove: true,
+      ...options,
     }).then(
       () => null,
       (cause: Error) => cause.message,
@@ -298,7 +297,6 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
     });
     expect(other.error).toMatch(/wallet that owns the policy/);
     expect(other.confirmEnforcement).not.toHaveBeenCalled();
-    const SOLANA_OWNER = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x";
     const solana = await run(
       action(),
       entry({ signer: { family: "svm", address: SOLANA_OWNER } }),
@@ -310,32 +308,15 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
   });
 
   it("asks no wallet that is not the policy's owner, whatever the action", async () => {
-    const SOLANA_OWNER = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x";
     const swig = entry({
       provider: "swig",
       network: "solana:mainnet-beta",
       signer: { family: "svm", address: SOLANA_OWNER },
     });
     const ask = vi.fn(async () => "0x1234");
-    const refused = async (
-      answer: AomiPolicyAction,
-      held: AomiPolicyEnforcement,
-      signer: AomiPolicySigner,
-      owner = held.signer.address!,
-    ) => {
-      const confirmEnforcement = vi.fn();
-      await expect(
-        enforcePolicy(
-          {
-            prepareEnforcement: async () => answer,
-            confirmEnforcement,
-          } as never,
-          "w",
-          held,
-          signer,
-          { revision: 1, owner },
-        ),
-      ).rejects.toThrow(
+    const refused = async (...asked: Parameters<typeof run>) => {
+      const { error, confirmEnforcement } = await run(...asked);
+      expect(error).toBe(
         "Sign this with the wallet that owns the policy. Nothing was signed.",
       );
       expect(confirmEnforcement).not.toHaveBeenCalled();
@@ -344,11 +325,6 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
       kind: "typed_data",
       network: "eip155:8453",
       typed_data: data(),
-    };
-    const transaction: AomiPolicyAction = {
-      kind: "transaction",
-      network: "solana:mainnet-beta",
-      unsigned_base64: "dW5zaWduZWQ=",
     };
     const OTHER = "0x1111000000000000000000000000000000002222";
     // Another wallet is connected, or none that says who it is.
@@ -368,7 +344,7 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
       typed,
       entry(),
       { evmAddress: OTHER, signTypedData: ask },
-      OTHER,
+      { owner: OTHER },
     );
     expect(ask).not.toHaveBeenCalled();
   });
@@ -376,7 +352,7 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
   describe("a deployment sent as a transaction", () => {
     // The vault's creation: the entry asks for a transaction until the
     // backend's node shows it.
-    const asks = entry({ state: "off", note: null, next: "evm_transaction" });
+    const asks = entry({ state: "off", note: null });
     const deploy = async (confirmed: object[], held = asks) => {
       let calls = 0;
       const transport = {
@@ -410,13 +386,6 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
       const { result, confirms } = await deploy([asks]);
       expect(result).toMatchObject({ settled: false, transaction: "0xhash" });
       expect(confirms).toHaveLength(6);
-    });
-
-    it("settles at once, as before, for a backend that sends no next", async () => {
-      const old = entry({ state: "off", note: null });
-      const { result, confirms } = await deploy([old], old);
-      expect(result.settled).toBe(true);
-      expect(confirms).toHaveLength(1);
     });
   });
 

@@ -1,18 +1,15 @@
 import {
   AomiApiError,
-  AomiPolicyFieldError,
   AomiPolicySentError,
   POLICY_ERROR_CODES,
   assetChain,
   assetNetwork,
   catalogOn,
   chainOnlyPolicies,
-  checkPolicy,
   expectedPolicyAction,
   fromBaseUnits,
   hasPolicies,
   matchPolicyIds,
-  policyFromInput,
   policyKey,
   policyOnChain,
   shortAddress,
@@ -46,6 +43,7 @@ import { readArgs } from "./pipeline";
 
 /** On screen and in the paths a policy; in the wire's field names, a rule. */
 export type Flags = ConnectFlags & { json?: boolean; wallet?: string };
+type WriteFlags = Flags & { yes?: boolean };
 
 function timeLeft(expiresAt: number): string {
   const seconds = expiresAt - Math.floor(Date.now() / 1000);
@@ -111,6 +109,10 @@ export const onChain = (status: AomiPolicyOnChain): string =>
   "entry" in status
     ? `${ON_CHAIN[status.kind]} (${status.entry.name})`
     : ON_CHAIN[status.kind];
+
+/** Only an EVM address reads the same in either case. */
+const sameAddress = (family: "evm" | "svm", a: string, b: string) =>
+  family === "evm" ? a.toLowerCase() === b.toLowerCase() : a === b;
 
 const authorityOf = (admin: AomiPolicyAdmin) =>
   admin.kind === "wallet"
@@ -255,6 +257,9 @@ export function nextLines(
   return lines.length ? lines : ["Nothing: Aomi and the chain agree"];
 }
 
+const printTable = (rows: string[][]) =>
+  table(rows).forEach((row) => out(`  ${row}`));
+
 function printNext(lines: string[]): void {
   out("Next");
   lines.forEach((line) => out(`  ${line}`));
@@ -299,15 +304,6 @@ export async function list(flags: Flags): Promise<void> {
   }
 }
 
-/** A policy the SDK refused names its field; the nearest catalog values follow. */
-function fieldError(error: unknown): never {
-  if (error instanceof AomiPolicyFieldError)
-    throw usage(
-      `${error.message}${error.nearest.length ? `. Nearest: ${error.nearest.join(", ")}` : ""}`,
-    );
-  throw error;
-}
-
 /** Here `--chain` names a policy's chain, not the chain the signer is on. */
 type OnChain<F> = Omit<F, "chain"> & { chain?: string };
 
@@ -319,16 +315,16 @@ export async function catalog({ chain, ...flags }: OnChain<Flags>) {
   try {
     if (chain) shown = catalogOn(all, chain);
   } catch (error) {
-    fieldError(error);
+    throw usage((error as Error).message);
   }
   if (flags.json) return json(shown);
   out("APPS");
-  table([
+  printTable([
     ["ID", "NAME", "CHAINS"],
     ...shown.apps.map((app) => [app.id, app.label, app.chains.join(", ")]),
-  ]).forEach((row) => out(`  ${row}`));
+  ]);
   out("TOKENS");
-  table([
+  printTable([
     ["SYMBOL", "CHAIN", "DECIMALS", "ASSET"],
     ...shown.tokens.map((token) => [
       token.symbol,
@@ -336,7 +332,7 @@ export async function catalog({ chain, ...flags }: OnChain<Flags>) {
       String(token.decimals),
       token.asset,
     ]),
-  ]).forEach((row) => out(`  ${row}`));
+  ]);
 }
 
 /** The change, when it still waits for the admin and is `--wallet`'s. */
@@ -384,17 +380,6 @@ function refusal(error: unknown, url: string): never {
   throw error;
 }
 
-function decided(
-  flags: Flags,
-  policies: AomiWalletPolicies,
-  done: string,
-): void {
-  if (flags.json) return json(policies);
-  out(done);
-  policyLines(policies).forEach((line) => out(line));
-  printNext(nextLines(flags, policies));
-}
-
 /** The page where a wallet authority signs; exit 3, nothing was approved. */
 function needsSignature(flags: Flags, change: AomiPolicyChange): void {
   const url = changeUrl(flags, change.id);
@@ -406,31 +391,32 @@ function needsSignature(flags: Flags, change: AomiPolicyChange): void {
   process.exitCode = 3;
 }
 
+const decide =
+  (verb: "approve" | "decline", done: string) =>
+  async (flags: Flags, id: string): Promise<void> => {
+    const aomi = await connect(flags);
+    const change = await open(aomi, id, flags);
+    if (verb === "approve" && change.signer)
+      return needsSignature(flags, change);
+    try {
+      const policies = await aomi.account.policy[`${verb}Change`](id);
+      if (flags.json) return json(policies);
+      out(done);
+      policyLines(policies).forEach((line) => out(line));
+      printNext(nextLines(flags, policies));
+    } catch (error) {
+      refusal(error, changeUrl(flags, id));
+    }
+  };
+
 /**
  * `aomi policy approve <id>`: approve a change the Aomi-managed authority
  * waits on. A change that needs a wallet's signature prints its page instead.
  */
-export async function approve(flags: Flags, id: string): Promise<void> {
-  const aomi = await connect(flags);
-  const change = await open(aomi, id, flags);
-  if (change.signer) return needsSignature(flags, change);
-  try {
-    decided(flags, await aomi.account.policy.approveChange(id), "Approved");
-  } catch (error) {
-    refusal(error, changeUrl(flags, id));
-  }
-}
+export const approve = decide("approve", "Approved");
 
 /** `aomi policy decline <id>`: the policies stay as they are. */
-export async function decline(flags: Flags, id: string): Promise<void> {
-  const aomi = await connect(flags);
-  await open(aomi, id, flags);
-  try {
-    decided(flags, await aomi.account.policy.declineChange(id), "Declined");
-  } catch (error) {
-    refusal(error, changeUrl(flags, id));
-  }
-}
+export const decline = decide("decline", "Declined");
 
 type Row = [field: string, before: string, after: string];
 
@@ -440,7 +426,7 @@ type Row = [field: string, before: string, after: string];
  * live, and what brings the chain in line.
  */
 async function change(
-  flags: Flags & { yes?: boolean },
+  flags: WriteFlags,
   aomi: Aomi,
   walletId: string,
   build: (held: AomiWalletPolicies) => {
@@ -487,9 +473,7 @@ async function change(
     else {
       out(loosens ? "LOOSENS" : "TIGHTENS");
       if (changed.length)
-        table([["FIELD", "BEFORE", "AFTER"], ...changed]).forEach((row) =>
-          out(`  ${row}`),
-        );
+        printTable([["FIELD", "BEFORE", "AFTER"], ...changed]);
       out(
         status === "applied"
           ? "Applied"
@@ -510,47 +494,31 @@ async function change(
 const unnamed = (policies: AomiWalletPolicies) =>
   policies.rules.mode === "whitelist" ? "not allowed" : "no limit";
 
-type SetFlags = OnChain<Flags> & {
-  amt?: string;
-  to?: string;
-  until?: string;
-  yes?: boolean;
-};
-
-const SET_USAGE =
-  "aomi policy set <json | path>, or aomi policy set --amt <amount> <asset> --to <app-id|address>";
-
-/** `aomi policy set`: add one policy, or replace the one on its token and destination. */
-export async function set(
-  { chain, ...flags }: SetFlags,
-  input?: string,
-): Promise<void> {
-  if (!input) throw usage(SET_USAGE);
-  const typed = flags.amt !== undefined;
-  if (typed ? !flags.to : flags.to || flags.until || chain)
-    throw usage(SET_USAGE);
-  const aomi = await connect(flags);
-  const walletId = await walletOf(aomi, flags);
-  const known = await aomi.account.policy.catalog();
+/**
+ * `aomi policy set <json | path>`: add one policy, or replace the one on its
+ * token and destination. The server checks it.
+ */
+export async function set(flags: WriteFlags, input?: string): Promise<void> {
+  if (!input) throw usage("aomi policy set <json | path>");
   let policy: AomiPolicy;
   try {
-    policy = typed
-      ? policyFromInput(
-          {
-            amount: flags.amt!,
-            asset: input,
-            to: flags.to!,
-            until: flags.until,
-            chain,
-          },
-          known,
-        )
-      : checkPolicy(await readArgs(input), known);
+    policy = (await readArgs(input)) as AomiPolicy;
   } catch (error) {
     if (error instanceof SyntaxError)
       throw usage(`policy: not JSON (${error.message})`);
-    fieldError(error);
+    throw error;
   }
+  const to = policy.to as { kind?: unknown; address?: unknown } | undefined;
+  if (
+    typeof policy.asset !== "string" ||
+    !to ||
+    typeof to !== "object" ||
+    (to.kind === "address" && typeof to.address !== "string")
+  )
+    throw usage("policy: needs asset, amount and to: aomi policy catalog");
+  const aomi = await connect(flags);
+  const walletId = await walletOf(aomi, flags);
+  const known = await aomi.account.policy.catalog();
   const id = policyKey(policy);
   await change(flags, aomi, walletId, (held) => {
     const before = held.rules.rules.find((one) => idOf(one) === id);
@@ -576,10 +544,7 @@ export async function set(
 }
 
 /** `aomi policy remove <policy-id>`. */
-export async function remove(
-  flags: Flags & { yes?: boolean },
-  typed: string,
-): Promise<void> {
+export async function remove(flags: WriteFlags, typed: string) {
   const aomi = await connect(flags);
   const walletId = await walletOf(aomi, flags);
   // Resolved once: a retry removes this policy or nothing, never another
@@ -606,10 +571,7 @@ export async function remove(
 }
 
 /** `aomi policy mode whitelist|blacklist`. */
-export async function mode(
-  flags: Flags & { yes?: boolean },
-  wanted: string,
-): Promise<void> {
+export async function mode(flags: WriteFlags, wanted: string) {
   if (wanted !== "whitelist" && wanted !== "blacklist")
     throw usage("Mode is whitelist or blacklist");
   const aomi = await connect(flags);
@@ -625,10 +587,7 @@ export async function mode(
 }
 
 /** `aomi policy authority self|<address>`: who approves a change that loosens. */
-export async function authority(
-  flags: Flags & { yes?: boolean },
-  wanted: string,
-): Promise<void> {
+export async function authority(flags: WriteFlags, wanted: string) {
   const aomi = await connect(flags);
   const walletId = await walletOf(aomi, flags);
   await change(flags, aomi, walletId, (held) => {
@@ -636,10 +595,7 @@ export async function authority(
       wanted === "self"
         ? { kind: "aomi_managed" }
         : held.admin_wallets.find((wallet) =>
-            // Only an EVM address reads the same in either case.
-            wallet.family === "evm"
-              ? wallet.address.toLowerCase() === wanted.toLowerCase()
-              : wallet.address === wanted,
+            sameAddress(wallet.family, wallet.address, wanted),
           );
     if (!admin)
       throw new CliError(
@@ -657,7 +613,7 @@ export async function authority(
   });
 }
 
-type EnforceFlags = Flags & { provider?: string; yes?: boolean };
+type EnforceFlags = WriteFlags & { provider?: string };
 
 /** A key that is not one of the account's wallets cannot own a policy. */
 const notOwnWallet = (
@@ -685,11 +641,7 @@ const NO_ACTION = "none; Aomi only reads the chain";
  * One policy onto the chain, or off it: the checks, the question, then the
  * SDK's prepare, sign + send and confirm with the local signer.
  */
-async function enforce(
-  flags: EnforceFlags,
-  typed: string,
-  remove: boolean,
-): Promise<void> {
+async function enforce(flags: EnforceFlags, typed: string, remove: boolean) {
   const aomi = await connect(flags);
   const walletId = await walletOf(aomi, flags);
   const held = await aomi.account.policy.get(walletId);
@@ -751,13 +703,7 @@ async function enforce(
       }: aomi wallets signer set, or ${verb} it at ${policyUrl(flags, walletId, id)}`,
       3,
     );
-  if (
-    local &&
-    kind &&
-    (family === "evm"
-      ? local.toLowerCase() !== owner.toLowerCase()
-      : local !== owner)
-  )
+  if (local && kind && !sameAddress(family, local, owner))
     throw new CliError(
       `The local signer ${local} is not ${owner}, the wallet that owns this policy. Nothing was signed`,
     );
@@ -769,9 +715,7 @@ async function enforce(
       !wallets.some(
         (wallet) =>
           wallet.family === family &&
-          (family === "evm"
-            ? wallet.address.toLowerCase() === owner.toLowerCase()
-            : wallet.address === owner),
+          sameAddress(family, wallet.address, owner),
       )
     )
       throw notOwnWallet(flags, family, owner);

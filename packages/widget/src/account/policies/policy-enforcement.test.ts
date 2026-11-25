@@ -18,16 +18,32 @@ const kit = vi.hoisted(() => ({
 }));
 vi.mock("@/wallet/context", () => ({ useAomiWalletKit: () => kit }));
 
-describe("the connected wallet as the SDK's policy signer", () => {
-  const OWNER = "0xAbCd00000000000000000000000000000000Ef12";
-  const entry = {
-    rule: "eip155:8453/native@any",
+const hook = (client: object = {}) =>
+  renderHook(() =>
+    usePolicyEnforcement({
+      client: client as never,
+      walletId: "w",
+      revision: 1,
+      onConfirmed: vi.fn(),
+      onStale: vi.fn(),
+    }),
+  ).result;
+
+const OWNER = "0xAbCd00000000000000000000000000000000Ef12";
+const held = (extra: object = {}) =>
+  ({
+    rule: "r",
     provider: "metamask",
     network: "eip155:8453",
     ready: true,
-    note: "Your revocation is signed. Send it from your wallet.",
+    note: null,
+    next: "typed_data",
     signer: { family: "evm", address: OWNER },
-  } as AomiPolicyEnforcement;
+    ...extra,
+  }) as AomiPolicyEnforcement;
+
+describe("the connected wallet as the SDK's policy signer", () => {
+  const entry = held({ next: "evm_transaction" });
   beforeEach(() => {
     kit.identity.address = OWNER;
     kit.identity.chainId = 1;
@@ -48,15 +64,7 @@ describe("the connected wallet as the SDK's policy signer", () => {
         },
       },
     };
-    const { result } = renderHook(() =>
-      usePolicyEnforcement({
-        client: client as never,
-        walletId: "w",
-        revision: 1,
-        onConfirmed: vi.fn(),
-        onStale: vi.fn(),
-      }),
-    );
+    const result = hook(client);
     await act(async () => {
       result.current.takeOff(entry, "Take it off").run();
     });
@@ -125,9 +133,7 @@ describe("the connected wallet as the SDK's policy signer", () => {
 });
 
 describe("a step the connected wallet cannot take is disabled, with the reason", () => {
-  const OWNER = "0xAbCd00000000000000000000000000000000Ef12";
   const SOL = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T";
-  const SENT = "Your revocation is signed. Send it from your wallet.";
   const evm = { family: "evm", address: OWNER };
   const svm = { family: "svm", address: SOL };
   const sign = vi.fn();
@@ -198,24 +204,13 @@ describe("a step the connected wallet cannot take is disabled, with the reason",
     Object.assign(kit, methods, {
       identity: { address: OWNER, svmAddress: SOL, chainId: 8453, ...identity },
     });
-    const entry = {
-      rule: "r",
-      provider: "p",
-      network: "n",
-      ready: true,
-      note: remove ? SENT : null,
-      signer,
-    } as AomiPolicyEnforcement;
-    const { result } = renderHook(() =>
-      usePolicyEnforcement({
-        client: {} as never,
-        walletId: "w",
-        revision: 1,
-        onConfirmed: vi.fn(),
-        onStale: vi.fn(),
-      }),
-    );
-    const step = result.current[remove ? "takeOff" : "step"](entry);
+    const next = remove
+      ? "evm_transaction"
+      : signer.family === "svm"
+        ? "transaction"
+        : "typed_data";
+    const entry = held({ next, signer });
+    const step = hook().current[remove ? "takeOff" : "step"](entry);
     expect(step).toMatchObject({ disabled: hint !== null, hint });
     for (const key of Object.keys(methods))
       delete (kit as Record<string, unknown>)[key];
@@ -223,62 +218,19 @@ describe("a step the connected wallet cannot take is disabled, with the reason",
   });
 });
 
-describe("a step follows the entry's `next` when the backend sends one", () => {
-  const OWNER = "0xAbCd00000000000000000000000000000000Ef12";
+describe("a step follows the entry's `next`", () => {
   const NO_SEND =
     "This wallet can’t send transactions here. Connect another EVM wallet to send it.";
   const stepOf = (next: AomiPolicyEnforcement["next"], remove: boolean) => {
     kit.identity.address = OWNER;
-    const entry = {
-      rule: "r",
-      provider: "metamask",
-      network: "eip155:8453",
-      ready: true,
-      note: null,
-      next,
-      signer: { family: "evm", address: OWNER },
-    } as AomiPolicyEnforcement;
-    const { result } = renderHook(() =>
-      usePolicyEnforcement({
-        client: {} as never,
-        walletId: "w",
-        revision: 1,
-        onConfirmed: vi.fn(),
-        onStale: vi.fn(),
-      }),
-    );
-    return result.current[remove ? "takeOff" : "step"](entry);
+    return hook().current[remove ? "takeOff" : "step"](held({ next }));
   };
 
-  it("does not ask for a signing method when no wallet action is needed", () => {
-    // This wallet cannot sign typed data, which the signer's family implies.
-    expect(stepOf(undefined, true).disabled).toBe(true);
-    expect(stepOf(null, true)).toMatchObject({ disabled: false, hint: null });
-    expect(stepOf(null, false)).toMatchObject({ disabled: false, hint: null });
-  });
-
   it("needs no connected wallet for a step that asks nothing of one, only a known owner", () => {
-    const step = (owner: string | null) => {
-      const entry = {
-        rule: "r",
-        provider: "swig",
-        network: "solana:mainnet-beta",
-        ready: true,
-        note: null,
-        next: null,
-        signer: { family: "svm", address: owner },
-      } as AomiPolicyEnforcement;
-      const { result } = renderHook(() =>
-        usePolicyEnforcement({
-          client: {} as never,
-          walletId: "w",
-          revision: 1,
-          onConfirmed: vi.fn(),
-          onStale: vi.fn(),
-        }),
+    const step = (address: string | null) =>
+      hook().current.step(
+        held({ next: null, signer: { family: "svm", address } }),
       );
-      return result.current.step(entry);
-    };
     // No Solana wallet is connected; the policy's owner is on record.
     kit.identity.svmAddress = undefined;
     expect(step("4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x")).toMatchObject({

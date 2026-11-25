@@ -4,7 +4,6 @@ import {
   policyFromDraft,
   policyKey,
   policyOnChain,
-  sendsRevocation,
   type AomiPolicy,
   type AomiPolicyTo,
   type AomiPolicyAdmin,
@@ -476,7 +475,7 @@ export function removedPolicies(
           name: entry.name,
           href: deploymentLink(entry),
           ...(entry.ready ? { deploy: enforcementKey(entry) } : {}),
-          ...(sendsRevocation(entry) ? { send: true } : {}),
+          ...(entry.next === "evm_transaction" ? { send: true } : {}),
           ...(entry.state === "unverified"
             ? { warning: { label: WARNINGS.unverified! } }
             : {}),

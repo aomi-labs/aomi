@@ -400,23 +400,9 @@ const root = routes(
           policy.catalog,
         ),
         set: command(
-          "Add or replace one policy: JSON, or --amt <amount> <asset> --to <app>",
-          {
-            ...policyWrite,
-            amt: text("The most the agent may spend, in token units", {
-              placeholder: "amount",
-            }),
-            to: text("A catalog app id, any, or an address", {
-              placeholder: "app-id|address",
-            }),
-            until: text("The last day it holds (UTC)", {
-              placeholder: "YYYY-MM-DD",
-            }),
-            chain: text("The token's chain, when its symbol is on several", {
-              placeholder: "chain",
-            }),
-          },
-          [arg("Policy JSON or its file; with --amt, the token", "policy")],
+          "Add or replace one policy",
+          policyWrite,
+          [arg("Policy JSON or its file", "policy")],
           policy.set,
         ),
         remove: command(

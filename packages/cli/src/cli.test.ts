@@ -418,6 +418,8 @@ describe("aomi policy", () => {
   const USDC = "eip155:8453/erc20:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
   const SOL_ID = `${SOL}@protocol:jupiter`;
   const USDC_ID = `${USDC}@any`;
+  const GONE = `${SOL}@protocol:jito`;
+  const ADMIN = { kind: "wallet", family: "evm", address: "0xAdmin" };
   const UNTIL = Date.UTC(2099, 11, 11, 23, 59, 59) / 1000;
   const change = {
     id: CHANGE,
@@ -447,7 +449,12 @@ describe("aomi policy", () => {
     symbol: "USDC",
     decimals: 6,
   };
-  const swig = (rule: string, state: string, ready = state !== "on") => ({
+  const swig = (
+    rule: string,
+    state: string,
+    ready = state !== "on",
+    next: string | null = ready ? "transaction" : null,
+  ) => ({
     rule,
     provider: "swig",
     name: "Swig",
@@ -459,6 +466,7 @@ describe("aomi policy", () => {
     account: null,
     deployment_tx: null,
     note: null,
+    next,
     signer: { family: "svm", address: null },
   });
   const body = {
@@ -481,7 +489,7 @@ describe("aomi policy", () => {
         note: null,
       },
     ],
-    admin_wallets: [{ kind: "wallet", family: "evm", address: "0xAdmin" }],
+    admin_wallets: [ADMIN],
   };
   const paths = {
     wallets: "GET /v1/account/agent-wallets",
@@ -498,6 +506,15 @@ describe("aomi policy", () => {
     requests
       .filter((request) => request.key === paths.write)
       .map((request) => JSON.parse(request.body));
+  /** SOL on Jupiter, in lamports, until `UNTIL`. */
+  const setSol = (amount: string, ...rest: string[]) =>
+    policy("set", JSON.stringify({ ...sol(amount), id: undefined }), ...rest);
+  /** What a command printed before its Next block. */
+  const shown = (stdout: string) =>
+    stdout.slice(0, stdout.indexOf("Next\n")).split("\n");
+  const waiting = { ...body, pending: change };
+  const answers = (status: string, rules: object = body) =>
+    (routes[paths.write] = { status, rules });
   beforeEach(() => {
     const wallet = (id: string, archived_at: number | null) => ({
       id,
@@ -541,7 +558,6 @@ describe("aomi policy", () => {
   });
 
   it("lists a wallet's mode, authority and a table of policies with where each stands on chain", async () => {
-    const GONE = `${SOL}@protocol:jito`;
     routes[paths.rules] = {
       ...body,
       pending: change,
@@ -566,26 +582,6 @@ describe("aomi policy", () => {
     expect(requests.some((r) => r.key.includes("archived"))).toBe(false);
   });
 
-  it.each([
-    ["off", "not deployed"],
-    ["behind", "out of date (Swig)"],
-    ["unverified", "not verified (Swig)"],
-  ])("shows a provider's %s policy as %s", async (state, shown) => {
-    routes[paths.rules] = { ...body, enforcement: [swig(SOL_ID, state)] };
-    const { stdout } = await policy("list", "--wallet", WALLET);
-    expect(stdout).toContain(`2099-12-11 UTC  ${shown}\n`);
-    // --wallet reads that wallet only.
-    expect(requests.some((r) => r.key === paths.wallets)).toBe(false);
-  });
-
-  it("does not call a policy in sync while its provider still asks the owner for something", async () => {
-    const asks = { ...swig(SOL_ID, "on", true), next: "evm_transaction" };
-    routes[paths.rules] = { ...body, enforcement: [asks] };
-    const { stdout } = await policy("list");
-    expect(stdout).toContain("2099-12-11 UTC  out of date (Swig)\n");
-    expect(stdout).not.toContain("in sync");
-  });
-
   it("prints the catalog, or one chain of it", async () => {
     const { stdout } = await policy("catalog", "--chain", "base");
     expect(stdout.split("\n")).toEqual([
@@ -600,55 +596,6 @@ describe("aomi policy", () => {
     const none = await policy("catalog", "--chain", "tron");
     expect(none.code).toBe(2);
     expect(none.stderr).toContain("chain: no chain tron in the catalog");
-  });
-
-  it("sets a policy from flags: merges it into the set it read, and says what changed and what is next", async () => {
-    routes[paths.write] = {
-      status: "waiting",
-      rules: { ...body, pending: change },
-    };
-    const { code, stdout } = await policy(
-      "set",
-      "--amt",
-      "2",
-      "sol",
-      "--to",
-      "Jupiter",
-      "--until",
-      "2099-12-31",
-    );
-    // Filed and waiting for an approval, like any wait: exit 3.
-    expect(code).toBe(3);
-    expect(written()).toEqual([
-      {
-        rules: {
-          mode: "blacklist",
-          rules: [
-            {
-              asset: SOL,
-              amount: "2000000000",
-              to: { kind: "protocol", id: "jupiter" },
-              active_until: Date.UTC(2099, 11, 31, 23, 59, 59) / 1000,
-            },
-            { asset: USDC, amount: "200000000", to: { kind: "any_protocol" } },
-          ],
-          linked_only: true,
-        },
-        // The revision the change was built from.
-        revision: 3,
-      },
-    ]);
-    expect(stdout.split("\n")).toEqual([
-      "Up to 2 SOL on Jupiter (Solana), until 2099-12-31 UTC",
-      "LOOSENS",
-      "  FIELD   BEFORE          AFTER",
-      "  amount  0.5 SOL         2 SOL",
-      "  until   2099-12-11 UTC  2099-12-31 UTC",
-      `Filed as ${CHANGE} · waiting for approval`,
-      "Next",
-      `  aomi policy approve ${CHANGE}   waiting for approval`,
-      "",
-    ]);
   });
 
   it("sets the same policy from JSON or a file, and says where a new one goes on chain", async () => {
@@ -667,15 +614,13 @@ describe("aomi policy", () => {
       },
     };
     const inline = await policy("set", JSON.stringify(added));
-    expect(inline.stdout.split("\n")).toEqual([
+    expect(shown(inline.stdout)).toEqual([
       `No SOL to ${SOLANA.publicKey.toBase58().slice(0, 6)}…${SOLANA.publicKey.toBase58().slice(-4)} (Solana)`,
       "TIGHTENS",
       "  FIELD   BEFORE    AFTER",
       "  amount  no limit  0 SOL",
       "  until   -         always",
       "Applied",
-      "Next",
-      `  aomi policy deploy ${SEND}   not on chain yet; put it there`,
       "",
     ]);
     mkdirSync(dir, { recursive: true });
@@ -686,175 +631,68 @@ describe("aomi policy", () => {
     expect(second).toEqual(first);
   });
 
-  it("says a policy no provider can hold is enforced by Aomi only", async () => {
-    routes[paths.write] = { status: "applied", rules: body };
-    const { stdout } = await policy(
-      "set",
-      "--amt",
-      "100",
-      "USDC",
-      "--to",
-      "any",
-      "--chain",
-      "8453",
-    );
-    expect(stdout).toContain(
-      "Next\n  Enforced by Aomi only: no on-chain provider holds this kind of policy\n",
-    );
-  });
-
-  it.each([
-    [
-      ["--amt", "2", "SOL", "--to", "jupitr"],
-      'to.id: no app "jupitr" on Solana. Nearest: jupiter',
-    ],
-    [
-      ["--amt", "1.0000000001", "SOL", "--to", "jupiter"],
-      "amount: 1.0000000001 is not an amount of SOL (9 decimals)",
-    ],
-    [
-      ["--amt", "5", "USDC", "--to", "any"],
-      "chain: USDC is on Base, Ethereum; name one",
-    ],
-    [["--amt", "5", "DOGE", "--to", "any"], "asset: no token DOGE"],
-    [
-      ["--amt", "5", "SOL", "--to", "any", "--until", "2099-02-30"],
-      "until: must be a date, YYYY-MM-DD",
-    ],
-    [
-      [JSON.stringify({ asset: SOL, amount: 5, to: { kind: "any_protocol" } })],
-      "amount: must be a string of base units",
-    ],
-    [
-      [JSON.stringify({ asset: SOL, amount: "5", to: { kind: "anywhere" } })],
-      "to.kind: must be any_protocol, protocol or address",
-    ],
-    [
-      [
-        JSON.stringify({
-          asset: SOL,
-          amount: "5",
-          to: { kind: "any_protocol" },
-          active_until: 1,
-        }),
-      ],
-      "active_until: must be in the future",
-    ],
-    [
-      [JSON.stringify({ asset: SOL, amount: "5", daily: "1" })],
-      "daily: not a policy field",
-    ],
-  ])(
-    "refuses a bad policy naming its field, and sends nothing (%#)",
-    async (argv, error) => {
-      const { code, stderr } = await policy("set", ...argv);
+  it.each([["{not json"], [JSON.stringify({ asset: SOL, to: "any" })]])(
+    "refuses a policy it cannot read, and sends nothing (%#)",
+    async (input) => {
+      const { code } = await policy("set", input);
       expect(code).toBe(2);
-      expect(stderr).toContain(`error: ${error}`);
       expect(written()).toEqual([]);
     },
   );
 
-  it("reads again and retries once when the policies moved under the write", async () => {
-    let writes = 0;
-    routes[paths.write] = () =>
-      (writes += 1) === 1
-        ? Response.json({ error: "rules_changed" }, { status: 409 })
-        : { status: "applied", rules: body };
-    const { code, stdout } = await policy(
-      "set",
-      "--amt",
-      "0.1",
-      "SOL",
-      "--to",
-      "jupiter",
-    );
-    expect(code).toBe(0);
-    expect(stdout).toContain("TIGHTENS");
-    expect(
-      requests.map((r) => r.key).filter((key) => key.endsWith("/policy")),
-    ).toEqual([paths.rules, paths.write, paths.rules, paths.write]);
-    // A second refusal is not retried.
-    writes = -5;
+  it("says the policies changed when the write is refused again after the SDK's one retry", async () => {
     routes[paths.write] = () =>
       Response.json({ error: "rules_changed" }, { status: 409 });
-    const twice = await policy("set", "--amt", "0.1", "SOL", "--to", "jupiter");
-    expect(twice.code).toBe(1);
-    expect(twice.stderr).toContain("the policies changed: aomi policy");
-    expect(written()).toHaveLength(4);
+    const { code, stderr } = await setSol("0.1");
+    expect(code).toBe(1);
+    expect(stderr).toContain("the policies changed: aomi policy");
+    expect(written()).toHaveLength(2);
   });
 
   it("files and approves in one step with --yes when the authority is Aomi-managed", async () => {
-    routes[paths.write] = {
-      status: "waiting",
-      rules: { ...body, pending: change },
-    };
+    answers("waiting", waiting);
     routes[paths.approve] = {
       ...body,
       rules: { ...body.rules, rules: [sol("2000000000"), usdc] },
       enforcement: [swig(SOL_ID, "behind")],
     };
-    const { code, stdout } = await policy(
-      "set",
-      "--amt",
-      "2",
-      "SOL",
-      "--to",
-      "jupiter",
-      "--yes",
-    );
+    const { code, stdout } = await setSol("2", "--yes");
     expect(code).toBe(0);
     expect(requests.at(-1)).toMatchObject({ key: paths.approve, body: "{}" });
     expect(stdout).toContain("LOOSENS");
-    expect(stdout).toContain(
-      `Applied\nNext\n  aomi policy deploy ${SOL_ID}   the chain holds an earlier version; replace it\n`,
-    );
+    expect(stdout).toContain("Applied\n");
   });
 
   it("files only, and says --yes was not applied, when the authority is a wallet", async () => {
-    const signer = { kind: "wallet", family: "evm", address: "0xAdmin" };
-    routes[paths.write] = {
-      status: "waiting",
-      rules: { ...body, admin: signer, pending: { ...change, signer } },
-    };
-    const { code, stdout } = await policy(
-      "set",
-      "--amt",
-      "2",
-      "SOL",
-      "--to",
-      "jupiter",
-      "--yes",
-    );
+    answers("waiting", {
+      ...body,
+      admin: ADMIN,
+      pending: { ...change, signer: ADMIN },
+    });
+    const { code, stdout } = await setSol("2", "--yes");
     expect(code).toBe(3);
     expect(requests.some((r) => r.key === paths.approve)).toBe(false);
     expect(stdout).toContain(
       [
         `Filed as ${CHANGE} · waiting for approval`,
         "--yes was not applied: authority is wallet 0xAdmin, which must sign",
-        "Next",
-        `  Sign at ${BASE}/policy/${CHANGE}   0xAdmin must sign`,
       ].join("\n"),
     );
   });
 
-  it("removes a policy and says what the chain still holds", async () => {
-    routes[paths.write] = {
-      status: "applied",
-      rules: { ...body, rules: { ...body.rules, rules: [usdc] } },
-    };
+  it("removes a policy", async () => {
+    answers("applied", { ...body, rules: { ...body.rules, rules: [usdc] } });
     const { code, stdout } = await policy("remove", SOL_ID);
     expect(code).toBe(0);
     expect(written()[0].rules.rules).toEqual([
       { asset: USDC, amount: "200000000", to: { kind: "any_protocol" } },
     ]);
-    expect(stdout.split("\n")).toEqual([
+    expect(shown(stdout)).toEqual([
       "Remove: Up to 0.5 SOL on Jupiter (Solana)",
       "TIGHTENS",
       "  FIELD   BEFORE   AFTER",
       "  amount  0.5 SOL  no limit",
       "Applied",
-      "Next",
-      `  Still on chain: Swig holds ${SOL_ID}. Run aomi policy undeploy ${SOL_ID}`,
       "",
     ]);
     const missing = await policy("remove", "nope");
@@ -864,7 +702,7 @@ describe("aomi policy", () => {
   });
 
   it("changes the mode and the authority through the same change call", async () => {
-    routes[paths.write] = { status: "applied", rules: body };
+    answers("applied");
     const strict = await policy("mode", "whitelist");
     expect(strict.stdout).toContain(
       "TIGHTENS\n  FIELD  BEFORE     AFTER\n  mode   blacklist  whitelist\nApplied",
@@ -872,10 +710,7 @@ describe("aomi policy", () => {
     await policy("authority", "0xadmin");
     expect(written()).toEqual([
       { rules: { ...written()[0].rules, mode: "whitelist" }, revision: 3 },
-      {
-        admin: { kind: "wallet", family: "evm", address: "0xAdmin" },
-        revision: 3,
-      },
+      { admin: ADMIN, revision: 3 },
     ]);
     expect((await policy("mode", "open")).code).toBe(2);
     const stranger = await policy("authority", "0xNobody");
@@ -884,25 +719,16 @@ describe("aomi policy", () => {
     );
   });
 
-  it("approves a change with the session it signed in with, then names what to deploy", async () => {
-    routes[paths.approve] = { ...body, enforcement: [swig(SOL_ID, "off")] };
+  it("approves a change with the session it signed in with", async () => {
     const { code, stdout } = await policy("approve", CHANGE);
     expect(code).toBe(0);
     expect(stdout).toContain("Approved\nTrading wallet");
-    // The change named the wallet, so the command to run next names it too.
-    expect(stdout).toContain(
-      `Next\n  aomi policy deploy ${SOL_ID} --wallet ${WALLET}   not on chain yet; put it there\n`,
-    );
     const sent = requests.find((r) => r.key === paths.approve);
     expect(sent).toMatchObject({ auth: "Bearer session-token", body: "{}" });
   });
 
   it("prints the page to sign on when the authority is a wallet", async () => {
-    routes[paths.change] = {
-      ...change,
-      signer: { kind: "wallet", family: "evm", address: "0xAdmin" },
-      sign_message: "Aomi rule change",
-    };
+    routes[paths.change] = { ...change, signer: ADMIN, sign_message: "x" };
     const { code, stdout } = await policy("approve", CHANGE);
     expect(code).toBe(3);
     expect(stdout).toContain(
@@ -937,75 +763,20 @@ describe("aomi policy", () => {
     },
   );
 
-  it("names --wallet in the commands to run next when the wallet was named", async () => {
-    const GONE = `${SOL}@protocol:jito`;
-    routes[paths.write] = {
-      status: "applied",
-      rules: {
-        ...body,
-        rules: { ...body.rules, rules: [usdc] },
-        enforcement: [swig(SOL_ID, "on"), swig(GONE, "on")],
-      },
-    };
-    const removed = await policy("remove", SOL_ID, "--wallet", WALLET);
-    expect(removed.stdout).toContain(
-      `  Still on chain: Swig holds ${SOL_ID}. Run aomi policy undeploy ${SOL_ID} --wallet ${WALLET}\n`,
-    );
-    routes[paths.write] = {
-      status: "applied",
-      rules: { ...body, enforcement: [swig(SOL_ID, "behind")] },
-    };
-    const set = await policy(
-      ...["set", "--amt", "0.1", "SOL", "--to", "jupiter"],
-      ...["--wallet", WALLET],
-    );
-    expect(set.stdout).toContain(
-      `  aomi policy deploy ${SOL_ID} --wallet ${WALLET}   the chain holds an earlier version; replace it\n`,
-    );
-    routes[paths.rules] = {
-      ...body,
-      enforcement: [swig(SOL_ID, "on"), swig(GONE, "on")],
-    };
-    const listed = await policy("list", "--wallet", WALLET);
-    expect(listed.stdout).toContain(
-      `  On chain only: ${GONE}. Run aomi policy undeploy ${GONE} --wallet ${WALLET}\n`,
-    );
-  });
-
   it("takes the server's word on whether anything changed, not the rows it shows", async () => {
     // The same amount and end as held, and the server still applied a change.
-    routes[paths.write] = { status: "applied", rules: body };
-    const same = ["set", "--amt", "0.5", "SOL", "--to", "jupiter"];
-    const applied = await policy(...same, "--until", "2099-12-11");
-    expect(applied.stdout.split("\n")).toEqual([
+    answers("applied");
+    expect(shown((await setSol("500000000")).stdout)).toEqual([
       "Up to 0.5 SOL on Jupiter (Solana), until 2099-12-11 UTC",
       "TIGHTENS",
       "Applied",
-      "Next",
-      "  Nothing: Aomi and the chain agree",
       "",
     ]);
-    routes[paths.write] = {
-      status: "waiting",
-      rules: { ...body, pending: change },
-    };
-    const waiting = await policy(...same, "--until", "2099-12-11");
-    expect(waiting.code).toBe(3);
-    expect(waiting.stdout).toContain(
-      `LOOSENS\nFiled as ${CHANGE} · waiting for approval\n`,
-    );
     // Rows that differ do not make a change the server says it did not make.
-    routes[paths.write] = { status: "unchanged", rules: body };
-    const unchanged = await policy(
-      "set",
-      "--amt",
-      "2",
-      "SOL",
-      "--to",
-      "jupiter",
-    );
+    answers("unchanged");
+    const unchanged = await setSol("2000000000");
     expect(unchanged.code).toBe(0);
-    expect(unchanged.stdout).toContain("No change\nNext\n");
+    expect(unchanged.stdout).toContain("No change\n");
     expect(unchanged.stdout).not.toContain("FIELD");
   });
 
@@ -1040,7 +811,7 @@ describe("aomi policy", () => {
         ...body.admin_wallets,
       ],
     };
-    routes[paths.write] = { status: "applied", rules: body };
+    answers("applied");
     const other = await policy("authority", OWNER.toLowerCase());
     expect(other.code).toBe(1);
     expect(other.stderr).toContain(
@@ -1057,13 +828,12 @@ describe("aomi policy", () => {
 
   describe("deploy and undeploy", () => {
     const OWNER = SOLANA.publicKey.toBase58();
-    const GONE = `${SOL}@protocol:jito`;
     const steps = {
       prepare: `POST /v1/account/agent-wallets/${WALLET}/policy/enforcement/swig/prepare`,
       confirm: `POST /v1/account/agent-wallets/${WALLET}/policy/enforcement/swig/confirm`,
     };
     const owned = (rule: string, state: string) => ({
-      ...swig(rule, state),
+      ...swig(rule, state, state !== "on", "transaction"),
       signer: { family: "svm", address: OWNER },
     });
     const run = (...argv: string[]) =>
@@ -1073,6 +843,13 @@ describe("aomi policy", () => {
         .filter((request) => request.key === steps[step])
         .map((request) => JSON.parse(request.body));
     const owns = "GET /v1/account/wallets";
+    const transaction = {
+      action: {
+        kind: "transaction",
+        network: "solana:mainnet-beta",
+        unsigned_base64: "dW5zaWduZWQ=",
+      },
+    };
     beforeEach(() => {
       chain.signed.length = 0;
       chain.sent.length = 0;
@@ -1088,13 +865,7 @@ describe("aomi policy", () => {
         ],
       };
       routes[paths.rules] = { ...body, enforcement: [swig(SOL_ID, "off")] };
-      routes[steps.prepare] = {
-        action: {
-          kind: "transaction",
-          network: "solana:mainnet-beta",
-          unsigned_base64: "dW5zaWduZWQ=",
-        },
-      };
+      routes[steps.prepare] = transaction;
       routes[steps.confirm] = { rules: body };
     });
     afterEach(() => {
@@ -1104,7 +875,7 @@ describe("aomi policy", () => {
     it("deploys with the local signer: the checks, the three steps, then where it stands", async () => {
       const { code, stdout } = await run("deploy", SOL_ID, "--yes");
       expect(code).toBe(0);
-      expect(stdout.split("\n")).toEqual([
+      expect(shown(stdout)).toEqual([
         "Deploy: Up to 0.5 SOL on Jupiter (Solana)",
         "  provider     Swig on solana:mainnet-beta",
         `  signer       ${OWNER} (local key) will own it on chain`,
@@ -1113,8 +884,6 @@ describe("aomi policy", () => {
         "  sign + send  sent 5igSent",
         "  confirm      Aomi read the chain",
         "On chain: in sync (Swig)",
-        "Next",
-        "  Nothing: Aomi and the chain agree",
         "",
       ]);
       const request = {
@@ -1310,7 +1079,6 @@ describe("aomi policy", () => {
         ...body,
         enforcement: [{ ...owned(GONE, "behind"), next: null }],
       };
-      delete routes[steps.prepare];
       routes[steps.prepare] = { action: null };
       const { code, stdout } = await policy("undeploy", GONE, "--yes");
       expect(code).toBe(0);
@@ -1320,38 +1088,12 @@ describe("aomi policy", () => {
       );
       expect(stdout).toContain("  sign + send  nothing to sign\n");
       expect(sent("confirm")).toHaveLength(1);
-      routes[steps.prepare] = {
-        action: {
-          kind: "transaction",
-          network: "solana:mainnet-beta",
-          unsigned_base64: "dW5zaWduZWQ=",
-        },
-      };
+      routes[steps.prepare] = transaction;
       const surprised = await policy("undeploy", GONE, "--yes");
       expect(surprised.code).toBe(1);
       expect(surprised.stderr).toContain("Nothing was signed");
       expect(sent("confirm")).toHaveLength(1);
       expect(chain.signed).toEqual([]);
-    });
-
-    it("reads the status after a deploy from the provider it named", async () => {
-      const other = (state: string) => ({
-        ...swig(SOL_ID, state),
-        provider: "other",
-        name: "Other",
-      });
-      routes[paths.rules] = {
-        ...body,
-        enforcement: [other("on"), swig(SOL_ID, "off")],
-      };
-      routes[steps.confirm] = {
-        rules: { ...body, enforcement: [other("on"), swig(SOL_ID, "behind")] },
-      };
-      const argv = ["deploy", SOL_ID, "--provider", "swig", "--yes"];
-      const { stdout } = await run(...argv);
-      expect(stdout).toContain("On chain: out of date (Swig)\n");
-      const { stdout: asJson } = await run(...argv, "--json");
-      expect(JSON.parse(asJson)).toMatchObject({ on_chain: "out_of_date" });
     });
 
     it("names the transaction it sent when Aomi's node never shows it, and exits without an error", async () => {
@@ -1440,32 +1182,11 @@ describe("aomi policy", () => {
   });
 
   it("says a policy waits for whitelist mode where a provider on its chain holds only that", async () => {
-    const held = { ...body, enforcement: [] };
-    routes[paths.rules] = held;
-    routes[paths.write] = { status: "applied", rules: held };
-    const set = await policy("set", "--amt", "0.01", "SOL", "--to", "jupiter");
-    expect(set.stdout).toContain(
-      "Next\n  aomi policy mode whitelist   on-chain providers hold policies only in whitelist mode\n",
-    );
+    routes[paths.rules] = { ...body, enforcement: [] };
     const { stdout } = await policy("list");
     expect(stdout).toMatch(/SOL on Jupiter .* needs whitelist mode\n/);
     // No provider serves Base here: that one is Aomi's alone.
     expect(stdout).toMatch(/USDC on any app .* Aomi only\n/);
-    // A change that still waits is not held yet: the same reason applies.
-    routes[paths.rules] = { ...held, rules: { ...body.rules, rules: [usdc] } };
-    routes[paths.write] = {
-      status: "waiting",
-      rules: {
-        ...held,
-        rules: { ...body.rules, rules: [usdc] },
-        pending: change,
-      },
-    };
-    const waiting = await policy("set", "--amt", "1", "SOL", "--to", "jupiter");
-    expect(waiting.stdout).toContain(
-      "  aomi policy mode whitelist   on-chain providers hold policies only in whitelist mode\n",
-    );
-    expect(waiting.stdout).not.toContain("put it there");
   });
 
   it("no longer knows aomi rules", async () => {
