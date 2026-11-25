@@ -30,8 +30,7 @@ Two ways, nothing else:
 
 What a local key signs goes out on `--rpc-url`, which is kept for this backend
 and chain, else on production's public RPC. Another backend's chains may be
-local copies, so there a key sends no EVM transaction, and a Solana one only on
-an RPC that knows the block Aomi built it on.
+local copies, so there a key sends nothing.
 
 `tx sign`, `tx approve` and `tx reject` show the commit and decide it only when
 they show all of it: every call from its bytes, every amount and fee, the full

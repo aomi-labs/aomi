@@ -9,7 +9,6 @@ import {
   type CommitRefView,
 } from "@aomi-labs/client";
 import {
-  ask,
   confirm,
   CliError,
   connect,
@@ -213,12 +212,7 @@ export async function sign(flags: Decide, ref: string): Promise<void> {
         3,
       );
     await agreed(flags, "Sign", card);
-    await rpcReady(aomi, flags, card.view, (chain) =>
-      ask(
-        `RPC URL for ${chain} (this Aomi is not production): `,
-        `No RPC for ${chain}: pass --rpc-url`,
-      ),
-    );
+    await rpcReady(aomi, flags, card.view);
     await act(aomi, card.view, "sign");
     finish(flags, await follow(handle));
   } finally {

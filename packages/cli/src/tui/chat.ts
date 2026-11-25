@@ -470,11 +470,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       }
       if (how !== "elsewhere") show(paint.yellow("◐ Signing and sending…"));
       if (how === "sign") {
-        await rpcReady(aomi, flags, shown, async (chain) => {
-          throw new CliError(
-            `This Aomi is not production: /rpc <url> sets the RPC for ${chain}, then sign`,
-          );
-        });
+        await rpcReady(aomi, flags, shown);
         if (!isTerminalCommit(await act(aomi, shown, how)))
           show(paint.yellow("◐ Submitted; confirming…"));
       }
@@ -652,7 +648,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       if (!arg || !drawn)
         return note("/rpc <url>, while a card waits to be signed");
       const { view } = drawn.card;
-      await rpcReady(aomi, { ...flags, rpcUrl: arg }, view, async () => arg);
+      await rpcReady(aomi, { ...flags, rpcUrl: arg }, view);
       // The saved RPC takes over.
       flags.rpcUrl = undefined;
       return note(`RPC saved for chain ${view.chain_ref}`);

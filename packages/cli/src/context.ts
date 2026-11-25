@@ -39,7 +39,7 @@ export class CliError extends Error {
 }
 
 /** One typed line; `otherwise` is the usage error without a terminal. */
-export async function ask(text: string, otherwise: string): Promise<string> {
+async function ask(text: string, otherwise: string): Promise<string> {
   if (!process.stdin.isTTY) throw usage(otherwise);
   const rl = createInterface({ input: process.stdin, output: process.stderr });
   try {
@@ -306,30 +306,25 @@ async function sent<T>(send: () => Promise<T>): Promise<T> {
 
 /**
  * Before a local key signs what this machine then sends: the RPC that sends
- * it, asked for with `missing` when a Solana commit has none. Signed bytes it
- * cannot send would hold the nonce.
+ * it. Signed bytes it cannot send would hold the nonce.
  */
 export async function rpcReady(
   aomi: Aomi,
   flags: ConnectFlags,
   view: CommitRefView,
-  missing: (chain: string) => Promise<string>,
 ): Promise<void> {
   if (view.broadcaster !== "wallet" || isMessageCommit(view)) return;
   const { baseUrl, rpc } = sending.get(aomi)!;
   const evm = view.chain_family === "evm";
   const chain = chainKey(view.chain_family, view.chain_ref);
-  let url = (flags.rpcUrl ?? loadState().rpc?.[baseUrl]?.[chain])?.trim();
-  if (!PRODUCTION.has(new URL(baseUrl).href)) {
-    // A copy has its chain's id and its blocks, and no review names the block
-    // it ran on: nothing tells the copy's RPC from the real chain's.
-    if (evm)
-      throw new CliError(
-        `This Aomi is not production, so a key here sends nothing for ${chain}: use ${view.sign_url ?? "its sign page"}`,
-        3,
-      );
-    url ??= (await missing(chain)).trim();
-  }
+  const url = (flags.rpcUrl ?? loadState().rpc?.[baseUrl]?.[chain])?.trim();
+  // A copy has its chain's id and its blocks: nothing tells the copy's RPC
+  // from the real chain's.
+  if (!PRODUCTION.has(new URL(baseUrl).href))
+    throw new CliError(
+      `This Aomi is not production, so a key here sends nothing for ${chain}: use ${view.sign_url ?? "its sign page"}`,
+      3,
+    );
   // Only none at all means the public RPC, where production sends.
   if (url === "") throw usage(`The RPC URL for ${chain} is blank`);
   if (url && evm) {

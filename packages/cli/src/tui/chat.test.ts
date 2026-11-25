@@ -422,15 +422,13 @@ describe("a commit that waits for you", () => {
   });
 
   it("signs nothing until its RPC is ready, and takes one with /rpc", async () => {
-    vi.mocked(rpcReady).mockImplementationOnce(
-      async (_aomi, _flags, _view, missing) => {
-        await missing("solana:mainnet");
-      },
+    vi.mocked(rpcReady).mockRejectedValueOnce(
+      new Error("The RPC doesn't answer"),
     );
     const { drawn, close } = await open();
     screen.input!("s");
     screen.list!.onSelect({ value: "yes" });
-    await vi.waitFor(() => expect(drawn()).toContain("/rpc <url>"));
+    await vi.waitFor(() => expect(drawn()).toContain("The RPC doesn't answer"));
     expect(act).not.toHaveBeenCalled();
     screen.editor!.onSubmit("/ rpc https://rpc.example/key");
     await vi.waitFor(() => expect(drawn()).toContain("RPC saved"));

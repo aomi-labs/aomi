@@ -15,15 +15,6 @@ const dir = vi.hoisted(() => {
   return path;
 });
 
-/** What a person types at the next question. */
-const terminal = vi.hoisted(() => ({ answer: "" }));
-vi.mock("node:readline/promises", () => ({
-  createInterface: () => ({
-    question: async () => terminal.answer,
-    close() {},
-  }),
-}));
-
 import { main, rootHelp } from "./app";
 import { signsWith } from "./commands/wallets";
 
@@ -807,6 +798,7 @@ describe("aomi tx", () => {
     });
     const sign = (...more: string[]) => {
       const argv = ["--solana-private-key", SOLANA_KEY, ...yes, ...more];
+      if (!more.includes("--backend-url")) argv.push("--backend-url", LIVE);
       return cli("tx", "sign", ref, ...argv);
     };
     /** The endpoints it was sent to. */
@@ -821,13 +813,20 @@ describe("aomi tx", () => {
       return urls;
     };
 
-    it("is sent only where its block is known", async () => {
-      const none = await sign();
-      expect(none.code).toBe(2);
-      expect(none.stderr).toContain(
-        "No RPC for solana:mainnet: pass --rpc-url",
+    it("is not signed for a backend that is not production", async () => {
+      routes["POST /"] = { result: { value: true } };
+      const urls = sends();
+      const { code, stderr } = await sign(
+        ...["--backend-url", BASE, "--rpc-url", "https://rpc.example/"],
       );
+      expect(code).toBe(3);
+      expect(stderr).toContain("This Aomi is not production");
       expect(wrote()).toEqual([]);
+      expect(urls).toEqual([]);
+      expect(() => readFileSync(join(dir, "cli.json"), "utf8")).toThrow();
+    });
+
+    it("is sent only where its block is known", async () => {
       routes["POST /"] = { result: { value: false } };
       const urls = sends();
       const other = await sign("--rpc-url", "https://rpc.example/");
@@ -842,21 +841,16 @@ describe("aomi tx", () => {
     });
 
     it.each([
-      ["typed", ""],
-      ["typed", " \t"],
       ["passed", ""],
       ["passed", "  "],
       ["saved", "  "],
     ])("is not signed with a blank RPC %s: %j", async (how, blank) => {
       const urls = sends();
-      const saved = { rpc: { [BASE]: { "solana:mainnet": blank } } };
+      const saved = { rpc: { [LIVE]: { "solana:mainnet": blank } } };
       if (how === "saved") state(saved);
-      terminal.answer = blank;
-      const tty = process.stdin.isTTY;
-      process.stdin.isTTY = how === "typed";
       const { code, stderr } = await sign(
         ...(how === "passed" ? ["--rpc-url", blank] : []),
-      ).finally(() => (process.stdin.isTTY = tty));
+      );
       expect(urls).toEqual([]);
       expect(wrote()).toEqual([]);
       expect(stderr).toContain("The RPC URL for solana:mainnet is blank");
@@ -868,7 +862,7 @@ describe("aomi tx", () => {
     it("is sent on the RPC that was checked, whatever the config becomes", async () => {
       const urls = sends();
       routes["POST /"] = () => {
-        state({ rpc: { [BASE]: { "solana:mainnet": "" } } });
+        state({ rpc: { [LIVE]: { "solana:mainnet": "" } } });
         return { result: { value: true } };
       };
       const done = { ...svm, version: 3, state: "confirmed", action: null };
