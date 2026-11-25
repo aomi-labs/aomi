@@ -43,6 +43,6 @@ index acdca49f49d0db30605560fb39ea6cd78ed79484..c53bc0a1dd79427d6ab35477a21482f4
 +			const sameQueryShape = url.includes("?") === requested.includes("?");
 +			if (reg.href === req.href && sameQueryShape) return true;
 -			return isLoopbackIP(reg.hostname) && reg.hostname === req.hostname && reg.pathname === req.pathname && reg.protocol === req.protocol && reg.search === req.search;
-+			return isRfc8252LoopbackIP(reg.hostname) && reg.hostname === req.hostname && reg.pathname === req.pathname && reg.protocol === req.protocol && reg.search === req.search && sameQueryShape;
++			return (isRfc8252LoopbackIP(reg.hostname) || reg.hostname === "localhost") && reg.hostname === req.hostname && reg.pathname === req.pathname && reg.protocol === req.protocol && reg.search === req.search && sameQueryShape;
  		} catch {
  			return false;

@@ -227,6 +227,14 @@ async function enforceAomiRegistration(
   );
   if (redirectUris instanceof Response) return redirectUris;
   if (redirectUris) metadata.redirect_uris = redirectUris;
+  // MCP clients omit application_type, so Better Auth would register them as
+  // web clients and refuse their http://localhost callbacks.
+  if (
+    metadata.application_type === undefined &&
+    redirectUris?.some((uri) => !uri.startsWith("https:"))
+  ) {
+    metadata.application_type = "native";
+  }
   if (metadata.token_endpoint_auth_method !== "none") {
     return oauthError(
       "invalid_client_metadata",

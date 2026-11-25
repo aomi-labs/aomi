@@ -183,11 +183,22 @@ describeWithDatabase("production OAuth route loopback callbacks", () => {
       "http://[::1]:43101/callback",
       "http://[::1]:53101/callback",
     ],
+    [
+      "localhost changed port",
+      "http://localhost:43102/callback",
+      "http://localhost:53102/callback",
+    ],
+    [
+      "localhost changed port without application_type",
+      "http://localhost:43113/callback",
+      "http://localhost:53113/callback",
+      undefined,
+    ],
   ])(
     "accepts %s through the real handler",
-    async (_name, registered, requested) => {
+    async (_name, registered, requested, applicationType: string | undefined = "native") => {
       await withCleanTestRows(pool, async () => {
-        const clientId = await registerClient(POST, pool, registered, "native");
+        const clientId = await registerClient(POST, pool, registered, applicationType);
 
         const response = await authorize(GET, clientId, requested);
 
@@ -202,12 +213,6 @@ describeWithDatabase("production OAuth route loopback callbacks", () => {
   );
 
   it.each([
-    [
-      "localhost port variance",
-      "http://localhost:43102/callback",
-      "http://localhost:53102/callback",
-      "native",
-    ],
     [
       "changed host",
       "http://127.0.0.1:43103/callback",
@@ -314,7 +319,7 @@ async function registerClient(
   POST: Route,
   pool: Pool,
   redirectUri: string,
-  applicationType: string,
+  applicationType: string | undefined,
 ): Promise<string> {
   const response = await POST(
     new Request(`${PORTAL_ORIGIN}/api/auth/oauth2/register`, {
