@@ -11,6 +11,7 @@ const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const SOL = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
 const SOL2 = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T";
 const SYSTEM = "11111111111111111111111111111111";
+const ATA = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
 
 const transfer = encodeFunctionData({
   abi: parseAbi(["function transfer(address to, uint256 amount)"]),
@@ -34,6 +35,10 @@ const simulation = {
   gas: { units: "50000" } as object | null,
   logs: [],
 };
+const payload = {
+  kind: "evm_transaction",
+  transaction: { gas_limit: 50_000, max_fee_per_gas: "2000000000" },
+};
 const view = (more: object = {}) =>
   ({
     version: 3,
@@ -41,9 +46,9 @@ const view = (more: object = {}) =>
     chain_family: "evm",
     chain_ref: "8453",
     signer: ME,
-    state: "awaiting_approval",
+    state: "needs_signature",
     batch: null,
-    action: null,
+    action: { kind: "sign", payload },
     sign_url: "https://chat.example/sign/c1",
     ...more,
   }) as unknown as CommitRefView;
@@ -73,6 +78,7 @@ const svmView = view({
   chain_family: "svm",
   chain_ref: "mainnet-beta",
   signer: SOL,
+  action: null,
 });
 const message = (payload: object, more: object = {}) =>
   ({
@@ -142,22 +148,29 @@ describe("what a card shows of a call", () => {
 });
 
 describe("one decision for a batch", () => {
-  const legs = [leg(transfer), leg(transfer)];
+  const ix = { program_id: ATA, data_base64: "AA==", accounts: [] };
+  const one = { payer: SOL, description: "Send", instructions: [ix] };
+  const fee = { asset: "native", amount: "5000" };
+  const both = {
+    ...svm([], { fees: [fee, fee] }),
+    transactions: [one, one],
+  } as unknown as CommitReview;
+  const of = (count: number, state: string) =>
+    open(both, { ...svmView, ...batch(count), state } as CommitRefView);
 
   it("is one card for all of it", () => {
-    const { whole, text } = open(evm(legs), view(batch(2)));
+    const { whole, text } = of(2, "awaiting_approval");
     expect(whole).toBe(true);
     expect(text).toContain("Decides all 2, in order");
-    expect(text).toContain("2. Pay");
+    expect(text).toContain("2. Send");
   });
 
   it("is for the sign page when a member is not shown", () => {
-    expect(open(evm(legs), view(batch(3))).whole).toBe(false);
+    expect(of(3, "awaiting_approval").whole).toBe(false);
   });
 
   it("is for the sign page when a local key would sign it", () => {
-    const local = view({ ...batch(2), state: "needs_signature" });
-    expect(open(evm(legs), local).whole).toBe(false);
+    expect(of(2, "needs_signature").whole).toBe(false);
   });
 });
 
@@ -201,29 +214,29 @@ describe("amounts and fees", () => {
       { asset: "native", amount: "5000" },
       { asset: "native", amount: "7000" },
     ];
-    const data = Buffer.from([0]).toString("base64");
-    const ix = {
-      program_id: "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
-      data_base64: data,
-      accounts: [],
-    };
+    const ix = { program_id: ATA, data_base64: "AA==", accounts: [] };
     expect(open(svm([ix], { fees }), svmView).text).toContain(
       "Fee ~0.000012 native token",
     );
     expect(open(svm([ix], { fees: [] }), svmView).whole).toBe(false);
-    expect(open(evm([leg(transfer)], { gas: null })).whole).toBe(false);
   });
 
   it("shows the most a local signature can cost", () => {
-    const payload = {
-      kind: "evm_transaction",
-      transaction: { gas_limit: 50_000, max_fee_per_gas: "2000000000" },
-    };
-    const { text } = open(
-      evm([leg(transfer)]),
-      view({ state: "needs_signature", action: { kind: "sign", payload } }),
-    );
+    const { whole, text } = open(evm([leg(transfer)]));
+    expect(whole).toBe(true);
     expect(text).toContain("Fee at most 0.0001 native token");
+  });
+
+  it.each([
+    ["gas units", {}],
+    ["no gas", { gas: null }],
+    ["a gas estimate", { gas: { units: "50000", nativeCost: "0.0001" } }],
+    ["a fee estimate", { fees: [{ asset: "native", amount: "5000" }] }],
+  ])("is for the sign page when Aomi's own send has %s", (_, more) => {
+    const parked = view({ state: "awaiting_approval", action: null });
+    const { whole, text } = open(evm([leg(transfer)], more), parked);
+    expect(whole).toBe(false);
+    expect(text).toContain("Fee limit not reported");
   });
 });
 

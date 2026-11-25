@@ -274,13 +274,15 @@ export class Card {
       this.lines.push(
         `Fee at most ${formatUnits(BigInt(gas_limit) * BigInt(max_fee_per_gas), 18)} native token`,
       );
-    } else if (!svm && simulation.gas?.units)
-      this.lines.push(`Gas ~${simulation.gas.units} units`);
+    } else if (!svm)
+      // Aomi prices its own send once approved: an estimate is no limit.
+      this.lines.push(
+        this.missing(
+          `Fee limit not reported${simulation.gas?.units ? `, gas ~${simulation.gas.units} units` : ""}`,
+        ),
+      );
     // Solana reports one fee per transaction; a partial list is no total.
-    else if (
-      !totals.size ||
-      (svm && simulation.fees.length < transactions.length)
-    )
+    else if (simulation.fees.length < transactions.length)
       this.lines.push(this.missing("Fee not reported"));
   }
 }

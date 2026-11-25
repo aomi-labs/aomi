@@ -36,9 +36,9 @@ an RPC that knows the block Aomi built it on.
 `tx sign`, `tx approve` and `tx reject` show the commit and decide it only when
 they show all of it: every call from its bytes, every amount and fee, the full
 message, every member of a batch. Anything else, such as a call they can't
-decode or a batch a local key would sign, is for the sign page (exit 3). They
-ask; a script passes `--yes --version <n>` with the version it reviewed in
-`tx review --json`.
+decode, an EVM transaction Aomi sends itself (its review has no fee limit) or a
+batch a local key would sign, is for the sign page (exit 3). They ask; a script
+passes `--yes --version <n>` with the version it reviewed in `tx review --json`.
 
 Without either you are a guest: chat and public reads work, and the guest's
 threads stay yours on this machine.

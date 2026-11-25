@@ -221,7 +221,45 @@ describe("a commit that waits for you", () => {
     },
   });
 
-  async function open(more: object = {}, shown = review(), local = true) {
+  /** What Aomi sends itself, its fees known: `legs` Solana transactions. */
+  const hosted = (legs = 1) => ({
+    ...review(),
+    type: "execute_svm",
+    transactions: Array.from({ length: legs }, () => ({
+      payer: "me",
+      description: "Pay",
+      instructions: [
+        {
+          program_id: "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+          data_base64: "AA==",
+          accounts: [],
+        },
+      ],
+    })),
+    simulation: {
+      ...review().simulation,
+      fees: Array.from({ length: legs }, () => ({
+        asset: "native",
+        amount: "5000",
+      })),
+    },
+  });
+  const parked = {
+    state: "awaiting_approval",
+    chain_family: "svm",
+    chain_ref: "mainnet-beta",
+    action: null,
+  };
+  const payload = {
+    kind: "evm_transaction",
+    transaction: { gas_limit: 50_000, max_fee_per_gas: "1" },
+  };
+
+  async function open(
+    more: object = {},
+    shown: object = review(),
+    local = true,
+  ) {
     const commit = {
       ref: "c1",
       signUrl: "https://chat.example/sign/c1",
@@ -232,7 +270,7 @@ describe("a commit that waits for you", () => {
         chain_family: "evm",
         chain_ref: "8453",
         signer: "0xme",
-        action: { kind: "sign" },
+        action: { kind: "sign", payload } as null | object,
         batch: null as null | object,
         ...more,
       },
@@ -294,14 +332,14 @@ describe("a commit that waits for you", () => {
   });
 
   it.each([
-    ["s", "sign", "needs_signature", "Sign"],
-    ["a", "approve", "awaiting_approval", "Approve"],
-    ["r", "reject", "needs_signature", "Reject"],
-    ["r", "reject", "awaiting_approval", "Reject"],
+    ["s", "sign", "Sign", {}, review()],
+    ["a", "approve", "Approve", parked, hosted()],
+    ["r", "reject", "Reject", {}, review()],
+    ["r", "reject", "Reject", parked, hosted()],
   ])(
     "%s decides to %s what was drawn, after an explicit yes",
-    async (key, how, state, label) => {
-      const { aomi, commit, drawn, close } = await open({ state });
+    async (key, how, label, more, shown) => {
+      const { aomi, commit, drawn, close } = await open(more, shown);
       const { view } = commit;
       screen.input!(key);
       expect(screen.list!.items[0]).toEqual({ value: "no", label: "Cancel" });
@@ -329,8 +367,7 @@ describe("a commit that waits for you", () => {
 
   it("says one decision is for the whole batch", async () => {
     const batch = { ordered_commit_ids: ["c1", "c2"] };
-    const state = "awaiting_approval";
-    const { drawn, close } = await open({ batch, state }, review(TRANSFER, 2));
+    const { drawn, close } = await open({ ...parked, batch }, hosted(2));
     expect(drawn()).toContain("Approve all 2");
     expect(drawn()).toContain("2. Pay");
     screen.input!("a");
@@ -340,7 +377,12 @@ describe("a commit that waits for you", () => {
 
   it.each([
     ["a call it can't decode", {}, review("0x12345678")],
-    ["an approval it can't decode", { state: "awaiting_approval" }, undefined],
+    ["an approval it can't decode", parked, undefined],
+    [
+      "an EVM approval without a fee limit",
+      { state: "awaiting_approval", action: null },
+      review(),
+    ],
     [
       "a batch a key here would sign",
       { batch: { ordered_commit_ids: ["c1", "c2"] } },

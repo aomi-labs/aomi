@@ -606,12 +606,6 @@ describe("aomi tx", () => {
       },
     },
   };
-  const parked = {
-    ...waiting,
-    state: "awaiting_approval",
-    broadcaster: "hosted",
-    action: null,
-  };
   const solana = new Transaction({
     feePayer: SOLANA.publicKey,
     blockhash: SOLANA.publicKey.toBase58(),
@@ -674,6 +668,13 @@ describe("aomi tx", () => {
           .toString("base64"),
       },
     },
+  };
+  /** Aomi sends it, so only Solana's fee is known before. */
+  const parked = {
+    ...svm,
+    state: "awaiting_approval",
+    broadcaster: "hosted",
+    action: null,
   };
   const yes = ["--yes", "--version", "1"];
   const tx = (verb: string, ...more: string[]) =>
@@ -952,6 +953,19 @@ describe("aomi tx", () => {
         : tx(verb, ...yes));
       expect(code).toBe(1);
       expect(stderr).toContain("It changed; review it again");
+      expect(wrote()).toEqual([]);
+    },
+  );
+
+  it.each(["approve", "reject"])(
+    "%s leaves an EVM commit without a fee limit to its page",
+    async (verb) => {
+      const evm = { ...waiting, state: "awaiting_approval", action: null };
+      routes[`GET /v1/commits/${ref}`] = evm;
+      const { code, stderr } = await tx(verb, ...yes);
+      expect(code).toBe(3);
+      expect(stderr).toContain("Fee limit not reported, gas ~50000 units");
+      expect(stderr).toContain(`Review this on the sign page: ${BASE}/sign/`);
       expect(wrote()).toEqual([]);
     },
   );
