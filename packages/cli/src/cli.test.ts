@@ -418,6 +418,8 @@ describe("aomi policy", () => {
   const USDC = "eip155:8453/erc20:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
   const SOL_ID = `${SOL}@protocol:jupiter`;
   const USDC_ID = `${USDC}@any`;
+  const GONE = `${SOL}@protocol:jito`;
+  const ADMIN = { kind: "wallet", family: "evm", address: "0xAdmin" };
   const UNTIL = Date.UTC(2099, 11, 11, 23, 59, 59) / 1000;
   const change = {
     id: CHANGE,
@@ -481,7 +483,7 @@ describe("aomi policy", () => {
         note: null,
       },
     ],
-    admin_wallets: [{ kind: "wallet", family: "evm", address: "0xAdmin" }],
+    admin_wallets: [ADMIN],
   };
   const paths = {
     wallets: "GET /v1/account/agent-wallets",
@@ -546,7 +548,6 @@ describe("aomi policy", () => {
   });
 
   it("lists a wallet's mode, authority and a table of policies with where each stands on chain", async () => {
-    const GONE = `${SOL}@protocol:jito`;
     routes[paths.rules] = {
       ...body,
       pending: change,
@@ -746,11 +747,10 @@ describe("aomi policy", () => {
   });
 
   it("files only, and says --yes was not applied, when the authority is a wallet", async () => {
-    const signer = { kind: "wallet", family: "evm", address: "0xAdmin" };
     answers("waiting", {
       ...body,
-      admin: signer,
-      pending: { ...change, signer },
+      admin: ADMIN,
+      pending: { ...change, signer: ADMIN },
     });
     const { code, stdout } = await setSol("2", "--yes");
     expect(code).toBe(3);
@@ -797,10 +797,7 @@ describe("aomi policy", () => {
     await policy("authority", "0xadmin");
     expect(written()).toEqual([
       { rules: { ...written()[0].rules, mode: "whitelist" }, revision: 3 },
-      {
-        admin: { kind: "wallet", family: "evm", address: "0xAdmin" },
-        revision: 3,
-      },
+      { admin: ADMIN, revision: 3 },
     ]);
     expect((await policy("mode", "open")).code).toBe(2);
     const stranger = await policy("authority", "0xNobody");
@@ -823,11 +820,7 @@ describe("aomi policy", () => {
   });
 
   it("prints the page to sign on when the authority is a wallet", async () => {
-    routes[paths.change] = {
-      ...change,
-      signer: { kind: "wallet", family: "evm", address: "0xAdmin" },
-      sign_message: "Aomi rule change",
-    };
+    routes[paths.change] = { ...change, signer: ADMIN, sign_message: "x" };
     const { code, stdout } = await policy("approve", CHANGE);
     expect(code).toBe(3);
     expect(stdout).toContain(
@@ -863,7 +856,6 @@ describe("aomi policy", () => {
   );
 
   it("names --wallet in the commands to run next when the wallet was named", async () => {
-    const GONE = `${SOL}@protocol:jito`;
     answers("applied", {
       ...body,
       rules: { ...body.rules, rules: [usdc] },
@@ -962,7 +954,6 @@ describe("aomi policy", () => {
 
   describe("deploy and undeploy", () => {
     const OWNER = SOLANA.publicKey.toBase58();
-    const GONE = `${SOL}@protocol:jito`;
     const steps = {
       prepare: `POST /v1/account/agent-wallets/${WALLET}/policy/enforcement/swig/prepare`,
       confirm: `POST /v1/account/agent-wallets/${WALLET}/policy/enforcement/swig/confirm`,
