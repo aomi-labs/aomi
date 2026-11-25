@@ -67,7 +67,9 @@ type AccountRequest = <T>(path: string, init: RequestInit) => Promise<T>;
 /**
  * The Library: every listed package with a live release and this account's
  * effective state for the thread's agent, the person's on/off choice, and the
- * person's own keys for a package's slots (status only, never values).
+ * person's own keys for a package's slots (status only, never values). A write
+ * with `account`, the id of the account it is for, is a 409 `account_changed`
+ * once the request is signed in as any other.
  */
 export class AomiAccountPackages {
   constructor(private readonly request: AccountRequest) {}
@@ -76,7 +78,7 @@ export class AomiAccountPackages {
   list(
     options: { threadId?: string; signal?: AbortSignal } = {},
   ): Promise<AomiPackageCatalog> {
-    return this.request(`/api/account/packages${threadQuery(options)}`, {
+    return this.request(`/api/account/packages${packageQuery(options)}`, {
       method: "GET",
       signal: options.signal,
     });
@@ -88,20 +90,31 @@ export class AomiAccountPackages {
    * code is a 404 `code_invalid`.
    * The code is sent once and never kept.
    */
-  activate(code: string): Promise<AomiPackage> {
-    return this.request("/api/account/packages/activate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
-    });
+  activate(
+    code: string,
+    options: { account?: string } = {},
+  ): Promise<AomiPackage> {
+    return this.request(
+      `/api/account/packages/activate${packageQuery(options)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      },
+    );
   }
 
   /** Take out a package the account added with a code (`removable`): its
    * access and saved keys end and it is off, and the same code adds it again
    * unless the owner revoked it. 404 for any other package. Needs
    * `account:packages:write` and `account:credentials:write`. */
-  remove(packageId: number): Promise<{ removed: true }> {
-    return this.request(packagePath(packageId), { method: "DELETE" });
+  remove(
+    packageId: number,
+    options: { account?: string } = {},
+  ): Promise<{ removed: true }> {
+    return this.request(`${packagePath(packageId)}${packageQuery(options)}`, {
+      method: "DELETE",
+    });
   }
 
   /** Switch a package on or off in `threadId`'s chat, as `list` reads it.
@@ -110,10 +123,10 @@ export class AomiAccountPackages {
   setChoice(
     packageId: number,
     enabled: boolean,
-    options: { threadId?: string } = {},
+    options: { threadId?: string; account?: string } = {},
   ): Promise<AomiPackage> {
     return this.request(
-      `${packagePath(packageId)}/choice${threadQuery(options)}`,
+      `${packagePath(packageId)}/choice${packageQuery(options)}`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -125,10 +138,10 @@ export class AomiAccountPackages {
   /** Drop the person's choice; the row goes back to its default. */
   clearChoice(
     packageId: number,
-    options: { threadId?: string } = {},
+    options: { threadId?: string; account?: string } = {},
   ): Promise<AomiPackage> {
     return this.request(
-      `${packagePath(packageId)}/choice${threadQuery(options)}`,
+      `${packagePath(packageId)}/choice${packageQuery(options)}`,
       {
         method: "DELETE",
       },
@@ -140,25 +153,40 @@ export class AomiAccountPackages {
     packageId: number,
     slot: string,
     value: string,
+    options: { account?: string } = {},
   ): Promise<AomiPackageSecretStatus> {
-    return this.request(secretPath(packageId, slot), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ value }),
-    });
+    return this.request(
+      `${secretPath(packageId, slot)}${packageQuery(options)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value }),
+      },
+    );
   }
 
   clearSecret(
     packageId: number,
     slot: string,
+    options: { account?: string } = {},
   ): Promise<AomiPackageSecretStatus> {
-    return this.request(secretPath(packageId, slot), { method: "DELETE" });
+    return this.request(
+      `${secretPath(packageId, slot)}${packageQuery(options)}`,
+      { method: "DELETE" },
+    );
   }
 }
 
 /** `?thread_id=` names the chat whose agent decides; none is `aomi/main`. */
-const threadQuery = ({ threadId }: { threadId?: string }) =>
-  threadId ? `?thread_id=${encodeURIComponent(threadId)}` : "";
+const packageQuery = (options: { threadId?: string; account?: string }) => {
+  const query = [
+    ["thread_id", options.threadId],
+    ["account", options.account],
+  ].flatMap(([key, value]) =>
+    value ? [`${key}=${encodeURIComponent(value)}`] : [],
+  );
+  return query.length ? `?${query.join("&")}` : "";
+};
 const packagePath = (packageId: number) =>
   `/api/account/packages/${encodeURIComponent(String(packageId))}`;
 const secretPath = (packageId: number, slot: string) =>

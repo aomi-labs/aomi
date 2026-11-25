@@ -156,6 +156,33 @@ describe("aomi.account", () => {
     );
   });
 
+  it("names the account a package write is for", async () => {
+    const { aomi, calls } = backend({
+      "POST /api/account/packages/activate": () => Response.json({}),
+      "DELETE /api/account/packages/7": () => Response.json({}),
+      "PUT /api/account/packages/7/choice": () => Response.json({}),
+      "DELETE /api/account/packages/7/choice": () => Response.json({}),
+      "PUT /api/account/packages/7/secrets/KEY": () => Response.json({}),
+      "DELETE /api/account/packages/7/secrets/KEY": () => Response.json({}),
+    });
+    const { packages } = aomi.account;
+    const as = { account: "acct 1" };
+    await packages.activate("good", as);
+    await packages.setChoice(7, true, { threadId: "t 1", ...as });
+    await packages.clearChoice(7, as);
+    await packages.setSecret(7, "KEY", "v", as);
+    await packages.clearSecret(7, "KEY", as);
+    await packages.remove(7, as);
+    expect(calls.map(({ path }) => path)).toEqual([
+      "/api/account/packages/activate?account=acct%201",
+      "/api/account/packages/7/choice?thread_id=t%201&account=acct%201",
+      "/api/account/packages/7/choice?account=acct%201",
+      "/api/account/packages/7/secrets/KEY?account=acct%201",
+      "/api/account/packages/7/secrets/KEY?account=acct%201",
+      "/api/account/packages/7?account=acct%201",
+    ]);
+  });
+
   it("sets the guard at the current revision", async () => {
     const policy = (mode: string, revision: number) => ({
       mode,

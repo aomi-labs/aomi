@@ -107,6 +107,8 @@ function installBackend(
         });
       if (url.pathname === "/api/account")
         return Response.json({ user: { user_id: account } });
+      if (method !== "GET" && url.searchParams.get("account") !== account)
+        return Response.json({ error: "account_changed" }, { status: 409 });
       if (url.pathname === "/api/account/packages") {
         listQueries.push(url.search);
         return Response.json(catalog(rows));
@@ -506,7 +508,7 @@ describe("packages modal", () => {
       let release!: () => void;
       const held = new Promise<void>((resolve) => (release = resolve));
       vi.mocked(fetch).mockImplementation(async (input, init) => {
-        if (init?.method && init.method !== "GET" && `${input}`.endsWith(path))
+        if (init?.method && init.method !== "GET" && `${input}`.includes(path))
           await held;
         return answer(input, init);
       });
@@ -562,7 +564,7 @@ describe("packages modal", () => {
         expect(
           vi
             .mocked(fetch)
-            .mock.calls.some(([url]) => `${url}`.endsWith("POLY_API_KEY")),
+            .mock.calls.some(([url]) => `${url}`.includes("POLY_API_KEY")),
         ).toBe(true),
       );
       backend.signIn("acct-2");
@@ -584,7 +586,7 @@ describe("packages modal", () => {
         expect(
           vi
             .mocked(fetch)
-            .mock.calls.some(([url]) => `${url}`.endsWith("/activate")),
+            .mock.calls.some(([url]) => `${url}`.includes("/activate")),
         ).toBe(true),
       );
       backend.signIn("acct-2");
@@ -622,6 +624,31 @@ describe("packages modal", () => {
         expect(backend.writes()).toEqual([]);
       },
     );
+
+    it("has the server refuse a write another account's sign-in overtakes", async () => {
+      const backend = installBackend([PRIVATE_ON]);
+      await renderModal();
+      const release = hold("/api/account/packages/9100");
+      actOn("Secret Tool", "Remove");
+      fireEvent.click(
+        within(await screen.findByRole("alertdialog")).getByRole("button", {
+          name: "Remove",
+        }),
+      );
+      await waitFor(() =>
+        expect(
+          vi
+            .mocked(fetch)
+            .mock.calls.some(([url]) => `${url}`.includes("packages/9100")),
+        ).toBe(true),
+      );
+      backend.signIn("acct-2");
+      await release();
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "You’re signed in to another account now, so nothing more was changed.",
+      );
+      expect(screen.getByLabelText("Open Secret Tool details")).toBeTruthy();
+    });
 
     it("shows the next account the notice the first one acknowledged", async () => {
       installBackend([NOT_VERIFIED]);
@@ -1070,7 +1097,9 @@ describe("packages modal", () => {
     expect(backend.listQueries).toEqual(["", "?thread_id=saved-chat"]);
     actOn("Jupiter", "Turn off");
     await footerAction("Jupiter", "Turn on");
-    expect(backend.choiceQueries).toEqual(["?thread_id=saved-chat"]);
+    expect(backend.choiceQueries).toEqual([
+      "?thread_id=saved-chat&account=acct-1",
+    ]);
   });
 
   it("offers a guest Retry when the public read fails", async () => {

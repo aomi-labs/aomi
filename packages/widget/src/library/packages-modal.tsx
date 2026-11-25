@@ -139,13 +139,16 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
 
   /**
    * One write, for the account whose screen asked for it. Another tab can sign
-   * this browser in to someone else, so it asks who it is first.
+   * this browser in to someone else, so it asks who it is first, and names the
+   * account in the write: the server refuses it for any other.
    */
-  const write = async <Result,>(send: () => Promise<Result>) => {
+  const write = async <Result,>(
+    send: (as: { account?: string }) => Promise<Result>,
+  ) => {
     const { user } = await aomi.raw.getAccount(transport.settingsThread());
     if (!mine() || user.user_id !== accountUserId)
       throw new AomiError(ACCOUNT_CHANGED);
-    return send();
+    return send({ account: accountUserId });
   };
 
   /** Run one mutation, then read the rows again; errors stay in place. */
@@ -171,8 +174,11 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
 
   const setChoice = (row: AomiPackage, enabled: boolean) =>
     void mutate(row, () =>
-      write(() =>
-        aomi.account.packages.setChoice(row.package_id, enabled, { threadId }),
+      write((as) =>
+        aomi.account.packages.setChoice(row.package_id, enabled, {
+          threadId,
+          ...as,
+        }),
       ),
     );
   /** A not verified package shows its notice before it first turns on. */
@@ -185,21 +191,21 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   const saveKeys = (row: AomiPackage, values: [string, string][]) =>
     mutate(row, async () => {
       for (const [slot, value] of values)
-        await write(() =>
-          aomi.account.packages.setSecret(row.package_id, slot, value),
+        await write((as) =>
+          aomi.account.packages.setSecret(row.package_id, slot, value, as),
         );
     });
   const disconnect = (row: AomiPackage) =>
     void mutate(row, async () => {
       for (const slot of personSlots(row))
         if (slot.status === "ready")
-          await write(() =>
-            aomi.account.packages.clearSecret(row.package_id, slot.name),
+          await write((as) =>
+            aomi.account.packages.clearSecret(row.package_id, slot.name, as),
           );
     });
   const remove = async (row: AomiPackage) => {
     const removed = await mutate(row, () =>
-      write(() => aomi.account.packages.remove(row.package_id)),
+      write((as) => aomi.account.packages.remove(row.package_id, as)),
     );
     if (removed) setMobileDetailOpen(false);
   };
@@ -214,7 +220,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
    */
   const activate = async (code: string) => {
     try {
-      const row = await write(() => aomi.account.packages.activate(code));
+      const row = await write((as) => aomi.account.packages.activate(code, as));
       await refetch();
       if (!mine()) return null;
       setView("all");
