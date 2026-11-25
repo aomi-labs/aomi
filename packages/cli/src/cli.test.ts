@@ -2,7 +2,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Readable } from "node:stream";
-import { Keypair } from "@solana/web3.js";
+import { Connection, Keypair } from "@solana/web3.js";
 import { SystemProgram, Transaction } from "@solana/web3.js";
 import bs58 from "bs58";
 import { encodeFunctionData, erc20Abi, keccak256 } from "viem";
@@ -14,6 +14,15 @@ const dir = vi.hoisted(() => {
   process.env.AOMI_STATE_DIR = path;
   return path;
 });
+
+/** What a person types at the next question. */
+const terminal = vi.hoisted(() => ({ answer: "" }));
+vi.mock("node:readline/promises", () => ({
+  createInterface: () => ({
+    question: async () => terminal.answer,
+    close() {},
+  }),
+}));
 
 import { main, rootHelp } from "./app";
 import { signsWith } from "./commands/wallets";
@@ -603,6 +612,69 @@ describe("aomi tx", () => {
     broadcaster: "hosted",
     action: null,
   };
+  const solana = new Transaction({
+    feePayer: SOLANA.publicKey,
+    blockhash: SOLANA.publicKey.toBase58(),
+    lastValidBlockHeight: 1,
+  }).add(
+    SystemProgram.transfer({
+      fromPubkey: SOLANA.publicKey,
+      toPubkey: SOLANA.publicKey,
+      lamports: 5,
+    }),
+  );
+  const [ix] = solana.instructions;
+  const svm = {
+    ...waiting,
+    chain_family: "svm",
+    chain_ref: "mainnet-beta",
+    signer: SOLANA.publicKey.toBase58(),
+    review: {
+      digest: "d",
+      request: {
+        type: "execute_svm",
+        transactions: [
+          {
+            payer: SOLANA.publicKey.toBase58(),
+            cluster: "mainnet-beta",
+            version: "legacy",
+            description: "Send",
+            kind: "transfer",
+            instructions: [
+              {
+                payer: SOLANA.publicKey.toBase58(),
+                cluster: "mainnet-beta",
+                program_id: ix!.programId.toBase58(),
+                accounts: ix!.keys.map((key) => ({
+                  pubkey: key.pubkey.toBase58(),
+                  is_signer: key.isSigner,
+                  is_writable: key.isWritable,
+                })),
+                data_base64: ix!.data.toString("base64"),
+                description: "Send",
+                kind: "transfer",
+              },
+            ],
+          },
+        ],
+        simulation: {
+          ...waiting.review.request.simulation,
+          approvals: [],
+          fees: [{ asset: "native", amount: "5000" }],
+        },
+      },
+    },
+    action: {
+      kind: "sign",
+      payload: {
+        kind: "svm_transaction",
+        signer: SOLANA.publicKey.toBase58(),
+        transaction_base64: solana
+          .serialize({ requireAllSignatures: false })
+          .toString("base64"),
+      },
+    },
+  };
   const yes = ["--yes", "--version", "1"];
   const tx = (verb: string, ...more: string[]) =>
     cli("tx", verb, ref, "--private-key", KEY, ...more);
@@ -717,105 +789,95 @@ describe("aomi tx", () => {
     expect(stdout + stderr).not.toMatch(/s3cret|(ab){40}|0x02f8/);
   });
 
-  it("sends a Solana transaction only where its block is known", async () => {
-    const solana = new Transaction({
-      feePayer: SOLANA.publicKey,
-      blockhash: SOLANA.publicKey.toBase58(),
-      lastValidBlockHeight: 1,
-    }).add(
-      SystemProgram.transfer({
-        fromPubkey: SOLANA.publicKey,
-        toPubkey: SOLANA.publicKey,
-        lamports: 5,
-      }),
-    );
-    const [ix] = solana.instructions;
-    const svm = {
-      ...waiting,
-      chain_family: "svm",
-      chain_ref: "mainnet-beta",
-      signer: SOLANA.publicKey.toBase58(),
-      review: {
-        digest: "d",
-        request: {
-          type: "execute_svm",
-          transactions: [
-            {
-              payer: SOLANA.publicKey.toBase58(),
-              cluster: "mainnet-beta",
-              version: "legacy",
-              description: "Send",
-              kind: "transfer",
-              instructions: [
-                {
-                  payer: SOLANA.publicKey.toBase58(),
-                  cluster: "mainnet-beta",
-                  program_id: ix!.programId.toBase58(),
-                  accounts: ix!.keys.map((key) => ({
-                    pubkey: key.pubkey.toBase58(),
-                    is_signer: key.isSigner,
-                    is_writable: key.isWritable,
-                  })),
-                  data_base64: ix!.data.toString("base64"),
-                  description: "Send",
-                  kind: "transfer",
-                },
-              ],
-            },
-          ],
-          simulation: {
-            ...waiting.review.request.simulation,
-            approvals: [],
-            fees: [{ asset: "native", amount: "5000" }],
-          },
+  describe("a Solana transaction", () => {
+    beforeEach(() => {
+      routes[`GET /v1/commits/${ref}`] = svm;
+      routes[`POST /v1/commits/${ref}/renew`] = svm;
+      routes[`POST /v1/commits/${ref}/sign`] = (body: string) => ({
+        ...svm,
+        version: 2,
+        state: "awaiting_broadcast",
+        action: {
+          kind: "broadcast",
+          signed_transaction: JSON.parse(body).payloads[0],
+          transaction_id: "sig",
         },
-      },
-      action: {
-        kind: "sign",
-        payload: {
-          kind: "svm_transaction",
-          signer: SOLANA.publicKey.toBase58(),
-          transaction_base64: solana
-            .serialize({ requireAllSignatures: false })
-            .toString("base64"),
-        },
-      },
-    };
-    routes[`GET /v1/commits/${ref}`] = svm;
-    routes[`POST /v1/commits/${ref}/renew`] = svm;
-    routes[`POST /v1/commits/${ref}/sign`] = (body: string) => ({
-      ...svm,
-      version: 2,
-      state: "awaiting_broadcast",
-      action: {
-        kind: "broadcast",
-        signed_transaction: JSON.parse(body).payloads[0],
-        transaction_id: "sig",
-      },
+      });
     });
-    const sign = (...more: string[]) =>
-      cli(
-        "tx",
-        "sign",
-        ref,
-        "--solana-private-key",
-        SOLANA_KEY,
-        ...yes,
-        ...more,
+    const sign = (...more: string[]) => {
+      const argv = ["--solana-private-key", SOLANA_KEY, ...yes, ...more];
+      return cli("tx", "sign", ref, ...argv);
+    };
+    /** The endpoints it was sent to. */
+    const sends = () => {
+      const urls: string[] = [];
+      vi.spyOn(Connection.prototype, "sendRawTransaction").mockImplementation(
+        async function (this: Connection) {
+          urls.push(this.rpcEndpoint);
+          return "sig";
+        },
       );
-    const none = await sign();
-    expect(none.code).toBe(2);
-    expect(none.stderr).toContain("No RPC for solana:mainnet: pass --rpc-url");
-    expect(wrote()).toEqual([]);
-    routes["POST /"] = { result: { value: false } };
-    const other = await sign("--rpc-url", "https://rpc.example/");
-    expect(other.code).toBe(1);
-    expect(other.stderr).toContain("doesn't know the block");
-    const calls = requests.filter((r) => r.key === "POST /");
-    expect(calls.map((r) => JSON.parse(r.body).method)).toEqual([
-      "isBlockhashValid",
-    ]);
-    expect(JSON.parse(calls[0]!.body).params[0]).toBe(solana.recentBlockhash);
+      return urls;
+    };
+
+    it("is sent only where its block is known", async () => {
+      const none = await sign();
+      expect(none.code).toBe(2);
+      expect(none.stderr).toContain(
+        "No RPC for solana:mainnet: pass --rpc-url",
+      );
+      expect(wrote()).toEqual([]);
+      routes["POST /"] = { result: { value: false } };
+      const urls = sends();
+      const other = await sign("--rpc-url", "https://rpc.example/");
+      expect(other.code).toBe(1);
+      expect(other.stderr).toContain("doesn't know the block");
+      expect(urls).toEqual([]);
+      const calls = requests.filter((r) => r.key === "POST /");
+      expect(calls.map((r) => JSON.parse(r.body).method)).toEqual([
+        "isBlockhashValid",
+      ]);
+      expect(JSON.parse(calls[0]!.body).params[0]).toBe(solana.recentBlockhash);
+    });
+
+    it.each([
+      ["typed", ""],
+      ["typed", " \t"],
+      ["passed", ""],
+      ["passed", "  "],
+      ["saved", "  "],
+    ])("is not signed with a blank RPC %s: %j", async (how, blank) => {
+      const urls = sends();
+      const saved = { rpc: { [BASE]: { "solana:mainnet": blank } } };
+      if (how === "saved") state(saved);
+      terminal.answer = blank;
+      const tty = process.stdin.isTTY;
+      process.stdin.isTTY = how === "typed";
+      const { code, stderr } = await sign(
+        ...(how === "passed" ? ["--rpc-url", blank] : []),
+      ).finally(() => (process.stdin.isTTY = tty));
+      expect(urls).toEqual([]);
+      expect(wrote()).toEqual([]);
+      expect(stderr).toContain("The RPC URL for solana:mainnet is blank");
+      expect(code).toBe(2);
+      if (how !== "saved")
+        expect(() => readFileSync(join(dir, "cli.json"), "utf8")).toThrow();
+    });
+
+    it("is sent on the RPC that was checked, whatever the config becomes", async () => {
+      const urls = sends();
+      routes["POST /"] = () => {
+        state({ rpc: { [BASE]: { "solana:mainnet": "" } } });
+        return { result: { value: true } };
+      };
+      const done = { ...svm, version: 3, state: "confirmed", action: null };
+      routes[`POST /v1/commits/${ref}/broadcast`] = () =>
+        (routes[`GET /v1/commits/${ref}`] = done);
+      await sign("--rpc-url", " https://rpc.example/ ");
+      const checked = requests.filter((r) => r.key === "POST /");
+      expect(checked.map((r) => r.url)).toEqual(["https://rpc.example/"]);
+      expect(urls).toEqual(["https://rpc.example/"]);
+    });
   });
 
   it("reviews the decoded call, what it allows and the guard line", async () => {

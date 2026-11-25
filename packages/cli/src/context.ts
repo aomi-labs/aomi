@@ -190,7 +190,7 @@ export async function connect(
   const svmOn = (id: SvmCluster, rpcUrl?: string) =>
     solana!.solanaSigner(svmKey!, {
       cluster: id,
-      rpcUrls: rpcUrl ? { [id]: rpcUrl } : undefined,
+      rpcUrls: rpcUrl === undefined ? undefined : { [id]: rpcUrl },
     });
   const signer = {
     evm: evmKey
@@ -212,7 +212,7 @@ export async function connect(
             sent(async () => {
               const chain = parseCluster(name);
               const url = rpcOn(chain);
-              if (url) await knowsBlock(url, signed, chain);
+              if (url !== undefined) await knowsBlock(url, signed, chain);
               return svmOn(chain, url).broadcastTransaction!(signed, name);
             }),
         }
@@ -319,7 +319,7 @@ export async function rpcReady(
   const { baseUrl, rpc } = sending.get(aomi)!;
   const evm = view.chain_family === "evm";
   const chain = chainKey(view.chain_family, view.chain_ref);
-  let url = flags.rpcUrl ?? loadState().rpc?.[baseUrl]?.[chain];
+  let url = (flags.rpcUrl ?? loadState().rpc?.[baseUrl]?.[chain])?.trim();
   if (!PRODUCTION.has(new URL(baseUrl).href)) {
     // A copy has its chain's id and its blocks, and no review names the block
     // it ran on: nothing tells the copy's RPC from the real chain's.
@@ -328,8 +328,10 @@ export async function rpcReady(
         `This Aomi is not production, so a key here sends nothing for ${chain}: use ${view.sign_url ?? "its sign page"}`,
         3,
       );
-    url ??= await missing(chain);
+    url ??= (await missing(chain)).trim();
   }
+  // Only none at all means the public RPC, where production sends.
+  if (url === "") throw usage(`The RPC URL for ${chain} is blank`);
   if (url && evm) {
     const is = `eip155:${Number(await rpcCall(url, "eth_chainId", []))}`;
     if (is !== chain)
