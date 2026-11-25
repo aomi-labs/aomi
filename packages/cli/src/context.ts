@@ -335,7 +335,15 @@ export function turnOptions(
         ? { evm: { address: evm, ...(chainId ? { chain_id: chainId } : {}) } }
         : {}),
       ...(svm
-        ? { svm: { address: svm, cluster: clusterOf(overrides, state) } }
+        ? {
+            svm: {
+              address: svm,
+              cluster: clusterOf(overrides, state),
+              ...(aomi.wallet?.svm?.canSignV1Transaction
+                ? { capabilities: ["can_sign_v1_transaction"] }
+                : {}),
+            },
+          }
         : {}),
       ...(evm || svm ? { connection: { is_connected: true } } : {}),
       ...(overrides.walletPick ? { wallet_pick: overrides.walletPick } : {}),
