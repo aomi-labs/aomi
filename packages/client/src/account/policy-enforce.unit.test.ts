@@ -130,15 +130,15 @@ describe("a transaction that was sent and the backend's node never shows", () =>
     return { transport, result };
   };
   const sendSolanaTransaction = async () => "5igSent";
+  const never = async () => {
+    throw unsettled();
+  };
 
   it("answers the signature with settled false and the policies as they stand, after the same retries", async () => {
-    const { transport, result } = flow(
-      transaction,
-      async () => {
-        throw unsettled();
-      },
-      { solanaAddress: SOLANA_OWNER, sendSolanaTransaction },
-    );
+    const { transport, result } = flow(transaction, never, {
+      solanaAddress: SOLANA_OWNER,
+      sendSolanaTransaction,
+    });
     await expect(result).resolves.toEqual({
       policies: { enforcement: [], revision: 2 },
       settled: false,
@@ -196,13 +196,7 @@ describe("a transaction that was sent and the backend's node never shows", () =>
   });
 
   it("still throws when nothing was sent, and any other refusal", async () => {
-    const nothing = flow(
-      null,
-      async () => {
-        throw unsettled();
-      },
-      {},
-    );
+    const nothing = flow(null, never, {});
     await expect(nothing.result).rejects.toMatchObject({
       code: "chain_not_settled",
     });
@@ -258,6 +252,7 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
     answer: AomiPolicyAction,
     held = entry(),
     signer: AomiPolicySigner = { evmAddress: OWNER, sendEvmTransaction },
+    options: { owner?: string } = {},
   ) {
     sendEvmTransaction.mockClear();
     const confirmEnforcement = vi.fn(async () => ({ enforcement: [] }));
@@ -269,6 +264,7 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
       revision: 1,
       owner: held.signer.address!,
       remove: true,
+      ...options,
     }).then(
       () => null,
       (cause: Error) => cause.message,
@@ -316,25 +312,9 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
       signer: { family: "svm", address: SOLANA_OWNER },
     });
     const ask = vi.fn(async () => "0x1234");
-    const refused = async (
-      answer: AomiPolicyAction,
-      held: AomiPolicyEnforcement,
-      signer: AomiPolicySigner,
-      owner = held.signer.address!,
-    ) => {
-      const confirmEnforcement = vi.fn();
-      await expect(
-        enforcePolicy(
-          {
-            prepareEnforcement: async () => answer,
-            confirmEnforcement,
-          } as never,
-          "w",
-          held,
-          signer,
-          { revision: 1, owner },
-        ),
-      ).rejects.toThrow(
+    const refused = async (...asked: Parameters<typeof run>) => {
+      const { error, confirmEnforcement } = await run(...asked);
+      expect(error).toBe(
         "Sign this with the wallet that owns the policy. Nothing was signed.",
       );
       expect(confirmEnforcement).not.toHaveBeenCalled();
@@ -362,7 +342,7 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
       typed,
       entry(),
       { evmAddress: OTHER, signTypedData: ask },
-      OTHER,
+      { owner: OTHER },
     );
     expect(ask).not.toHaveBeenCalled();
   });

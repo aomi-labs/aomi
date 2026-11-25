@@ -237,8 +237,8 @@ async function act(
     throw new Error(
       "Aomi asked for a signature on another network than this policy's. Nothing was signed.",
     );
+  const chainId = /^eip155:(\d+)$/.exec(action.network)?.[1];
   if (action.kind === "typed_data") {
-    const chainId = /^eip155:(\d+)$/.exec(action.network)?.[1];
     if (family !== "evm" || !chainId || !signer.signTypedData)
       throw new Error("This wallet can't sign that.");
     const signature = await signer.signTypedData({
@@ -252,7 +252,6 @@ async function act(
     return { signature };
   }
   if (action.kind === "evm_transaction") {
-    const chainId = /^eip155:(\d+)$/.exec(action.network)?.[1];
     if (family !== "evm" || !chainId || !signer.sendEvmTransaction)
       throw new Error("This wallet can't send that.");
     if (!PLAIN_ADDRESS.test(action.to))

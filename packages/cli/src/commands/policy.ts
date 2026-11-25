@@ -46,6 +46,7 @@ import { readArgs } from "./pipeline";
 
 /** On screen and in the paths a policy; in the wire's field names, a rule. */
 export type Flags = ConnectFlags & { json?: boolean; wallet?: string };
+type WriteFlags = Flags & { yes?: boolean };
 
 function timeLeft(expiresAt: number): string {
   const seconds = expiresAt - Math.floor(Date.now() / 1000);
@@ -437,7 +438,7 @@ type Row = [field: string, before: string, after: string];
  * live, and what brings the chain in line.
  */
 async function change(
-  flags: Flags & { yes?: boolean },
+  flags: WriteFlags,
   aomi: Aomi,
   walletId: string,
   build: (held: AomiWalletPolicies) => {
@@ -505,11 +506,10 @@ async function change(
 const unnamed = (policies: AomiWalletPolicies) =>
   policies.rules.mode === "whitelist" ? "not allowed" : "no limit";
 
-type SetFlags = OnChain<Flags> & {
+type SetFlags = OnChain<WriteFlags> & {
   amt?: string;
   to?: string;
   until?: string;
-  yes?: boolean;
 };
 
 const SET_USAGE =
@@ -571,10 +571,7 @@ export async function set(
 }
 
 /** `aomi policy remove <policy-id>`. */
-export async function remove(
-  flags: Flags & { yes?: boolean },
-  typed: string,
-): Promise<void> {
+export async function remove(flags: WriteFlags, typed: string) {
   const aomi = await connect(flags);
   const walletId = await walletOf(aomi, flags);
   // Resolved once: a retry removes this policy or nothing, never another
@@ -601,10 +598,7 @@ export async function remove(
 }
 
 /** `aomi policy mode whitelist|blacklist`. */
-export async function mode(
-  flags: Flags & { yes?: boolean },
-  wanted: string,
-): Promise<void> {
+export async function mode(flags: WriteFlags, wanted: string) {
   if (wanted !== "whitelist" && wanted !== "blacklist")
     throw usage("Mode is whitelist or blacklist");
   const aomi = await connect(flags);
@@ -620,10 +614,7 @@ export async function mode(
 }
 
 /** `aomi policy authority self|<address>`: who approves a change that loosens. */
-export async function authority(
-  flags: Flags & { yes?: boolean },
-  wanted: string,
-): Promise<void> {
+export async function authority(flags: WriteFlags, wanted: string) {
   const aomi = await connect(flags);
   const walletId = await walletOf(aomi, flags);
   await change(flags, aomi, walletId, (held) => {
@@ -649,7 +640,7 @@ export async function authority(
   });
 }
 
-type EnforceFlags = Flags & { provider?: string; yes?: boolean };
+type EnforceFlags = WriteFlags & { provider?: string };
 
 /** A key that is not one of the account's wallets cannot own a policy. */
 const notOwnWallet = (
@@ -677,11 +668,7 @@ const NO_ACTION = "none; Aomi only reads the chain";
  * One policy onto the chain, or off it: the checks, the question, then the
  * SDK's prepare, sign + send and confirm with the local signer.
  */
-async function enforce(
-  flags: EnforceFlags,
-  typed: string,
-  remove: boolean,
-): Promise<void> {
+async function enforce(flags: EnforceFlags, typed: string, remove: boolean) {
   const aomi = await connect(flags);
   const walletId = await walletOf(aomi, flags);
   const held = await aomi.account.policy.get(walletId);
