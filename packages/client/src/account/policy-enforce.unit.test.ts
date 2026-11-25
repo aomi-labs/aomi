@@ -42,6 +42,13 @@ const data = (overrides: Partial<AomiPolicyTypedData> = {}) =>
     ...overrides,
   }) satisfies AomiPolicyTypedData;
 
+const SOLANA_OWNER = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x";
+const transaction: AomiPolicyAction = {
+  kind: "transaction",
+  network: "solana:mainnet-beta",
+  unsigned_base64: "dW5zaWduZWQ=",
+};
+
 describe("typed data the backend asks the owner to sign", () => {
   it("reads every declared integer as a bigint, in structs and arrays, and the domain's chain id as a number", () => {
     const signable = signableTypedData(data(), 8453);
@@ -94,7 +101,6 @@ describe("typed data the backend asks the owner to sign", () => {
 });
 
 describe("a transaction that was sent and the backend's node never shows", () => {
-  const SOLANA_OWNER = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x";
   const entry = {
     rule: "solana:mainnet-beta/native@any",
     provider: "swig",
@@ -122,11 +128,6 @@ describe("a transaction that was sent and the backend's node never shows", () =>
       retryDelayMs: 0,
     });
     return { transport, result };
-  };
-  const transaction: AomiPolicyAction = {
-    kind: "transaction",
-    network: "solana:mainnet-beta",
-    unsigned_base64: "dW5zaWduZWQ=",
   };
   const sendSolanaTransaction = async () => "5igSent";
 
@@ -298,7 +299,6 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
     });
     expect(other.error).toMatch(/wallet that owns the policy/);
     expect(other.confirmEnforcement).not.toHaveBeenCalled();
-    const SOLANA_OWNER = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x";
     const solana = await run(
       action(),
       entry({ signer: { family: "svm", address: SOLANA_OWNER } }),
@@ -310,7 +310,6 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
   });
 
   it("asks no wallet that is not the policy's owner, whatever the action", async () => {
-    const SOLANA_OWNER = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4x";
     const swig = entry({
       provider: "swig",
       network: "solana:mainnet-beta",
@@ -344,11 +343,6 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
       kind: "typed_data",
       network: "eip155:8453",
       typed_data: data(),
-    };
-    const transaction: AomiPolicyAction = {
-      kind: "transaction",
-      network: "solana:mainnet-beta",
-      unsigned_base64: "dW5zaWduZWQ=",
     };
     const OTHER = "0x1111000000000000000000000000000000002222";
     // Another wallet is connected, or none that says who it is.

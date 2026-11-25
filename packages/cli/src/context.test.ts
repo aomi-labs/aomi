@@ -40,6 +40,12 @@ const CHECKED =
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 const SAVED_LATER =
   "0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba";
+const TX = {
+  chainId: 8453,
+  to: "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+  data: "0x",
+  value: "0x0",
+};
 const save = (evmKey: string) => {
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "cli.json"), JSON.stringify({ evmKey }));
@@ -60,13 +66,7 @@ it("sends a policy transaction with the key the client was connected with, not o
   save(SAVED_LATER);
   const signer = policySigner(aomi, {});
   expect(signer.evmAddress).toBe(checked);
-  const hash = await signer.sendEvmTransaction!({
-    chainId: 8453,
-    to: "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
-    data: "0x",
-    value: "0x0",
-  });
-  expect(hash).toBe("0xhash");
+  expect(await signer.sendEvmTransaction!(TX)).toBe("0xhash");
   expect(sentFrom).toEqual([checked]);
 });
 
@@ -76,13 +76,7 @@ it("answers the hash of a sent transaction whose receipt does not come, and refu
     await connect({ backendUrl: "https://chat.example" }),
     {},
   );
-  const send = () =>
-    signer.sendEvmTransaction!({
-      chainId: 8453,
-      to: "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
-      data: "0x",
-      value: "0x0",
-    });
+  const send = () => signer.sendEvmTransaction!(TX);
   const held = receipt.wait;
   try {
     receipt.wait = async () => {
