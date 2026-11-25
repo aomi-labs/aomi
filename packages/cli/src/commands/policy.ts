@@ -112,6 +112,10 @@ export const onChain = (status: AomiPolicyOnChain): string =>
     ? `${ON_CHAIN[status.kind]} (${status.entry.name})`
     : ON_CHAIN[status.kind];
 
+/** Only an EVM address reads the same in either case. */
+const sameAddress = (family: "evm" | "svm", a: string, b: string) =>
+  family === "evm" ? a.toLowerCase() === b.toLowerCase() : a === b;
+
 const authorityOf = (admin: AomiPolicyAdmin) =>
   admin.kind === "wallet"
     ? `${admin.address} (${admin.family}), approves by signing`
@@ -255,6 +259,9 @@ export function nextLines(
   return lines.length ? lines : ["Nothing: Aomi and the chain agree"];
 }
 
+const printTable = (rows: string[][]) =>
+  table(rows).forEach((row) => out(`  ${row}`));
+
 function printNext(lines: string[]): void {
   out("Next");
   lines.forEach((line) => out(`  ${line}`));
@@ -323,12 +330,12 @@ export async function catalog({ chain, ...flags }: OnChain<Flags>) {
   }
   if (flags.json) return json(shown);
   out("APPS");
-  table([
+  printTable([
     ["ID", "NAME", "CHAINS"],
     ...shown.apps.map((app) => [app.id, app.label, app.chains.join(", ")]),
-  ]).forEach((row) => out(`  ${row}`));
+  ]);
   out("TOKENS");
-  table([
+  printTable([
     ["SYMBOL", "CHAIN", "DECIMALS", "ASSET"],
     ...shown.tokens.map((token) => [
       token.symbol,
@@ -336,7 +343,7 @@ export async function catalog({ chain, ...flags }: OnChain<Flags>) {
       String(token.decimals),
       token.asset,
     ]),
-  ]).forEach((row) => out(`  ${row}`));
+  ]);
 }
 
 /** The change, when it still waits for the admin and is `--wallet`'s. */
@@ -384,17 +391,6 @@ function refusal(error: unknown, url: string): never {
   throw error;
 }
 
-function decided(
-  flags: Flags,
-  policies: AomiWalletPolicies,
-  done: string,
-): void {
-  if (flags.json) return json(policies);
-  out(done);
-  policyLines(policies).forEach((line) => out(line));
-  printNext(nextLines(flags, policies));
-}
-
 /** The page where a wallet authority signs; exit 3, nothing was approved. */
 function needsSignature(flags: Flags, change: AomiPolicyChange): void {
   const url = changeUrl(flags, change.id);
@@ -406,31 +402,32 @@ function needsSignature(flags: Flags, change: AomiPolicyChange): void {
   process.exitCode = 3;
 }
 
+const decide =
+  (verb: "approve" | "decline", done: string) =>
+  async (flags: Flags, id: string): Promise<void> => {
+    const aomi = await connect(flags);
+    const change = await open(aomi, id, flags);
+    if (verb === "approve" && change.signer)
+      return needsSignature(flags, change);
+    try {
+      const policies = await aomi.account.policy[`${verb}Change`](id);
+      if (flags.json) return json(policies);
+      out(done);
+      policyLines(policies).forEach((line) => out(line));
+      printNext(nextLines(flags, policies));
+    } catch (error) {
+      refusal(error, changeUrl(flags, id));
+    }
+  };
+
 /**
  * `aomi policy approve <id>`: approve a change the Aomi-managed authority
  * waits on. A change that needs a wallet's signature prints its page instead.
  */
-export async function approve(flags: Flags, id: string): Promise<void> {
-  const aomi = await connect(flags);
-  const change = await open(aomi, id, flags);
-  if (change.signer) return needsSignature(flags, change);
-  try {
-    decided(flags, await aomi.account.policy.approveChange(id), "Approved");
-  } catch (error) {
-    refusal(error, changeUrl(flags, id));
-  }
-}
+export const approve = decide("approve", "Approved");
 
 /** `aomi policy decline <id>`: the policies stay as they are. */
-export async function decline(flags: Flags, id: string): Promise<void> {
-  const aomi = await connect(flags);
-  await open(aomi, id, flags);
-  try {
-    decided(flags, await aomi.account.policy.declineChange(id), "Declined");
-  } catch (error) {
-    refusal(error, changeUrl(flags, id));
-  }
-}
+export const decline = decide("decline", "Declined");
 
 type Row = [field: string, before: string, after: string];
 
@@ -487,9 +484,7 @@ async function change(
     else {
       out(loosens ? "LOOSENS" : "TIGHTENS");
       if (changed.length)
-        table([["FIELD", "BEFORE", "AFTER"], ...changed]).forEach((row) =>
-          out(`  ${row}`),
-        );
+        printTable([["FIELD", "BEFORE", "AFTER"], ...changed]);
       out(
         status === "applied"
           ? "Applied"
@@ -636,10 +631,7 @@ export async function authority(
       wanted === "self"
         ? { kind: "aomi_managed" }
         : held.admin_wallets.find((wallet) =>
-            // Only an EVM address reads the same in either case.
-            wallet.family === "evm"
-              ? wallet.address.toLowerCase() === wanted.toLowerCase()
-              : wallet.address === wanted,
+            sameAddress(wallet.family, wallet.address, wanted),
           );
     if (!admin)
       throw new CliError(
@@ -751,13 +743,7 @@ async function enforce(
       }: aomi wallets signer set, or ${verb} it at ${policyUrl(flags, walletId, id)}`,
       3,
     );
-  if (
-    local &&
-    kind &&
-    (family === "evm"
-      ? local.toLowerCase() !== owner.toLowerCase()
-      : local !== owner)
-  )
+  if (local && kind && !sameAddress(family, local, owner))
     throw new CliError(
       `The local signer ${local} is not ${owner}, the wallet that owns this policy. Nothing was signed`,
     );
@@ -769,9 +755,7 @@ async function enforce(
       !wallets.some(
         (wallet) =>
           wallet.family === family &&
-          (family === "evm"
-            ? wallet.address.toLowerCase() === owner.toLowerCase()
-            : wallet.address === owner),
+          sameAddress(family, wallet.address, owner),
       )
     )
       throw notOwnWallet(flags, family, owner);
