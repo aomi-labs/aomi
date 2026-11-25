@@ -59,7 +59,7 @@ function metaLines(view: CommitRefView): string[] {
 
 /** Text as signed, with what a screen hides or reorders written out. */
 const visible = (text: string) =>
-  text.replace(/[\\\p{C}\p{Z}\u115f\u1160\u2800\u3164\uffa0]/gu, (char) =>
+  text.replace(/[\\\p{C}\p{Z}\p{DI}\u2800]/gu, (char) =>
     char === " " || char === "\n"
       ? char
       : char === "\\"

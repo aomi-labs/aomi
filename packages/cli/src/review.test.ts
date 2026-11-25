@@ -253,6 +253,17 @@ describe("a message", () => {
     }
   });
 
+  it.each(["\u034f", "\u17b4", "\ufe0f", "\u{e0100}", "\u115f", "\uffa0"])(
+    "writes out a character that draws as nothing: %j",
+    (char) => {
+      const { text } = open(
+        message({ kind: "evm_personal", message: `pay${char} 1` }),
+      );
+      const code = char.codePointAt(0)!.toString(16);
+      expect(text).toContain(`pay\\u{${code}} 1`);
+    },
+  );
+
   it("is for the sign page when its bytes are no text", () => {
     expect(
       open(message({ kind: "evm_personal", message: "0xff00ff" })).whole,
