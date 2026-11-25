@@ -107,6 +107,7 @@ describe("a transaction that was sent and the backend's node never shows", () =>
     network: "solana:mainnet-beta",
     ready: true,
     note: null,
+    next: "transaction",
     signer: { family: "svm", address: SOLANA_OWNER },
   } as AomiPolicyEnforcement;
   const unsettled = () =>
@@ -236,6 +237,7 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
     account: null,
     deployment_tx: null,
     note: "Your revocation is signed. Send it from your wallet to take the grant off chain.",
+    next: "evm_transaction",
     signer: { family: "evm", address: OWNER },
     ...extra,
   });
@@ -350,7 +352,7 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
   describe("a deployment sent as a transaction", () => {
     // The vault's creation: the entry asks for a transaction until the
     // backend's node shows it.
-    const asks = entry({ state: "off", note: null, next: "evm_transaction" });
+    const asks = entry({ state: "off", note: null });
     const deploy = async (confirmed: object[], held = asks) => {
       let calls = 0;
       const transport = {
@@ -384,13 +386,6 @@ describe("sending the owner's signed revocation, whatever the client parsed", ()
       const { result, confirms } = await deploy([asks]);
       expect(result).toMatchObject({ settled: false, transaction: "0xhash" });
       expect(confirms).toHaveLength(6);
-    });
-
-    it("settles at once, as before, for a backend that sends no next", async () => {
-      const old = entry({ state: "off", note: null });
-      const { result, confirms } = await deploy([old], old);
-      expect(result.settled).toBe(true);
-      expect(confirms).toHaveLength(1);
     });
   });
 

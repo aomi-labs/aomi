@@ -1,18 +1,15 @@
 import {
   AomiApiError,
-  AomiPolicyFieldError,
   AomiPolicySentError,
   POLICY_ERROR_CODES,
   assetChain,
   assetNetwork,
   catalogOn,
   chainOnlyPolicies,
-  checkPolicy,
   expectedPolicyAction,
   fromBaseUnits,
   hasPolicies,
   matchPolicyIds,
-  policyFromInput,
   policyKey,
   policyOnChain,
   shortAddress,
@@ -307,15 +304,6 @@ export async function list(flags: Flags): Promise<void> {
   }
 }
 
-/** A policy the SDK refused names its field; the nearest catalog values follow. */
-function fieldError(error: unknown): never {
-  if (error instanceof AomiPolicyFieldError)
-    throw usage(
-      `${error.message}${error.nearest.length ? `. Nearest: ${error.nearest.join(", ")}` : ""}`,
-    );
-  throw error;
-}
-
 /** Here `--chain` names a policy's chain, not the chain the signer is on. */
 type OnChain<F> = Omit<F, "chain"> & { chain?: string };
 
@@ -327,7 +315,7 @@ export async function catalog({ chain, ...flags }: OnChain<Flags>) {
   try {
     if (chain) shown = catalogOn(all, chain);
   } catch (error) {
-    fieldError(error);
+    throw usage((error as Error).message);
   }
   if (flags.json) return json(shown);
   out("APPS");
@@ -506,46 +494,31 @@ async function change(
 const unnamed = (policies: AomiWalletPolicies) =>
   policies.rules.mode === "whitelist" ? "not allowed" : "no limit";
 
-type SetFlags = OnChain<WriteFlags> & {
-  amt?: string;
-  to?: string;
-  until?: string;
-};
-
-const SET_USAGE =
-  "aomi policy set <json | path>, or aomi policy set --amt <amount> <asset> --to <app-id|address>";
-
-/** `aomi policy set`: add one policy, or replace the one on its token and destination. */
-export async function set(
-  { chain, ...flags }: SetFlags,
-  input?: string,
-): Promise<void> {
-  if (!input) throw usage(SET_USAGE);
-  const typed = flags.amt !== undefined;
-  if (typed ? !flags.to : flags.to || flags.until || chain)
-    throw usage(SET_USAGE);
-  const aomi = await connect(flags);
-  const walletId = await walletOf(aomi, flags);
-  const known = await aomi.account.policy.catalog();
+/**
+ * `aomi policy set <json | path>`: add one policy, or replace the one on its
+ * token and destination. The server checks it.
+ */
+export async function set(flags: WriteFlags, input?: string): Promise<void> {
+  if (!input) throw usage("aomi policy set <json | path>");
   let policy: AomiPolicy;
   try {
-    policy = typed
-      ? policyFromInput(
-          {
-            amount: flags.amt!,
-            asset: input,
-            to: flags.to!,
-            until: flags.until,
-            chain,
-          },
-          known,
-        )
-      : checkPolicy(await readArgs(input), known);
+    policy = (await readArgs(input)) as AomiPolicy;
   } catch (error) {
     if (error instanceof SyntaxError)
       throw usage(`policy: not JSON (${error.message})`);
-    fieldError(error);
+    throw error;
   }
+  const to = policy.to as { kind?: unknown; address?: unknown } | undefined;
+  if (
+    typeof policy.asset !== "string" ||
+    !to ||
+    typeof to !== "object" ||
+    (to.kind === "address" && typeof to.address !== "string")
+  )
+    throw usage("policy: needs asset, amount and to: aomi policy catalog");
+  const aomi = await connect(flags);
+  const walletId = await walletOf(aomi, flags);
+  const known = await aomi.account.policy.catalog();
   const id = policyKey(policy);
   await change(flags, aomi, walletId, (held) => {
     const before = held.rules.rules.find((one) => idOf(one) === id);

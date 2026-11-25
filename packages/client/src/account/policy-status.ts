@@ -10,7 +10,6 @@ import {
   type AomiWalletPolicies,
 } from "./policy";
 import { assetNetwork } from "./policy-draft";
-import { sendsRevocation } from "./policy-enforce";
 
 export type AomiPolicyOnChain =
   /** The chain holds the policy as it stands. */
@@ -134,19 +133,18 @@ export function matchPolicyIds(
 /**
  * The action `prepare` answers for the entry, to show before asking; null
  * when it asks for none and `confirm` alone finishes. The entry's `next`
- * says it. It is inferred from the signer when an older backend sent no
- * `next`, and for `inForce`, a removal of a policy Aomi still holds, which
- * `next` does not describe: a Solana provider takes a transaction, an EVM
- * one a signature, and a signed revocation is sent as a transaction.
+ * says it, except for `inForce`, a removal of a policy Aomi still holds,
+ * which `next` does not describe: a Solana provider takes a transaction, an
+ * EVM one a signature, and a signed revocation is sent as a transaction.
  */
 export const expectedPolicyAction = (
-  entry: Pick<AomiPolicyEnforcement, "signer" | "ready" | "note" | "next">,
+  entry: Pick<AomiPolicyEnforcement, "signer" | "next">,
   { remove = false, inForce = false } = {},
 ): AomiPolicyAction["kind"] | null =>
-  entry.next !== undefined && !(remove && inForce)
+  !(remove && inForce)
     ? entry.next
     : entry.signer.family === "svm"
       ? "transaction"
-      : remove && sendsRevocation(entry)
+      : entry.next === "evm_transaction"
         ? "evm_transaction"
         : "typed_data";

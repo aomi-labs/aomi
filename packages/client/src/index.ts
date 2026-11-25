@@ -540,7 +540,6 @@ export {
   AomiPolicySentError,
   DELEGATION_MANAGER,
   enforcementKey,
-  sendsRevocation,
   signableTypedData,
 } from "./account/policy-enforce";
 export type {
@@ -549,19 +548,16 @@ export type {
   AomiSignableTypedData,
 } from "./account/policy-enforce";
 export {
-  AomiPolicyFieldError,
   assetChain,
   assetNetwork,
   catalogOn,
-  checkPolicy,
   fromBaseUnits,
   policyFromDraft,
-  policyFromInput,
   toBaseUnits,
   upsertPolicy,
   withoutPolicy,
 } from "./account/policy-draft";
-export type { AomiPolicyDraft, AomiPolicyInput } from "./account/policy-draft";
+export type { AomiPolicyDraft } from "./account/policy-draft";
 export {
   chainOnlyPolicies,
   expectedPolicyAction,

@@ -398,18 +398,10 @@ describe("removed policies the chain still holds", () => {
   });
 
   it("marks the step as a send once the owner's revocation is signed, and only then", () => {
-    const SENT = "Your revocation is signed. Send it from your wallet.";
     const send = (extra: Partial<AomiPolicyEnforcement>) =>
       removed([held(extra)])[0]!.enforcement.send;
-    expect(send({ note: SENT })).toBe(true);
-    // Not ready, still to sign, or the relay's older wording.
-    for (const extra of [
-      { note: SENT, ready: false },
-      { note: NOTE },
-      { note: null },
-      { note: "Your revocation is signed. It takes effect once it is sent." },
-    ])
-      expect(send(extra)).toBeUndefined();
+    expect(send({ next: "evm_transaction" })).toBe(true);
+    expect(send({ next: "typed_data" })).toBeUndefined();
   });
 
   it("reads a destination of any app, or an address, and the Solana chain", () => {

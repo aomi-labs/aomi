@@ -180,6 +180,7 @@ const provider = (extra: object = {}) => ({
   account: null,
   deployment_tx: null,
   note: null,
+  next: "transaction",
   signer: { family: "svm", address: null },
   ...extra,
 });
@@ -190,6 +191,7 @@ const grant = (extra: object = {}) =>
     provider: "metamask",
     name: "MetaMask",
     network: "eip155:8453",
+    next: "typed_data",
     signer: { family: "evm", address: null },
     ...extra,
   });
@@ -1401,7 +1403,10 @@ describe("Settings › Policies", () => {
           value: "0x0",
         };
         const toSend = (extra: object = {}, live: object[] = []) =>
-          without([kept({ note: SENT_NOTE, ...extra })], live);
+          without(
+            [kept({ note: SENT_NOTE, next: "evm_transaction", ...extra })],
+            live,
+          );
         const sendTo = (action: object, confirmed = without([])) =>
           answer(GRANT_STEP, action, confirmed);
         const send = () => click("Send revocation", removedRows()[0]);

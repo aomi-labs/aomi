@@ -55,17 +55,6 @@ export type AomiPolicySigner = {
   }) => Promise<string>;
 };
 
-/**
- * The backend note that marks a signed revocation waiting to be sent. It
- * names the step for an entry without `next` and picks the row's label; the
- * wallet's action always comes from `prepare`.
- */
-const SEND_NOTE_PREFIX = "Your revocation is signed. Send it";
-
-export const sendsRevocation = (
-  entry: Pick<AomiPolicyEnforcement, "ready" | "note">,
-) => entry.ready && Boolean(entry.note?.startsWith(SEND_NOTE_PREFIX));
-
 /** One provider's step for one rule on one network. */
 export const enforcementKey = (
   entry: Pick<AomiPolicyEnforcement, "provider" | "network" | "rule">,
@@ -293,12 +282,6 @@ async function act(
   };
 }
 
-/** A replacement can keep the same rule key after the old grant is disabled. */
-const stillHeld = (policies: AomiWalletPolicies, key: string) =>
-  policies.enforcement.some(
-    (entry) => enforcementKey(entry) === key && sendsRevocation(entry),
-  );
-
 export type AomiPolicyEnforceOptions = {
   /** The policies' revision as the owner saw them. */
   revision: number;
@@ -389,19 +372,17 @@ export async function enforcePolicy(
     });
   let policies = await confirm();
   // No signature proves a sent tx: policies come back unchanged until the
-  // backend's node shows it. A signed revocation still waits to be sent, or
-  // the entry still asks for the action it asked for at the start. An older
-  // backend sends no `next`, and only the revocation tells.
+  // backend's node shows it, and the entry still asks for the action it
+  // asked for at the start.
   const sent = action?.kind === "evm_transaction";
   const unseen = (now: AomiWalletPolicies) =>
-    stillHeld(now, key) ||
-    (entry.next === action?.kind &&
-      now.enforcement.some(
-        (one) =>
-          enforcementKey(one) === key &&
-          one.state === entry.state &&
-          one.next === entry.next,
-      ));
+    entry.next === action?.kind &&
+    now.enforcement.some(
+      (one) =>
+        enforcementKey(one) === key &&
+        one.state === entry.state &&
+        one.next === entry.next,
+    );
   for (
     let attempt = 0;
     sent && attempt < 5 && policies && unseen(policies);

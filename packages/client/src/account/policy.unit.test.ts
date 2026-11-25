@@ -89,6 +89,7 @@ const body = {
       account: "SwigWallet111",
       deployment_tx: "5igTx",
       note: "Your rules changed since you signed.",
+      next: "transaction",
       signer: { family: "svm", address: "HZpj1111" },
     },
     {
@@ -103,6 +104,7 @@ const body = {
       account: null,
       deployment_tx: null,
       note: null,
+      next: "typed_data",
       signer: { family: "evm", address: null },
     },
   ],
@@ -328,7 +330,8 @@ describe("wallet rules", () => {
   it("fills an entry's omitted fields", () => {
     const { rule, provider, name, network, state, ready } =
       body.enforcement[1]!;
-    const bare = { rule, provider, name, network, state, ready };
+    const { next } = body.enforcement[1]!;
+    const bare = { rule, provider, name, network, state, ready, next };
     expect(
       parseWalletPolicies({
         ...body,
@@ -344,6 +347,7 @@ describe("wallet rules", () => {
     [{ rule: undefined }, /enforcement.rule must be a string/],
     [{ left: 300000000 }, /enforcement.left must be a string/],
     [{ expires_at: "soon" }, /enforcement.expires_at must be a number/],
+    [{ next: undefined }, /unsupported enforcement next/],
   ])("refuses an enforcement entry with %o", (extra, message) => {
     expect(() => parseWalletPolicies(enforcementEntry(extra))).toThrow(message);
   });
@@ -497,6 +501,7 @@ describe("wallet rules", () => {
       rule,
       state: state as "on",
       ready,
+      next: null as "typed_data" | "evm_transaction" | null,
     });
     const stands = (enforcement: ReturnType<typeof entry>[], id = SOL_RULE) =>
       policyOnChain({ ...read, enforcement }, id)?.kind;
@@ -565,17 +570,6 @@ describe("wallet rules", () => {
         SOL_RULE,
       )?.kind,
     ).toBe("aomi_only");
-    expect(expectedPolicyAction(read.enforcement[0]!)).toBe("transaction");
-    expect(expectedPolicyAction(read.enforcement[1]!)).toBe("typed_data");
-    expect(
-      expectedPolicyAction(
-        {
-          ...read.enforcement[1]!,
-          note: "Your revocation is signed. Send it to finish.",
-        },
-        { remove: true },
-      ),
-    ).toBe("evm_transaction");
     // An id, or a prefix of one or more ids, held by Aomi or only on chain.
     const both = { ...read, enforcement: [entry("on", true, GONE)] };
     expect(matchPolicyIds(both, SOL_RULE)).toEqual([SOL_RULE]);
@@ -590,29 +584,23 @@ describe("wallet rules", () => {
     expect(matchPolicyIds(sole, SOL)).toHaveLength(1);
     expect(matchPolicyIds(sole, "")).toEqual([]);
     expect(matchPolicyIds(sole, " \t")).toEqual([]);
-    // The backend's `next` wins over the inference; null is no wallet action.
+    // `next` names the action, except for removing a policy still in force.
     const evm = read.enforcement[1]!;
-    expect(expectedPolicyAction({ ...evm, next: "evm_transaction" })).toBe(
-      "evm_transaction",
+    expect(expectedPolicyAction(evm)).toBe("typed_data");
+    expect(expectedPolicyAction({ ...evm, next: null })).toBeNull();
+    const held = { remove: true, inForce: true };
+    expect(expectedPolicyAction({ ...evm, next: null }, held)).toBe(
+      "typed_data",
     );
     expect(
-      expectedPolicyAction({ ...evm, next: null }, { remove: true }),
-    ).toBeNull();
-    // `next` is about holding a policy still in force, not removing it.
-    expect(
-      expectedPolicyAction(
-        { ...evm, next: null },
-        { remove: true, inForce: true },
-      ),
-    ).toBe("typed_data");
-    const next = (value: unknown) =>
-      parseWalletPolicies({
-        ...body,
-        enforcement: [{ ...body.enforcement[0], next: value }],
-      }).enforcement[0]!.next;
-    expect(read.enforcement[0]).not.toHaveProperty("next");
-    expect([next(null), next("transaction")]).toEqual([null, "transaction"]);
-    expect(() => next("sign_message")).toThrow(/unsupported enforcement next/);
+      expectedPolicyAction({ ...evm, next: "evm_transaction" }, held),
+    ).toBe("evm_transaction");
+    expect(expectedPolicyAction(read.enforcement[0]!, held)).toBe(
+      "transaction",
+    );
+    expect(() =>
+      parseWalletPolicies(enforcementEntry({ next: "sign_message" })),
+    ).toThrow(/unsupported enforcement next/);
   });
 
   it("changes the admin or Instant connections without touching the rules", async () => {

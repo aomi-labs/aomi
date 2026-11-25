@@ -52,7 +52,7 @@ exports[`help > prints ["policy"] --help 1`] = `
 "USAGE
   aomi policy list [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id]
   aomi policy catalog [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--chain chain]
-  aomi policy set [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--yes] [--amt amount] [--to app-id|address] [--until YYYY-MM-DD] [--chain chain] <policy>
+  aomi policy set [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--yes] <policy>
   aomi policy remove [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--yes] <policy-id>
   aomi policy mode [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--yes] <mode>
   aomi policy authority [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--yes] <self|address>
@@ -70,7 +70,7 @@ FLAGS
 COMMANDS
   list       Each agent wallet's policies and where they stand on chain
   catalog    The apps and tokens a policy can name
-  set        Add or replace one policy: JSON, or --amt <amount> <asset> --to <app>
+  set        Add or replace one policy
   remove     Remove one policy
   mode       Allow only what policies list, or all they don't cap
   authority  Who approves a change that loosens

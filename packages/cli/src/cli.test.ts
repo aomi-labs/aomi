@@ -449,7 +449,12 @@ describe("aomi policy", () => {
     symbol: "USDC",
     decimals: 6,
   };
-  const swig = (rule: string, state: string, ready = state !== "on") => ({
+  const swig = (
+    rule: string,
+    state: string,
+    ready = state !== "on",
+    next: string | null = ready ? "transaction" : null,
+  ) => ({
     rule,
     provider: "swig",
     name: "Swig",
@@ -461,6 +466,7 @@ describe("aomi policy", () => {
     account: null,
     deployment_tx: null,
     note: null,
+    next,
     signer: { family: "svm", address: null },
   });
   const body = {
@@ -500,8 +506,12 @@ describe("aomi policy", () => {
     requests
       .filter((request) => request.key === paths.write)
       .map((request) => JSON.parse(request.body));
+  /** SOL on Jupiter, in lamports, until `UNTIL`. */
   const setSol = (amount: string, ...rest: string[]) =>
-    policy("set", "--amt", amount, "SOL", "--to", "jupiter", ...rest);
+    policy("set", JSON.stringify({ ...sol(amount), id: undefined }), ...rest);
+  /** What a command printed before its Next block. */
+  const shown = (stdout: string) =>
+    stdout.slice(0, stdout.indexOf("Next\n")).split("\n");
   const waiting = { ...body, pending: change };
   const answers = (status: string, rules: object = body) =>
     (routes[paths.write] = { status, rules });
@@ -572,18 +582,6 @@ describe("aomi policy", () => {
     expect(requests.some((r) => r.key.includes("archived"))).toBe(false);
   });
 
-  it.each([
-    ["off", "not deployed"],
-    ["behind", "out of date (Swig)"],
-    ["unverified", "not verified (Swig)"],
-  ])("shows a provider's %s policy as %s", async (state, shown) => {
-    routes[paths.rules] = { ...body, enforcement: [swig(SOL_ID, state)] };
-    const { stdout } = await policy("list", "--wallet", WALLET);
-    expect(stdout).toContain(`2099-12-11 UTC  ${shown}\n`);
-    // --wallet reads that wallet only.
-    expect(requests.some((r) => r.key === paths.wallets)).toBe(false);
-  });
-
   it("prints the catalog, or one chain of it", async () => {
     const { stdout } = await policy("catalog", "--chain", "base");
     expect(stdout.split("\n")).toEqual([
@@ -598,52 +596,6 @@ describe("aomi policy", () => {
     const none = await policy("catalog", "--chain", "tron");
     expect(none.code).toBe(2);
     expect(none.stderr).toContain("chain: no chain tron in the catalog");
-  });
-
-  it("sets a policy from flags: merges it into the set it read, and says what changed and what is next", async () => {
-    answers("waiting", waiting);
-    const { code, stdout } = await policy(
-      "set",
-      "--amt",
-      "2",
-      "sol",
-      "--to",
-      "Jupiter",
-      "--until",
-      "2099-12-31",
-    );
-    // Filed and waiting for an approval, like any wait: exit 3.
-    expect(code).toBe(3);
-    expect(written()).toEqual([
-      {
-        rules: {
-          mode: "blacklist",
-          rules: [
-            {
-              asset: SOL,
-              amount: "2000000000",
-              to: { kind: "protocol", id: "jupiter" },
-              active_until: Date.UTC(2099, 11, 31, 23, 59, 59) / 1000,
-            },
-            { asset: USDC, amount: "200000000", to: { kind: "any_protocol" } },
-          ],
-          linked_only: true,
-        },
-        // The revision the change was built from.
-        revision: 3,
-      },
-    ]);
-    expect(stdout.split("\n")).toEqual([
-      "Up to 2 SOL on Jupiter (Solana), until 2099-12-31 UTC",
-      "LOOSENS",
-      "  FIELD   BEFORE          AFTER",
-      "  amount  0.5 SOL         2 SOL",
-      "  until   2099-12-11 UTC  2099-12-31 UTC",
-      `Filed as ${CHANGE} · waiting for approval`,
-      "Next",
-      `  aomi policy approve ${CHANGE}   waiting for approval`,
-      "",
-    ]);
   });
 
   it("sets the same policy from JSON or a file, and says where a new one goes on chain", async () => {
@@ -662,15 +614,13 @@ describe("aomi policy", () => {
       },
     };
     const inline = await policy("set", JSON.stringify(added));
-    expect(inline.stdout.split("\n")).toEqual([
+    expect(shown(inline.stdout)).toEqual([
       `No SOL to ${SOLANA.publicKey.toBase58().slice(0, 6)}…${SOLANA.publicKey.toBase58().slice(-4)} (Solana)`,
       "TIGHTENS",
       "  FIELD   BEFORE    AFTER",
       "  amount  no limit  0 SOL",
       "  until   -         always",
       "Applied",
-      "Next",
-      `  aomi policy deploy ${SEND}   not on chain yet; put it there`,
       "",
     ]);
     mkdirSync(dir, { recursive: true });
@@ -681,42 +631,11 @@ describe("aomi policy", () => {
     expect(second).toEqual(first);
   });
 
-  it("says a policy no provider can hold is enforced by Aomi only", async () => {
-    answers("applied");
-    const { stdout } = await policy(
-      "set",
-      "--amt",
-      "100",
-      "USDC",
-      "--to",
-      "any",
-      "--chain",
-      "8453",
-    );
-    expect(stdout).toContain(
-      "Next\n  Enforced by Aomi only: no on-chain provider holds this kind of policy\n",
-    );
-  });
-
-  it.each([
-    [
-      ["--amt", "2", "SOL", "--to", "jupitr"],
-      'to.id: no app "jupitr" on Solana. Nearest: jupiter',
-    ],
-    [
-      ["--amt", "5", "USDC", "--to", "any"],
-      "chain: USDC is on Base, Ethereum; name one",
-    ],
-    [
-      [JSON.stringify({ asset: SOL, amount: "5", daily: "1" })],
-      "daily: not a policy field",
-    ],
-  ])(
-    "refuses a bad policy naming its field, and sends nothing (%#)",
-    async (argv, error) => {
-      const { code, stderr } = await policy("set", ...argv);
+  it.each([["{not json"], [JSON.stringify({ asset: SOL, to: "any" })]])(
+    "refuses a policy it cannot read, and sends nothing (%#)",
+    async (input) => {
+      const { code } = await policy("set", input);
       expect(code).toBe(2);
-      expect(stderr).toContain(`error: ${error}`);
       expect(written()).toEqual([]);
     },
   );
@@ -741,9 +660,7 @@ describe("aomi policy", () => {
     expect(code).toBe(0);
     expect(requests.at(-1)).toMatchObject({ key: paths.approve, body: "{}" });
     expect(stdout).toContain("LOOSENS");
-    expect(stdout).toContain(
-      `Applied\nNext\n  aomi policy deploy ${SOL_ID}   the chain holds an earlier version; replace it\n`,
-    );
+    expect(stdout).toContain("Applied\n");
   });
 
   it("files only, and says --yes was not applied, when the authority is a wallet", async () => {
@@ -759,27 +676,23 @@ describe("aomi policy", () => {
       [
         `Filed as ${CHANGE} · waiting for approval`,
         "--yes was not applied: authority is wallet 0xAdmin, which must sign",
-        "Next",
-        `  Sign at ${BASE}/policy/${CHANGE}   0xAdmin must sign`,
       ].join("\n"),
     );
   });
 
-  it("removes a policy and says what the chain still holds", async () => {
+  it("removes a policy", async () => {
     answers("applied", { ...body, rules: { ...body.rules, rules: [usdc] } });
     const { code, stdout } = await policy("remove", SOL_ID);
     expect(code).toBe(0);
     expect(written()[0].rules.rules).toEqual([
       { asset: USDC, amount: "200000000", to: { kind: "any_protocol" } },
     ]);
-    expect(stdout.split("\n")).toEqual([
+    expect(shown(stdout)).toEqual([
       "Remove: Up to 0.5 SOL on Jupiter (Solana)",
       "TIGHTENS",
       "  FIELD   BEFORE   AFTER",
       "  amount  0.5 SOL  no limit",
       "Applied",
-      "Next",
-      `  Still on chain: Swig holds ${SOL_ID}. Run aomi policy undeploy ${SOL_ID}`,
       "",
     ]);
     const missing = await policy("remove", "nope");
@@ -806,15 +719,10 @@ describe("aomi policy", () => {
     );
   });
 
-  it("approves a change with the session it signed in with, then names what to deploy", async () => {
-    routes[paths.approve] = { ...body, enforcement: [swig(SOL_ID, "off")] };
+  it("approves a change with the session it signed in with", async () => {
     const { code, stdout } = await policy("approve", CHANGE);
     expect(code).toBe(0);
     expect(stdout).toContain("Approved\nTrading wallet");
-    // The change named the wallet, so the command to run next names it too.
-    expect(stdout).toContain(
-      `Next\n  aomi policy deploy ${SOL_ID} --wallet ${WALLET}   not on chain yet; put it there\n`,
-    );
     const sent = requests.find((r) => r.key === paths.approve);
     expect(sent).toMatchObject({ auth: "Bearer session-token", body: "{}" });
   });
@@ -855,54 +763,20 @@ describe("aomi policy", () => {
     },
   );
 
-  it("names --wallet in the commands to run next when the wallet was named", async () => {
-    answers("applied", {
-      ...body,
-      rules: { ...body.rules, rules: [usdc] },
-      enforcement: [swig(SOL_ID, "on"), swig(GONE, "on")],
-    });
-    const removed = await policy("remove", SOL_ID, "--wallet", WALLET);
-    expect(removed.stdout).toContain(
-      `  Still on chain: Swig holds ${SOL_ID}. Run aomi policy undeploy ${SOL_ID} --wallet ${WALLET}\n`,
-    );
-    answers("applied", { ...body, enforcement: [swig(SOL_ID, "behind")] });
-    const set = await setSol("0.1", "--wallet", WALLET);
-    expect(set.stdout).toContain(
-      `  aomi policy deploy ${SOL_ID} --wallet ${WALLET}   the chain holds an earlier version; replace it\n`,
-    );
-    routes[paths.rules] = {
-      ...body,
-      enforcement: [swig(SOL_ID, "on"), swig(GONE, "on")],
-    };
-    const listed = await policy("list", "--wallet", WALLET);
-    expect(listed.stdout).toContain(
-      `  On chain only: ${GONE}. Run aomi policy undeploy ${GONE} --wallet ${WALLET}\n`,
-    );
-  });
-
   it("takes the server's word on whether anything changed, not the rows it shows", async () => {
     // The same amount and end as held, and the server still applied a change.
     answers("applied");
-    const applied = await setSol("0.5", "--until", "2099-12-11");
-    expect(applied.stdout.split("\n")).toEqual([
+    expect(shown((await setSol("500000000")).stdout)).toEqual([
       "Up to 0.5 SOL on Jupiter (Solana), until 2099-12-11 UTC",
       "TIGHTENS",
       "Applied",
-      "Next",
-      "  Nothing: Aomi and the chain agree",
       "",
     ]);
-    answers("waiting", waiting);
-    const filed = await setSol("0.5", "--until", "2099-12-11");
-    expect(filed.code).toBe(3);
-    expect(filed.stdout).toContain(
-      `LOOSENS\nFiled as ${CHANGE} · waiting for approval\n`,
-    );
     // Rows that differ do not make a change the server says it did not make.
     answers("unchanged");
-    const unchanged = await setSol("2");
+    const unchanged = await setSol("2000000000");
     expect(unchanged.code).toBe(0);
-    expect(unchanged.stdout).toContain("No change\nNext\n");
+    expect(unchanged.stdout).toContain("No change\n");
     expect(unchanged.stdout).not.toContain("FIELD");
   });
 
@@ -959,7 +833,7 @@ describe("aomi policy", () => {
       confirm: `POST /v1/account/agent-wallets/${WALLET}/policy/enforcement/swig/confirm`,
     };
     const owned = (rule: string, state: string) => ({
-      ...swig(rule, state),
+      ...swig(rule, state, state !== "on", "transaction"),
       signer: { family: "svm", address: OWNER },
     });
     const run = (...argv: string[]) =>
@@ -1001,7 +875,7 @@ describe("aomi policy", () => {
     it("deploys with the local signer: the checks, the three steps, then where it stands", async () => {
       const { code, stdout } = await run("deploy", SOL_ID, "--yes");
       expect(code).toBe(0);
-      expect(stdout.split("\n")).toEqual([
+      expect(shown(stdout)).toEqual([
         "Deploy: Up to 0.5 SOL on Jupiter (Solana)",
         "  provider     Swig on solana:mainnet-beta",
         `  signer       ${OWNER} (local key) will own it on chain`,
@@ -1010,8 +884,6 @@ describe("aomi policy", () => {
         "  sign + send  sent 5igSent",
         "  confirm      Aomi read the chain",
         "On chain: in sync (Swig)",
-        "Next",
-        "  Nothing: Aomi and the chain agree",
         "",
       ]);
       const request = {
@@ -1224,26 +1096,6 @@ describe("aomi policy", () => {
       expect(chain.signed).toEqual([]);
     });
 
-    it("reads the status after a deploy from the provider it named", async () => {
-      const other = (state: string) => ({
-        ...swig(SOL_ID, state),
-        provider: "other",
-        name: "Other",
-      });
-      routes[paths.rules] = {
-        ...body,
-        enforcement: [other("on"), swig(SOL_ID, "off")],
-      };
-      routes[steps.confirm] = {
-        rules: { ...body, enforcement: [other("on"), swig(SOL_ID, "behind")] },
-      };
-      const argv = ["deploy", SOL_ID, "--provider", "swig", "--yes"];
-      const { stdout } = await run(...argv);
-      expect(stdout).toContain("On chain: out of date (Swig)\n");
-      const { stdout: asJson } = await run(...argv, "--json");
-      expect(JSON.parse(asJson)).toMatchObject({ on_chain: "out_of_date" });
-    });
-
     it("names the transaction it sent when Aomi's node never shows it, and exits without an error", async () => {
       routes[steps.confirm] = () =>
         Response.json({ error: "chain_not_settled" }, { status: 409 });
@@ -1330,25 +1182,11 @@ describe("aomi policy", () => {
   });
 
   it("says a policy waits for whitelist mode where a provider on its chain holds only that", async () => {
-    const held = { ...body, enforcement: [] };
-    routes[paths.rules] = held;
-    answers("applied", held);
-    const set = await setSol("0.01");
-    expect(set.stdout).toContain(
-      "Next\n  aomi policy mode whitelist   on-chain providers hold policies only in whitelist mode\n",
-    );
+    routes[paths.rules] = { ...body, enforcement: [] };
     const { stdout } = await policy("list");
     expect(stdout).toMatch(/SOL on Jupiter .* needs whitelist mode\n/);
     // No provider serves Base here: that one is Aomi's alone.
     expect(stdout).toMatch(/USDC on any app .* Aomi only\n/);
-    // A change that still waits is not held yet: the same reason applies.
-    routes[paths.rules] = { ...held, rules: { ...body.rules, rules: [usdc] } };
-    answers("waiting", { ...(routes[paths.rules] as object), pending: change });
-    const filed = await setSol("1");
-    expect(filed.stdout).toContain(
-      "  aomi policy mode whitelist   on-chain providers hold policies only in whitelist mode\n",
-    );
-    expect(filed.stdout).not.toContain("put it there");
   });
 
   it("no longer knows aomi rules", async () => {

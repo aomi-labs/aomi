@@ -1729,7 +1729,7 @@ export type AomiPolicyEnforcement = {
     account: string | null;
     deployment_tx: string | null;
     note: string | null;
-    next?: AomiPolicyAction["kind"] | null;
+    next: AomiPolicyAction["kind"] | null;
     signer: {
         family: AomiWalletFamily;
         address: string | null;
@@ -1752,24 +1752,6 @@ export type AomiPolicyEnforceRequest = {
     revision: number;
     owner?: string;
     remove?: boolean;
-};
-
-// @public
-export class AomiPolicyFieldError extends Error {
-    constructor(field: string, reason: string,
-    nearest?: string[]);
-    // (undocumented)
-    readonly field: string;
-    readonly nearest: string[];
-}
-
-// @public
-export type AomiPolicyInput = {
-    amount: string;
-    asset: string;
-    to: string;
-    until?: string;
-    chain?: string;
 };
 
 // @public
@@ -2524,9 +2506,6 @@ export function chainOnlyPolicies(policies: Pick<AomiWalletPolicies, "rules" | "
 
 // @public (undocumented)
 export const CHAINS_BY_ID: Record<number, Chain>;
-
-// @public
-export function checkPolicy(value: unknown, catalog: AomiPolicyCatalog, now?: number): AomiPolicy;
 
 // @public (undocumented)
 export const CLIENT_TYPE_TS_CLI: AomiClientType;
@@ -3296,7 +3275,7 @@ export interface ExpectedCallsOptions {
 }
 
 // @public
-export const expectedPolicyAction: (entry: Pick<AomiPolicyEnforcement, "signer" | "ready" | "note" | "next">, input?: {
+export const expectedPolicyAction: (entry: Pick<AomiPolicyEnforcement, "signer" | "next">, input?: {
     remove?: boolean | undefined;
     inForce?: boolean | undefined;
 }) => AomiPolicyAction["kind"] | null;
@@ -4011,9 +3990,6 @@ export const POLICY_ERROR_CODES: {
 export function policyFromDraft(draft: AomiPolicyDraft): AomiPolicy | null;
 
 // @public
-export function policyFromInput(input: AomiPolicyInput, catalog: AomiPolicyCatalog, now?: number): AomiPolicy;
-
-// @public
 export function policyKey(rule: Pick<AomiPolicy, "asset" | "to">): string;
 
 // @public
@@ -4158,9 +4134,6 @@ export type SendResult = {
     messages: readonly MessageEvent_2[];
     title?: string;
 };
-
-// @public (undocumented)
-export const sendsRevocation: (entry: Pick<AomiPolicyEnforcement, "ready" | "note">) => boolean;
 
 // @public
 export class Session {

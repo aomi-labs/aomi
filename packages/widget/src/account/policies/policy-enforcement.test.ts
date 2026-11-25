@@ -30,7 +30,6 @@ const hook = (client: object = {}) =>
   ).result;
 
 const OWNER = "0xAbCd00000000000000000000000000000000Ef12";
-const SENT = "Your revocation is signed. Send it from your wallet.";
 const held = (extra: object = {}) =>
   ({
     rule: "r",
@@ -38,12 +37,13 @@ const held = (extra: object = {}) =>
     network: "eip155:8453",
     ready: true,
     note: null,
+    next: "typed_data",
     signer: { family: "evm", address: OWNER },
     ...extra,
   }) as AomiPolicyEnforcement;
 
 describe("the connected wallet as the SDK's policy signer", () => {
-  const entry = held({ note: SENT });
+  const entry = held({ next: "evm_transaction" });
   beforeEach(() => {
     kit.identity.address = OWNER;
     kit.identity.chainId = 1;
@@ -204,7 +204,12 @@ describe("a step the connected wallet cannot take is disabled, with the reason",
     Object.assign(kit, methods, {
       identity: { address: OWNER, svmAddress: SOL, chainId: 8453, ...identity },
     });
-    const entry = held({ note: remove ? SENT : null, signer });
+    const next = remove
+      ? "evm_transaction"
+      : signer.family === "svm"
+        ? "transaction"
+        : "typed_data";
+    const entry = held({ next, signer });
     const step = hook().current[remove ? "takeOff" : "step"](entry);
     expect(step).toMatchObject({ disabled: hint !== null, hint });
     for (const key of Object.keys(methods))
@@ -213,20 +218,13 @@ describe("a step the connected wallet cannot take is disabled, with the reason",
   });
 });
 
-describe("a step follows the entry's `next` when the backend sends one", () => {
+describe("a step follows the entry's `next`", () => {
   const NO_SEND =
     "This wallet can’t send transactions here. Connect another EVM wallet to send it.";
   const stepOf = (next: AomiPolicyEnforcement["next"], remove: boolean) => {
     kit.identity.address = OWNER;
     return hook().current[remove ? "takeOff" : "step"](held({ next }));
   };
-
-  it("does not ask for a signing method when no wallet action is needed", () => {
-    // This wallet cannot sign typed data, which the signer's family implies.
-    expect(stepOf(undefined, true).disabled).toBe(true);
-    expect(stepOf(null, true)).toMatchObject({ disabled: false, hint: null });
-    expect(stepOf(null, false)).toMatchObject({ disabled: false, hint: null });
-  });
 
   it("needs no connected wallet for a step that asks nothing of one, only a known owner", () => {
     const step = (address: string | null) =>
