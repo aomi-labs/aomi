@@ -41,7 +41,7 @@ export function StatusPill({
     <span
       data-status-tone={tone}
       className={cn(
-        "inline-flex h-5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[11px] font-medium leading-none",
+        "inline-flex h-5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-sm px-2 text-[11px] font-medium leading-none",
         TONE[tone],
         className,
       )}
@@ -49,6 +49,26 @@ export function StatusPill({
       {dot ? (
         <span aria-hidden className="size-1.5 rounded-full bg-current" />
       ) : null}
+      {children}
+    </span>
+  );
+}
+
+/** A plan or address family beside a name: one borderless pill. */
+export function Tag({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className={cn(
+        "text-aomi-muted inline-flex h-[18px] shrink-0 items-center whitespace-nowrap rounded-sm bg-[var(--aomi-tag)] px-[7px] font-sans text-[10px] font-medium uppercase leading-none tracking-[0.04em]",
+        className,
+      )}
+    >
       {children}
     </span>
   );

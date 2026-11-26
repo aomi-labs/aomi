@@ -29,6 +29,7 @@ import { evmNetworkDescription } from "@/controls/network-metadata";
 import { getAgentIcon } from "@/icons/agent-map";
 import { PackageMark } from "@/icons/package-mark";
 import { getChainIcon } from "@/icons/chain-map";
+import { packageIconUrl } from "@/icons/preview-package-icons";
 import { SolanaIcon } from "@/icons/chain-icons";
 import { useOptionalAomiWalletNetworkPreferences } from "@/wallet/network-preferences";
 import { useAomiWalletKit } from "@/wallet/context";
@@ -106,7 +107,7 @@ export function packagePickerItems(
       description,
       fullDescription: row.description,
       searchText,
-      Icon: packageIcon(row.icon_url),
+      Icon: packageIcon(packageIconUrl(row)),
     };
   });
 }

@@ -1,4 +1,5 @@
 @import "@assistant-ui/react-markdown/styles/dot.css";
+@import "./unified-ui.css";
 
 /* Internal Tailwind source. Consumers import the compiled, scoped
    @aomi-labs/widget/styles.css entry. */
@@ -90,13 +91,15 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 14px);
-  --radius-4xl: calc(var(--radius) + 20px);
+  /* One family, "softer": 8 for chips, 10 for anything you click and for
+     cards inside a panel, 14 for cards, 20 for panels and the composer. */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 14px;
+  --radius-3xl: 20px;
+  --radius-4xl: 20px;
 
   @keyframes shimmer-sweep {
     from {
@@ -108,6 +111,17 @@
   }
   --animate-shimmer: shimmer-sweep var(--shimmer-duration, 1000ms) linear
     infinite both;
+
+  /* The live step of a transaction's progress bars. */
+  @keyframes phase-sweep {
+    from {
+      background-position: 0% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+  --animate-phase-sweep: phase-sweep 1.3s linear infinite;
 
   /* Aomi design-system utilities (bg-aomi-surface, text-aomi-muted, …). */
   --color-aomi-bg: var(--aomi-bg);
@@ -150,10 +164,10 @@
    `type-*` never collides with anything. Each sets size + line-height (and
    weight where the role fixes it); a later `font-*` / `leading-*` still wins. */
 @utility type-title {
-  font-size: 1rem;
-  line-height: 1.375rem;
+  font-size: 1.25rem;
+  line-height: 1.625rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
 }
 
 @utility type-row {
@@ -163,9 +177,10 @@
 }
 
 @utility type-section {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
+  font-size: 0.9375rem;
+  line-height: 1.3125rem;
   font-weight: 600;
+  letter-spacing: -0.005em;
 }
 
 @utility type-control {
@@ -174,8 +189,8 @@
 }
 
 @utility type-meta {
-  font-size: 0.75rem;
-  line-height: 1rem;
+  font-size: 0.78125rem;
+  line-height: 1.0625rem;
 }
 
 /* Addresses and hashes only. */
@@ -257,6 +272,17 @@
      ---------------------------------------------------------------------- */
 
   /* surfaces — cool (zinc) ramp */
+  /* Main fill (Send, primary buttons, the composer arrow): soft black, one
+     step lighter than ink so it is less of a block next to the pale Reject. */
+  --aomi-action-primary: #27272a;
+  --aomi-on-action-primary: #ffffff;
+  --aomi-action-primary-hover: #3a3a3f;
+  --aomi-action-danger-bg: #fae5e7;
+  --aomi-action-danger-fg: #b8394a;
+  --aomi-action-danger-hover: #f5d6da;
+  --aomi-tag: #f1f1f3;
+  --aomi-segment: #ffffff;
+  --aomi-on-segment: #000000;
   --aomi-bg: #ffffff; /* cool-0 */
   --aomi-surface: #fafafa; /* cool-50 */
   --aomi-surface-2: #f4f4f5; /* cool-100 */
@@ -265,7 +291,7 @@
 
   /* text */
   --aomi-fg: #09090b; /* cool-950 — "ink" */
-  --aomi-muted: #71717a; /* cool-500 */
+  --aomi-muted: #5d5d67; /* readable grey */
 
   /* accent — sky, THE interactive accent */
   --aomi-accent: #5288c2; /* sky-500 */
@@ -297,7 +323,7 @@
     var(--aomi-accent) 45%,
     transparent
   );
-  --aomi-overlay-border: color-mix(in srgb, var(--aomi-muted) 30%, transparent);
+  --aomi-overlay-border: var(--aomi-border);
 
   --aomi-danger: #d2495b; /* text + outline */
   --aomi-danger-strong: #b8394a; /* fills — white on #d2495b is only 4.3:1 */
@@ -305,13 +331,14 @@
   --aomi-info: #416cac;
 
   /* shape — see the rounded-* utilities in the @theme block */
-  --aomi-radius-shell: 24px; /* modals, sheets, the activity panel */
-  --aomi-radius-card: 16px; /* cards, groups, dropdowns, popovers */
-  --aomi-radius-control: 10px;
+  --aomi-radius-shell: 20px; /* modals, sheets, the activity panel, composer */
+  --aomi-radius-card: 14px; /* cards, groups, dropdowns, the account bar */
+  --aomi-radius-control: 10px; /* buttons, rows, pickers, cards in a panel */
 
   /* elevation — the only two shadows (the menu and modal shadows the app
      already used) */
-  --aomi-shadow-popover: 0 16px 40px rgb(0 0 0 / 0.2);
+  --aomi-shadow-popover:
+    0 1px 2px rgb(0 0 0 / 0.04), 0 12px 32px rgb(15 23 42 / 0.1);
   --aomi-shadow-modal: 0 24px 70px rgb(0 0 0 / 0.08);
 }
 
@@ -359,6 +386,13 @@
      round close button all vanished. Each step below clears the one under it,
      and `border` clears all of them — on dark it carries the structure that
      fills carry on light. */
+  --aomi-action-primary: #e4e4e7;
+  --aomi-on-action-primary: #09090b;
+  --aomi-action-primary-hover: #d4d4d6;
+  --aomi-action-danger-bg: #49262c;
+  --aomi-action-danger-fg: #ffb2bc;
+  --aomi-action-danger-hover: #5a2f36;
+  --aomi-tag: #34343a;
   --aomi-bg: #09090b; /* cool-950 */
   --aomi-surface: #18181b; /* cool-900 · recessed, mirrors light's #fafafa */
   --aomi-raised: #202024; /* panels lift off bg, and leave room for fills */
@@ -366,7 +400,7 @@
   --aomi-border: #3f3f46; /* hairline · reads on bg…surface-2 alike */
 
   --aomi-fg: #fafafa;
-  --aomi-muted: #a1a1aa; /* cool-400 */
+  --aomi-muted: #adadb7; /* readable grey */
 
   --aomi-accent: #7facd6; /* sky-400 on dark */
   --aomi-accent-strong: #5288c2;
@@ -400,7 +434,7 @@
     var(--aomi-accent) 45%,
     transparent
   );
-  --aomi-overlay-border: color-mix(in srgb, var(--aomi-muted) 30%, transparent);
+  --aomi-overlay-border: var(--aomi-border);
 }
 
 /* ============================================

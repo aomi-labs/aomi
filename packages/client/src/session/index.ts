@@ -894,11 +894,12 @@ export class ClientSession {
               this.liveMessages.delete(event.message_key);
               this.liveRevisions.delete(event.message_key);
               if (this.isCallbackResponse(event)) {
-                // The final stream is promoted from a temporary trace key to
-                // the durable response key. Retire only that draft; earlier
-                // commentary has its own durable message and remains visible.
+                // The final stream is promoted from a temporary key of this
+                // callback turn (`:draft:<id>` or `:trace:<id>`) to the durable
+                // response key. Retire those drafts; earlier commentary has
+                // its own durable message and remains visible.
                 for (const key of this.liveMessages.keys()) {
-                  if (key.startsWith(`${event.turn_id}:trace:`)) {
+                  if (key.startsWith(`${event.turn_id}:`)) {
                     this.liveMessages.delete(key);
                     this.liveRevisions.delete(key);
                   }
@@ -1216,7 +1217,7 @@ export class ClientSession {
     )
       return;
     if (
-      key.startsWith(`${frame.turn_id}:trace:`) &&
+      key.startsWith(`${frame.turn_id}:`) &&
       this.messages.some(
         (stored) =>
           this.isCallbackResponse(stored) && stored.turn_id === frame.turn_id,

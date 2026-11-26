@@ -63,7 +63,7 @@ export function WalletIconSlot({
     return (
       <span
         className={cn(
-          "bg-muted text-muted-foreground flex shrink-0 items-center justify-center rounded-xl",
+          "bg-muted text-muted-foreground rounded-control flex shrink-0 items-center justify-center",
           className,
         )}
         style={{ ...slotStyle, color: brand ? BRAND_COLORS[brand] : undefined }}
@@ -81,7 +81,7 @@ export function WalletIconSlot({
     return (
       <span
         className={cn(
-          "bg-muted/50 flex shrink-0 items-center justify-center overflow-hidden rounded-xl",
+          "bg-muted/50 rounded-control flex shrink-0 items-center justify-center overflow-hidden",
           className,
         )}
         style={slotStyle}
@@ -100,7 +100,7 @@ export function WalletIconSlot({
   return (
     <span
       className={cn(
-        "bg-muted/50 text-muted-foreground flex shrink-0 items-center justify-center rounded-xl",
+        "bg-muted/50 text-muted-foreground rounded-control flex shrink-0 items-center justify-center",
         className,
       )}
       style={slotStyle}

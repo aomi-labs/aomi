@@ -438,8 +438,9 @@ describe("WalletReview", () => {
       "The wallet used a different nonce from the prepared transaction.",
     );
     expect(screen.getByRole("alert")).not.toHaveTextContent("0xtransaction");
+    // Every action is held (the details toggle only shows facts).
     for (const button of within(
-      screen.getByTestId(testIds.txReview),
+      screen.getByTestId(testIds.txReview).querySelector("footer")!,
     ).getAllByRole("button"))
       expect(button).toBeDisabled();
     await mismatchController.execute(mismatched.commit_id);
@@ -1154,7 +1155,7 @@ describe("ordered batch submission", () => {
     controller(execute);
     const { rerender } = render(<WalletReview />);
     expect(
-      screen.getByText("Your wallet asks for 2 signatures, in order."),
+      screen.getByText("2 signatures, in order", { exact: false }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Submit all" })).toBeNull();
     fireEvent.click(
@@ -1208,7 +1209,7 @@ describe("ordered batch submission", () => {
       screen.getByRole("button", { name: "Send 2 transactions · 1 of 2" }),
     ).toBeEnabled();
     expect(
-      screen.getByText("Your wallet asks for 2 signatures, in order."),
+      screen.getByText("2 signatures, in order", { exact: false }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Submit all" }));
     await waitFor(() => expect(execute).toHaveBeenCalledWith("commit-1"));

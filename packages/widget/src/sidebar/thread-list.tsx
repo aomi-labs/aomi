@@ -47,10 +47,9 @@ function useCloseMobileSidebar() {
   };
 }
 
-
 /** A sidebar row's shape and states; `data-active` marks the current one. */
 export const sidebarRowClass =
-  "hover:bg-aomi-hover/60 focus-visible:bg-aomi-hover/60 data-active:bg-aomi-accent-subtle data-active:ring-aomi-accent/20 data-active:ring-1 data-active:ring-inset rounded-[12px] transition-all focus-visible:outline-none";
+  "hover:bg-aomi-hover/60 focus-visible:bg-aomi-hover/60 data-active:bg-aomi-accent-subtle data-active:ring-aomi-accent/20 data-active:ring-1 data-active:ring-inset rounded-control transition-all focus-visible:outline-none";
 
 export const ThreadList: FC = () => {
   return (
@@ -71,7 +70,7 @@ const ThreadListNew: FC = () => {
       <Button
         data-testid={testIds.newChat}
         onClick={closeMobileSidebar}
-        className="aui-thread-list-new border-aomi-border bg-aomi-raised hover:border-aomi-muted/60 hover:bg-aomi-raised flex items-center justify-start gap-2 rounded-[12px] border px-3 py-[9px] text-start text-sm font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors max-md:h-11 max-md:text-[15px]"
+        className="aui-thread-list-new border-aomi-border bg-aomi-raised hover:border-aomi-muted/60 hover:bg-aomi-raised rounded-control flex items-center justify-start gap-2 border px-3 py-[9px] text-start text-sm font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors max-md:h-11 max-md:text-[15px]"
         variant="ghost"
       >
         <PlusIcon className="size-4" />

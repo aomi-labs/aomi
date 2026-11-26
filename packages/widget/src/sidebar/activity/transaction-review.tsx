@@ -1,6 +1,6 @@
 "use client";
 import { cn } from "@/lib/cn";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { Action, ActionRequest, MessageReview } from "@aomi-labs/client";
 import {
   isMessageReview,
@@ -8,6 +8,7 @@ import {
   shortAddress,
 } from "@aomi-labs/client";
 import {
+  ChevronDown,
   ExternalLink,
   Wallet,
   Fuel,
@@ -25,8 +26,8 @@ import {
   focusRing,
 } from "./presentation";
 
-/** The review actions keep their pill shape: they are the panel's one decision. */
-const reviewButtonClass = cn(focusRing, "h-10 rounded-full");
+/** The panel's one decision: 40 px high, with every button's corner. */
+const reviewButtonClass = cn(focusRing, "rounded-control h-10");
 // One half of the "<action> · n of m | Submit all" split button. No size
 // variant: the shared pill container owns the radius, so the halves stay square.
 const splitSegment = cn(
@@ -209,50 +210,25 @@ export function TransactionReview({
         {request.type === "sign" ? (
           <SigningRequestMetadata request={request} />
         ) : null}
-        <dl className="type-meta flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-          {[...new Set(signers)].filter(Boolean).map((signer) => (
-            <div key={signer} className="flex items-center gap-2">
-              <Wallet className="text-aomi-muted size-3.5 shrink-0" />
-              <dt className="sr-only">Signing wallet</dt>
-              <dd title={signer} className="type-address truncate">
-                {shortAddress(signer, { head: 8, tail: 6 })}
-              </dd>
-            </div>
-          ))}
-          {message && eligibility?.state === "eligible" ? (
-            <div className="text-aomi-success flex items-center gap-2">
-              <ShieldCheck className="size-3.5 shrink-0" />
-              <dt className="sr-only">Check</dt>
-              <dd>Check passed</dd>
-            </div>
-          ) : null}
-          {simulation && !simulationFailed && (
-            <div
-              className={cn(
-                "flex items-center gap-2",
-                simulation.status === "passed"
-                  ? "text-aomi-success"
-                  : "text-aomi-muted",
-              )}
-            >
-              {simulation.status === "passed" ? (
-                <ShieldCheck className="size-3.5 shrink-0" />
-              ) : (
-                <ShieldQuestion className="size-3.5 shrink-0" />
-              )}
-              <dt className="sr-only">Simulation</dt>
-              <dd>
-                {simulation.status === "passed"
-                  ? "Simulation passed"
-                  : "Simulation unavailable"}
-              </dd>
-            </div>
-          )}
-          <div className="text-aomi-muted flex items-center gap-2">
-            <Fuel className="size-3.5 shrink-0" />
-            <dt className="flex-1">{simulationCostSummary(simulation)}</dt>
-          </div>
-        </dl>
+        <ReviewFacts
+          signers={[...new Set(signers)].filter(Boolean) as string[]}
+          signatures={!failed && prompts > 1 ? prompts : 0}
+          check={
+            message && eligibility?.state === "eligible"
+              ? "check"
+              : simulation && !simulationFailed
+                ? simulation.status === "passed"
+                  ? "passed"
+                  : "unavailable"
+                : undefined
+          }
+          coverage={
+            eligibility?.state === "eligible" && eligibility.reason
+              ? eligibility.reason
+              : undefined
+          }
+          gas={simulationCostSummary(simulation)}
+        />
       </div>
       {/* The exact signed payload, always: rows summarize it, they never
           replace it (a long message's text row is cut short). */}
@@ -316,19 +292,6 @@ export function TransactionReview({
       {note && !failed ? (
         <p className="type-meta text-aomi-muted mt-3">{note}</p>
       ) : null}
-      {!failed && prompts > 1 ? (
-        <p className="type-meta text-aomi-muted mt-3 flex items-center gap-1.5">
-          <Wallet className="size-3.5 shrink-0" />
-          Your wallet asks for {prompts} signatures, in order.
-        </p>
-      ) : null}
-      {/* Beside the approval: a passed simulation is never the only check shown. */}
-      {eligibility?.state === "eligible" && eligibility.reason ? (
-        <p className="type-meta text-aomi-warning mt-3 flex items-start gap-1.5">
-          <ShieldAlert className="mt-px size-3.5 shrink-0" />
-          <span>Limited coverage: {eligibility.reason}</span>
-        </p>
-      ) : null}
       <footer
         className={
           failed || approveHidden
@@ -358,7 +321,7 @@ export function TransactionReview({
               {connect.label}
             </AomiButton>
           ) : split ? (
-            <div className="bg-aomi-fg text-aomi-bg flex min-w-0 overflow-hidden rounded-full">
+            <div className="rounded-control flex min-w-0 overflow-hidden bg-[var(--aomi-action-primary)] text-[color:var(--aomi-on-action-primary)]">
               <button
                 type="button"
                 onClick={onApprove}
@@ -425,5 +388,138 @@ function SigningRequestMetadata({
         </dd>
       </div>
     </dl>
+  );
+}
+
+/**
+ * The facts under the balance changes, in two lines. Line 1: the signing
+ * wallet and how it signs. Line 2: the checks (simulation, and the guard's
+ * coverage beside it so a pass is never the only check shown); a click opens
+ * the guard's reasons and the gas.
+ */
+function ReviewFacts({
+  signers,
+  signatures,
+  check,
+  coverage,
+  gas,
+}: {
+  signers: string[];
+  /** Wallet prompts when more than one; 0 hides the note. */
+  signatures: number;
+  check?: "passed" | "unavailable" | "check";
+  coverage?: string;
+  gas: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const reasons = coverage?.split(" · ").filter(Boolean) ?? [];
+  const detailsId = useId();
+  return (
+    <div className="type-meta flex min-w-0 flex-col gap-2">
+      {signers.length > 0 || signatures > 1 ? (
+        <p className="flex min-w-0 items-center gap-1.5">
+          <Wallet className="text-aomi-muted size-3.5 shrink-0" />
+          {signers.map((signer, index) => (
+            <span
+              key={signer}
+              title={signer}
+              aria-label={`Signing wallet ${signer}`}
+              className="type-address min-w-0 truncate"
+            >
+              {index ? ", " : ""}
+              {shortAddress(signer, { head: 8, tail: 6 })}
+            </span>
+          ))}
+          {signatures > 1 ? (
+            <span className="text-aomi-muted shrink-0 whitespace-nowrap">
+              {signers.length ? "· " : ""}
+              {signatures} signatures, in order
+            </span>
+          ) : null}
+        </p>
+      ) : null}
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={detailsId}
+        onClick={() => setOpen(!open)}
+        className={cn(
+          focusRing,
+          "rounded-control group/facts -mx-1 flex w-fit max-w-full items-center gap-1.5 px-1 text-left",
+        )}
+      >
+        {check ? (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 whitespace-nowrap",
+              check === "unavailable" ? "text-aomi-muted" : "text-aomi-success",
+            )}
+          >
+            {check === "unavailable" ? (
+              <ShieldQuestion className="size-3.5 shrink-0" />
+            ) : (
+              <ShieldCheck className="size-3.5 shrink-0" />
+            )}
+            {check === "check"
+              ? "Check passed"
+              : check === "passed"
+                ? "Simulation passed"
+                : "Simulation unavailable"}
+          </span>
+        ) : null}
+        {check && coverage ? (
+          <span className="text-aomi-muted" aria-hidden="true">
+            ·
+          </span>
+        ) : null}
+        {coverage ? (
+          <span className="text-aomi-warning inline-flex items-center gap-1.5 whitespace-nowrap">
+            <ShieldAlert className="size-3.5 shrink-0" />
+            Limited coverage
+          </span>
+        ) : null}
+        {!check && !coverage ? (
+          <span className="text-aomi-muted">Details</span>
+        ) : null}
+        <ChevronDown
+          aria-hidden="true"
+          className={cn(
+            "text-aomi-muted group-hover/facts:text-aomi-fg size-3 shrink-0 transition-transform duration-200 motion-reduce:transition-none",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      <div
+        id={detailsId}
+        hidden={!open}
+        className="text-aomi-muted flex flex-col gap-1.5 pl-5"
+      >
+        {reasons.length ? (
+          <ul className="flex flex-col gap-1">
+            {reasons.map((reason) => {
+              const code = /^(.*):\s*([a-z0-9_]+)$/.exec(reason);
+              return (
+                <li key={reason} className="break-words">
+                  {code ? (
+                    <>
+                      {code[1]}{" "}
+                      <code className="type-address bg-aomi-surface-2 text-aomi-fg rounded-[4px] px-1 text-[11px] [word-break:break-all]">
+                        {code[2]}
+                      </code>
+                    </>
+                  ) : (
+                    reason
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+        <p className="flex items-center gap-1.5">
+          <Fuel className="size-3.5 shrink-0" />
+          {gas}
+        </p>
+      </div>
+    </div>
   );
 }

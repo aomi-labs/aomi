@@ -1,20 +1,30 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type UIEvent } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useChatView } from "@aomi-labs/react";
 import { useThread } from "@assistant-ui/react";
+import { useFollow } from "./use-follow";
 
 /** Saved reader position owns initialization; native live/bottom following remains active. */
-export function useChatScroll(loading: boolean) {
+export function useChatScroll(loading: boolean, paused = false) {
   const view = useChatView();
   const messageCount = useThread((thread) => thread.messages.length);
+  const sentCount = useThread(
+    (thread) =>
+      thread.messages.filter((message) => message.role === "user").length,
+  );
   const viewport = useRef<HTMLDivElement>(null);
   const savedScroll = useRef(view?.store.get(view.threadId)?.scroll);
   const [restoring, setRestoring] = useState(true);
   const restoreReader = Boolean(
     savedScroll.current && !savedScroll.current.atBottom,
   );
-  const [following, setFollowing] = useState(!restoreReader);
+  useFollow(viewport, {
+    enabled: !restoring && !loading && !paused,
+    startFollowing: !restoreReader,
+    threadId: view?.threadId,
+    sentCount,
+  });
   useLayoutEffect(() => {
     if (!restoring || loading || (restoreReader && messageCount === 0)) return;
     const node = viewport.current;
@@ -69,22 +79,18 @@ export function useChatScroll(loading: boolean) {
   }, [view]);
   return {
     restoring,
-    autoScroll: following,
     viewportProps: {
       ref: viewport,
-      // Native initialization/switch RAFs are independent of autoScroll.
-      // They must not replace an existing reader's restored position.
+      // `useFollow` owns following. Native initialization/switch RAFs are
+      // independent of it and must not replace an existing reader's restored
+      // position.
+      autoScroll: false,
+      scrollToBottomOnRunStart: false,
       scrollToBottomOnInitialize: !restoreReader,
       scrollToBottomOnThreadSwitch: !restoreReader,
       onWheel: () => setRestoring(false),
       onPointerDown: () => setRestoring(false),
       onKeyDown: () => setRestoring(false),
-      onScroll: (event: UIEvent<HTMLDivElement>) => {
-        const node = event.currentTarget;
-        setFollowing(
-          node.scrollHeight - node.scrollTop - node.clientHeight < 8,
-        );
-      },
     },
   };
 }

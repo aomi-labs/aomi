@@ -82,7 +82,7 @@ export function Segmented<T extends string>({
       aria-label={label}
       aria-disabled={disabled || undefined}
       className={cn(
-        "bg-aomi-surface-2 rounded-control gap-0.5 p-[3px]",
+        "rounded-control gap-0.5 bg-[var(--aomi-tag)] p-[3px]",
         fullWidth ? "flex w-full" : "inline-flex",
         className,
       )}
@@ -103,12 +103,12 @@ export function Segmented<T extends string>({
             onClick={() => select(index)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
-              "flex items-center justify-center whitespace-nowrap rounded-lg px-[11px] text-[12px] font-medium leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+              "flex items-center justify-center whitespace-nowrap rounded-[6px] px-[11px] text-[13px] font-medium leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-40",
               size === "sm" ? "h-[22px]" : "h-[26px]",
               fullWidth && "flex-1",
               checked
-                ? "bg-aomi-raised text-aomi-fg ring-aomi-border ring-1"
-                : "text-aomi-muted hover:text-aomi-fg",
+                ? "bg-[var(--aomi-segment)] text-[color:var(--aomi-on-segment)]"
+                : "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg",
             )}
           >
             {option.label}

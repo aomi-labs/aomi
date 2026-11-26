@@ -5,7 +5,7 @@ import { useCallback, useRef, useState, type FC, type ReactNode } from "react";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
 
 export const controlSelectTriggerClass =
-  "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg h-8 min-w-0 gap-1.5 rounded-full px-2.5 text-xs";
+  "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg rounded-control h-8 min-w-0 gap-1.5 px-2.5 text-xs";
 
 export const controlMenuContentClass =
   "border-aomi-border bg-aomi-raised rounded-card shadow-popover w-[248px] overflow-hidden border p-2";

@@ -64,7 +64,7 @@ export function AssistantMessageRow({
         <>
           <AomiMark
             size={26}
-            className="text-aomi-fg mt-0.5 hidden shrink-0 md:block"
+            className="text-aomi-fg mt-px hidden shrink-0 md:block"
             aria-hidden
           />
           <span

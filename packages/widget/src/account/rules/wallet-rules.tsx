@@ -365,7 +365,7 @@ export function WalletRules({
             </AomiButton>
           </span>
           {templatePanel ? (
-            <div className="border-aomi-border w-full rounded-[10px] border">
+            <div className="border-aomi-border rounded-control w-full border">
               {templatePanel}
             </div>
           ) : null}

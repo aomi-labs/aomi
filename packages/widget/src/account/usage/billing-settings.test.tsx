@@ -104,7 +104,7 @@ describe("billing settings", () => {
     await act(async () => {
       render(<BillingSettings />);
     });
-    fireEvent.click(screen.getByRole("button", { name: "Usage" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Usage" }));
 
     expect(await screen.findByText("Spend breakdown")).toBeTruthy();
     expect(screen.getAllByText("$0.80").length).toBeGreaterThanOrEqual(2);
@@ -124,7 +124,7 @@ describe("billing settings", () => {
     await act(async () => {
       render(<BillingSettings />);
     });
-    fireEvent.click(screen.getByRole("button", { name: "Usage" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Usage" }));
 
     expect(
       await screen.findByText(

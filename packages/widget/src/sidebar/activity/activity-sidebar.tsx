@@ -22,12 +22,13 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, LoaderCircle, X } from "lucide-react";
 import { useAomiRuntime } from "@aomi-labs/react";
 import { projectCommitLifecycle, reviewEligibility } from "@aomi-labs/client";
 import { useTraceAttribution } from "@/thread/trace-attribution";
 import { packageChip } from "@/thread/attribution";
 import { ToolChipView } from "@/thread/tool-chip";
+import { traceIcon } from "@/thread/trace-icons";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import {
   selectActivity,
@@ -36,7 +37,12 @@ import {
 } from "./model";
 import { focusRing } from "./presentation";
 import { SubagentRow } from "./subagent-row";
-import { TransactionCard, TransactionList } from "./transactions";
+import {
+  HistoryRow,
+  TransactionCard,
+  isToSign,
+  transactionProgress,
+} from "./transactions";
 import { WalletReview } from "./wallet-review";
 import { PHONE_QUERY, useActivityPanel } from "./activity-panel-context";
 
@@ -56,6 +62,7 @@ function ActivitySidebarContent() {
     pendingActions,
     actionAttempts,
     commits = [],
+    retainedEvents,
     commitController,
     currentThreadId,
     getThreadMetadata,
@@ -70,7 +77,6 @@ function ActivitySidebarContent() {
     setOpen: setPanelOpen,
     setWorthShowing,
   } = useActivityPanel();
-  const [open, setOpen] = useState(true);
   const [compact, setCompact] = useState(false);
   const [sheet, setSheet] = useState(false);
   const anchorRef = useRef<HTMLSpanElement>(null);
@@ -99,9 +105,16 @@ function ActivitySidebarContent() {
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
   }, []);
+  // A sent transaction from a turn an Edit or Rerun removed keeps its
+  // steps here (not in the chat), so History still names it.
   const activity = useMemo(
-    () => selectActivity(events, pendingActions, commits),
-    [events, pendingActions, commits],
+    () =>
+      selectActivity(
+        retainedEvents?.length ? [...retainedEvents, ...events] : events,
+        pendingActions,
+        commits,
+      ),
+    [retainedEvents, events, pendingActions, commits],
   );
   // Work staged since the latest user message, callbacks included, is current.
   const turnStart = useMemo(
@@ -123,7 +136,6 @@ function ActivitySidebarContent() {
       (pending.request.type === "sign" ||
         reviewEligibility(pending.request)?.state === "eligible")),
   );
-  const expanded = signing || open;
   const transactionRows = [
     ...new Map(
       [...activity.transactions, ...activity.history].map((tx) => [tx.id, tx]),
@@ -177,9 +189,10 @@ function ActivitySidebarContent() {
     const commit = tx.commit && commitController?.groupView?.(tx.commit);
     return commit && commit !== tx.commit ? { ...tx, commit } : tx;
   };
-  const card = (tx: ActivityTransaction) => (
+  const card = (tx: ActivityTransaction, row = false) => (
     <TransactionCard
       key={tx.id}
+      row={row}
       transaction={tx}
       onChain={onChainPresentation(tx)}
       reviewing={Boolean(
@@ -231,15 +244,40 @@ function ActivitySidebarContent() {
     if (sheet && reviewKey) setPanelOpen(true);
   }, [sheet, reviewKey, setPanelOpen]);
   const showRail = hasActivity && panelOpen;
-  const hasTransactions = Boolean(transactions.length > 0 || waiting);
+  // Still in play (the current request, or a commit not yet settled) goes in
+  // To sign; everything else is History, newest first.
+  const isCurrent = (tx: ActivityTransaction) =>
+    (tx.sequence ?? -Infinity) > turnStart;
+  // A batch (one commit batch or one wallet request) moves as one: it stays
+  // in To sign until every part of it is finished.
+  const liveBatches = new Set(
+    transactions
+      .filter((tx) => isToSign(tx, isCurrent(tx)))
+      .map((tx) => batchKey(tx) ?? tx.id),
+  );
+  const toSign = transactions.filter((tx) =>
+    liveBatches.has(batchKey(tx) ?? tx.id),
+  );
+  const history = transactions.filter((tx) => !toSign.includes(tx));
+  const hasToSign = Boolean(toSign.length || waiting);
+  // A new wallet request reopens a folded To sign.
+  const [signOpen, setSignOpen] = useState(true);
+  useEffect(() => {
+    if (reviewKey) setSignOpen(true);
+  }, [reviewKey]);
   const transactionContent = (
     <>
-      <TransactionList
-        newestId={transactions[0]?.id}
-        count={transactions.length}
-      >
-        {transactions.map((tx) => card(progress(tx)))}
-      </TransactionList>
+      {toSign.length > 0 && (
+        <div
+          role="region"
+          aria-label="Transactions to sign, in signing order"
+          className="aui-current-transactions bg-aomi-surface rounded-control divide-aomi-border/70 divide-y overflow-hidden"
+        >
+          <AnimatePresence initial={false}>
+            {toSign.map((tx) => card(progress(tx), true))}
+          </AnimatePresence>
+        </div>
+      )}
       <WalletReview />
       {scheduled.length ? (
         <Suspense fallback={null}>
@@ -248,49 +286,113 @@ function ActivitySidebarContent() {
       ) : null}
     </>
   );
+  const runningAgents = activity.agents.filter(
+    (agent) => agent.status === "running",
+  ).length;
+  const failedHistory = history.filter((tx) => {
+    const state = transactionProgress(tx);
+    return (
+      !state.rejected &&
+      (state.failed || onChainPresentation(tx)?.onChain === "reverted")
+    );
+  }).length;
   const groups = (
     <>
-      {activity.agents.length > 0 && (
-        <Group title="Subagents" count={activity.agents.length}>
-          {activity.agents.map((agent, index) => (
-            <SubagentRow key={agent.agentId} agent={agent} index={index} />
-          ))}
-        </Group>
-      )}
       {activity.packages.length > 0 && (
-        <Group title="Packages" count={activity.packages.length}>
+        <Group
+          title="Packages"
+          count={activity.packages.length}
+          summary={<PackageLogos ids={activity.packages} />}
+        >
           <ActivePackages ids={activity.packages} />
         </Group>
       )}
-      {hasTransactions && (
-        <section className="py-4" aria-label="Transactions">
-          <GroupHeader
-            title="Transactions"
-            count={transactions.length}
-            open={expanded}
-            // A pending signature keeps the list open.
-            onToggle={signing ? undefined : () => setOpen(!open)}
-            className="mb-3"
+      {activity.agents.length > 0 && (
+        <Group
+          title="Subagents"
+          count={activity.agents.length}
+          summary={
+            runningAgents > 0 ? (
+              <span className="inline-flex items-center gap-1.5">
+                <LoaderCircle
+                  className="size-3.5 animate-spin motion-reduce:animate-none"
+                  aria-hidden="true"
+                />
+                {runningAgents} working
+              </span>
+            ) : undefined
+          }
+        >
+          <ShowSome
+            noun="subagents"
+            limit={2}
+            items={[...activity.agents]
+              .map((agent, index) => ({ agent, index }))
+              .sort(
+                (a, b) =>
+                  Number(b.agent.status === "running") -
+                  Number(a.agent.status === "running"),
+              )
+              .map(({ agent, index }) => (
+                <SubagentRow key={agent.agentId} agent={agent} index={index} />
+              ))}
           />
-          <AnimatePresence initial={false}>
-            {expanded && (
+        </Group>
+      )}
+      <SectionPresence show={hasToSign} id="to-sign">
+        <Group
+          title="To sign"
+          count={toSign.length || undefined}
+          open={signOpen}
+          onOpenChange={setSignOpen}
+          summary={
+            waiting ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  aria-hidden="true"
+                  className="bg-aomi-warning size-1.5 rounded-full"
+                />
+                waiting for you
+              </span>
+            ) : undefined
+          }
+        >
+          {transactionContent}
+        </Group>
+      </SectionPresence>
+      <SectionPresence show={history.length > 0} id="history">
+        <Group
+          title="History"
+          count={history.length}
+          summary={failedHistory ? `${failedHistory} failed` : undefined}
+        >
+          <ShowSome
+            noun="transactions"
+            limit={3}
+            items={history.map((tx) => (
               <m.div
-                key="transaction-content"
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
+                key={tx.id}
+                layout="position"
+                initial={reduceMotion ? false : { opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
                 transition={{
-                  duration: reduceMotion ? 0 : 0.22,
-                  ease: "easeOut",
+                  duration: reduceMotion ? 0 : 0.28,
+                  ease: [0.22, 1, 0.36, 1],
+                  // Arrive just after the card leaves To sign.
+                  delay: reduceMotion ? 0 : 0.12,
                 }}
                 className="overflow-hidden"
               >
-                {transactionContent}
+                <HistoryRow
+                  transaction={tx}
+                  onChain={onChainPresentation(tx)}
+                />
               </m.div>
-            )}
-          </AnimatePresence>
-        </section>
-      )}
+            ))}
+          />
+        </Group>
+      </SectionPresence>
     </>
   );
   useLayoutEffect(() => {
@@ -596,24 +698,42 @@ function useOccludedBottom(ref: RefObject<HTMLElement | null>) {
   return occluded;
 }
 
+/**
+ * A panel section that folds to one line. Closed, `summary` stands in for
+ * the content on the right of the title (logos, "2 working", a dot).
+ */
 function Group({
   title,
   count,
+  summary,
+  defaultOpen = true,
+  open: controlledOpen,
+  onOpenChange,
   children,
 }: {
   title: string;
-  count: number;
+  count?: number;
+  summary?: ReactNode;
+  defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(true);
+  const [ownOpen, setOwnOpen] = useState(defaultOpen);
+  const open = controlledOpen ?? ownOpen;
+  const toggle = () => {
+    if (onOpenChange) onOpenChange(!open);
+    else setOwnOpen(!open);
+  };
 
   return (
-    <section className="py-4" aria-label={title}>
+    <section className="py-3.5" aria-label={title}>
       <GroupHeader
         title={title}
         count={count}
         open={open}
-        onToggle={() => setOpen((current) => !current)}
+        summary={open ? undefined : summary}
+        onToggle={toggle}
       />
       <div
         aria-hidden={!open}
@@ -625,7 +745,7 @@ function Group({
         )}
       >
         <div className="relative min-h-0 overflow-hidden">
-          <div className="pt-3">{children}</div>
+          <div className="pt-2.5">{children}</div>
         </div>
       </div>
     </section>
@@ -640,12 +760,14 @@ function GroupHeader({
   title,
   count,
   open,
+  summary,
   onToggle,
   className,
 }: {
   title: string;
-  count: number;
+  count?: number;
   open: boolean;
+  summary?: ReactNode;
   onToggle?: () => void;
   className?: string;
 }) {
@@ -656,29 +778,131 @@ function GroupHeader({
       id={headingId}
       title={title}
       count={count}
-      className={cn("relative", className)}
+      className={cn("group/header relative", className)}
       action={
         onToggle ? (
-          <button
-            type="button"
-            aria-expanded={open}
-            aria-labelledby={headingId}
-            onClick={onToggle}
-            className={cn(
-              focusRing,
-              "text-aomi-muted hover:text-aomi-fg rounded-control flex size-7 items-center justify-center transition-colors after:absolute after:inset-0 after:content-['']",
-            )}
-          >
-            <ChevronDown
+          <>
+            {summary ? (
+              <span className="type-meta text-aomi-muted group-hover/header:text-aomi-fg flex min-w-0 items-center transition-colors">
+                {summary}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-labelledby={headingId}
+              onClick={onToggle}
               className={cn(
-                "size-3.5 transition-transform duration-200 ease-out motion-reduce:transition-none",
-                open && "rotate-180",
+                focusRing,
+                "text-aomi-muted group-hover/header:text-aomi-fg rounded-control flex size-7 items-center justify-center transition-colors after:absolute after:inset-0 after:content-['']",
               )}
-            />
-          </button>
+            >
+              <ChevronDown
+                className={cn(
+                  "size-3.5 transition-transform duration-200 ease-out motion-reduce:transition-none",
+                  open && "rotate-180",
+                )}
+              />
+            </button>
+          </>
         ) : undefined
       }
     />
+  );
+}
+
+/** A section that slides open when it first has something and shut when it
+ * empties, instead of popping in and out of the panel. */
+function SectionPresence({
+  show,
+  id,
+  children,
+}: {
+  show: boolean;
+  id: string;
+  children: ReactNode;
+}) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <AnimatePresence initial={false}>
+      {show && (
+        <m.div
+          key={id}
+          initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
+          transition={{
+            duration: reduceMotion ? 0 : 0.3,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+          className="overflow-hidden"
+        >
+          {children}
+        </m.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/** The first `limit` rows, then "Show all N" to open the rest. */
+function ShowSome({
+  items,
+  limit,
+  noun,
+}: {
+  items: ReactNode[];
+  limit: number;
+  noun: string;
+}) {
+  const [all, setAll] = useState(false);
+  const more = items.length > limit;
+  return (
+    <div className="flex flex-col">
+      <AnimatePresence initial={false}>
+        {all || !more ? items : items.slice(0, limit)}
+      </AnimatePresence>
+      {more ? (
+        <button
+          type="button"
+          aria-expanded={all}
+          onClick={() => setAll(!all)}
+          className={cn(
+            focusRing,
+            "type-meta text-aomi-muted hover:text-aomi-fg rounded-control mt-1 flex w-fit items-center gap-2 py-1 transition-colors motion-reduce:transition-none",
+          )}
+        >
+          <span aria-hidden="true">⋯</span>
+          {all ? `Show fewer ${noun}` : `Show all ${items.length} ${noun}`}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** Folded Packages: each package's mark, as many as fit, then "+N". */
+function PackageLogos({ ids }: { ids: string[] }) {
+  const attribution = useTraceAttribution();
+  const max = 7;
+  return (
+    <span className="flex items-center gap-1.5">
+      {ids.slice(0, max).map((id) => {
+        const chip = packageChip(id, attribution);
+        const Glyph =
+          attribution.packages?.find((item) => item.id === id)?.Icon ??
+          traceIcon(chip.icon ?? "package");
+        return (
+          <Glyph
+            key={id}
+            className="size-3.5 shrink-0"
+            aria-label={chip.label}
+            role="img"
+          />
+        );
+      })}
+      {ids.length > max ? (
+        <span className="tabular-nums">+{ids.length - max}</span>
+      ) : null}
+    </span>
   );
 }
 

@@ -37,23 +37,21 @@ describe("PackageMark", () => {
     expect(container.querySelector("[data-package-icon]")).toBeNull();
   });
 
-  it("sits on a plain tile with its icon, the accent tile without", () => {
+  it("stands without a tile, with its icon or the package glyph", () => {
     const row = render(<PackageTile iconUrl={URL} />).container;
     expect(row.firstElementChild).toHaveClass(
       "size-8",
-      "bg-aomi-raised",
-      "border",
       "text-aomi-accent-strong",
     );
-    expect(row.querySelector("[data-package-icon]")).toHaveClass("size-4");
+    expect(row.firstElementChild).not.toHaveClass("border");
+    expect(row.querySelector("[data-package-icon]")).toHaveClass("size-6");
     const plain = render(<PackageTile iconUrl={null} />).container;
-    expect(plain.firstElementChild).toHaveClass("bg-aomi-accent-subtle");
-    expect(plain.firstElementChild).not.toHaveClass("border");
+    expect(plain.firstElementChild).not.toHaveClass("bg-aomi-accent-subtle");
     expect(plain.querySelector("svg.lucide-package")).not.toBeNull();
     const detail = render(
       <PackageTile iconUrl={URL} size="detail" />,
     ).container;
     expect(detail.firstElementChild).toHaveClass("size-12");
-    expect(detail.querySelector("[data-package-icon]")).toHaveClass("size-6");
+    expect(detail.querySelector("[data-package-icon]")).toHaveClass("size-10");
   });
 });

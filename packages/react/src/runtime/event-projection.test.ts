@@ -8,6 +8,8 @@ import {
 
 import {
   CONTEXT_STEP_TOOL,
+  conversationCommits,
+  retainedActivityEvents,
   conversationPendingActions,
   logicalTurnRunning,
   projectAssistantMessages,
@@ -1459,5 +1461,144 @@ describe("follow-ups within a turn", () => {
       role: "user",
       content: [{ type: "text", text: "use $5" }],
     });
+  });
+});
+
+describe("rerun and wallet callbacks", () => {
+  const committed = (sequence: number, turnId: string, id: string): Event => ({
+    ...meta(sequence, "message", turnId),
+    type: "message",
+    sender: "agent",
+    content: "",
+    tool_name: "evm_commit_txs",
+    tool_result: ["Withdraw", JSON.stringify({ commits: [{ commit_id: id }] })],
+  });
+
+  it("drops an unsent commit made in a turn a Rerun removed, keeps others", () => {
+    const sent = {
+      commit_id: "sent-commit",
+      state: "confirmed",
+      transaction_id: "0xabc",
+    };
+    const commits = [
+      { commit_id: "removed-commit" },
+      { commit_id: "kept-commit" },
+      { commit_id: "pipeline-commit" },
+      sent,
+    ];
+    const ledger: Event[] = [
+      committed(1, "original", "removed-commit"),
+      // Sent from the removed turn: it happened, so History keeps it.
+      committed(1, "original", "sent-commit"),
+      committed(2, "kept", "kept-commit"),
+      // A later read in the removed turn does not move a kept commit.
+      committed(3, "original", "kept-commit"),
+      {
+        ...meta(4, "branch", "rerun"),
+        type: "branch",
+        kind: "regenerate",
+        target_message_key: "saved-user",
+        user_message_key: "saved-user",
+        content: "Base",
+        removed_message_keys: ["saved-user"],
+        removed_turn_ids: ["original"],
+      } as Event,
+    ];
+    expect(conversationCommits(commits, ledger)).toEqual([
+      { commit_id: "kept-commit" },
+      { commit_id: "pipeline-commit" },
+      sent,
+    ]);
+    expect(conversationCommits(commits, ledger.slice(0, 3))).toBe(commits);
+  });
+
+  it("keeps the removed turn's steps behind a sent commit for the panel only", () => {
+    const stage = (sequence: number, id: number, label: string): Event => ({
+      ...meta(sequence, "message", "original"),
+      type: "message",
+      sender: "agent",
+      content: "",
+      tool_name: "evm_stage_tx",
+      tool_result: [
+        "evm_stage_tx",
+        JSON.stringify({ pending_tx_id: id, chain_id: 8453, label }),
+      ],
+    });
+    const ledger: Event[] = [
+      stage(1, 1, "Aave withdraw"),
+      stage(2, 2, "Never sent"),
+      committed(3, "original", "sent-commit"),
+      {
+        ...meta(4, "branch", "rerun"),
+        type: "branch",
+        kind: "regenerate",
+        target_message_key: "saved-user",
+        user_message_key: "saved-user",
+        content: "Base",
+        removed_message_keys: ["saved-user"],
+        removed_turn_ids: ["original"],
+      } as Event,
+    ];
+    const sent = {
+      commit_id: "sent-commit",
+      chain_family: "evm",
+      stage_id: "evm:1",
+      state: "confirmed",
+      transaction_id: "0xabc",
+    };
+    const kept = retainedActivityEvents([sent], ledger);
+    expect(kept.map((event) => event.sequence)).toEqual([1, 3]);
+    // Nothing went out: nothing is kept.
+    expect(
+      retainedActivityEvents(
+        [{ ...sent, state: "rejected", transaction_id: null }],
+        ledger,
+      ),
+    ).toEqual([]);
+  });
+
+  it("shows a wallet callback's answer once when its live draft outlives it", () => {
+    const turn = "broadcast-terminal:0xabc";
+    const events: Event[] = [
+      {
+        ...meta(1, "message", "root"),
+        type: "message",
+        sender: "user",
+        message_key: "user",
+        content: "withdraw",
+      },
+      {
+        ...meta(2, "message", turn),
+        type: "message",
+        sender: "agent",
+        message_key: `${turn}:response`,
+        content: "Withdrew 0.1 USDC.",
+        is_streaming: false,
+      },
+    ];
+    const draft = {
+      ...meta(3, "message", turn),
+      type: "message" as const,
+      event_id: `live:${turn}:trace:0`,
+      sender: "agent" as const,
+      message_key: `${turn}:trace:0`,
+      content: "Withdrew 0.1 USDC.",
+      is_streaming: true,
+    };
+    const text = JSON.stringify(
+      projectRuntimeMessages(events, undefined, [draft]),
+    );
+    expect(text.split("Withdrew 0.1 USDC.").length - 1).toBe(1);
+    // The callback turn's first draft key is `:draft:<id>`; it is promoted
+    // to `:response` too and must not stay beside it.
+    const first = {
+      ...draft,
+      event_id: `live:${turn}:draft:9f`,
+      message_key: `${turn}:draft:9f`,
+    };
+    const again = JSON.stringify(
+      projectRuntimeMessages(events, undefined, [first]),
+    );
+    expect(again.split("Withdrew 0.1 USDC.").length - 1).toBe(1);
   });
 });

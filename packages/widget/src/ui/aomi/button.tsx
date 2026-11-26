@@ -9,23 +9,20 @@ import { cva, type VariantProps } from "class-variance-authority";
  * triggers that must render something other than a `<button>`.
  */
 export const aomiButton = cva(
-  "inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap border font-medium transition-[color,background-color,border-color,opacity,transform] duration-[120ms] active:scale-[.98] motion-reduce:active:scale-100 disabled:pointer-events-none disabled:opacity-50 [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:shrink-0",
+  "inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap border border-transparent font-medium transition-colors duration-[120ms] disabled:pointer-events-none disabled:opacity-50 [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        primary: "bg-aomi-fg text-aomi-bg border-transparent hover:opacity-90",
-        // The account chip's recipe: white, hairline border, a faint lift;
-        // hover darkens the border instead of filling.
-        secondary:
-          "border-aomi-border bg-aomi-raised text-aomi-fg shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-aomi-muted/60",
-        ghost:
-          "text-aomi-muted border-transparent hover:bg-aomi-hover hover:text-aomi-fg",
+        primary:
+          "bg-[var(--aomi-action-primary)] text-[color:var(--aomi-on-action-primary)] hover:bg-[var(--aomi-action-primary-hover)]",
+        secondary: "bg-aomi-surface-2 text-aomi-fg hover:bg-aomi-hover",
+        ghost: "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg",
         /** Quiet destructive entry point (e.g. a row's "Remove"). */
         danger:
-          "border-aomi-border bg-aomi-raised text-aomi-danger shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-aomi-danger/40 hover:bg-aomi-danger/5",
+          "bg-[var(--aomi-action-danger-bg)] text-[color:var(--aomi-action-danger-fg)] hover:bg-[var(--aomi-action-danger-hover)]",
         /** The committing destructive action, e.g. inside a confirm. */
         "danger-fill":
-          "bg-aomi-danger-strong text-aomi-on-danger border-transparent hover:opacity-90",
+          "bg-aomi-danger-strong text-aomi-on-danger hover:bg-[color-mix(in_srgb,var(--aomi-danger-strong)_90%,black)]",
       },
       // Radius and type live per size, not in the base: tailwind-merge cannot
       // see that `rounded-control` and `rounded-lg` (or `type-control` and a

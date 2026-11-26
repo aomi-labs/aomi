@@ -536,6 +536,20 @@ describe("WorkingTrace", () => {
     expect(body).toHaveClass("grid-rows-[1fr]", "opacity-100");
   });
 
+  it("stays Working-open while it waits for a signature", () => {
+    const { container, queryByText, rerender } = render(
+      <WorkingTrace running waiting items={[]} revealed={0} />,
+    );
+    expect(queryByText("Waiting for your signature")).not.toBeNull();
+    expect(queryByText(/Worked/)).toBeNull();
+    expect(
+      container.querySelector("[aria-label='Working time']"),
+    ).not.toBeNull();
+    rerender(<WorkingTrace running items={[]} revealed={0} />);
+    expect(queryByText("Waiting for your signature")).toBeNull();
+    expect(queryByText("Working")).not.toBeNull();
+  });
+
   it("stays open until final-answer playback is ready", () => {
     vi.useFakeTimers();
     try {

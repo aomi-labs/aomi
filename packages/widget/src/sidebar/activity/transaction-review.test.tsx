@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActionRequest } from "@aomi-labs/client";
 import { TransactionReview } from "./transaction-review";
@@ -63,11 +63,11 @@ describe("TransactionReview labels", () => {
   it("says the wallet asks several times only when it really does", () => {
     show(transactions(2), { prompts: 2 });
     expect(
-      screen.getByText("Your wallet asks for 2 signatures, in order."),
+      screen.getByText("· 2 signatures, in order", { exact: false }),
     ).toBeInTheDocument();
     cleanup();
     show(transactions(2), { prompts: 1 });
-    expect(screen.queryByText(/Your wallet asks for/)).toBeNull();
+    expect(screen.queryByText(/signatures, in order/)).toBeNull();
   });
 
   it("splits off Submit all only while idle", () => {
@@ -134,10 +134,22 @@ describe("TransactionReview labels", () => {
       },
     });
     expect(screen.getByText("Simulation passed")).toBeInTheDocument();
-    const reason = screen.getByText(
-      "Limited coverage: This deployment and operation has no supported guard profile",
-    );
-    expect(reason.closest("p")?.nextElementSibling?.tagName).toBe("FOOTER");
+    // Simulation and coverage share one line; the reason opens on a click.
+    const checks = screen.getByRole("button", {
+      name: /Simulation passed.*Limited coverage/,
+    });
+    expect(checks).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.getByText(
+        "This deployment and operation has no supported guard profile",
+      ),
+    ).not.toBeVisible();
+    fireEvent.click(checks);
+    expect(
+      screen.getByText(
+        "This deployment and operation has no supported guard profile",
+      ),
+    ).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Send transaction" }),
     ).toBeEnabled();

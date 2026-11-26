@@ -4,11 +4,7 @@ import { cn } from "@/lib/cn";
 import { ComponentPropsWithRef, forwardRef } from "react";
 import { Slottable } from "@radix-ui/react-slot";
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
 import { Button } from "@/ui/button";
 
 export type TooltipIconButtonProps = ComponentPropsWithRef<typeof Button> & {
@@ -27,7 +23,10 @@ export const TooltipIconButton = forwardRef<
           variant="ghost"
           size="icon"
           {...rest}
-          className={cn("aui-button-icon size-6 rounded-xl p-1", className)}
+          className={cn(
+            "aui-button-icon rounded-control size-6 p-1",
+            className,
+          )}
           ref={ref}
         >
           <Slottable>{children}</Slottable>

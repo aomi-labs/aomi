@@ -7,9 +7,10 @@ import { AccountAvatar } from "./account-avatar";
 import { useAccountCredits } from "./use-account-credits";
 import { useAomiWalletKit } from "@/wallet/context";
 import { AomiButton } from "@/ui/aomi/button";
+import { Tag } from "@/ui/aomi/status-pill";
+import { Segmented } from "@/ui/aomi/segmented";
 import { cn } from "@/lib/cn";
 import { getChainIcon } from "@/icons/chain-map";
-import { Chip } from "./usage/usage-shared";
 import { useUsageStatement } from "./usage/use-usage-statement";
 import { AllowanceRing } from "@/ui/aomi/allowance-ring";
 import { CreditCheckoutDialog } from "./usage/credits/credit-checkout-dialog";
@@ -123,22 +124,15 @@ export function GeneralSettings({
         />
         <div className={settingsPanelClass}>
           <FlatSettingRow label="Theme">
-            <div className="border-aomi-border bg-aomi-surface flex h-8 items-center rounded-lg border p-[3px]">
-              {themeChoices.map(({ mode, label }) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => updateSetting("colorMode", mode)}
-                  className={`rounded-md px-3 py-1 text-[12px] leading-none transition-colors ${
-                    settings.colorMode === mode
-                      ? "bg-aomi-surface-2 text-aomi-fg font-medium"
-                      : "text-aomi-muted hover:text-aomi-fg"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              label="Theme"
+              value={settings.colorMode}
+              onChange={(mode) => updateSetting("colorMode", mode)}
+              options={themeChoices.map(({ mode, label }) => ({
+                value: mode,
+                label,
+              }))}
+            />
           </FlatSettingRow>
 
           <Divider />
@@ -211,7 +205,7 @@ function AccountSummaryCard({
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex min-w-0 items-center gap-2">
             <span className="type-row truncate">{primary}</span>
-            <Chip>{`${tierLabel(tier)} plan`}</Chip>
+            <Tag>{`${tierLabel(tier)} plan`}</Tag>
           </span>
           <span className="type-meta text-aomi-muted">
             {[walletDesc, memberSince && `member since ${memberSince}`]
@@ -276,7 +270,7 @@ function AccountSummaryCard({
             </div>
           </div>
           <Divider />
-          <div className="bg-aomi-surface flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
             <span className="type-meta text-aomi-muted">
               Your allowance is used first, then your added balance.
             </span>

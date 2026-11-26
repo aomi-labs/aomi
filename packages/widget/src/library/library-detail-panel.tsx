@@ -2,7 +2,6 @@
 import type { AomiPackage, AomiPublicPackage } from "@aomi-labs/client";
 import { useState, type ReactNode } from "react";
 import {
-  ChevronDown,
   CircleCheck,
   FileText,
   KeyRound,
@@ -16,7 +15,9 @@ import { cn } from "@/lib/cn";
 import { AomiButton } from "@/ui/aomi/button";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { PackageTile } from "@/icons/package-mark";
+import { packageIconUrl } from "@/icons/preview-package-icons";
 import { Publisher, type PackageActions } from "./catalog-row";
+import { ToolList } from "./tool-list";
 import {
   chainItem,
   isAccountRow,
@@ -40,7 +41,12 @@ function Section({
 }) {
   return (
     <section className="flex flex-col gap-2.5">
-      <SectionHeader title={title} count={count} action={action} />
+      <SectionHeader
+        title={title}
+        count={count}
+        action={action}
+        className="px-0"
+      />
       {children}
     </section>
   );
@@ -100,42 +106,17 @@ function WalletSection({ row }: { row: AomiPackage }) {
   );
 }
 
-/** The tool count; with the live release's tools, a toggle that lists them. */
+/** What it can do, by name; a guest sees only how many. */
 function ToolsSection({ row }: { row: AomiPublicPackage }) {
-  const [open, setOpen] = useState(false);
   const tools = isAccountRow(row) ? (row.tools ?? []) : [];
   if (tools.length === 0)
-    return <SectionHeader title="Tools" count={row.tool_count} />;
+    return (
+      <SectionHeader title="Tools" count={row.tool_count} className="px-0" />
+    );
   return (
-    <section className="flex flex-col gap-2.5">
-      <h3>
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => setOpen((current) => !current)}
-          className="flex min-h-7 w-full items-center gap-2 px-0.5 text-left"
-        >
-          <span className="type-section">Tools</span>
-          <span className="type-meta text-aomi-muted tabular-nums">
-            {tools.length}
-          </span>
-          <ChevronDown
-            className={cn(
-              "text-aomi-muted ml-auto size-3.5 transition-transform",
-              open && "rotate-180",
-            )}
-          />
-        </button>
-      </h3>
-      {open ? (
-        <Lines
-          rows={tools.map((tool) => ({
-            key: tool.name,
-            name: tool.name,
-            description: tool.description,
-          }))}
-        />
-      ) : null}
+    <section className="flex flex-col gap-1">
+      <SectionHeader title="Tools" count={tools.length} className="px-0" />
+      <ToolList tools={tools} packageId={row.id} />
     </section>
   );
 }
@@ -261,7 +242,7 @@ export function LibraryDetailPanel({
         <div className="flex flex-1 flex-col gap-6 px-6 pb-6 pt-1">
           <header>
             <div className="flex items-start gap-3 pr-8">
-              <PackageTile iconUrl={row.icon_url} size="detail" />
+              <PackageTile iconUrl={packageIconUrl(row)} size="detail" />
               <div className="flex min-w-0 flex-col gap-0.5 pt-0.5">
                 <h2 className="type-title [overflow-wrap:anywhere]">
                   {row.display_name}
@@ -319,7 +300,7 @@ export function LibraryDetailPanel({
                 {chains.map(({ id, label, icon: Icon }) => (
                   <li
                     key={id}
-                    className="border-aomi-border type-meta inline-flex h-[26px] items-center gap-1.5 rounded-full border px-2.5"
+                    className="bg-aomi-surface-2 type-meta inline-flex h-[26px] items-center gap-1.5 rounded-full px-2.5"
                   >
                     {Icon ? <Icon className="size-3.5 shrink-0" /> : null}
                     {label}
@@ -334,15 +315,23 @@ export function LibraryDetailPanel({
           {row.skills.length > 0 ? (
             <Section title="Instructions" count={row.skills.length}>
               {row.skills.map((skill) => (
-                <div key={skill.id} className="flex gap-2.5">
-                  <span className="bg-aomi-surface-2 text-aomi-muted flex size-7 shrink-0 items-center justify-center rounded-[8px]">
-                    <FileText className="size-3.5" />
+                <div
+                  key={skill.id}
+                  className="flex gap-2.5 py-0.5 text-[13px] leading-[18px]"
+                >
+                  <span className="text-aomi-muted flex h-[18px] w-4 shrink-0 items-center justify-center">
+                    <FileText className="size-[15px]" />
                   </span>
-                  <span className="flex min-w-0 flex-col">
-                    <span className="type-control font-medium">{skill.id}</span>
-                    <span className="type-meta text-aomi-muted">
-                      {skill.description}
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="first-letter:uppercase">
+                      {skill.id.replace(/[-_]+/g, " ")}
                     </span>
+                    {/* A package's only skill often repeats the package. */}
+                    {skill.description !== row.description ? (
+                      <span className="type-meta text-aomi-muted">
+                        {skill.description}
+                      </span>
+                    ) : null}
                   </span>
                 </div>
               ))}

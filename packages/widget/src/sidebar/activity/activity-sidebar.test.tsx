@@ -47,11 +47,12 @@ describe("activity signing strip", () => {
       },
     ];
     rerender(<ActivitySidebar />);
-    expect(screen.getByTitle("Signing rejected").firstElementChild).toHaveClass(
-      "bg-aomi-danger",
-    );
-    expect(screen.getByTestId("activity-transaction")).not.toHaveTextContent(
-      "rejected",
+    // A rejected request is finished: it leaves To sign for one History line.
+    expect(
+      screen.queryByTestId("activity-transaction"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("activity-history-row")).toHaveTextContent(
+      "Rejected",
     );
     expect(screen.queryByTestId(testIds.txReview)).not.toBeInTheDocument();
   });
@@ -82,10 +83,10 @@ describe("activity signing strip", () => {
       },
     ];
     render(<ActivitySidebar />);
-    expect(screen.getByTitle("Signed").firstElementChild).toHaveClass(
-      "bg-aomi-accent",
+    expect(screen.getByTestId("activity-history-row")).toHaveTextContent(
+      "Sent",
     );
-    expect(screen.getByTestId("activity-transaction")).not.toHaveTextContent(
+    expect(screen.getByTestId("activity-history-row")).not.toHaveTextContent(
       "submitted",
     );
   });
@@ -173,7 +174,11 @@ describe("active transaction presentation", () => {
     runtime.isRunning = true;
     const { rerender } = render(<ActivitySidebar />);
     const card = (label: string) =>
-      screen.getByTitle(label).closest('[data-testid="activity-transaction"]')!;
+      screen
+        .getByTitle(label)
+        .closest(
+          '[data-testid="activity-transaction"], [data-testid="activity-history-row"]',
+        )!;
     expect(
       card("Completed transfer").querySelector("[data-active-phase]"),
     ).toBeNull();
@@ -343,7 +348,7 @@ describe("active transaction presentation", () => {
     rerender(<ActivitySidebar />);
     expect(
       screen
-        .getByTestId("activity-transaction")
+        .getByTestId(/^activity-(transaction|history-row)$/)
         .querySelector("[data-active-phase]"),
     ).toBeNull();
   });
@@ -420,7 +425,8 @@ describe("active transaction presentation", () => {
     runtime.isRunning = false;
     runtime.events = [user(1, "turn-1"), staged];
     const { rerender } = render(<ActivitySidebar />);
-    const card = () => screen.getByTestId("activity-transaction");
+    const card = () =>
+      screen.getByTestId(/^activity-(transaction|history-row)$/);
     expect(card().querySelector("[data-active-phase]")).not.toBeNull();
     expect(card()).toHaveAttribute("data-pending", "true");
     runtime.events = [user(1, "turn-1"), staged, user(3, "turn-2")];
@@ -455,11 +461,12 @@ describe("active transaction presentation", () => {
     );
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(content).toHaveClass("grid-rows-[1fr]", "opacity-100");
-
+    // Folded, the logos stand in for the chips.
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(content).toHaveClass("grid-rows-[0fr]", "opacity-0");
     expect(content).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByRole("img", { name: "Aave" })).toBeInTheDocument();
     expect(screen.getByText("Aave")).toBeInTheDocument();
   });
 
@@ -656,7 +663,10 @@ describe("active transaction presentation", () => {
     ] as Event[];
 
     render(<ActivitySidebar />);
+    // Open, each row has a spinner; folded, the line says how many work.
     expect(screen.getByRole("status", { name: "Working" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Subagents" }));
+    expect(screen.getByText("1 working")).toBeInTheDocument();
     expect(screen.queryByText("Working")).not.toBeInTheDocument();
   });
 });
@@ -699,12 +709,14 @@ describe("unified live transaction review", () => {
     const { rerender } = render(<ActivitySidebar />);
     expect(screen.getAllByText("Send first")).toHaveLength(1);
     expect(screen.queryByTestId("transaction-step")).not.toBeInTheDocument();
+    // To sign starts open while a request waits; it can still be folded.
     expect(
-      screen.queryByRole("button", { name: /^Transactions/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Transactions" }),
+      screen.getByRole("heading", { name: "To sign" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^To sign/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
     expect(
       screen.queryByText(/Wallet request: 1 transaction/),
     ).not.toBeInTheDocument();
@@ -726,7 +738,10 @@ describe("unified live transaction review", () => {
       "data-action-id",
       "second",
     );
-    expect(screen.getAllByTestId("activity-transaction")).toHaveLength(2);
+    expect(screen.getAllByTestId("activity-transaction")).toHaveLength(1);
+    expect(screen.getByTestId("activity-history-row")).toHaveTextContent(
+      "Send first",
+    );
   });
   it("keeps a failed durable request rejectable without offering signing", async () => {
     const failed = transfer("failed");
@@ -738,9 +753,10 @@ describe("unified live transaction review", () => {
     expect(
       screen.queryByRole("button", { name: /Send/ }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /^Transactions/ }),
-    ).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /^To sign/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
     fireEvent.click(screen.getByRole("button", { name: "Reject request" }));
     await waitFor(() =>
       expect(runtime.rejectAction).toHaveBeenCalledWith(
@@ -765,11 +781,16 @@ describe("unified live transaction review", () => {
     ];
     render(<ActivitySidebar />);
     expect(screen.queryByText("Past transactions")).not.toBeInTheDocument();
+    // Nothing waits, so there is no To sign line; History starts open.
     expect(
-      screen.getByRole("button", { name: "Transactions" }),
-    ).toHaveAttribute("aria-expanded", "true");
+      screen.queryByRole("heading", { name: "To sign" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "History" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
     expect(
-      screen.getByRole("heading", { name: "Transactions" }).nextElementSibling,
+      screen.getByRole("heading", { name: "History" }).nextElementSibling,
     ).toHaveTextContent("1");
     expect(screen.getByText("Send past")).toBeInTheDocument();
     expect(screen.queryByTestId(testIds.txReview)).not.toBeInTheDocument();
@@ -789,17 +810,17 @@ describe("unified live transaction review", () => {
     runtime.events = [middle, newest, older];
     runtime.pendingActions = [newest];
     render(<ActivitySidebar />);
-    const rows = screen.getAllByTestId("activity-transaction");
-    expect(rows).toHaveLength(3);
-    expect(rows[0]).toHaveTextContent("Send newest");
-    expect(rows[1]).toHaveTextContent("Send middle");
-    expect(rows[2]).toHaveTextContent("Send older");
+    // The pending one waits in To sign; History lists the rest newest first.
+    expect(screen.getAllByTestId("activity-transaction")).toHaveLength(1);
+    expect(screen.getByTestId("activity-transaction")).toHaveTextContent(
+      "Send newest",
+    );
+    const rows = screen.getAllByTestId("activity-history-row");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("Send middle");
+    expect(rows[0]).toHaveTextContent("Rejected");
+    expect(rows[1]).toHaveTextContent("Send older");
     expect(screen.queryByText("Past transactions")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("region", {
-        name: "Transactions, newest batch first; signing order within each batch",
-      }),
-    ).toHaveStyle({ height: "272px" });
   });
   it("keeps an older batch behind newer work after a result revision", () => {
     const older = { ...transfer("older"), sequence: 2 };
@@ -812,10 +833,12 @@ describe("unified live transaction review", () => {
     runtime.pendingActions = [newer];
 
     render(<ActivitySidebar />);
-    const rows = screen.getAllByTestId("activity-transaction");
-    expect(rows).toHaveLength(2);
-    expect(rows[0]).toHaveTextContent("Send newer");
-    expect(rows[1]).toHaveTextContent("Send older");
+    expect(screen.getByTestId("activity-transaction")).toHaveTextContent(
+      "Send newer",
+    );
+    expect(screen.getByTestId("activity-history-row")).toHaveTextContent(
+      "Send older",
+    );
   });
   it("shows a signing batch in execution order", () => {
     const requestTransactions = [
@@ -864,7 +887,7 @@ describe("unified live transaction review", () => {
 
     const labels = () =>
       screen
-        .getAllByTestId("activity-transaction")
+        .getAllByTestId(/^activity-(transaction|history-row)$/)
         .map((row) => row.querySelector("[title]")?.getAttribute("title"));
     const expected = [
       "Redeem all Morpho shares",
@@ -914,7 +937,8 @@ describe("unified live transaction review", () => {
     );
     view.rerender(<ActivitySidebar />);
     expect(labels()).toEqual(expected);
-    expect(screen.getAllByTitle("Signed")).toHaveLength(3);
+    // Confirmed, the batch moves to History, one line each.
+    expect(screen.getAllByText("Confirmed")).toHaveLength(3);
 
     runtime.commits = runtime.commits.map((commit, index) =>
       index === 0
@@ -935,7 +959,8 @@ describe("unified live transaction review", () => {
         "Redeem all Morpho shares: Assistant response needs recovery",
       ),
     ).not.toBeInTheDocument();
-    expect(screen.getAllByTitle("Signed")).toHaveLength(3);
+    // Confirmed, the batch moves to History, one line each.
+    expect(screen.getAllByText("Confirmed")).toHaveLength(3);
 
     runtime.commits = runtime.commits.map((commit, index) => ({
       ...commit,
@@ -957,6 +982,74 @@ describe("unified live transaction review", () => {
     view.rerender(<ActivitySidebar />);
     expect(screen.queryByText(/Assistant response needs recovery/)).toBeNull();
   });
+  it("keeps a batch in To sign until every part of it is finished", () => {
+    const commit = (index: number, state: string) =>
+      ({
+        version: 1,
+        commit_id: `commit-${index}`,
+        thread_id: "thread-1",
+        stage_id: `evm:${index}`,
+        chain_family: "evm",
+        chain_ref: "8453",
+        signer: "0x123",
+        broadcaster: "wallet",
+        state,
+        transaction_id: state === "confirmed" ? `0x${index}` : null,
+        failure_code: null,
+        metadata: {},
+        batch: {
+          batch_id: "swap",
+          index: index - 1,
+          ordered_stage_ids: ["evm:1", "evm:2"],
+          ordered_commit_ids: ["commit-1", "commit-2"],
+          sources: [
+            {
+              thread_id: "thread-1",
+              chain_family: "evm",
+              chain_ref: "8453",
+              stage_id: `evm:${index}`,
+              source_id: index,
+            },
+          ],
+          predecessor_commit_id: index === 1 ? null : "commit-1",
+          review_digest: "review",
+        },
+        review: null,
+        wallet_attempt: null,
+        action: null,
+      }) as unknown as CommitView;
+    runtime.events = ["Approve USDC", "Swap USDC to ETH"].map(
+      (label, index) =>
+        ({
+          type: "message",
+          event_id: `stage-${index + 1}`,
+          sequence: index + 1,
+          turn_id: "turn-1",
+          occurred_at: index + 1,
+          sender: "agent",
+          content: "",
+          tool_name: "evm_stage_tx",
+          tool_result: [
+            "evm_stage_tx",
+            JSON.stringify({
+              pending_tx_id: index + 1,
+              current_lifecycle: "queued",
+              chain_id: 8453,
+              label,
+              kind: index ? "swap" : "approval",
+            }),
+          ],
+        }) as Event,
+    );
+    runtime.commits = [commit(1, "confirmed"), commit(2, "needs_signature")];
+    const view = render(<ActivitySidebar />);
+    // The first part is signed and confirmed, but its partner still waits.
+    expect(screen.getAllByTestId("activity-transaction")).toHaveLength(2);
+    expect(screen.queryByTestId("activity-history-row")).toBeNull();
+    runtime.commits = [commit(1, "confirmed"), commit(2, "confirmed")];
+    view.rerender(<ActivitySidebar />);
+    expect(screen.getAllByTestId("activity-history-row")).toHaveLength(2);
+  });
   it("expands the shared list and distinguishes pending from finalized without Review labels", () => {
     const items = Array.from({ length: 5 }, (_, i) => ({
       ...transfer(`item-${i}`),
@@ -969,11 +1062,17 @@ describe("unified live transaction review", () => {
     expect(
       screen.queryByText("Review", { exact: true }),
     ).not.toBeInTheDocument();
-    const rows = screen.getAllByTestId("activity-transaction");
-    expect(rows[0]).toHaveClass("border-dashed");
-    expect(rows[1]).not.toHaveClass("border-dashed");
+    // The pending one is in the To sign well; finished ones are
+    // History lines, three shown, then "Show all".
+    expect(screen.getAllByTestId("activity-transaction")).toHaveLength(1);
+    expect(
+      screen.getByRole("region", {
+        name: "Transactions to sign, in signing order",
+      }),
+    ).toHaveClass("bg-aomi-surface");
+    expect(screen.getAllByTestId("activity-history-row")).toHaveLength(3);
     const expand = screen.getByRole("button", {
-      name: "Show all 5 transactions",
+      name: "Show all 4 transactions",
     });
     expect(expand).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(expand);
@@ -981,10 +1080,10 @@ describe("unified live transaction review", () => {
       name: "Show fewer transactions",
     });
     expect(less).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getAllByTestId("activity-transaction")).toHaveLength(5);
+    expect(screen.getAllByTestId("activity-history-row")).toHaveLength(4);
     fireEvent.click(less);
     expect(
-      screen.getByRole("button", { name: "Show all 5 transactions" }),
+      screen.getByRole("button", { name: "Show all 4 transactions" }),
     ).toHaveAttribute("aria-expanded", "false");
     expect(runtime.executeAction).not.toHaveBeenCalled();
   });

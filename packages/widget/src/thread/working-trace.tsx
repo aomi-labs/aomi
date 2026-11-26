@@ -16,14 +16,7 @@ import {
   type TextMessagePart,
   type ToolCallMessagePart,
 } from "@assistant-ui/react";
-import {
-  CheckIcon,
-  ChevronDownIcon,
-  CogIcon,
-  LightbulbIcon,
-  MoreHorizontalIcon,
-  XIcon,
-} from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 
 import {
   useChatViewFlag,
@@ -39,18 +32,11 @@ import {
   type TraceItem as TraceRow,
 } from "@aomi-labs/client/trace";
 import { MarkdownText } from "./markdown-text";
-import { useTraceAttribution } from "./trace-attribution";
 import { testIds } from "@/test-ids";
-import { interpretToolStep } from "./attribution";
-import { agentStepCount, WorkingAgent } from "./working-agent";
-import { ContextStepRow } from "./context-step";
-import { ReadOutputRow } from "./read-output-step";
-import {
-  prefersReducedMotion,
-  toDetailString,
-  ToolStepRow,
-  WorkingNote,
-} from "./working-trace-rows";
+import { TraceBurst } from "./trace-burst";
+import { Fold, Swap, useFlip } from "./trace-motion";
+import { holdStill } from "./use-follow";
+import { agentStepCount } from "./working-agent";
 import { isWorkLimitPause } from "./notice-codes";
 
 /** Interstitial prose and tool progress share one chronological trace. */
@@ -87,7 +73,10 @@ export function activeWorkDurationMs(
   let total = 0;
   let observed = false;
   const span = (from: number, to: number) =>
-    Math.max(0, Math.min(to, bounds.end ?? to) - Math.max(from, bounds.start ?? from));
+    Math.max(
+      0,
+      Math.min(to, bounds.end ?? to) - Math.max(from, bounds.start ?? from),
+    );
   for (const event of events) {
     if (
       event.type !== "turn_state_changed" ||
@@ -110,91 +99,43 @@ export function activeWorkDurationMs(
   return observed ? total : null;
 }
 
-/** useLayoutEffect on the client, useEffect on the server (dodges the SSR warning). */
-const useIsomorphicLayoutEffect =
-  typeof window !== "undefined" ? useLayoutEffect : useEffect;
-
-/** Matches the header collapse (duration-300 ease-out). */
-const WINDOW_ANIM_MS = 300;
-
-/**
- * Whenever the trace is open — live or after completion — it is capped to this
- * height so a long run of steps doesn't march down the whole screen. Newest
- * steps stay pinned at the bottom; older ones remain available by scrolling the
- * trace under edge fades (see `.aui-working-trace-edge-fade`). Sized to show
- * ~5 full steps with the adjacent rows dissolving at the edges. "Show all"
- * remains available when an uncapped overview is more useful.
- */
-const WORKING_WINDOW_PX = 260;
-
-/**
- * One tool call of the mother's own trace. The presentation lives in
- * `ToolStepRow` (shared with a delegated agent's child steps); this wrapper
- * only unpacks the transcript part.
- */
-const WorkingStep: FC<{
-  tool: ToolCallMessagePart;
-  relatedResults?: unknown[];
-  active: boolean;
-  animate: boolean;
-  live: boolean;
-}> = ({ tool, relatedResults, active, animate, live }) => {
-  const attribution = useTraceAttribution();
-  const done = tool.result !== undefined;
-  const argsText =
-    tool.argsText && tool.argsText !== "undefined" ? tool.argsText : undefined;
-
-  return (
-    <ToolStepRow
-      viewKey={tool.toolCallId}
-      interpretation={interpretToolStep({
-        attribution,
-        toolName: tool.toolName,
-        argsText,
-        result: tool.result,
-        relatedResults,
-      })}
-      argsText={argsText}
-      detailText={done ? toDetailString(tool.result) : undefined}
-      done={done}
-      active={active}
-      animate={animate}
-      animateUpdates={live}
-    />
-  );
-};
-
 /** One rendered row of the trace, over this transcript's parts and runs. */
 type TraceItem = TraceRow<ToolCallMessagePart, TaskRunState>;
 
 // Published from ./components/assistant-ui/working-trace before the decoder moved.
 export { buildTraceItems };
 
-/** Child steps an agent row contributes to the header/pill step count. */
+/** Child steps an agent row contributes to the header step count. */
 const childStepCount = (item: TraceItem): number =>
   item.kind === "agent" ? agentStepCount(item.run) : 0;
 
-const ThinkingStatusGlyph: FC = () => (
-  <span
-    aria-hidden="true"
-    className="aui-thinking-glyph text-aomi-accent flex size-4 shrink-0 items-center justify-center"
-  >
-    <LightbulbIcon className="aui-thinking-bulb size-[15px] stroke-[1.8]" />
-  </span>
-);
+/** No news for this long and the header says so. */
+const QUIET_MS = 8_000;
 
-const WorkingStatusGlyph: FC = () => (
-  <span
-    aria-hidden="true"
-    className="aui-working-glyph text-aomi-accent flex size-4 shrink-0 items-center justify-center"
-  >
-    <CogIcon className="aui-working-cog size-[15px] stroke-[1.8]" />
-  </span>
-);
+type Segment =
+  | { kind: "text"; key: string; text: string }
+  | { kind: "burst"; key: string; items: TraceItem[]; earlier: unknown[] };
 
-const WORKING_STATUS_TEXT_CLASS = "text-[13px] font-medium leading-none";
-const WORKING_COLLAPSED_CHIP_CLASS =
-  "border-aomi-border bg-aomi-surface h-8 w-fit rounded-full pl-3 pr-4";
+/** The story of a turn: the agent's words, and the calls between them. */
+function toSegments(items: readonly TraceItem[]): Segment[] {
+  const segments: Segment[] = [];
+  const results: unknown[] = [];
+  for (const item of items) {
+    const last = segments.at(-1);
+    if (item.kind === "note")
+      segments.push({ kind: "text", key: item.key, text: item.text });
+    else if (last?.kind === "burst") last.items.push(item);
+    else
+      segments.push({
+        kind: "burst",
+        key: item.key,
+        items: [item],
+        earlier: [...results],
+      });
+    if (item.kind === "tool") results.push(item.tool.result);
+  }
+  return segments;
+}
 
 type WorkingTraceOutcome = "running" | "complete" | "failed" | "interrupted";
 
@@ -217,10 +158,16 @@ export const WorkingTrace: FC<{
   phaseBounds?: { start?: number; end?: number };
   /** The turn stopped at its work limit and can be continued. */
   paused?: boolean;
+  /** The turn paused for the reader's signature; the work is not over. */
+  waiting?: boolean;
+  /** The message is still on its way; nothing counts yet. */
+  sending?: boolean;
+  /** A reply without any steps: the row closes and the answer moves up. */
+  leaving?: boolean;
 }> = ({
   viewKey = "trace",
-  running,
-  outcome = running ? "running" : "complete",
+  running: live,
+  outcome: turnOutcome = live ? "running" : "complete",
   items,
   revealed,
   collapseReady = true,
@@ -229,28 +176,24 @@ export const WorkingTrace: FC<{
   phaseTurnIds,
   phaseBounds,
   paused = false,
+  waiting = false,
+  sending = false,
+  leaving = false,
 }) => {
+  // A signature request is part of the work, like a question in a coding
+  // harness: the trace stays open and closes when the last turn ends.
+  const running = live;
+  const outcome = turnOutcome;
   const [open, setOpen] = useChatViewFlag(`${viewKey}:open`, running);
-  const [expanded, setExpanded] = useChatViewFlag(`${viewKey}:expanded`, false);
+  const header = useFlip<HTMLButtonElement>();
+  const touched = useRef(false);
+  const touchedKey = useRef(viewKey);
+  if (touchedKey.current !== viewKey) {
+    touchedKey.current = viewKey;
+    touched.current = false;
+  }
   const observedLiveWork = useRef(running);
   if (running) observedLiveWork.current = true;
-  const [overflowing, setOverflowing] = useState(false);
-  const [hasContentBelow, setHasContentBelow] = useState(false);
-  // True only while the expand/collapse height tween is in flight; keeps the
-  // viewport clipped and suppresses the edge fades so the animation reads cleanly.
-  const [animating, setAnimating] = useState(false);
-  const viewportRef = useRef<HTMLDivElement>(null);
-  // The inner content's natural height, read for overflow detection and the
-  // expand/collapse tween. Measuring the body keeps the result stable while the
-  // viewport is capped or its max-height animation is in flight.
-  const bodyRef = useRef<HTMLDivElement>(null);
-  // Completed traces respect inner reader scrolling. Live capped traces follow
-  // every content resize; Show all is the explicit inspection view.
-  const followLatestRef = useRef(true);
-  const prevOpen = useRef(open);
-  const prevWindowed = useRef(!expanded);
-  const prevExpanded = useRef(expanded);
-  const animRef = useRef<Animation | null>(null);
   const [elapsed, setElapsed] = useState<number | null>(null);
   const wasRunning = useRef(running);
   const startedAt = useRef<number>(startedAtMs ?? Date.now());
@@ -294,167 +237,44 @@ export const WorkingTrace: FC<{
     Math.floor((persistedActiveMs ?? clockMs - startedAt.current) / 1_000),
   );
 
-  // How many items have already played their entrance. Survives the body's
-  // collapse/remount (this component stays mounted), so an item only animates
-  // the first time it's revealed — reopening a finished trace shows it static.
-  const animatedCount = useRef(0);
-  useEffect(() => {
-    if (revealed > animatedCount.current) animatedCount.current = revealed;
-  }, [revealed]);
+  const visibleItems = useMemo(
+    () => items.slice(0, revealed),
+    [items, revealed],
+  );
+  const segments = useMemo(() => toSegments(visibleItems), [visibleItems]);
+
+  // Anything new, a step or more text, counts as news.
+  const news = visibleItems.reduce(
+    (total, item) =>
+      total +
+      (item.kind === "note"
+        ? item.text.length
+        : 1_000 +
+          childStepCount(item) +
+          (item.kind === "tool" && item.tool.result !== undefined ? 1 : 0)),
+    0,
+  );
+  const lastNews = useRef({ news: -1, at: Date.now() });
+  if (lastNews.current.news !== news)
+    lastNews.current = { news, at: Date.now() };
+  const quiet =
+    running &&
+    !leaving &&
+    !waiting &&
+    clockMs - lastNews.current.at >= QUIET_MS;
 
   // The trace has fully caught up once every queued item has been revealed.
   const fullyRevealed = !running && revealed >= items.length;
-
-  // A delegated agent remains one top-level trace item while its nested step
-  // stream grows. Track that growth separately: `revealed` does not change for
-  // those updates, but the viewport still needs to follow the newest child step.
-  const revealedChildStepCount = items.reduce(
-    (total, item, index) =>
-      index < revealed && item.kind === "agent"
-        ? total + (item.run?.steps.length ?? 0)
-        : total,
-    0,
-  );
-
-  // Cap the open trace to a scrolling window — live and after completion alike:
-  // the newest steps stay pinned at the bottom and older ones remain wheel/touch/
-  // keyboard-scrollable under edge fades instead of marching down the page.
-  // Expanding ("Show all") still lifts the cap. The cap, fades and Show all
-  // only engage once content actually overflows, so a short trace is never
-  // faded, and one within the tolerance is never scrolled off its top padding.
-  const windowed = !expanded;
-  useEffect(() => {
-    if (windowed && typeof ResizeObserver !== "undefined") return;
-    const body = bodyRef.current;
-    if (!body || !windowed) {
-      setOverflowing(false);
-      return;
-    }
-    // Compare the full content height to the cap directly, so the reading stays
-    // stable while the expand/collapse height animation is mid-flight — otherwise
-    // the "Show all" control would flicker out.
-    setOverflowing(body.offsetHeight - WORKING_WINDOW_PX > 24);
-  }, [windowed, revealed, revealedChildStepCount, open]);
-
-  const handleViewportScroll = () => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    const distanceFromBottom =
-      viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop;
-    followLatestRef.current = distanceFromBottom <= 8;
-    setHasContentBelow(distanceFromBottom > 8);
-  };
-
-  // Animate the expand/collapse of the window height (cap ⇄ full content),
-  // mirroring the header's collapse feel. Plain CSS can't transition to/from the
-  // uncapped `auto` height, so we drive it with the Web Animations API: measure
-  // the natural height and tween `max-height` between the cap and full. WAAP
-  // overrides the declarative style while playing and reverts to it on finish —
-  // which already matches the tween's end value, so it settles seamlessly. Runs
-  // in a layout effect (before paint, so the first frame is already clipped) and
-  // only when `expanded` actually flips — not on mount, streaming re-renders, or
-  // under reduced motion.
-  useIsomorphicLayoutEffect(() => {
-    if (prevExpanded.current === expanded) return;
-    prevExpanded.current = expanded;
-    const viewport = viewportRef.current;
-    const body = bodyRef.current;
-    if (!viewport || !body || prefersReducedMotion()) return;
-    const cap = WORKING_WINDOW_PX;
-    const full = body.offsetHeight;
-    const from = expanded ? cap : full;
-    const to = expanded ? full : cap;
-    animRef.current?.cancel();
-    setAnimating(true);
-    const anim = viewport.animate(
-      [{ maxHeight: `${from}px` }, { maxHeight: `${to}px` }],
-      { duration: WINDOW_ANIM_MS, easing: "ease-out" },
-    );
-    animRef.current = anim;
-    const settle = () => {
-      if (animRef.current !== anim) return;
-      animRef.current = null;
-      setAnimating(false);
-    };
-    anim.onfinish = settle;
-    anim.oncancel = settle;
-  }, [expanded]);
-
-  // Keep live work at its newest step. Finished traces follow only while the
-  // reader remains at the bottom; Show all is an uncapped inspection view.
-  // Collapsing back to the recent window restores its latest-step position.
-  useIsomorphicLayoutEffect(() => {
-    const viewport = viewportRef.current;
-    const reopened = open && !prevOpen.current;
-    const collapsedToWindow = windowed && !prevWindowed.current;
-
-    if (reopened || collapsedToWindow) followLatestRef.current = true;
-    prevOpen.current = open;
-    prevWindowed.current = windowed;
-
-    // With ResizeObserver, natural layout publishes the new height before paint.
-    // A synchronous read here would lay out the entire chat again on every step.
-    if (
-      typeof ResizeObserver !== "undefined" ||
-      !viewport ||
-      !open ||
-      !windowed ||
-      animating
-    )
-      return;
-    if (running || followLatestRef.current) {
-      viewport.scrollTop = viewport.scrollHeight;
-      setHasContentBelow(false);
-    }
-  }, [animating, open, revealed, revealedChildStepCount, windowed, running]);
-
-  // Streaming text can grow without adding a step. Observe its actual layout,
-  // and follow the inner window while working; Show all remains an inspection view.
-  useIsomorphicLayoutEffect(() => {
-    const body = bodyRef.current;
-    const viewport = viewportRef.current;
-    if (
-      !body ||
-      !viewport ||
-      !open ||
-      !windowed ||
-      typeof ResizeObserver === "undefined"
-    )
-      return;
-    const resize: ResizeObserverCallback = (entries) => {
-      const entry = entries.find(({ target }) => target === body);
-      const height = entry?.borderBoxSize?.[0]?.blockSize ?? body.offsetHeight;
-      setOverflowing(height - WORKING_WINDOW_PX > 24);
-      if (!animating && (running || followLatestRef.current)) {
-        viewport.scrollTop = viewport.scrollHeight;
-        setHasContentBelow(false);
-      }
-    };
-    const observer = new ResizeObserver(resize);
-    observer.observe(body, { box: "border-box" });
-    return () => observer.disconnect();
-  }, [open, windowed, running, animating]);
-
-  // The cap lands a render after the body outgrows it, when the follow above
-  // had nothing to scroll yet; pin the newly capped window to its newest step.
-  useIsomorphicLayoutEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport || !open || !windowed || !overflowing || animating) return;
-    if (running || followLatestRef.current) {
-      viewport.scrollTop = viewport.scrollHeight;
-      setHasContentBelow(false);
-    }
-  }, [overflowing, open, windowed, animating, running]);
-
-  useEffect(() => () => animRef.current?.cancel(), []);
 
   useEffect(() => {
     if (wasRunning.current && !running) {
       // turn just finished: freeze the timer (collapse waits for full reveal)
       setElapsed((Date.now() - startedAt.current) / 1000);
     }
+    // The work goes on after a signature, so its steps are in view again.
+    if (!wasRunning.current && running) setOpen(true);
     wasRunning.current = running;
-  }, [running]);
+  }, [running, setOpen]);
 
   // A delegating turn's `task` part only lands once its children have finished,
   // so this trace can mount already-complete and never observe the transition
@@ -473,251 +293,204 @@ export const WorkingTrace: FC<{
     setElapsed(Math.max(0, delegatedSpanMs) / 1000);
   }, [running, elapsed, delegatedSpanMs]);
 
-  // Auto-collapse only once final-answer playback has actually begun. An
-  // awaiting Action temporarily marks the assistant message complete, but the
-  // trace must stay open through approval and the resumed model turn.
-  // A completed trace restored on a chat revisit keeps the reader's choice.
+  // Fold once the answer stands on its own. Work that
+  // failed or was stopped stays open, and a trace restored on a chat revisit
+  // keeps the reader's choice.
   useEffect(() => {
-    if (!observedLiveWork.current || !fullyRevealed || !collapseReady) return;
-    const timer = setTimeout(() => setOpen(false), 500);
+    if (
+      !observedLiveWork.current ||
+      !fullyRevealed ||
+      outcome !== "complete" ||
+      !collapseReady ||
+      // What the reader opened during the turn stays open.
+      touched.current
+    )
+      return;
+    const timer = setTimeout(() => {
+      if (touched.current) return;
+      holdStill(header.current, 800);
+      setOpen(false);
+    }, 700);
     return () => clearTimeout(timer);
-  }, [collapseReady, fullyRevealed]);
+  }, [collapseReady, fullyRevealed, outcome, setOpen]);
 
   const completedSeconds =
     persistedActiveMs === null ? elapsed : persistedActiveMs / 1_000;
-  const elapsedLabel =
-    completedSeconds != null
-      ? ` after ${formatDuration(completedSeconds)}`
-      : "";
-  const label =
-    outcome === "running"
-      ? "Working"
-      : outcome === "complete"
-        ? completedSeconds != null
-          ? `Worked for ${formatDuration(completedSeconds)}`
-          : "Worked it out"
-        : `${outcome === "failed" ? "Failed" : paused ? "Paused" : "Stopped"}${elapsedLabel}`;
+  const duration =
+    completedSeconds != null ? formatDuration(completedSeconds) : undefined;
+  const doneLabel =
+    outcome === "failed"
+      ? "Failed"
+      : outcome === "interrupted"
+        ? paused
+          ? "Paused"
+          : "Stopped"
+        : undefined;
 
-  // Keep the status treatment continuous from Thinking into Working. The newest
-  // revealed step retains its contextual shimmer while the header consistently
-  // communicates that the overall turn is still live.
-  const activeIndex = running ? revealed - 1 : -1;
-  const headerClass = running ? "aui-working-shimmer" : "text-aomi-fg";
-
-  const visibleItems = items.slice(0, revealed);
-
-  // Step count rule: every shown row counts as one step, and a delegated agent
+  // Step count rule: every shown call counts as one step, and a delegated agent
   // row additionally contributes its child steps (its reported `stepCount`, or
-  // the steps actually observed). So a turn of 3 mother steps around one agent
-  // that ran 5 child steps reads "9 steps" — the agent row itself is a step.
+  // the steps actually observed).
   const stepCount = visibleItems.reduce(
-    (total, item) => total + 1 + childStepCount(item),
+    (total, item) =>
+      total + (item.kind === "note" ? 0 : 1 + childStepCount(item)),
     0,
   );
+  const foldable = segments.length > 0;
 
   return (
-    // Keep one stable column in both states so the body has a real 0fr ⇄ 1fr
-    // path to animate through. The closed shell is transparent and only its
-    // compact header chip remains visible.
     <div
       data-testid={testIds.trace}
+      aria-hidden={leaving || undefined}
+      inert={leaving}
       className={cn(
-        "aui-working-trace animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-1 mb-3 flex w-full origin-top-left flex-col overflow-hidden rounded-xl border transition-[border-color,background-color,box-shadow] duration-300 ease-out motion-reduce:animate-none motion-reduce:transition-none",
-        open
-          ? "border-aomi-border/70 bg-aomi-surface/25 shadow-[0_6px_20px_rgba(0,0,0,0.025)]"
-          : "border-transparent bg-transparent shadow-none",
+        // A plain reply starts level with the logo, 2.5 px down.
+        "aui-working-trace grid min-h-[2.5px] w-full grid-cols-[minmax(0,1fr)] motion-reduce:!transition-none",
+        leaving ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr]",
       )}
+      style={{
+        transition:
+          "grid-template-rows 520ms cubic-bezier(.4,0,.1,1) 120ms, opacity 260ms ease",
+      }}
     >
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className={cn(
-          "aui-working-trace-header flex items-center gap-2 border text-left text-sm transition-[height,padding,border-radius,border-color,background-color] duration-300 ease-out motion-reduce:transition-none",
-          open
-            ? "bg-aomi-surface/65 h-10 w-full self-stretch rounded-[11px] border-transparent px-3.5"
-            : cn(
-                WORKING_COLLAPSED_CHIP_CLASS,
-                "hover:border-aomi-muted/40 self-start",
-              ),
-        )}
-      >
-        {outcome === "running" ? (
-          <WorkingStatusGlyph />
-        ) : outcome === "failed" ? (
-          <span className="flex size-4 shrink-0 items-center justify-center">
-            <XIcon className="text-aomi-danger size-3.5" />
-          </span>
-        ) : outcome === "interrupted" ? (
-          <span className="text-aomi-muted flex size-4 shrink-0 items-center justify-center">
-            <MoreHorizontalIcon className="size-3.5" />
-          </span>
-        ) : (
-          <span className="flex size-4 shrink-0 items-center justify-center">
-            <CheckIcon className="text-aomi-success size-3.5" />
-          </span>
-        )}
-        <span className={cn(WORKING_STATUS_TEXT_CLASS, headerClass)}>
-          {label}
-        </span>
-        {running && (
-          <span
-            aria-label="Working time"
-            className="text-aomi-muted inline-flex items-center text-[11px] font-normal tabular-nums leading-none"
-          >
-            {runningSeconds === 0 ? "0s" : formatDuration(runningSeconds)}
-          </span>
-        )}
-        {stepCount > 0 ? (
-          <span className="text-aomi-muted inline-flex items-center text-[11px] font-normal tabular-nums leading-none">
-            {stepCount} {stepCount === 1 ? "step" : "steps"}
-          </span>
-        ) : null}
-        {open && <span className="flex-1" />}
-        <ChevronDownIcon
-          className={cn(
-            "text-aomi-muted size-3.5 shrink-0 transition-transform duration-300 ease-out motion-reduce:transition-none",
-            open && "rotate-180",
-          )}
-        />
-      </button>
-
-      {/* Collapse animates the grid row from 1fr→0fr (plus a fade) instead of
-          snapping shut. The body stays mounted so items never remount. */}
-      <div
-        aria-hidden={!open}
-        inert={!open}
-        className={cn(
-          "grid w-full transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none",
-          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
-        )}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className="border-aomi-border/60 bg-aomi-bg/15 relative border-t">
-            {windowed && overflowing && !animating && (
-              <>
-                <span
-                  aria-hidden="true"
-                  className="aui-working-trace-edge-fade-top pointer-events-none absolute inset-x-0 top-0 z-20 h-16"
-                />
-                {hasContentBelow && (
-                  <span
-                    aria-hidden="true"
-                    className="aui-working-trace-edge-fade-bottom pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16"
-                  />
-                )}
-              </>
+      <div className={cn("min-h-0", leaving && "overflow-hidden")}>
+        <div className="pb-3">
+          <button
+            ref={header}
+            type="button"
+            disabled={!foldable}
+            onClick={() => {
+              touched.current = true;
+              setOpen((value) => !value);
+            }}
+            aria-expanded={foldable ? open : undefined}
+            className={cn(
+              "aui-working-trace-header animate-in fade-in group/head bg-aomi-bg relative flex min-h-7 items-center gap-2.5 text-left text-sm leading-5 duration-500 motion-reduce:animate-none",
+              running || leaving
+                ? // The padding covers steps scrolling under it; the text stays where
+                  // the finished header has it.
+                  "sticky -top-2 z-[5] -mb-1 -mt-2 min-h-10 w-full pb-1 pt-2 shadow-[0_6px_6px_-2px_var(--aomi-bg)]"
+                : "focus-visible:outline-aomi-accent rounded-control w-fit outline-offset-[3px] focus-visible:outline-2",
             )}
-            <div
-              ref={viewportRef}
-              onScroll={handleViewportScroll}
-              tabIndex={windowed && overflowing ? 0 : undefined}
-              aria-label={
-                windowed && overflowing ? "Working trace steps" : undefined
-              }
-              className={cn(
-                "aui-working-trace-viewport",
-                windowed && !animating && "overflow-y-auto",
-                animating && "overflow-hidden",
-                windowed &&
-                  overflowing &&
-                  !animating &&
-                  "aui-working-trace-scroll",
-              )}
-              style={{
-                maxHeight:
-                  windowed && overflowing ? WORKING_WINDOW_PX : undefined,
-              }}
-            >
-              <div
-                ref={bodyRef}
-                className="aui-working-trace-body relative isolate flex flex-col gap-1 px-3.5 pb-3.5 pt-3 text-sm"
+          >
+            {(running || leaving) && (
+              // Sending: a dot where the word will be. Both stay mounted, so one
+              // becomes the other without anything moving.
+              <span
+                aria-hidden
+                className={cn(
+                  "pointer-events-none absolute left-0 flex size-2.5 transition-[opacity,scale] duration-300 ease-out motion-reduce:transition-none",
+                  sending ? "scale-100 opacity-100" : "scale-[.3] opacity-0",
+                )}
               >
-                {visibleItems.map((item, i) => {
-                  const animate = running && i >= animatedCount.current;
-                  if (item.kind === "tool") {
-                    return (
-                      <WorkingStep
-                        key={item.key}
-                        tool={item.tool}
-                        relatedResults={visibleItems
-                          .slice(0, i)
-                          .flatMap((previous) =>
-                            previous.kind === "tool"
-                              ? [previous.tool.result]
-                              : [],
-                          )}
-                        active={i === activeIndex}
-                        animate={animate}
-                        live={running}
-                      />
-                    );
-                  }
-                  if (item.kind === "read") {
-                    return (
-                      <ReadOutputRow
-                        key={item.key}
-                        parts={item.parts}
-                        sourceTool={item.sourceTool}
-                        stepKey={`${viewKey ?? ""}:${item.key}`}
-                        active={i === activeIndex}
-                        animate={animate}
-                        live={running}
-                      />
-                    );
-                  }
-                  if (item.kind === "context") {
-                    return (
-                      <ContextStepRow
-                        key={item.key}
-                        step={item.step}
-                        stepKey={`${viewKey ?? ""}:${item.key}`}
-                        animate={animate}
-                        live={running}
-                      />
-                    );
-                  }
-                  if (item.kind === "agent") {
-                    return (
-                      <WorkingAgent
-                        key={item.key}
-                        agentId={item.agentId}
-                        run={item.run}
-                        tool={item.tool}
-                        order={item.order}
-                        // A live agent row owns the trace's single live signal:
-                        // it re-homes the shimmer onto its newest child (open)
-                        // or onto its own summary line (folded).
-                        active={i === activeIndex}
-                        animate={animate}
-                      />
-                    );
-                  }
-                  return (
-                    <WorkingNote
-                      key={item.key}
-                      text={item.text}
-                      animate={animate}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-          {/* Below the window: while it's hiding older steps, offer a way to lift
-              the cap; while expanded, offer the way back to just the recent steps.
-              Shown live and after completion — the window persists either way. */}
-          {((windowed && overflowing) || expanded) && (
-            <button
-              type="button"
-              onClick={() => setExpanded((e) => !e)}
-              className="aui-working-trace-more text-aomi-muted hover:text-aomi-fg flex items-center gap-1.5 px-3.5 pb-3 text-xs"
+                <span className="bg-aomi-fg size-2.5 animate-pulse rounded-full motion-reduce:animate-none" />
+              </span>
+            )}
+            <span
+              className={cn(
+                "block min-w-0 shrink-0 transition-[opacity,translate] duration-[420ms] ease-[cubic-bezier(.22,.8,.26,1)] motion-reduce:transition-none",
+                sending
+                  ? "-translate-x-1 opacity-0"
+                  : "translate-x-0 opacity-100 delay-100",
+              )}
             >
-              <MoreHorizontalIcon className="size-3.5 shrink-0" />
-              {expanded
-                ? "Collapse to recent steps"
-                : `Show all ${stepCount} steps`}
-            </button>
+              <Swap
+                id={leaving ? "running" : waiting ? "waiting" : outcome}
+                className="shrink-0"
+              >
+                {waiting && !leaving ? (
+                  <span
+                    role="status"
+                    className="aui-working-waiting text-aomi-fg inline-flex items-center gap-2 font-medium"
+                  >
+                    <span
+                      aria-hidden
+                      className="bg-aomi-warning size-1.5 animate-pulse rounded-full motion-reduce:animate-none"
+                    />
+                    Waiting for your signature
+                  </span>
+                ) : leaving || outcome === "running" ? (
+                  <span className="aui-working-shimmer font-medium">
+                    Working
+                  </span>
+                ) : (
+                  <span className="text-aomi-muted group-hover/head:text-aomi-fg transition-colors">
+                    {doneLabel ?? (duration ? "Worked for" : "Worked it out")}
+                    {duration && (
+                      <>
+                        {doneLabel ? " after " : " "}
+                        <span className="text-aomi-fg font-medium">
+                          {duration}
+                        </span>
+                      </>
+                    )}
+                  </span>
+                )}
+              </Swap>
+            </span>
+            {(running || leaving) && !sending && (
+              <span
+                data-flip="time"
+                aria-label="Working time"
+                className="text-aomi-muted text-[13px] tabular-nums"
+              >
+                {runningSeconds === 0 ? "0s" : formatDuration(runningSeconds)}
+              </span>
+            )}
+            {quiet && (
+              <span data-flip="quiet" className="text-aomi-muted text-[13px]">
+                taking a bit longer
+              </span>
+            )}
+            {!running && !leaving && stepCount > 0 && (
+              <span
+                data-flip="steps"
+                className="text-aomi-muted text-[13px] tabular-nums"
+              >
+                {stepCount} {stepCount === 1 ? "step" : "steps"}
+              </span>
+            )}
+            {foldable && !sending && (
+              <span data-flip="arrow">
+                <ChevronRightIcon
+                  className={cn(
+                    "text-aomi-muted group-hover/head:text-aomi-fg size-3 opacity-75 transition-[rotate,opacity,color] duration-300 group-hover/head:opacity-100",
+                    open && "rotate-90",
+                  )}
+                />
+              </span>
+            )}
+          </button>
+
+          {foldable && (
+            <Fold open={open} slow>
+              <div
+                className={cn(
+                  "flex flex-col gap-3",
+                  // Two 28 px rows in a row carry their own air.
+                  segments[0]?.kind === "burst" ? "pt-2" : "pt-3",
+                )}
+              >
+                {segments.map((segment, index) =>
+                  segment.kind === "text" ? (
+                    <div key={segment.key} className="aui-working-note">
+                      <RenderedText text={segment.text} />
+                    </div>
+                  ) : (
+                    <TraceBurst
+                      key={segment.key}
+                      viewKey={`${viewKey}:${segment.key}`}
+                      items={segment.items}
+                      earlier={segment.earlier}
+                      live={running && index === segments.length - 1}
+                      animate={running}
+                      onTouch={() => {
+                        touched.current = true;
+                      }}
+                    />
+                  ),
+                )}
+              </div>
+            </Fold>
           )}
         </div>
       </div>
@@ -725,19 +498,18 @@ export const WorkingTrace: FC<{
   );
 };
 
-export const MinimalWorkingTrace: FC = () => (
-  <div
-    role="status"
-    aria-label="Aomi is thinking"
-    className={cn(
-      "aui-working-trace-start animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-1 mb-3 flex origin-top-left items-center gap-2 border duration-300 ease-out motion-reduce:animate-none",
-      WORKING_COLLAPSED_CHIP_CLASS,
-    )}
-  >
-    <ThinkingStatusGlyph />
-    <span className={cn(WORKING_STATUS_TEXT_CLASS, "aui-working-shimmer")}>
-      Thinking
-    </span>
+/** Before the first words or steps: the same header, already counting. */
+export const MinimalWorkingTrace: FC<{ startedAtMs?: number }> = ({
+  startedAtMs,
+}) => (
+  <div role="status" aria-label="Aomi is working">
+    <WorkingTrace
+      viewKey="start"
+      running
+      items={[]}
+      revealed={0}
+      startedAtMs={startedAtMs}
+    />
   </div>
 );
 
@@ -765,7 +537,9 @@ export const RenderedText: FC<{ text: string }> = memo(function RenderedText({
 });
 
 /** Keep working notes with their tools; only the final answer sits outside. */
-export const AssistantTurnParts: FC = () => {
+export const AssistantTurnParts: FC<{ sending?: boolean }> = ({
+  sending = false,
+}) => {
   const messageId = useMessage((s) => s.id);
   // A follow-up splits a turn: the work above it is a closed segment.
   const segment = useMessage(
@@ -857,16 +631,29 @@ export const AssistantTurnParts: FC = () => {
           ["processing", "awaiting_action"].includes(
             runtime?.turnState ?? "",
           ))));
+  // The model turn ended and its transaction needs the reader: nothing runs
+  // until a wallet callback starts.
+  const callbackRunning = (continuationTurnIds ?? []).some((id) => {
+    const state = turnEvents.findLast(
+      (event) => event.type === "turn_state_changed" && event.turn_id === id,
+    );
+    return state?.type === "turn_state_changed" && state.state === "processing";
+  });
+  const waiting =
+    live &&
+    !callbackRunning &&
+    (ownStatus === "awaiting_action" ||
+      (walletContinuation && ownStatus === "complete"));
   const outcome: WorkingTraceOutcome = live
     ? "running"
     : closed
       ? "complete"
       : ownStatus === "failed" || (isLast && runtime?.turnState === "failed")
-      ? "failed"
-      : ownStatus === "interrupted" ||
-          (isLast && runtime?.turnState === "interrupted")
-        ? "interrupted"
-        : "complete";
+        ? "failed"
+        : ownStatus === "interrupted" ||
+            (isLast && runtime?.turnState === "interrupted")
+          ? "interrupted"
+          : "complete";
   const delegations = isLast
     ? Object.values(taskRuns).sort((a, b) => a.startedAt - b.startedAt)
     : [];
@@ -907,12 +694,16 @@ export const AssistantTurnParts: FC = () => {
   // A response key identifies which prose is the answer, not whether the
   // operation has finished. Parent completion precedes wallet callbacks, and
   // response text can arrive before the callback's durable complete event.
+  // Waiting for a signature is not the end: text stays in the open trace
+  // until the wallet callback's own answer.
   const answerReady =
     closed ||
     (!live &&
-    !ownStopped &&
-    (ownStatus === "complete" ||
-      (ownStatus === undefined && isLast && runtime?.turnState === "complete")));
+      !ownStopped &&
+      (ownStatus === "complete" ||
+        (ownStatus === undefined &&
+          isLast &&
+          runtime?.turnState === "complete")));
   const represented = new Set(
     parts
       .filter((part) => part.type === "tool-call")
@@ -968,9 +759,15 @@ export const AssistantTurnParts: FC = () => {
     (part, index): part is TextMessagePart =>
       part.type === "text" && answerIndexes.has(index),
   );
+  const hasTrace = traceItems.length > 0 || (live && pending.length === 0);
+  // A plain reply had only the Working row: close it instead of dropping it.
+  const lastLive = useRef<string | undefined>(undefined);
+  if (live) lastLive.current = messageId;
+  const leaving =
+    !hasTrace && outcome === "complete" && lastLive.current === messageId;
   return (
     <>
-      {traceItems.length > 0 && (
+      {(hasTrace || leaving) && (
         <WorkingTrace
           key="turn-trace"
           viewKey={messageId}
@@ -982,6 +779,9 @@ export const AssistantTurnParts: FC = () => {
           items={traceItems}
           revealed={traceItems.length}
           collapseReady={!live}
+          waiting={waiting}
+          sending={sending}
+          leaving={leaving}
           startedAtMs={startedAtMs}
           phaseEvents={turnEvents}
           phaseTurnIds={turnId ? [turnId, ...(continuationTurnIds ?? [])] : []}
@@ -993,13 +793,17 @@ export const AssistantTurnParts: FC = () => {
       )}
       {answerParts.map((part, index) =>
         part.text ? (
-          <div className="aui-working-answer" key={`answer:${index}`}>
+          <div
+            className={cn(
+              "aui-working-answer",
+              // Level with the logo when nothing stands above it.
+              !hasTrace && !leaving && index === 0 && "pt-[2.5px]",
+            )}
+            key={`answer:${index}`}
+          >
             <RenderedText text={part.text} />
           </div>
         ) : null,
-      )}
-      {live && parts.length === 0 && pending.length === 0 && (
-        <MinimalWorkingTrace />
       )}
       {/* A work-limit pause has its own notice with Continue. */}
       {outcome === "failed" && !pausedAtWorkLimit && <TurnFailureFallback />}

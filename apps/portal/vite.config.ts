@@ -3,6 +3,11 @@ import { sentryTanstackStart } from "@sentry/tanstackstart-react/vite";
 import { appConfig, loadAppEnv, sentryOptions } from "@aomi-labs/app-kit/vite";
 import { fileURLToPath } from "node:url";
 
+// Preview: Phosphor icons in our own code. Wallet libraries keep theirs.
+const icons = fileURLToPath(
+  new URL("../../packages/app-kit/shims/lucide-phosphor.js", import.meta.url),
+);
+
 const root = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig(({ mode }) => {
@@ -24,7 +29,20 @@ export default defineConfig(({ mode }) => {
     },
   });
   return mergeConfig(base, {
-    plugins: [sentryTanstackStart(sentryOptions(env, "portal"))],
+    plugins: [
+      {
+        name: "aomi-phosphor-icons",
+        enforce: "pre" as const,
+        resolveId(id: string, importer?: string) {
+          return id === "lucide-react" &&
+            importer &&
+            !importer.includes("/node_modules/")
+            ? icons
+            : undefined;
+        },
+      },
+      sentryTanstackStart(sentryOptions(env, "portal")),
+    ],
     resolve: {
       dedupe: ["@assistant-ui/react", "viem", "wagmi", "zustand"],
     },

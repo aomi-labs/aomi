@@ -44,6 +44,8 @@ import {
   writePersistedThreadId,
 } from "./thread-persistence";
 import {
+  conversationCommits,
+  retainedActivityEvents,
   conversationPendingActions,
   logicalTurnRunning,
   projectAssistantMessages,
@@ -255,6 +257,14 @@ export function AomiRuntimeCore({
   const pendingActions = useMemo(
     () => conversationPendingActions(actions.pendingActions, events),
     [actions.pendingActions, events],
+  );
+  const commits = useMemo(
+    () => conversationCommits(snapshot.commits, snapshot.events),
+    [snapshot.commits, snapshot.events],
+  );
+  const retainedEvents = useMemo(
+    () => retainedActivityEvents(snapshot.commits, snapshot.events),
+    [snapshot.commits, snapshot.events],
   );
 
   /**
@@ -662,7 +672,8 @@ export function AomiRuntimeCore({
 
       // Action API
       pendingActions,
-      commits: snapshot.commits,
+      commits,
+      retainedEvents,
       commitController: currentSession?.commits,
       actionAttempts: actions.actionAttempts,
       hasBlockingActions: actions.hasBlockingActions,
@@ -707,7 +718,8 @@ export function AomiRuntimeCore({
       currentSession,
       simulateBatchTransactions,
       events,
-      snapshot.commits,
+      commits,
+      retainedEvents,
       snapshot.turnState,
     ],
   );

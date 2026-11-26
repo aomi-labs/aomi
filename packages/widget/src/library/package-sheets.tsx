@@ -6,6 +6,7 @@ import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { AomiButton } from "@/ui/aomi/button";
 import { SheetAlert, SheetHeader } from "@/wallet/picker/sheet-parts";
 import { PackageTile } from "@/icons/package-mark";
+import { packageIconUrl } from "@/icons/preview-package-icons";
 import { personSlots } from "./model";
 
 const INPUT =
@@ -112,7 +113,7 @@ export function AddWithCodeSheet({
     <SheetForm
       title="Add a private package"
       leading={
-        <span className="border-aomi-overlay-border bg-aomi-surface-2 text-aomi-accent flex size-9 shrink-0 items-center justify-center rounded-xl border">
+        <span className="border-aomi-overlay-border bg-aomi-surface-2 text-aomi-accent rounded-control flex size-9 shrink-0 items-center justify-center border">
           <KeyRound aria-hidden className="size-5" />
         </span>
       }
@@ -176,7 +177,7 @@ export function ConnectSheet({
     <SheetForm
       title={`Connect ${row.display_name}`}
       description="Add your key once. It works in every chat."
-      leading={<PackageTile iconUrl={row.icon_url} />}
+      leading={<PackageTile iconUrl={packageIconUrl(row)} />}
       submit={replacing ? "Save" : "Connect"}
       canSubmit={complete && filled.length > 0}
       error={error}

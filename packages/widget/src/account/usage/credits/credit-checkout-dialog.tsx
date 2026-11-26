@@ -413,7 +413,7 @@ export function CreditCheckoutDialog({
     header = { title: "Add funds", description: "Not available yet" };
     body = (
       <div className="flex flex-col items-center gap-2.5 py-2 text-center">
-        <span className="border-aomi-border bg-aomi-surface-2 text-aomi-muted flex size-10 items-center justify-center rounded-xl border">
+        <span className="border-aomi-border bg-aomi-surface-2 text-aomi-muted rounded-control flex size-10 items-center justify-center border">
           <CreditCard className="size-[18px]" />
         </span>
         <p className="type-row mt-1">Adding funds isn’t available yet</p>

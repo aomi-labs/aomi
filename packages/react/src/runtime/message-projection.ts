@@ -222,6 +222,106 @@ export function conversationPendingActions(
   return kept.length === pending.length ? pending : kept;
 }
 
+/** Commits made in turns an Edit or Rerun removed leave with those turns,
+ * unless they went out: a sent transaction happened and stays in History.
+ * A commit's maker is the first tool result in the ledger that names it;
+ * commits no chat tool made (Pipeline, scheduled runs) stay. */
+export function conversationCommits<T extends { commit_id: string }>(
+  commits: readonly T[],
+  ledger: readonly Event[],
+): readonly T[] {
+  const removed = new Set(
+    ledger.flatMap((event) =>
+      event.type === "branch" ? event.removed_turn_ids : [],
+    ),
+  );
+  if (removed.size === 0 || commits.length === 0) return commits;
+  const placed = new Set<string>();
+  const hidden = new Set<string>();
+  for (const event of ledger) {
+    if (event.type !== "message" || !event.tool_result) continue;
+    const text = event.tool_result[1];
+    for (const { commit_id: id } of commits) {
+      if (placed.has(id) || !text.includes(id)) continue;
+      placed.add(id);
+      if (event.turn_id && removed.has(event.turn_id)) hidden.add(id);
+    }
+  }
+  for (const commit of commits)
+    if (wentOut(commit)) hidden.delete(commit.commit_id);
+  return hidden.size === 0
+    ? commits
+    : commits.filter((commit) => !hidden.has(commit.commit_id));
+}
+
+/**
+ * The removed turns' tool steps behind commits that went out: the step that
+ * made each commit and the stage steps it signed. Unsent staged work of
+ * those turns stays removed.
+ */
+export function retainedActivityEvents(
+  commits: readonly object[],
+  ledger: readonly Event[],
+): readonly Event[] {
+  const removed = new Set(
+    ledger.flatMap((event) =>
+      event.type === "branch" ? event.removed_turn_ids : [],
+    ),
+  );
+  if (removed.size === 0) return [];
+  const sent = commits.filter(wentOut) as {
+    commit_id: string;
+    chain_family?: string;
+    stage_id?: string;
+    batch?: {
+      sources?: { chain_family?: string; source_id?: unknown }[];
+    } | null;
+  }[];
+  if (sent.length === 0) return [];
+  const stages = new Set<string>();
+  for (const commit of sent) {
+    if (commit.stage_id) stages.add(commit.stage_id);
+    for (const source of commit.batch?.sources ?? [])
+      stages.add(
+        `${source.chain_family ?? commit.chain_family}:${String(source.source_id)}`,
+      );
+  }
+  return ledger.filter((event) => {
+    if (event.type !== "message" || !event.tool_result) return false;
+    if (!event.turn_id || !removed.has(event.turn_id)) return false;
+    const text = event.tool_result[1];
+    if (sent.some((commit) => text.includes(commit.commit_id))) return true;
+    try {
+      const result = JSON.parse(text) as Record<string, unknown>;
+      const id = result.pending_tx_id;
+      if (id == null) return false;
+      const family =
+        typeof result.cluster === "string" || result.chain_family === "svm"
+          ? "svm"
+          : "evm";
+      return stages.has(`${family}:${String(id)}`);
+    } catch {
+      return false;
+    }
+  });
+}
+
+/** Signed and handed to the chain (or past it): it has a hash or a state
+ * that only a sent transaction reaches. */
+function wentOut(commit: object): boolean {
+  const view = commit as {
+    state?: unknown;
+    transaction_id?: unknown;
+    wallet_attempt?: { transaction_id?: unknown } | null;
+  };
+  return (
+    Boolean(view.transaction_id || view.wallet_attempt?.transaction_id) ||
+    view.state === "awaiting_broadcast" ||
+    view.state === "submitted" ||
+    view.state === "confirmed"
+  );
+}
+
 /** The logical turn stays open while its wallet callback has not finished. */
 export function walletContinuationPending(
   continuationTurnIds: readonly string[],
@@ -556,7 +656,27 @@ export function projectRuntimeMessages(
   pendingSteers: readonly string[] = [],
 ): ThreadMessageLike[] {
   const visible = [...events];
+  // A stored message retires its live draft. Frames and events travel on
+  // different paths, so the draft can outlive it: the same key, or any draft
+  // of a wallet callback turn (`:draft:<id>`, `:trace:<id>`) once that turn's
+  // `:response` is stored.
+  const stored = new Set(
+    events.flatMap((event) =>
+      event.type === "message" && !event.is_streaming && event.message_key
+        ? [event.message_key]
+        : [],
+    ),
+  );
   for (const message of liveMessages) {
+    const key = message.message_key ?? "";
+    const turn = message.turn_id ?? "";
+    if (
+      stored.has(key) ||
+      (turn !== "" &&
+        key.startsWith(`${turn}:`) &&
+        stored.has(`${turn}:response`))
+    )
+      continue;
     let index = visible.findIndex((event) => {
       const runtimeSequence = event.runtime_sequence;
       if (

@@ -30,6 +30,10 @@ import type {
 
 export type AomiRuntimeApi = {
   commits?: readonly CommitView[];
+  /** Tool steps of turns an Edit or Rerun removed that staged or made a
+   * transaction that went out. The chat hides them; the activity panel
+   * reads them so a sent transaction keeps its name in History. */
+  retainedEvents?: readonly Event[];
   commitController?: CommitController;
   /** Shared authenticated account transport configured by the runtime. */
   account: AccountTransport;

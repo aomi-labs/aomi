@@ -1,3 +1,4 @@
+import { tagIcon } from "@/icons/tag-icons";
 import type {
   AomiPackage,
   AomiPackageChecks,
@@ -248,7 +249,7 @@ export function tagItems(rows: readonly AomiPublicPackage[]): FilterItem[] {
   return ordered(
     rows.flatMap((row) => row.tags),
     TAGS,
-  ).map((id) => ({ id, label: TAGS[id] ?? id, icon: Tag }));
+  ).map((id) => ({ id, label: TAGS[id] ?? id, icon: tagIcon(id) ?? Tag }));
 }
 
 const FAMILY_WORDS: Record<AomiPackageFamily, string> = {

@@ -104,7 +104,10 @@ const ThreadBody = memo(function ThreadBody({
   isReviewingAction: boolean;
 }) {
   const loading = useThread((thread) => thread.isLoading);
-  const { restoring, autoScroll, viewportProps } = useChatScroll(loading);
+  const { restoring, viewportProps } = useChatScroll(
+    loading,
+    isReviewingAction,
+  );
   const composerControl = useComposerControl();
   const controlBarProps = composerControl.controlBarProps ?? {};
 
@@ -132,7 +135,6 @@ const ThreadBody = memo(function ThreadBody({
                   <div className="aui-chat-column @[900px]:ml-auto @[900px]:max-w-[var(--activity-chat-max-width,100%)] flex min-h-0 min-w-0 max-w-full flex-1 flex-col">
                     <ThreadPrimitive.Viewport
                       {...viewportProps}
-                      autoScroll={!isReviewingAction && autoScroll}
                       data-testid={testIds.messageList}
                       className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 pt-2 md:px-6"
                     >
@@ -172,7 +174,7 @@ const ThreadBody = memo(function ThreadBody({
 
 const ThreadScrollToBottom: FC = () => {
   return (
-    <ThreadPrimitive.ScrollToBottom asChild>
+    <ThreadPrimitive.ScrollToBottom asChild behavior="smooth">
       <TooltipIconButton
         tooltip="Scroll to bottom"
         variant="outline"
@@ -415,7 +417,7 @@ const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
     <ComposerPrimitive.Root
       onSubmit={submit}
       data-testid={testIds.composer}
-      className="aui-composer-root border-aomi-border bg-aomi-surface relative flex w-full flex-col rounded-2xl border pt-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_14px_rgba(0,0,0,0.04)] transition-shadow duration-[180ms] focus-within:shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.07)]"
+      className="aui-composer-root border-aomi-border bg-aomi-surface rounded-shell relative flex w-full flex-col border pt-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_14px_rgba(0,0,0,0.04)] transition-shadow duration-[180ms] focus-within:shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.07)]"
     >
       <CapabilityMentionInput
         placeholder={placeholder}
@@ -527,7 +529,7 @@ const ComposerAction: FC = () => {
               variant="default"
               size="icon"
               data-testid={testIds.send}
-              className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
+              className="aui-composer-send mr-2 size-8 shrink-0 rounded-full bg-[var(--aomi-action-primary)] p-1 text-[color:var(--aomi-on-action-primary)] transition-opacity hover:bg-[var(--aomi-action-primary)] hover:opacity-90 md:mr-2.5"
               aria-label="Send message"
               disabled={
                 Boolean(hostError) ||
@@ -588,25 +590,13 @@ const MessageError: FC = () => {
   );
 };
 
-const AssistantLoadingDot: FC = () => {
-  return (
-    <div
-      role="status"
-      aria-label="Waiting for response"
-      className="aui-assistant-loading-dot-wrapper flex min-h-6 items-center px-1"
-    >
-      <span className="aui-assistant-loading-dot bg-aomi-fg block size-2.5 animate-pulse rounded-full" />
-    </div>
-  );
-};
-
 const AssistantMessage: FC = () => {
   const taskRuns = useThreadTaskRuns();
   const hasLiveTaskRun = Object.values(taskRuns).some(
     (run) => run.status === "running",
   );
-  // The dot covers only the send itself, until the backend accepts the turn;
-  // the working trace's Thinking takes over from there.
+  // One "Working" row from the send on; its clock starts once the backend
+  // accepts the turn.
   const runtime = useOptionalAomiRuntime();
   const isSending = Boolean(runtime?.isSubmitting || runtime?.isStartUncertain);
   return (
@@ -642,7 +632,7 @@ const AssistantMessageBody = memo(function AssistantMessageBody({
   // The work limit pauses a turn; it did not fail.
   const isPausedNotice = isNotice && isWorkLimitPause(notice?.aomiNoticeCode);
   const isErrorNotice = noticeKind === "error" && !isPausedNotice;
-  const showLoadingDot =
+  const isBeingSent =
     isEmpty && isRunning && isLast && isSending && !hasLiveTaskRun;
   const showFinishedEmptyMessage = isEmpty && !isRunning;
 
@@ -650,7 +640,7 @@ const AssistantMessageBody = memo(function AssistantMessageBody({
     <MessagePrimitive.Root asChild>
       <div
         className={cn(
-          "aui-assistant-message-root animate-in fade-in slide-in-from-bottom-1 relative mx-auto w-full max-w-[var(--thread-max-width)] duration-150 ease-out",
+          "aui-assistant-message-root animate-in fade-in relative mx-auto w-full max-w-[var(--thread-max-width)] duration-300 ease-out",
           showFinishedEmptyMessage ? "-mt-3 py-0" : "py-4",
         )}
         data-role="assistant"
@@ -694,16 +684,19 @@ const AssistantMessageBody = memo(function AssistantMessageBody({
 
             {!showFinishedEmptyMessage && !isNotice && (
               <div className="aui-assistant-message-content text-aomi-fg break-words text-[15px] leading-[23px]">
-                {showLoadingDot ? (
-                  <AssistantLoadingDot />
-                ) : (
-                  <AssistantTurnParts />
+                {isBeingSent && (
+                  <span
+                    role="status"
+                    aria-label="Waiting for response"
+                    className="sr-only"
+                  />
                 )}
+                <AssistantTurnParts sending={isBeingSent} />
                 <MessageError />
               </div>
             )}
 
-            {!showLoadingDot && (
+            {!isBeingSent && (
               <div
                 className={cn(
                   "aui-assistant-message-footer flex",
@@ -762,7 +755,7 @@ const AssistantActionBar: FC = () => {
       hideWhenRunning
       autohide={touchActions ? "never" : "not-last"}
       autohideFloat="single-branch"
-      className="aui-assistant-action-bar-root text-aomi-muted data-floating:absolute data-floating:rounded-xl data-floating:border data-floating:bg-aomi-raised data-floating:p-1 flex items-center gap-3.5 pt-0.5"
+      className="aui-assistant-action-bar-root animate-in fade-in text-aomi-muted data-floating:absolute data-floating:rounded-control data-floating:border data-floating:bg-aomi-raised data-floating:p-1 -ml-1 flex items-center gap-3.5 pt-0.5 duration-300 motion-reduce:animate-none"
     >
       <ActionBarPrimitive.Copy asChild>
         <Button
@@ -790,7 +783,25 @@ const AssistantActionBar: FC = () => {
           <RefreshCwIcon className="size-[15px]" />
         </Button>
       </ActionBarPrimitive.Reload>
+      <MessageTime />
     </ActionBarPrimitive.Root>
+  );
+};
+
+const MessageTime: FC = () => {
+  const at = useMessage((state) => state.createdAt)?.getTime();
+  if (!at) return null;
+  return (
+    <time
+      dateTime={new Date(at).toISOString()}
+      className="text-xs tabular-nums leading-4"
+      suppressHydrationWarning
+    >
+      {new Date(at).toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+      })}
+    </time>
   );
 };
 
@@ -813,7 +824,7 @@ const UserMessage: FC = () => {
         data-testid={testIds.userMessage}
       >
         <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0 max-w-[32rem] justify-self-end">
-          <div className="aui-user-message-content bg-aomi-surface-2 text-aomi-fg rounded-2xl rounded-br-md px-[15px] py-[11px] text-[15px] leading-[22px] [overflow-wrap:anywhere]">
+          <div className="aui-user-message-content bg-aomi-surface-2 text-aomi-fg rounded-2xl rounded-br-sm px-[15px] py-[11px] text-[15px] leading-[22px] [overflow-wrap:anywhere]">
             {isEmpty ? (
               <Skeleton className="aui-user-message-content-skeleton h-4 w-28 rounded-full" />
             ) : (

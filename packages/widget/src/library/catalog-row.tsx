@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 import { AomiButton } from "@/ui/aomi/button";
 import { StatusPill } from "@/ui/aomi/status-pill";
 import { PackageTile } from "@/icons/package-mark";
+import { packageIconUrl } from "@/icons/preview-package-icons";
 import { isAccountRow, packageAction, publisher } from "./model";
 
 /** "by publisher", with the verified mark for a package Aomi verified. */
@@ -35,9 +36,22 @@ export interface PackageActions {
   onConnect: (row: AomiPackage) => void;
 }
 
-/** The label shows on hover, on keyboard focus and on the selected row. */
-const QUIET_LABEL =
-  "hidden group-hover:inline group-has-[:focus-visible]:inline group-data-selected:inline [@media(hover:none)]:hidden!";
+/**
+ * A row's first action: its icon, opening to its label only while the row is
+ * hovered or its button has keyboard focus. Being selected does not open it.
+ */
+function ActionLabel({ children }: { children: string }) {
+  return (
+    <span className="grid grid-cols-[0fr] opacity-0 transition-[grid-template-columns,opacity] duration-[260ms] ease-[cubic-bezier(.22,.8,.26,1)] group-hover:grid-cols-[1fr] group-hover:opacity-100 group-has-[:focus-visible]:grid-cols-[1fr] group-has-[:focus-visible]:opacity-100 motion-reduce:transition-none [@media(hover:none)]:hidden">
+      <span className="min-w-0 overflow-hidden">
+        <span className="pl-1.5">{children}</span>
+      </span>
+    </span>
+  );
+}
+
+const ROW_ACTION =
+  "gap-0 px-1.5 group-data-selected:bg-[color-mix(in_srgb,var(--aomi-fg)_8%,var(--aomi-surface-2))] group-data-selected:hover:bg-[color-mix(in_srgb,var(--aomi-fg)_13%,var(--aomi-surface-2))] max-md:h-9 max-md:px-[11px]";
 
 function RowAction({
   row,
@@ -57,14 +71,13 @@ function RowAction({
     case "use":
       return (
         <AomiButton
-          variant="ghost"
           size="sm"
           aria-label={`Use in chat: ${row.display_name}`}
-          className="bg-aomi-accent-subtle text-aomi-accent-strong hover:bg-aomi-accent-subtle hover:text-aomi-accent-strong hover:border-aomi-accent-outline px-[7px] max-md:h-9 max-md:px-[11px]"
+          className={ROW_ACTION}
           onClick={() => onUse(row)}
         >
           <MessageCircle />
-          <span className={QUIET_LABEL}>Use in chat</span>
+          <ActionLabel>Use in chat</ActionLabel>
         </AomiButton>
       );
     case "turn_on":
@@ -72,10 +85,11 @@ function RowAction({
         <AomiButton
           size="sm"
           aria-label={`Turn on ${row.display_name}`}
-          className="max-md:h-9"
+          className={ROW_ACTION}
           onClick={() => onToggle(row, true)}
         >
-          <Plus /> Turn on
+          <Plus />
+          <ActionLabel>Turn on</ActionLabel>
         </AomiButton>
       );
     case "connect":
@@ -84,10 +98,11 @@ function RowAction({
           variant="ghost"
           size="sm"
           aria-label={`Connect ${row.display_name}`}
-          className="bg-aomi-warning/15 hover:bg-aomi-warning/25 hover:text-aomi-fg text-[color-mix(in_srgb,var(--aomi-warning)_62%,var(--aomi-fg))] max-md:h-9"
+          className="bg-aomi-warning/15 hover:bg-aomi-warning/25 hover:text-aomi-fg gap-0 px-1.5 text-[color-mix(in_srgb,var(--aomi-warning)_62%,var(--aomi-fg))] max-md:h-9 max-md:px-[11px]"
           onClick={() => onConnect(row)}
         >
-          <KeyRound /> Connect
+          <KeyRound />
+          <ActionLabel>Connect</ActionLabel>
         </AomiButton>
       );
     case "unavailable":
@@ -118,9 +133,7 @@ export function CatalogRow({
       data-selected={selected || undefined}
       className={cn(
         "rounded-control group flex min-h-14 items-center pr-2.5 transition-colors",
-        selected
-          ? "bg-aomi-surface-2 ring-aomi-border ring-1 ring-inset"
-          : "hover:bg-aomi-surface-2/70",
+        selected ? "bg-aomi-surface-2" : "hover:bg-aomi-surface-2/70",
       )}
     >
       <button
@@ -136,7 +149,7 @@ export function CatalogRow({
             account && !account.enabled && "opacity-45 grayscale",
           )}
         >
-          <PackageTile iconUrl={row.icon_url} />
+          <PackageTile iconUrl={packageIconUrl(row)} />
         </span>
         <span className="block min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5">

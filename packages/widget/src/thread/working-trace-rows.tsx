@@ -3,19 +3,15 @@
 import { cn } from "@/lib/cn";
 import { type FC, memo, useEffect, useRef } from "react";
 import { TextMessagePartProvider } from "@assistant-ui/react";
-import {
-  BanIcon,
-  CheckIcon,
-  ChevronRightIcon,
-  ClockIcon,
-  XIcon,
-} from "lucide-react";
+import { BanIcon, ChevronRightIcon, ClockIcon, XIcon } from "lucide-react";
 
 import { useChatViewFlag } from "@aomi-labs/react";
 import { MarkdownText } from "./markdown-text";
 import type { InterpretedToolStep } from "@aomi-labs/client/trace";
+import { useTraceAttribution } from "./trace-attribution";
 import { traceIcon } from "./trace-icons";
 import { ToolChipView } from "./tool-chip";
+import { noise } from "./trace-labels";
 import { testIds } from "@/test-ids";
 
 export { ToolChipView } from "./tool-chip";
@@ -59,6 +55,8 @@ const MAX_VISIBLE_CHIPS = 4;
 export const ToolStepRow: FC<{
   viewKey?: string;
   interpretation: InterpretedToolStep;
+  /** The line shown for the step; its decoded title otherwise. */
+  label?: string;
   argsText?: string;
   detailText?: string;
   done: boolean;
@@ -69,6 +67,7 @@ export const ToolStepRow: FC<{
 }> = ({
   viewKey,
   interpretation,
+  label = interpretation.title,
   argsText,
   detailText,
   done,
@@ -82,10 +81,20 @@ export const ToolStepRow: FC<{
     false,
   );
   const hasDetail = detailText !== undefined || argsText !== undefined;
-  const Icon = traceIcon(interpretation.icon);
+  const { packages } = useTraceAttribution();
+  const brought = interpretation.chips.find((chip) => chip.packageId);
+  const Icon =
+    packages?.find((item) => item.id === brought?.packageId)?.Icon ??
+    traceIcon(brought?.icon ?? interpretation.icon);
   const outcome =
     interpretation.outcome ?? (interpretation.failed ? "failed" : "success");
-  const visibleChips = interpretation.chips.filter((chip) => chip.icon != null);
+  const said = label.toLowerCase();
+  const visibleChips = interpretation.chips.filter(
+    (chip) =>
+      chip.icon != null &&
+      !said.includes(chip.label.toLowerCase()) &&
+      (chip.essential || chip.attribution || !noise(chip.label)),
+  );
   const attributionChips = visibleChips.filter((chip) => chip.attribution);
   const dataChips = visibleChips.filter((chip) => !chip.attribution);
   const essential = dataChips.filter((chip) => chip.essential);
@@ -113,7 +122,7 @@ export const ToolStepRow: FC<{
   return (
     <div
       className={cn(
-        "aui-working-step",
+        "aui-working-step py-[9px]",
         animate &&
           "animate-in fade-in-0 slide-in-from-bottom-1 duration-300 motion-reduce:animate-none",
         className,
@@ -124,7 +133,7 @@ export const ToolStepRow: FC<{
         disabled={!hasDetail}
         onClick={() => setOpen((o) => !o)}
         data-testid={testIds.traceStep}
-        className="aui-working-step-header group/step flex w-full items-center gap-2.5 py-1 text-left disabled:cursor-default"
+        className="aui-working-step-header group/step flex w-full items-center gap-2.5 text-left disabled:cursor-default"
       >
         <span className="relative flex size-4 shrink-0 items-center justify-center">
           {done && !active ? (
@@ -134,10 +143,8 @@ export const ToolStepRow: FC<{
               <BanIcon className="text-aomi-danger size-3.5" />
             ) : outcome === "waiting" || outcome === "incomplete" ? (
               <ClockIcon className="text-aomi-muted size-3.5" />
-            ) : outcome === "unknown" ? (
-              <Icon className="text-aomi-muted size-3.5" />
             ) : (
-              <CheckIcon className="text-aomi-success size-3.5" />
+              <Icon className="text-aomi-muted size-[15px]" />
             )
           ) : (
             <Icon className="text-aomi-muted size-3.5" />
@@ -145,11 +152,11 @@ export const ToolStepRow: FC<{
         </span>
         <span
           className={cn(
-            "flex-1 truncate text-[13px] font-medium",
+            "line-clamp-2 flex-1 text-[13px] leading-[18px]",
             active ? "aui-working-shimmer" : "text-aomi-fg",
           )}
         >
-          {interpretation.title}
+          {label}
         </span>
         {/* Detail affordance stays quiet until the row is hovered (or open). */}
         {hasDetail && (
@@ -165,7 +172,7 @@ export const ToolStepRow: FC<{
       </button>
 
       {shownChips.length > 0 && (
-        <div className="aui-working-step-chips mb-1 ml-[26px] mt-1.5 flex max-w-full flex-wrap items-center gap-1.5">
+        <div className="aui-working-step-chips ml-[26px] mt-2 flex max-w-full flex-wrap items-center gap-1.5">
           {shownChips.map((chip, i) => (
             <ToolChipView
               key={shownChipKeys[i]}
@@ -181,7 +188,7 @@ export const ToolStepRow: FC<{
       )}
 
       {open && hasDetail && (
-        <div className="aui-working-step-detail mb-1.5 ml-[26px] mt-4 flex flex-col gap-1.5">
+        <div className="aui-working-step-detail ml-[26px] mt-3 flex flex-col gap-1.5">
           {argsText && <pre className={DETAIL_BOX_CLASS}>{argsText}</pre>}
           {detailText !== undefined && (
             <pre className={DETAIL_BOX_CLASS}>{detailText}</pre>

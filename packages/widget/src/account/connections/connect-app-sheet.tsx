@@ -139,7 +139,7 @@ export function ConnectAppSheet({ onClose }: { onClose: () => void }) {
                 {MCP_SERVERS.map((server) => (
                   <div
                     key={server.path}
-                    className="border-aomi-border flex flex-col gap-2 rounded-[14px] border p-3"
+                    className="border-aomi-border rounded-card flex flex-col gap-2 border p-3"
                   >
                     <div className="flex flex-col gap-0.5">
                       <span className="type-row">{server.title}</span>

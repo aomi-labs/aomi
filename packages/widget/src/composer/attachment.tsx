@@ -10,17 +10,8 @@ import {
   useAttachment,
 } from "@assistant-ui/react";
 import { useShallow } from "zustand/shallow";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/ui/tooltip";
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogTrigger,
-} from "@/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
+import { Dialog, DialogTitle, DialogContent, DialogTrigger } from "@/ui/dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/ui/avatar";
 import { TooltipIconButton } from "@/thread/tooltip-icon-button";
 
@@ -157,7 +148,7 @@ const AttachmentUI: FC = () => {
           <TooltipTrigger asChild>
             <div
               className={cn(
-                "aui-attachment-tile bg-muted size-14 cursor-pointer overflow-hidden rounded-xl border transition-opacity hover:opacity-75",
+                "aui-attachment-tile bg-muted rounded-control size-14 cursor-pointer overflow-hidden border transition-opacity hover:opacity-75",
                 isComposer &&
                   "aui-attachment-tile-composer border-foreground/20",
               )}

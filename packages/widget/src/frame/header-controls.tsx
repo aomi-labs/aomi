@@ -13,7 +13,7 @@ import { useSettings } from "@/account/use-settings";
  * on phones each grows to a 36px touch target.
  */
 const headerButtonClass =
-  "flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-aomi-muted transition-colors hover:bg-aomi-hover hover:text-aomi-fg max-md:h-9 max-md:w-9";
+  "flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-aomi-muted transition-colors hover:bg-aomi-hover hover:text-aomi-fg max-md:h-9 max-md:w-9";
 
 /** Names each icon on hover; the span keeps the tip working on a disabled button. */
 function HeaderTip({

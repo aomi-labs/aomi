@@ -7,6 +7,8 @@ import { cn } from "@/lib/cn";
 import { AomiButton } from "@/ui/aomi/button";
 import { AllowanceRing } from "@/ui/aomi/allowance-ring";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
+import { Segmented } from "@/ui/aomi/segmented";
+import { Tag } from "@/ui/aomi/status-pill";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { tierLabel, useAccountOverview } from "@/account/account-overview";
 import {
@@ -15,7 +17,6 @@ import {
 } from "@/account/use-account-credits";
 import { useUsageStatement } from "./use-usage-statement";
 import {
-  Chip,
   MatrixTable,
   PeriodTotalHero,
   SpendBreakdownSection,
@@ -57,28 +58,13 @@ export function BillingSettings({
 
   return (
     <div className="flex flex-col gap-5">
-      <div
-        role="group"
-        aria-label="Billing view"
-        className="border-aomi-border bg-aomi-surface flex h-8 w-max items-center rounded-lg border p-[3px]"
-      >
-        {VIEWS.map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            aria-pressed={view === id}
-            onClick={() => setView(id)}
-            className={cn(
-              "rounded-md px-3.5 py-1 text-[12px] leading-none transition-colors",
-              view === id
-                ? "bg-aomi-surface-2 text-aomi-fg font-medium"
-                : "text-aomi-muted hover:text-aomi-fg",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        label="Billing view"
+        value={view}
+        onChange={setView}
+        options={VIEWS.map(([value, label]) => ({ value, label }))}
+        className="w-max"
+      />
 
       {view === "overview" ? (
         <Overview onAddFunds={() => setCheckoutOpen(true)} onView={setView} />
@@ -162,7 +148,7 @@ function Card({
 
 function AllowanceCard({ billing, plan }: { billing: Billing; plan: string }) {
   return (
-    <Card title="Monthly allowance" aside={<Chip>{`${plan} plan`}</Chip>}>
+    <Card title="Monthly allowance" aside={<Tag>{`${plan} plan`}</Tag>}>
       {billing.allowanceUsd > 0 ? (
         <div className="flex items-center gap-4 pb-1">
           <AllowanceRing left={billing.allowanceLeft} size={56} />
@@ -209,7 +195,7 @@ function BalanceCard({
             Used once your allowance runs out
           </span>
         </div>
-        <AomiButton variant="primary" onClick={onAddFunds}>
+        <AomiButton onClick={onAddFunds}>
           <Plus />
           Add funds
         </AomiButton>

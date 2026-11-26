@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { shortAddress } from "@aomi-labs/client";
 import { aomiButton } from "@/ui/aomi/button";
-import { PendingMark } from "@/ui/aomi/status-pill";
+import { PendingMark, Tag } from "@/ui/aomi/status-pill";
 import { AccountAvatar } from "./account-avatar";
 import type { WalletFamily } from "@/wallet/types";
 import { BrandMark } from "./account-management/controls";
@@ -150,11 +150,7 @@ export function AccountMenu({
             <span className="truncate text-[13px] font-semibold">
               {accountLabel ?? walletLabel ?? "Account"}
             </span>
-            {planLabel ? (
-              <span className="border-aomi-border bg-aomi-raised text-aomi-muted ml-auto shrink-0 rounded-full border px-1.5 py-px text-[9.5px] font-semibold uppercase leading-[14px] tracking-[0.06em]">
-                {planLabel}
-              </span>
-            ) : null}
+            {planLabel ? <Tag className="ml-auto">{planLabel}</Tag> : null}
           </div>
           {allowanceLine || allowanceLoading ? (
             <div className="text-aomi-muted mt-1.5 px-1 text-[12px] font-medium">

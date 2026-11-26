@@ -10,12 +10,12 @@ import {
   type ComponentType,
 } from "react";
 import {
+  Cable,
+  CircleUserRound,
   CreditCard,
-  Plug,
   Settings2,
   ShieldCheck,
   SlidersHorizontal,
-  UserRound,
 } from "lucide-react";
 import { useAomiWalletKit } from "@/wallet/context";
 import { AomiButton } from "@/ui/aomi/button";
@@ -64,13 +64,13 @@ const NAV: {
     id: "account",
     label: "Account",
     description: "Wallets and sign-in methods",
-    Icon: UserRound,
+    Icon: CircleUserRound,
   },
   {
     id: "connections",
     label: "Connections",
     description: "Apps, bots and terminals that use your account",
-    Icon: Plug,
+    Icon: Cable,
   },
   {
     id: "policy",
@@ -268,7 +268,7 @@ export function SettingsModal({
       onClose={onClose}
     >
       <ModalSidebar title="Settings" titleId="settings-title" icon={Settings2}>
-        <ModalNav label="Settings sections" className="mt-2 md:mt-3">
+        <ModalNav label="Settings sections" className="mt-2 md:mt-[17px]">
           {NAV.filter((item) => !accountOnly || item.id === "account").map(
             ({ id, label, Icon }) => (
               <ModalNavItem

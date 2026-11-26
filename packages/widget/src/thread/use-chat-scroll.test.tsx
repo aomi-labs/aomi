@@ -91,7 +91,6 @@ function Viewport() {
     <ThreadPrimitive.Root>
       <ThreadPrimitive.Viewport
         {...scroll.viewportProps}
-        autoScroll={scroll.autoScroll}
         data-testid="viewport"
       >
         <div>Actual native viewport content</div>
@@ -203,6 +202,8 @@ describe("saved scroll with the native assistant viewport", () => {
     expect(viewport.scrollTop).toBe(1700);
     height = 2300;
     resize();
+    // It glides there.
+    await act(() => vi.advanceTimersByTimeAsync(1500));
     expect(viewport.scrollTop).toBe(2000);
     viewport.scrollTop = 100;
     fireEvent.scroll(viewport);

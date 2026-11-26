@@ -61,7 +61,7 @@ export function ModalShell({
         <ModalCloseButton
           label={closeLabel}
           onClick={onClose}
-          className="absolute right-3 top-[calc(var(--aomi-safe-top,0px)+0.625rem)] z-20 max-md:size-10 md:right-4 md:top-4 max-md:[&>svg]:size-5"
+          className="absolute right-3 top-[calc(var(--aomi-safe-top,0px)+0.625rem)] z-20 max-md:size-10 md:right-4 md:top-[23px] max-md:[&>svg]:size-5"
         />
         <div
           className={cn(
@@ -158,7 +158,7 @@ export function ModalNav({
     <nav
       aria-label={label}
       className={cn(
-        "aomi-modal-nav flex gap-1.5 overflow-x-auto px-4 md:block md:space-y-0.5 md:px-0",
+        "aomi-modal-nav flex gap-1.5 overflow-x-auto px-4 md:block md:space-y-1 md:px-0",
         className,
       )}
     >
@@ -242,7 +242,7 @@ export function ModalHeader({
   return (
     <header
       className={cn(
-        "flex shrink-0 items-center gap-3 px-4 pb-2 pt-4 md:min-h-[74px] md:px-6 md:py-4 md:pr-14",
+        "flex shrink-0 items-center gap-3 px-4 pb-2 pt-4 md:items-start md:px-6 md:pb-3.5 md:pr-14 md:pt-6",
         className,
       )}
     >

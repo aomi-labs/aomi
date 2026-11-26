@@ -4,6 +4,7 @@ import { cn } from "@/lib/cn";
 import type { FC } from "react";
 import type { ToolChip } from "@aomi-labs/client/trace";
 import { traceIcon } from "./trace-icons";
+import { shortAmount } from "./trace-labels";
 import { useTraceAttribution } from "./trace-attribution";
 
 /** Base + per-chip stagger for the left-to-right chip cascade (ms). */
@@ -17,18 +18,22 @@ export const ToolChipView: FC<{
   chip: ToolChip;
   index?: number;
   animate?: boolean;
-}> = ({ chip, index = 0, animate = false }) => {
+  /** Beside a line of text. */
+  compact?: boolean;
+}> = ({ chip, index = 0, animate = false, compact = false }) => {
   const { packages } = useTraceAttribution();
   if (!chip.icon) return null;
+  const text = shortAmount(chip.label);
   // A hosted package shows its own mark, neutral like every other chip glyph.
   const Glyph =
     packages?.find((item) => item.id === chip.packageId)?.Icon ??
     traceIcon(chip.icon);
   return (
     <span
-      title={chip.title}
+      title={chip.title ?? (text === chip.label ? undefined : chip.label)}
       className={cn(
-        "border-aomi-border/80 bg-aomi-raised text-aomi-muted inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] tabular-nums leading-none",
+        "bg-aomi-surface-2 text-aomi-muted inline-flex min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full text-[11px] tabular-nums leading-none",
+        compact ? "h-[22px] px-2" : "h-[26px] px-2.5",
         animate &&
           "animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both duration-[180ms] motion-reduce:animate-none",
       )}
@@ -40,8 +45,13 @@ export const ToolChipView: FC<{
           : undefined
       }
     >
-      <Glyph className="text-aomi-fg/80 size-3.5 shrink-0" />
-      <span className="truncate">{chip.label}</span>
+      <Glyph
+        className={cn(
+          "text-aomi-fg/85 shrink-0",
+          compact ? "size-3" : "size-3.5",
+        )}
+      />
+      <span className="truncate leading-4">{text}</span>
     </span>
   );
 };

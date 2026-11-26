@@ -124,10 +124,10 @@ function PaymentRow({ entry }: { entry: CreditLedgerEntry }) {
         <span className="@[560px]:order-5">
           <span
             className={cn(
-              "inline-flex h-5 items-center rounded-full border px-2 text-[10px] font-medium uppercase tracking-wide",
+              "inline-flex h-5 items-center rounded-full px-2 text-[10px] font-medium uppercase tracking-wide",
               entry.entry_kind === "purchase"
-                ? "border-aomi-success/25 bg-aomi-success/10 text-aomi-success"
-                : "border-aomi-border bg-aomi-surface-2 text-aomi-muted",
+                ? "bg-aomi-success/12 text-aomi-success"
+                : "text-aomi-muted bg-[var(--aomi-tag)]",
             )}
           >
             {status(entry.entry_kind)}

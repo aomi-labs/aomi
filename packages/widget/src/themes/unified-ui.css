@@ -1,0 +1,115 @@
+/* Áron's picks for the unified UI (design/unified-ui). Preview: these belong in
+   the components once the branch is rebased onto main. */
+
+/* Sidebar */
+[data-testid="aomi-new-chat"] {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 8px;
+}
+[data-testid="aomi-new-chat"]:hover {
+  background: color-mix(in srgb, var(--aomi-fg) 5%, transparent);
+}
+[data-testid="aomi-thread-item"] {
+  border-radius: 8px;
+}
+[data-testid="aomi-thread-item"][data-active] {
+  box-shadow: none;
+  background: color-mix(in srgb, var(--aomi-fg) 6%, transparent);
+}
+.dark [data-testid="aomi-thread-item"][data-active] {
+  background: var(--aomi-surface-2);
+}
+.aui-thread-list-root {
+  gap: 4px;
+}
+.aui-thread-list-separator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 10px;
+}
+.aui-thread-list-separator::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--aomi-border);
+}
+.aomi-sidebar-footer > div:first-child {
+  display: none;
+}
+[aria-label="Open account menu"] {
+  border-radius: 16px;
+}
+
+/* Header */
+main[data-slot="sidebar-inset"]
+  > header
+  button:not([aria-label="Supported networks"]):not([data-slot="sidebar-trigger"])
+  svg {
+  width: 20px;
+  height: 20px;
+}
+main[data-slot="sidebar-inset"] > header button[aria-label="Supported networks"] {
+  border-color: transparent;
+  background: var(--aomi-surface-2);
+}
+main[data-slot="sidebar-inset"] > header button[aria-label="Supported networks"] > span:first-child {
+  gap: 2px;
+}
+main[data-slot="sidebar-inset"] > header button[aria-label="Supported networks"] > span:first-child > span {
+  width: 16px;
+  margin-left: 0 !important;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Chat */
+.aui-thread-welcome-suggestion {
+  border-color: transparent;
+  background: transparent;
+  color: var(--aomi-muted);
+}
+.aui-thread-welcome-suggestion:hover {
+  background: var(--aomi-surface-2);
+  color: var(--aomi-fg);
+}
+.aui-md-th {
+  background: transparent;
+  color: var(--aomi-muted);
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--aomi-border);
+  border-radius: 0 !important;
+}
+.aui-md-td {
+  border-left: 0;
+  border-right: 0 !important;
+  border-radius: 0 !important;
+  border-color: var(--aomi-border);
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+.aui-working-step-chips > span,
+section[aria-label="Packages"] .flex-wrap > span {
+  border-color: transparent;
+  background: var(--aomi-surface-2);
+}
+
+/* Transactions */
+[data-testid="activity-transaction"] .rounded-full.h-5 {
+  background: transparent;
+  padding-right: 0;
+}
+
+/* Menus: the card corner, the same hairline as everything else, soft shadow. */
+[role="menu"][aria-label="Account menu"],
+[data-slot="popover-content"],
+.animate-in-pop.left-0 {
+  border-color: var(--aomi-border);
+  border-radius: 16px;
+  box-shadow: var(--aomi-shadow-popover);
+}
+[role="menu"][aria-label="Account menu"] .bg-aomi-raised.border {
+  border-color: transparent;
+}

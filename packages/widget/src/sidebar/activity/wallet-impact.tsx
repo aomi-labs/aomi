@@ -57,7 +57,8 @@ function ReviewPager({
   subject: string;
 }) {
   return (
-    <div className="border-aomi-border bg-aomi-raised flex h-7 shrink-0 items-center rounded-full border p-0.5">
+    // A soft fill, no outline: the panel has one kind of surface.
+    <div className="bg-aomi-surface-2 flex h-7 shrink-0 items-center rounded-full p-0.5">
       <button
         type="button"
         onClick={() => onMove(-1)}
@@ -142,7 +143,7 @@ export function ImpactPanel({
       aria-label={message ? "Message impact" : "Simulated wallet impact"}
       data-change-count={balanceChanges.length}
       data-approval-count={approvals.length}
-      className="bg-aomi-surface rounded-card flex min-w-0 flex-col p-3"
+      className="flex min-w-0 flex-col"
     >
       <div className="mb-2 flex items-center gap-2 px-1">
         <p className="type-meta text-aomi-muted flex-1 font-medium">

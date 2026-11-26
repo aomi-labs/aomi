@@ -62,8 +62,7 @@ export function PackageMark({
 
 /**
  * A package's mark in a Library row (32px) or detail header (48px): its own
- * icon on a plain tile with a hairline, else the accent package glyph on the
- * accent-subtle tile.
+ * icon without a tile, else the package glyph.
  */
 export function PackageTile({
   iconUrl,
@@ -78,13 +77,10 @@ export function PackageTile({
     <span
       className={cn(
         "text-aomi-accent-strong flex shrink-0 items-center justify-center",
-        url
-          ? "border-aomi-border bg-aomi-raised border"
-          : "bg-aomi-accent-subtle",
-        detail ? "size-12 rounded-xl" : "rounded-control size-8",
+        detail ? "size-12" : "size-8",
       )}
     >
-      <PackageMark iconUrl={url} className={detail ? "size-6" : "size-4"} />
+      <PackageMark iconUrl={url} className={detail ? "size-10" : "size-6"} />
     </span>
   );
 }

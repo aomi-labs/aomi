@@ -299,7 +299,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
         icon={Library}
         className={mobileDetailOpen ? "max-md:hidden" : undefined}
       >
-        <ModalNav label="Library sections" className="mt-2 md:mt-3">
+        <ModalNav label="Library sections" className="mt-2 md:mt-[17px]">
           {NAV_ITEMS.filter(
             (item) => signedIn || GUEST_VIEWS.includes(item.id),
           ).map((item) => (
