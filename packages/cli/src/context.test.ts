@@ -34,7 +34,7 @@ vi.mock("viem", async (original) => {
   };
 });
 
-import { connect, policySigner } from "./context";
+import { connect, policySigner, turnOptions } from "./context";
 
 const CHECKED =
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
@@ -93,4 +93,17 @@ it("answers the hash of a sent transaction whose receipt does not come, and refu
   } finally {
     receipt.wait = held;
   }
+});
+
+it("tells the backend a local Solana key signs v1, so a large move fits one transaction", async () => {
+  mkdirSync(dir, { recursive: true });
+  // A throwaway keypair: the 64-byte secret as a JSON byte array.
+  const { Keypair } = await import("@solana/web3.js");
+  const svmKey = JSON.stringify(Array.from(Keypair.generate().secretKey));
+  writeFileSync(join(dir, "cli.json"), JSON.stringify({ svmKey }));
+  const aomi = await connect({ backendUrl: "https://chat.example" });
+  const { svm } = turnOptions(aomi, { svmKey }).userState as {
+    svm: { capabilities?: string[] };
+  };
+  expect(svm.capabilities).toEqual(["can_sign_v1_transaction"]);
 });

@@ -71,7 +71,6 @@ const conn = {
 const signing = {
   ...conn,
   rpcUrl: text("RPC URL for local signing (the chain, or the cluster)", {
-    hidden: true,
     placeholder: "url",
   }),
   chain: text("Chain id", { parse: parseChain, placeholder: "id" }),
