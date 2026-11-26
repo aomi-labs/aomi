@@ -2,7 +2,7 @@
 
 exports[`help > prints ["chat"] --help 1`] = `
 "USAGE
-  aomi chat [--prompt message] [--thread id] [--new] [--app name] [--model name] [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [<message>]
+  aomi chat [--prompt message] [--thread id] [--new] [--app name] [--model name] [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--rpc-url url] [--chain id] [<message>]
   aomi chat --help
 
 Ask once or continue a thread
@@ -17,6 +17,7 @@ FLAGS
      [--private-key]         Sign in with this EVM key (SIWE) and sign with it; env AOMI_PRIVATE_KEY
      [--solana-private-key]  Sign in with this Solana key (SIWS) and sign with it; env AOMI_SOLANA_PRIVATE_KEY
      [--cluster]             Solana cluster: mainnet, devnet or testnet
+     [--rpc-url]             RPC URL for local signing (the chain, or the cluster)
      [--chain]               Chain id
   -h  --help                 Print help information and exit
 
@@ -27,7 +28,7 @@ ARGUMENTS
 
 exports[`help > prints ["pipeline","build"] --help 1`] = `
 "USAGE
-  aomi pipeline build [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] [--app name] [--commit] <name> [<args>]
+  aomi pipeline build [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--rpc-url url] [--chain id] [--app name] [--commit] <name> [<args>]
   aomi pipeline build --help
 
 Stage and simulate an operation
@@ -37,6 +38,7 @@ FLAGS
      [--private-key]         Sign in with this EVM key (SIWE) and sign with it; env AOMI_PRIVATE_KEY
      [--solana-private-key]  Sign in with this Solana key (SIWS) and sign with it; env AOMI_SOLANA_PRIVATE_KEY
      [--cluster]             Solana cluster: mainnet, devnet or testnet
+     [--rpc-url]             RPC URL for local signing (the chain, or the cluster)
      [--chain]               Chain id
      [--app]                 App (default: default)
      [--commit/--no-commit]  Also make the commit to sign
@@ -56,8 +58,8 @@ exports[`help > prints ["policy"] --help 1`] = `
   aomi policy remove [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--yes] <policy-id>
   aomi policy mode [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--yes] <mode>
   aomi policy authority [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--yes] <self|address>
-  aomi policy deploy [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--provider id] [--yes] <policy-id>
-  aomi policy undeploy [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--provider id] [--yes] <policy-id>
+  aomi policy deploy [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--rpc-url url] [--provider id] [--yes] <policy-id>
+  aomi policy undeploy [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] [--rpc-url url] [--provider id] [--yes] <policy-id>
   aomi policy approve [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] <change-id>
   aomi policy decline [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--wallet id] <change-id>
   aomi policy --help
@@ -133,7 +135,7 @@ exports[`help > prints ["tx"] --help 1`] = `
   aomi tx review [--json] [--private-key hex] [--solana-private-key key] [--cluster name] <ref>
   aomi tx approve [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--yes] [--wait] <ref>
   aomi tx reject [--json] [--private-key hex] [--solana-private-key key] [--cluster name] <ref>
-  aomi tx sign [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--chain id] <ref>
+  aomi tx sign [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--rpc-url url] [--chain id] <ref>
   aomi tx export [--private-key hex] [--solana-private-key key] [--cluster name] <ref>
   aomi tx --help
 
