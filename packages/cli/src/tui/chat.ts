@@ -32,7 +32,7 @@ import { MentionAutocomplete, mentionCatalog, walletGroups } from "./mentions";
 import packageJson from "../../package.json";
 import type { ChatFlags } from "../commands/chat";
 import { guardMode } from "../commands/guard";
-import { reviewLines, reviewSummary } from "../commands/tx";
+import { follow, reviewLines, reviewSummary, signable } from "../commands/tx";
 import { signIn } from "../commands/account";
 import { signsWith } from "../commands/wallets";
 import {
@@ -104,7 +104,7 @@ const HELP = [
   "/new                   start a new thread",
   "/login                 sign in with a device code",
   "esc stops a turn · ctrl+o expands steps · ctrl+c quits",
-  "a r o d on an approval: approve, reject, open, details",
+  "on a transaction: a approve or s sign, r reject, o open, d details",
 ].join("\n");
 
 const short = (address: string) =>
@@ -206,14 +206,18 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   const mentions = new MentionAutocomplete(SLASH, () => catalog);
   editor.setAutocompleteProvider(mentions);
 
-  /** Commits you already approved or rejected: one decision each. */
+  /** Commits you already approved, signed or rejected: one decision each. */
   const deciding = new Set<string>();
+  /** Whether the local key signs `commit` here, in the chat. */
+  const signsHere = (commit: CommitHandle) =>
+    !commit.settlement.done && commit.next.canSign();
   const pending = () =>
     turns
       .flatMap((turn) => turn.commits)
       .find(
         (commit) =>
-          commit.state === "awaiting_approval" && !deciding.has(commit.ref),
+          !deciding.has(commit.ref) &&
+          (commit.state === "awaiting_approval" || signsHere(commit)),
       );
 
   const transcript: Component = {
@@ -227,7 +231,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       );
       const commit = pending();
       if (commit)
-        lines.push("", ...approveBox(commit, Math.min(width, 60), details));
+        lines.push("", ...commitBox(commit, Math.min(width, 60), details));
       if (signing) lines.push("", ...signInBox(signing, width));
       lines.push("");
       return lines
@@ -272,14 +276,16 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       }
     if (turn.reply) lines.push("", ...replyLines(turn, width));
     if (turn.error) lines.push("", paint.red(turn.error));
+    // No local key signs it: the person signs on Aomi.
     for (const commit of turn.commits)
       if (
         commit.state !== "awaiting_approval" &&
-        !["confirmed", "failed", "rejected", "expired"].includes(commit.state)
+        !commit.settlement.done &&
+        !signsHere(commit)
       )
         lines.push(
           "",
-          `${paint.yellow("Sign it")}  aomi tx sign ${commit.ref}`,
+          `${paint.yellow("Sign it")}  ${commit.signUrl ?? commit.ref}`,
         );
     if (turn.decision) lines.push("", turn.decision);
     return lines;
@@ -353,15 +359,17 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       return { consume: true };
     }
     const commit = pending();
-    if (!commit || editor.getText() || !/^[arod]$/.test(key)) return undefined;
+    if (!commit || editor.getText() || !/^[arsod]$/.test(key)) return undefined;
+    const go = commit.state === "awaiting_approval" ? "a" : "s";
     if (key === "o" && commit.signUrl) openUrl(commit.signUrl);
     if (key === "d") details = !details;
-    if (key === "a" || key === "r") void decide(commit, key === "a");
+    if (key === go || key === "r") void decide(commit, key === go);
     tui.requestRender();
     return { consume: true };
   });
 
-  /** Approve or reject `commit` once, its progress on its turn's last line. */
+  /** Approve (or sign here) or reject `commit` once, its progress on its
+   * turn's last line. */
   async function decide(commit: CommitHandle, approve: boolean) {
     const own = revision;
     const source = thread;
@@ -377,15 +385,26 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         await commit.reject();
         return show(paint.dim("✗ Rejected"));
       }
-      show(paint.yellow("◐ Approving…"));
       // The agent answers once it settles; count what it has said so far.
       const said = aomi.agent
         .thread(thread)
         .history()
         .then((history) => history.messages.length)
         .catch(() => undefined);
-      await commit.approve(commit.view);
-      show(paint.yellow("◐ Signing and sending…"));
+      if (commit.state === "awaiting_approval") {
+        show(paint.yellow("◐ Approving…"));
+        await commit.approve(commit.view);
+        show(paint.yellow("◐ Signing and sending…"));
+      } else {
+        show(paint.yellow("◐ Signing and sending…"));
+        // Signed as `aomi tx sign` would: the local key on the commit's chain.
+        const handle = await signable(flags, commit.ref);
+        try {
+          await follow(handle, true);
+        } finally {
+          handle.close();
+        }
+      }
       const last = await commit.settled({ signal: closing.signal });
       show(
         paint.green(
@@ -788,8 +807,8 @@ function signInBox(
   ];
 }
 
-/** The commit waiting for you, with its keys. */
-function approveBox(
+/** The commit waiting for you to approve, or to sign with the local key. */
+function commitBox(
   commit: CommitHandle,
   width: number,
   details: boolean,
@@ -798,14 +817,16 @@ function approveBox(
   const row = (text: string) =>
     `${paint.yellow("│")} ${truncateToWidth(text, inner, "…", true)} ${paint.yellow("│")}`;
   const label = commit.kind.endsWith("message") ? "message" : "transaction";
-  const titleText = `┌ Approve ${label} `;
+  const approve = commit.state === "awaiting_approval";
+  const key = (letter: string) => paint.cyan(paint.bold(letter));
+  const titleText = `┌ ${approve ? "Approve" : "Sign"} ${label} `;
   const lines = [
     paint.yellow(
       `${titleText}${"─".repeat(Math.max(0, width - visibleWidth(titleText) - 1))}┐`,
     ),
     row(reviewSummary(commit.review)),
     row(
-      `${paint.dim("Signs with")} ${short(commit.view.signer)} ${paint.dim("· Ask")}`,
+      `${paint.dim("Signs with")} ${short(commit.view.signer)} ${paint.dim(approve ? "· Ask" : "· this key, here")}`,
     ),
   ];
   if (details)
@@ -813,7 +834,7 @@ function approveBox(
       lines.push(row(paint.dim(line)));
   lines.push(
     row(
-      `${paint.cyan(paint.bold("a"))} Approve   ${paint.cyan(paint.bold("r"))} Reject   ${paint.cyan(paint.bold("o"))} Open in browser   ${paint.cyan(paint.bold("d"))} Details`,
+      `${approve ? `${key("a")} Approve` : `${key("s")} Sign`}   ${key("r")} Reject   ${key("o")} Open in browser   ${key("d")} Details`,
     ),
     paint.yellow(`└${"─".repeat(width - 2)}┘`),
   );
