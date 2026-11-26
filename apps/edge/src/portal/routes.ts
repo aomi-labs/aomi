@@ -16,6 +16,7 @@ import { minted, unreachable } from "../kernel/errors";
 import { apiOrigins } from "../kernel/manager";
 import { rankedPool } from "../kernel/pool";
 import { passThrough, proxy, target } from "../kernel/proxy";
+import { oauthDiscovery } from "../auth/well-known";
 import { handleAuthRequest } from "../auth/routes";
 import { isPublicCatalogKind, publicCatalog } from "./catalog";
 import type { PortalContext } from "./context";
@@ -130,6 +131,9 @@ async function toScopedApi(
   ctx: PortalContext,
 ): Promise<Response> {
   const { pathname, search } = new URL(request.url);
+  const dedicated = resource === ctx.resources.dedicatedAgentMcp;
+  const upstreamResource = dedicated ? ctx.resources.agentMcp : resource;
+  const upstreamPath = dedicated ? new URL(upstreamResource).pathname : pathname;
   const oauth = principal.kind === "oauth" ? principal : null;
   const bearer = await mint(ctx, request, {
     role: "user",
@@ -138,7 +142,7 @@ async function toScopedApi(
     ttlSeconds: ACCOUNT_BEARER_TTL_SECONDS,
     delegated: {
       scope: scopes.join(" "),
-      resource,
+      resource: upstreamResource,
       ...callerClaims(principal),
       grant_id: oauth?.grantId,
       // A raw session token never enters an internal assertion; only the fact that one exists.
@@ -146,7 +150,7 @@ async function toScopedApi(
     },
   });
   const send = (attempt: Request) =>
-    proxy(attempt, target(serviceOrigin(ctx, service), pathname, search), {
+    proxy(attempt, target(serviceOrigin(ctx, service), upstreamPath, search), {
       fetchImpl: ctx.fetchImpl,
       headers: AGENT_API_HEADERS,
       bearer,
@@ -229,14 +233,14 @@ async function serve(
 }
 
 /** Serve the request with the rows its path matches. */
-async function served(rows: readonly Route[], request: Request, ctx: PortalContext): Promise<Response> {
+async function served(rows: readonly Route[], request: Request, ctx: PortalContext, publicResource?: string): Promise<Response> {
   const methods = [...new Set(rows.flatMap((row) => Object.keys(row.methods)))];
   const cfg = config(ctx.env);
   const cors = openWidget(methods);
   if (request.method === "OPTIONS") return preflight(cors, request, cfg);
   const row = rows.find((candidate) => request.method in candidate.methods) ?? rows[0];
   const requirement = row.methods[request.method as Method];
-  const resource = resourceOf(row, request, ctx.resources);
+  const resource = publicResource ?? resourceOf(row, request, ctx.resources);
   let response: Response;
   if (requirement === undefined)
     // A protected resource answers in its own error shape; the backend allowlist in the plain one.
@@ -296,7 +300,12 @@ async function catalog(request: Request, kind: string, ctx: PortalContext): Prom
 
 /** Serve one request on the portal surface. */
 export async function handlePortalRequest(request: Request, ctx: PortalContext): Promise<Response> {
-  const { pathname } = new URL(request.url);
+  const { host, pathname } = new URL(request.url);
+  if (host === ctx.env.AGENT_MCP_HOST) {
+    if (pathname === "/.well-known/oauth-protected-resource") return oauthDiscovery(request, ctx);
+    if (pathname === "/") return served(ROUTES.filter((row) => row.on === "agentMcp"), request, ctx, ctx.resources.dedicatedAgentMcp);
+    return new Response(null, { status: 404 });
+  }
   const account = await handleAuthRequest(request, ctx);
   if (account) return account;
   if (pathname === "/.well-known/api-catalog") return discovery(request, ctx);
