@@ -3,8 +3,8 @@
  * lets one operator workflow exchange a GitHub Actions OIDC token for a short
  * `aomi-edge` user bearer on exactly one canonical RC account.
  *
- * The OIDC token is the identity proof: it must come from this repository's
- * main branch, `rc` environment and a named workflow, and each `jti` is
+ * The OIDC token is the identity proof: it must come from the repository that
+ * RC_OIDC_SUBJECT names, pinned by id below, on its main branch, `rc` environment and a named workflow, and each `jti` is
  * accepted once. The account id is configuration naming a real account row,
  * never taken from the request. Off unless the deployment is the rc topology
  * and every RC_OIDC_* var is set.
@@ -20,8 +20,11 @@ import { claimJti } from "./rc-replay";
 export const RC_TOKEN_PATH = "/v1/rc/token";
 export const RC_OIDC_ISSUER = "https://token.actions.githubusercontent.com";
 export const RC_OIDC_AUDIENCE = "aomi-rc-edge";
-const REPOSITORY = "aomi-labs/product-mono";
-const REPOSITORY_ID = "1033482171";
+/** Repositories that may run RC workflows, pinned by id against rename and re-creation. */
+const REPOSITORY_IDS: Readonly<Record<string, string>> = {
+  "aomi-labs/product-mono": "1033482171",
+  "aomi-labs/release": "1471576963",
+};
 const REF = "refs/heads/main";
 const ENVIRONMENT = "rc";
 const MAX_TOKEN_AGE = "15m";
@@ -79,8 +82,10 @@ async function verified(token: string, cfg: RcOidcConfig, key: VerifyKey, now: n
   }
   const bound =
     payload.sub === cfg.subject &&
-    payload.repository === REPOSITORY &&
-    payload.repository_id === REPOSITORY_ID &&
+    typeof payload.repository === "string" &&
+    Object.hasOwn(REPOSITORY_IDS, payload.repository) &&
+    payload.repository_id === REPOSITORY_IDS[payload.repository] &&
+    cfg.subject === `repo:${payload.repository}:environment:${ENVIRONMENT}` &&
     payload.ref === REF &&
     payload.environment === ENVIRONMENT &&
     typeof payload.workflow_ref === "string" &&

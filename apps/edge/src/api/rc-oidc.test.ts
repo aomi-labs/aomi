@@ -53,7 +53,7 @@ beforeEach(async () => {
 });
 
 type Claims = Record<string, unknown>;
-async function oidc(overrides: Claims = {}, options: { aud?: string; iss?: string; iat?: number } = {}) {
+async function oidc(overrides: Claims = {}, options: { aud?: string; iss?: string; iat?: number; sub?: string } = {}) {
   const iat = options.iat ?? Math.floor(NOW / 1000);
   return new SignJWT({
     repository: "aomi-labs/product-mono",
@@ -64,7 +64,7 @@ async function oidc(overrides: Claims = {}, options: { aud?: string; iss?: strin
     ...overrides,
   })
     .setProtectedHeader({ alg: "RS256" })
-    .setSubject(SUBJECT)
+    .setSubject(options.sub ?? SUBJECT)
     .setIssuer(options.iss ?? RC_OIDC_ISSUER)
     .setAudience(options.aud ?? RC_OIDC_AUDIENCE)
     .setJti(crypto.randomUUID())
@@ -137,8 +137,31 @@ describe("rc oidc exchange", () => {
     ["wrong repository", () => oidc({ repository: "aomi-labs/other" }), 403],
     ["renamed-in repository id", () => oidc({ repository_id: "1" }), 403],
     ["unlisted workflow", () => oidc({ workflow_ref: "aomi-labs/product-mono/.github/workflows/x.yml@refs/heads/main" }), 403],
+    ["other pinned repository than the subject names", () => oidc({ repository: "aomi-labs/release", repository_id: "1471576963" }), 403],
   ] as const)("rejects %s", async (_name, make, status) => {
     expect((await exchange(await make())).status).toBe(status);
+  });
+
+  describe("configured for aomi-labs/release", () => {
+    const RELEASE_SUBJECT = "repo:aomi-labs/release:environment:rc";
+    const RELEASE_WORKFLOW = "aomi-labs/release/.github/workflows/release-test.yml@refs/heads/main";
+    const release = (overrides: Claims = {}) => oidc({
+      repository: "aomi-labs/release", repository_id: "1471576963", workflow_ref: RELEASE_WORKFLOW, ...overrides,
+    }, { sub: RELEASE_SUBJECT });
+    beforeEach(() => {
+      env = { ...env, RC_OIDC_SUBJECT: RELEASE_SUBJECT, RC_OIDC_WORKFLOWS: RELEASE_WORKFLOW };
+    });
+
+    it("accepts its workflow", async () => {
+      expect((await exchange(await release())).status).toBe(200);
+    });
+
+    it.each([
+      ["product-mono's id under release's name", () => release({ repository_id: "1033482171" })],
+      ["a product-mono token", () => oidc({}, { sub: SUBJECT })],
+    ] as const)("rejects %s", async (_name, make) => {
+      expect((await exchange(await make())).status).toBe(403);
+    });
   });
 
   it.each(["ERR_JWKS_TIMEOUT", "ECONNRESET", "ERR_JWKS_NO_MATCHING_KEY", "ERR_JWKS_MULTIPLE_MATCHING_KEYS"])("classifies key lookup failure %s", async (code) => {
