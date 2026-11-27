@@ -301,14 +301,7 @@ export function createAuth(input: Env) {
             // the one resource named by its first authorize request.
             clientRegistrationDefaultResources: [],
             clientRegistrationAllowedResources: seedOAuthResources
-              ? [
-                  resources.agentMcp,
-                  resources.pipelineMcp,
-                  resources.agentRest,
-                  resources.pipelineRest,
-                  resources.accountRest,
-                  resources.apiRest,
-                ]
+              ? resourcePolicies.map((policy) => policy.identifier)
               : [],
             clientRegistrationDefaultScopes: [
               ...MCP_CLIENT_REGISTRATION_SCOPES,

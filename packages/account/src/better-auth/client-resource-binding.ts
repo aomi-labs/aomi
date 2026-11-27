@@ -97,8 +97,7 @@ export async function bindAomiPublicClientResource(input: {
     // the first MCP it used. DCR and managed-widget clients keep their policy.
     if (
       metadataClient &&
-      (!input.resource.endsWith("/mcp") ||
-        !aomiOAuthResourcePolicy(input.resource))
+      !["agentMcp", "pipelineMcp", "appMcp"].includes(aomiOAuthResourcePolicy(input.resource)?.kind ?? "")
     ) {
       await client.query("rollback");
       return "resource_conflict";

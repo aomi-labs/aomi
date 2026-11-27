@@ -80,6 +80,7 @@ export type Resources = {
   portalOrigin: string;
   authorizationServerIssuer: string;
   agentMcp: string;
+  dedicatedAgentMcp?: string;
   pipelineMcp: string;
   agentRest: string;
   pipelineRest: string;
@@ -88,9 +89,10 @@ export type Resources = {
   apiRest: string;
 };
 
-export function resourcesFor(portalOrigin: string): Resources {
+export function resourcesFor(portalOrigin: string, mcpHost?: string): Resources {
   return {
     portalOrigin,
+    ...(mcpHost && { dedicatedAgentMcp: `https://${mcpHost}/` }),
     authorizationServerIssuer: `${portalOrigin}${AOMI_OAUTH_BASE_PATH}`,
     agentMcp: `${portalOrigin}/v1/agent/mcp`,
     pipelineMcp: `${portalOrigin}/v1/pipeline/mcp`,
@@ -190,6 +192,10 @@ export function resourcePolicies(
       dpopBoundAccessTokensRequired: dpopRequired,
     },
   ];
+  if (resources.dedicatedAgentMcp) {
+    const agent = base.find((policy) => policy.kind === "agentMcp")!;
+    base.push({ ...agent, identifier: resources.dedicatedAgentMcp });
+  }
   return base.map((policy) => ({
     ...policy,
     grantableScopes: [...policy.allowedScopes, OFFLINE_ACCESS_SCOPE],

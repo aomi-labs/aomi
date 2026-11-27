@@ -1,4 +1,4 @@
-import { aomiOAuthResourcePolicy } from "@aomi-labs/account/better-auth";
+import { MCP_DPOP_REQUIRED, resourcePolicy } from "@aomi-labs/account/policy";
 import { oauthProviderAuthServerMetadata } from "@better-auth/oauth-provider";
 import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resource-client";
 
@@ -33,7 +33,9 @@ async function document(request: Request, ctx: PortalContext): Promise<Response>
   }
   // The root names the agent MCP; a path names that resource, app-locked MCP paths included.
   const path = PROTECTED_RESOURCE.exec(pathname)?.[1];
-  const policy = aomiOAuthResourcePolicy(path ? `${ctx.resources.portalOrigin}${path}` : ctx.resources.agentMcp);
+  const root = new URL(request.url).host === ctx.env.AGENT_MCP_HOST ? ctx.resources.dedicatedAgentMcp : ctx.resources.agentMcp;
+  const identifier = path ? `${ctx.resources.portalOrigin}${path}` : root;
+  const policy = identifier && resourcePolicy(ctx.resources, MCP_DPOP_REQUIRED, identifier);
   if (!policy) return Response.json({ error: "not_found" }, { status: 404 });
   return Response.json(
     await oauthProviderResourceClient(auth).getActions().getProtectedResourceMetadata({

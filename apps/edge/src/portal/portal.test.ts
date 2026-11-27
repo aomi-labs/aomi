@@ -1494,3 +1494,34 @@ describe("portal transport aliases retain canonical OAuth identity", () => {
     ).toBe(401);
   });
 });
+
+describe("dedicated agent MCP host", () => {
+  const origin = "https://mcp.example";
+  const resource = origin + "/";
+  const bindings = { ...env, AGENT_MCP_HOST: "mcp.example", BETTER_AUTH_URL: PORTAL };
+  const call = (url: string, init?: RequestInit) => handleRequest(new Request(url, init), bindings, world);
+
+  it("advertises its own resource and the portal issuer and exposes only MCP", async () => {
+    const metadata = origin + "/.well-known/oauth-protected-resource";
+    const denied = await call(resource, { method: "POST" });
+    expect(denied.status).toBe(401);
+    expect(denied.headers.get("www-authenticate")).toContain(`resource_metadata="${metadata}"`);
+    expect(await (await call(metadata)).json()).toMatchObject({ resource, authorization_servers: [ISSUER] });
+    for (const path of ["/api/auth", "/v1/agent/mcp", "/.well-known/oauth-authorization-server"]) {
+      expect((await call(origin + path)).status).toBe(404);
+    }
+  });
+
+  it("requires the transport's exact audience and forwards to the existing Rust route", async () => {
+    const legacy = PORTAL + "/v1/agent/mcp";
+    const post = async (url: string, aud: string) => {
+      const token = await oauthToken({ sub: "user", scope: "mcp:agent agent:read", aud });
+      return call(url, { method: "POST", headers: { authorization: `Bearer ${token}` }, body: "{}" });
+    };
+    expect((await post(resource, legacy)).status).toBe(401);
+    expect((await post(legacy, resource)).status).toBe(401);
+    expect((await post(resource, resource)).status).toBe(200);
+    expect(seen[0].url).toBe(AGENT + "/v1/agent/mcp");
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ resource: legacy, scope: "mcp:agent agent:read" });
+  });
+});

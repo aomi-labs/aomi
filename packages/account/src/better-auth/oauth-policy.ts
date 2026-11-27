@@ -70,7 +70,7 @@ export type AomiOAuthResourcePolicy = ResourcePolicy;
 export function aomiOAuthResources(
   env: Record<string, string | undefined> = process.env,
 ) {
-  return resourcesFor(new URL(readAccountAuthEnv(env).betterAuthUrl).origin);
+  return resourcesFor(new URL(readAccountAuthEnv(env).betterAuthUrl).origin, env.AGENT_MCP_HOST);
 }
 
 export function aomiOAuthResourcePolicies(

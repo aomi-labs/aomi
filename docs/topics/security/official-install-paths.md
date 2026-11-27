@@ -29,7 +29,7 @@ npx skills add aomi-labs/skills
 
 ## Hosted MCP
 
-- Agent: `https://aomi.chat/v1/agent/mcp`
+- Agent: `https://mcp.aomi.dev` (existing connections can keep `https://aomi.chat/v1/agent/mcp`)
 - Pipeline: `https://aomi.chat/v1/pipeline/mcp`
 
 Copy these URLs exactly when you configure your MCP client.
