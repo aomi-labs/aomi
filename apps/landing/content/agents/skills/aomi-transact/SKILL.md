@@ -120,7 +120,7 @@ authorize the new resource.
 For hosted tools, connect Agent and Pipeline separately with OAuth:
 
 ```sh
-codex mcp add aomi-agent --url https://mcp.aomi.dev
+codex mcp add aomi-agent --url https://mcp.aomi.dev/
 codex mcp add aomi-pipeline --url https://mcp.aomi.dev/pipeline
 ```
 

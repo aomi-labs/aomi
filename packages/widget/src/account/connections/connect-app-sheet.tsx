@@ -45,7 +45,7 @@ const MCP_SERVERS = [
   {
     title: "Agent MCP",
     path: "/v1/agent/mcp",
-    publicPath: "",
+    publicPath: "/",
     detail:
       "Chat with Aomi's agent. It picks the tools, stages trades and asks before signing.",
   },
