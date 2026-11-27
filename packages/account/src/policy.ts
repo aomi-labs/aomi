@@ -732,16 +732,14 @@ export const ROUTES: readonly Route[] = [
   }),
   // Wallet policies: anyone with agent:read sees them, only the owner's own
   // session changes them, and a click-approval needs a recent portal sign-in.
-  // Each path also answers to its `/rules` name, which the backend still
-  // serves, for a client on an SDK from before `/policy`.
   wallets(
-    /^\/v1\/account\/agent-wallets\/[^/]+\/(?:policy|rules)$/,
+    /^\/v1\/account\/agent-wallets\/[^/]+\/policy$/,
     { GET: "agent:read", POST: OWNER_SESSION },
     { operation: "account.policy" },
   ),
   // The same policies on chain: the owner's wallet signs, so the chain decides.
   wallets(
-    /^\/v1\/account\/agent-wallets\/[^/]+\/(?:policy|rules)\/enforcement\/[a-z]+\/(?:prepare|confirm)$/,
+    /^\/v1\/account\/agent-wallets\/[^/]+\/policy\/enforcement\/[a-z]+\/(?:prepare|confirm)$/,
     { POST: OWNER_SESSION },
     { operation: "account.policy" },
   ),
@@ -752,22 +750,22 @@ export const ROUTES: readonly Route[] = [
     { operation: "account.policy" },
   ),
   wallets(
-    /^\/v1\/account\/(?:policy|rules)\/catalog$/,
+    /^\/v1\/account\/policy\/catalog$/,
     { GET: "agent:read" },
     { operation: "account.policy" },
   ),
   wallets(
-    /^\/v1\/account\/(?:policy|rule)-changes\/[^/]+$/,
+    /^\/v1\/account\/policy-changes\/[^/]+$/,
     { GET: "agent:read" },
     { operation: "account.policy" },
   ),
   wallets(
-    /^\/v1\/account\/(?:policy|rule)-changes\/[^/]+\/approve$/,
+    /^\/v1\/account\/policy-changes\/[^/]+\/approve$/,
     { POST: OWNER_SESSION },
     { operation: "account.policy", freshLogin: true },
   ),
   wallets(
-    /^\/v1\/account\/(?:policy|rule)-changes\/[^/]+\/decline$/,
+    /^\/v1\/account\/policy-changes\/[^/]+\/decline$/,
     { POST: OWNER_SESSION },
     { operation: "account.policy" },
   ),
