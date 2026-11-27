@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Deploy the edge Worker. wrangler.jsonc is one configuration for every
 // environment; everything that differs per environment comes from the deploy
-// environment: product-mono's deploy pipeline reads it from
+// environment: aomi-labs/release's deploy pipeline reads it from
 // infra/cloudflare/edge-environments.json and its Terraform inventory and
 // exports it before calling this script, so the same aomi revision deploys
 // unchanged to staging, rc and production, and an older Worker build can never

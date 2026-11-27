@@ -10,8 +10,8 @@ import { EdgeError } from "../kernel/errors";
 import { resolveRoute } from "./routes";
 import { exchangeRcToken, RC_OIDC_AUDIENCE, RC_OIDC_ISSUER, rcOidcConfig } from "./rc-oidc";
 
-const SUBJECT = "repo:aomi-labs/product-mono:environment:rc";
-const WORKFLOW = "aomi-labs/product-mono/.github/workflows/rc-acceptance.yml@refs/heads/main";
+const SUBJECT = "repo:aomi-labs/release:environment:rc";
+const WORKFLOW = "aomi-labs/release/.github/workflows/release-test.yml@refs/heads/main";
 const ACCOUNT = "1ae6dbf7-13d8-41f4-8fde-b8a6f4809d98";
 const NOW = 1_800_000_000_000;
 
@@ -56,8 +56,8 @@ type Claims = Record<string, unknown>;
 async function oidc(overrides: Claims = {}, options: { aud?: string; iss?: string; iat?: number; sub?: string } = {}) {
   const iat = options.iat ?? Math.floor(NOW / 1000);
   return new SignJWT({
-    repository: "aomi-labs/product-mono",
-    repository_id: "1033482171",
+    repository: "aomi-labs/release",
+    repository_id: "1471576963",
     ref: "refs/heads/main",
     environment: "rc",
     workflow_ref: WORKFLOW,
@@ -136,33 +136,34 @@ describe("rc oidc exchange", () => {
     ["wrong environment", () => oidc({ environment: "staging" }), 403],
     ["wrong repository", () => oidc({ repository: "aomi-labs/other" }), 403],
     ["renamed-in repository id", () => oidc({ repository_id: "1" }), 403],
-    ["unlisted workflow", () => oidc({ workflow_ref: "aomi-labs/product-mono/.github/workflows/x.yml@refs/heads/main" }), 403],
-    ["other pinned repository than the subject names", () => oidc({ repository: "aomi-labs/release", repository_id: "1471576963" }), 403],
+    ["unlisted workflow", () => oidc({ workflow_ref: "aomi-labs/release/.github/workflows/x.yml@refs/heads/main" }), 403],
+    ["product-mono's id under release's name", () => oidc({ repository_id: "1033482171" }), 403],
   ] as const)("rejects %s", async (_name, make, status) => {
     expect((await exchange(await make())).status).toBe(status);
   });
 
-  describe("configured for aomi-labs/release", () => {
-    const RELEASE_SUBJECT = "repo:aomi-labs@224878687/release@1471576963:environment:rc";
-    const RELEASE_WORKFLOW = "aomi-labs/release/.github/workflows/release-test.yml@refs/heads/main";
-    const release = (overrides: Claims = {}, sub = RELEASE_SUBJECT) => oidc({
-      repository: "aomi-labs/release", repository_id: "1471576963", workflow_ref: RELEASE_WORKFLOW, ...overrides,
-    }, { sub });
+  describe("with GitHub's immutable subject", () => {
+    const IMMUTABLE = "repo:aomi-labs@224878687/release@1471576963:environment:rc";
     beforeEach(() => {
-      env = { ...env, RC_OIDC_SUBJECT: RELEASE_SUBJECT, RC_OIDC_WORKFLOWS: RELEASE_WORKFLOW };
+      env = { ...env, RC_OIDC_SUBJECT: IMMUTABLE };
     });
 
     it("accepts its workflow", async () => {
-      expect((await exchange(await release())).status).toBe(200);
+      expect((await exchange(await oidc({}, { sub: IMMUTABLE }))).status).toBe(200);
     });
 
-    it.each([
-      ["product-mono's id under release's name", () => release({ repository_id: "1033482171" })],
-      ["a product-mono token", () => oidc({}, { sub: SUBJECT })],
-      ["a subject naming another repository id", () => release({}, "repo:aomi-labs@224878687/release@1:environment:rc")],
-    ] as const)("rejects %s", async (_name, make) => {
-      expect((await exchange(await make())).status).toBe(403);
+    it("rejects a subject naming another repository id", async () => {
+      const token = await oidc({}, { sub: "repo:aomi-labs@224878687/release@1:environment:rc" });
+      expect((await exchange(token)).status).toBe(403);
     });
+  });
+
+  it("serves no product-mono workflow, even when configured for one", async () => {
+    const subject = "repo:aomi-labs/product-mono:environment:rc";
+    const workflow = "aomi-labs/product-mono/.github/workflows/release-test.yml@refs/heads/main";
+    env = { ...env, RC_OIDC_SUBJECT: subject, RC_OIDC_WORKFLOWS: workflow };
+    const token = await oidc({ repository: "aomi-labs/product-mono", repository_id: "1033482171", workflow_ref: workflow }, { sub: subject });
+    expect((await exchange(token)).status).toBe(403);
   });
 
   it.each(["ERR_JWKS_TIMEOUT", "ECONNRESET", "ERR_JWKS_NO_MATCHING_KEY", "ERR_JWKS_MULTIPLE_MATCHING_KEYS"])("classifies key lookup failure %s", async (code) => {

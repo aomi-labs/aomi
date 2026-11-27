@@ -20,7 +20,7 @@ export type EdgeTopologyName = import("@aomi-labs/service-identity").Tier;
 /**
  * Worker bindings. Per-environment values are `--var`s from scripts/deploy.mjs.
  * The secrets (EDGE_SERVICE_PRIVATE_KEY, BETTER_AUTH_SECRET, BUILD_SESSION_SECRET,
- * BUILD_GITHUB_TOKEN and the provider keys) live in product-mono's GitHub
+ * BUILD_GITHUB_TOKEN and the provider keys) live in aomi-labs/release's GitHub
  * Environments and are pushed by its deploy pipeline. Nobody sets them by hand.
  * Constants live in code.
  */
@@ -59,7 +59,7 @@ export interface EdgeEnv {
   RC_OIDC_REPLAY?: ReplayStore;
   /** Canonical account id of the one RC test account the OIDC exchange resolves to. */
   RC_OIDC_ACCOUNT_ID?: string;
-  /** Exact GitHub Actions `sub` claim accepted, e.g. repo:aomi-labs/product-mono:environment:rc. */
+  /** Exact GitHub Actions `sub` claim accepted, e.g. repo:aomi-labs/release:environment:rc. */
   RC_OIDC_SUBJECT?: string;
   /** Comma-separated accepted `workflow_ref` values. */
   RC_OIDC_WORKFLOWS?: string;

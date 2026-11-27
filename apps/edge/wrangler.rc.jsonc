@@ -4,7 +4,7 @@
   // One configuration for every environment. Staging, rc and production run
   // the same Worker build with the same settings; what differs per environment
   // (the Worker script name, its routes, its hosts, CORS and the origins it
-  // forwards to) is inventory, recorded in product-mono's
+  // forwards to) is inventory, recorded in aomi-labs/release's
   // infra/cloudflare/edge-environments.json and passed in by scripts/deploy.mjs.
   // `wrangler dev` uses this file as is, with .dev.vars for local bindings.
   "name": "aomi-edge",
@@ -33,7 +33,7 @@
   // as EDGE_CACHE; the Worker falls back to an in-isolate cache without it.
   // "kv_namespaces": [{ "binding": "EDGE_CACHE", "id": "" }],
   // No committed vars: constants live in code, per-environment values come
-  // from scripts/deploy.mjs and secrets from product-mono's deploy pipeline.
+  // from scripts/deploy.mjs and secrets from aomi-labs/release's deploy pipeline.
   "vars": {},
   "env": {
     // Local development only: adds the E2E wallet harness (src/dev.ts). Never deployed.

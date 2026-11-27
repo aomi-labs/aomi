@@ -1,7 +1,7 @@
 # aomi-edge
 
 The Cloudflare Worker that is the public edge for every Aomi HTTP surface. It
-replaces `product-mono/infra/cloudflare/worker` and owns the proxy half of
+replaced product-mono's old in-repo Worker and owns the proxy half of
 the Portal and Build BFFs.
 
 One rule for every route: **the Worker owns the outside shape, the Rust
@@ -159,24 +159,23 @@ this repository:
   `LANDING_HOSTS` requires `LANDING_UPSTREAM_ORIGIN`.
 
 `scripts/deploy.mjs` passes them to `wrangler deploy` as `--name`, `--route`
-and `--var`. product-mono's deploy pipeline reads them from
-`infra/cloudflare/edge-environments.json` and its Terraform inventory, so
-routing a new host (the production portal at cutover, for example) is a
-product-mono change plus a deploy, with no change here.
+and `--var`. `aomi-labs/release`'s deploy pipeline reads them from its
+`infra/cloudflare/edge-environments.json` and Terraform inventory, so routing a
+new host is a release change plus a deploy, with no change here.
 
 ### Secrets
 
 The Worker's secrets are `EDGE_SERVICE_PRIVATE_KEY`, `BETTER_AUTH_SECRET`,
 `BUILD_SESSION_SECRET`, `BUILD_GITHUB_TOKEN` and the Privy and Para keys the
 account surface verifies with. Each one is stored in exactly one place, the
-matching product-mono GitHub Environment (`staging`, `rc`, `production`).
-product-mono's deploy pushes them to the Worker on every deploy.
+matching `aomi-labs/release` GitHub Environment (`staging`, `rc`, `production`),
+copied from 1Password. Its deploy pushes them to the Worker on every deploy.
 
 - Never run `wrangler secret put` by hand. A value that exists only on the
   Worker is stored nowhere else, so nobody can read it back or rotate it.
 - `EDGE_SERVICE_PRIVATE_KEY`: generate it with `pnpm --filter aomi-edge
 generate-key <env>`. Store the private half with `gh secret set
-EDGE_SERVICE_PRIVATE_KEY -e <env> -R aomi-labs/product-mono`. Commit the
+EDGE_SERVICE_PRIVATE_KEY -e <env> -R aomi-labs/release` after storing it in 1Password. Commit the
   public half in `packages/service-identity/src/topologies.ts` and
   product-mono's `service.<env>.toml` in the same change.
 - `BETTER_AUTH_SECRET`: the portal's current value, so sessions and the
@@ -220,7 +219,7 @@ and `/api/auth/sign-in/anonymous` stay as aliases for published SDKs
 Before deploying the stack, reconcile these external settings together:
 
 - Replace `APP_DEPLOY_PLATFORMS` with the single `BUILD_DEFAULT_PLATFORM` slug
-  in product-mono's Edge environment record.
+  in `aomi-labs/release`'s Edge environment record.
 - Supply Build's existing signing key under `BUILD_SERVICE_PRIVATE_KEY` and
   update the sidecar image to trust issuer `aomi-build`. The committed public
   keys stay unchanged; the service and key identifiers are renamed.

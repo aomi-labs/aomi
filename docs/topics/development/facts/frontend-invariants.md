@@ -124,8 +124,8 @@ input and still selects Landing.
 The advisory PR smoke checks Cloudflare staging Chat and the immutable Build
 preview for the PR SHA. The required Portal browser contracts exercise the PR's
 Portal build. The nightly fallback smoke checks both canonical staging hosts.
-Production Chat's page Worker rolls back through the product-mono Edge release
-workflow. The frontend Vercel rollback covers Build, Base and Landing.
+Production Chat's page Worker rolls back through `aomi-labs/release`'s Release /
+Rollback. The frontend Vercel rollback covers Build, Base and Landing.
 
 Lockfiles, root build configuration, shared source, selector changes, unknown
 paths, unavailable comparisons, and every production candidate default to the
@@ -181,7 +181,7 @@ real extension or embedded-provider accounts. The controlled upstream validates
 identity and protocol transport but does not replace a hosted backend smoke.
 The suite never signs transactions or broadcasts. It is not a real-provider-
 availability or full backend-migration test; the hosted browser
-journeys in aomi-qa's release test run (product-mono `release-test.yml`) are
+journeys in aomi-qa's release test run (`aomi-labs/release` `release-test.yml`) are
 the real-provider and backend check, on rc for every release.
 
 ## Payment cutover consumer baseline

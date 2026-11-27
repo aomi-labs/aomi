@@ -14,7 +14,7 @@ PORTAL_UPSTREAM_ORIGIN=http://localhost:3001
 PAYMENT_ORIGIN=http://127.0.0.1:8084
 # Build surface: serve Build's moved routes for this host and pass the rest to
 # the Build dev server. Locally, give Build's BUILD_SESSION_SECRET the same
-# development value. Hosted secrets come only from product-mono's GitHub
+# development value. Hosted secrets come only from aomi-labs/release's GitHub
 # Environments, pushed by its deploy.
 BUILD_HOSTS=localhost:8788
 BUILD_UPSTREAM_ORIGIN=http://localhost:3002
