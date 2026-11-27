@@ -22,6 +22,8 @@ import { knownAskModes, askModesOf, useWalletRows } from "./use-wallet-rows";
 export type ConsentWalletsState = {
   ready: boolean;
   update: AomiConnectionWalletsUpdate | null;
+  /** The wallet ids `update` newly makes Instant. */
+  instant?: string[];
 };
 
 export type ConsentWalletsProps = {
@@ -96,6 +98,12 @@ export function ConsentWallets({
     if (!changed && !app && !askOnly) return { ready: true, update: null };
     return {
       ready: true,
+      instant: wallets
+        .filter(
+          ({ id, ask_mode }) =>
+            ask_mode === "instant" && known[id] !== "instant",
+        )
+        .map(({ id }) => id),
       update: {
         wallets,
         ...(app

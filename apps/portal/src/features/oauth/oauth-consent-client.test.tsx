@@ -217,7 +217,7 @@ describe("OAuthConsentClient", () => {
     fireEvent.click(await allowButton());
     expect(
       await screen.findByText(
-        "Codex is connected, but its wallet settings didn’t save. Set them in Settings → Connections.",
+        "Codex is connected, but its wallet settings didn’t save. Set them in Settings → Connections. (internal)",
       ),
     ).toBeInTheDocument();
     expect(
@@ -236,6 +236,92 @@ describe("OAuthConsentClient", () => {
       ),
     ).toBeInTheDocument();
     expect(puts).toBe(2);
+  });
+});
+
+describe("Instant on a wallet whose admin is a wallet", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("saves it on Ask and files its Instant for the admin to sign", async () => {
+    mocks.search = SEARCH;
+    const puts: unknown[] = [];
+    const filed: unknown[] = [];
+    const wallet = {
+      id: "g-mm",
+      name: "MetaMask",
+      paused: false,
+      archived_at: null,
+      app: null,
+      last_used_at: null,
+      created_at: 1,
+      addresses: [],
+      connections: [],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const body = init?.body ? JSON.parse(String(init.body)) : null;
+        if (init?.method === "PUT") {
+          puts.push(body);
+          return puts.length === 1
+            ? Response.json(
+                { error: "rules_signature_required" },
+                { status: 403 },
+              )
+            : Response.json({ wallets: [] });
+        }
+        if (url.endsWith("/g-mm/policy")) {
+          if (init?.method === "POST") filed.push(body);
+          const rules = {
+            agent_wallet_id: "g-mm",
+            wallet_name: "MetaMask",
+            revision: 1,
+            rules: { mode: "blacklist", rules: [], linked_only: true },
+            sentences: [],
+            admin: {
+              kind: "wallet",
+              family: "evm",
+              address: "0x1111111111111111111111111111111111111111",
+            },
+            stopped_until: null,
+            pending: null,
+            enforced_by: {},
+            enforcement: [],
+            admin_wallets: [],
+          };
+          return Response.json(
+            init?.method === "POST" ? { status: "waiting", rules } : rules,
+          );
+        }
+        if (url.endsWith("/v1/account/connections"))
+          return Response.json({ connections: [] });
+        if (url.includes("/v1/account/agent-wallets"))
+          return Response.json({ pause_all: false, wallets: [wallet] });
+        if (url.includes("/v1/account/wallets"))
+          return Response.json({ wallets: [] });
+        return Response.json({ redirect: true, url: "https://codex.test" });
+      }),
+    );
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+    render(<ConsentSheet name="Codex" />);
+    fireEvent.click(
+      await screen.findByRole("combobox", { name: /^MetaMask: / }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Instant/ }));
+    fireEvent.click(await allowButton());
+    expect(
+      await screen.findByText(
+        'Instant on "MetaMask" needs its admin wallet to sign, so it asks for now. Approve it in Settings → Policies.',
+      ),
+    ).toBeInTheDocument();
+    expect(puts).toEqual([
+      { wallets: [{ id: "g-mm", ask_mode: "instant" }] },
+      { wallets: [{ id: "g-mm", ask_mode: "ask_aomi" }] },
+    ]);
+    expect(filed).toEqual([{ instant: ["oauth:codex-mcp"] }]);
+    expect(assign).not.toHaveBeenCalled();
   });
 });
 

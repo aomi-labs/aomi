@@ -25,9 +25,9 @@ type DeviceRequest = {
 
 type Step =
   | ({ step: "confirm" } & DeviceRequest)
-  | ({ step: "unsaved" } & DeviceRequest)
+  | ({ step: "unsaved"; note?: string } & DeviceRequest)
   | { step: "enter" }
-  | { step: "connected"; name?: string }
+  | { step: "connected"; name?: string; note?: string }
   | { step: "denied" }
   | { step: "failed" };
 
@@ -145,12 +145,13 @@ export function DeviceSheet() {
   /** The login went through; its wallet settings are never claimed unsaved. */
   const saveWallets = async (request: DeviceRequest) => {
     setPending(true);
-    const saved =
-      !request.clientId || (await askModes.save(`oauth:${request.clientId}`));
+    const { saved, note } = request.clientId
+      ? await askModes.save(`oauth:${request.clientId}`)
+      : { saved: true };
     setState(
       saved
-        ? { step: "connected", name: request.name }
-        : { ...request, step: "unsaved" },
+        ? { step: "connected", name: request.name, note }
+        : { ...request, step: "unsaved", note },
     );
     setPending(false);
   };
@@ -168,6 +169,7 @@ export function DeviceSheet() {
           <SheetAlert>
             The wallet settings you picked didn’t save, so it keeps its current
             ones. Try again, or set them in Settings → Connections.
+            {state.note ? ` (${state.note})` : null}
           </SheetAlert>
           <AomiButton
             variant="primary"
@@ -316,11 +318,12 @@ export function DeviceSheet() {
         onClose={home}
       />
       {state.step === "connected" ? (
-        <div className="flex justify-center px-5 pb-5">
+        <div className="flex flex-col items-center gap-4 px-5 pb-5">
           <CircleCheck
             className="text-aomi-success size-12"
             strokeWidth={1.5}
           />
+          {state.note ? <SheetAlert>{state.note}</SheetAlert> : null}
         </div>
       ) : null}
     </AomiSheet>
