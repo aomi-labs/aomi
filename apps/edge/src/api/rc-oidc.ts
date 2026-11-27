@@ -27,6 +27,13 @@ const REPOSITORY_IDS: Readonly<Record<string, string>> = {
 };
 const REF = "refs/heads/main";
 const ENVIRONMENT = "rc";
+/** The repository and its id a subject names: `repo:owner/name:…` or GitHub's immutable `repo:owner@id/name@id:…`. */
+function subjectRepository(subject: string): { repository: string; id?: string } | null {
+  const immutable = /^repo:([^@/:]+)@\d+\/([^@/:]+)@(\d+):/.exec(subject);
+  if (immutable) return { repository: `${immutable[1]}/${immutable[2]}`, id: immutable[3] };
+  const named = /^repo:([^@/:]+\/[^@/:]+):/.exec(subject);
+  return named ? { repository: named[1] } : null;
+}
 const MAX_TOKEN_AGE = "15m";
 export const RC_BEARER_TTL_SECONDS = 15 * 60;
 /** What each exchange can mint: the Agent REST bearer (default) or the account Payment one. */
@@ -85,7 +92,8 @@ async function verified(token: string, cfg: RcOidcConfig, key: VerifyKey, now: n
     typeof payload.repository === "string" &&
     Object.hasOwn(REPOSITORY_IDS, payload.repository) &&
     payload.repository_id === REPOSITORY_IDS[payload.repository] &&
-    cfg.subject === `repo:${payload.repository}:environment:${ENVIRONMENT}` &&
+    subjectRepository(cfg.subject)?.repository === payload.repository &&
+    (subjectRepository(cfg.subject)?.id ?? payload.repository_id) === payload.repository_id &&
     payload.ref === REF &&
     payload.environment === ENVIRONMENT &&
     typeof payload.workflow_ref === "string" &&
