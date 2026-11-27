@@ -43,18 +43,18 @@ export function portalContext(
 ): PortalContext | null {
   const url = new URL(request.url);
   const { portal } = config(env);
-  if (!portal.hosts.has(url.host.toLowerCase()) || (!portal.upstream && !env.PORTAL_PAGES)) return null;
+  const dedicated = url.host === env.AGENT_MCP_HOST;
+  if (!dedicated && (!portal.hosts.has(url.host.toLowerCase()) || (!portal.upstream && !env.PORTAL_PAGES))) return null;
+  const issuerOrigin = env.BETTER_AUTH_URL ? new URL(env.BETTER_AUTH_URL).origin : url.origin;
   return {
     env,
     portalOrigin: url.origin,
     upstreamOrigin: portal.upstream,
     trustedOrigins: [...new Set([url.origin, ...portal.trustedOrigins])],
-    auth: () => authServer(env, url.host),
+    auth: () => authServer(env, dedicated ? new URL(issuerOrigin).host : url.host),
     // Host aliases share the canonical OAuth identity. Keep the request URL
     // unchanged: browser origin checks and DPoP still bind to the transport.
-    resources: resourcesFor(
-      env.BETTER_AUTH_URL ? new URL(env.BETTER_AUTH_URL).origin : url.origin,
-    ),
+    resources: resourcesFor(issuerOrigin, env.AGENT_MCP_HOST),
     fetchImpl,
     wait,
     now,

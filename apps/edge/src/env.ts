@@ -66,6 +66,7 @@ export interface EdgeEnv {
 
   // Portal surface: the edge is routed on these hosts' /api/* and /v1/* paths.
   /** Comma-separated public portal hosts (for example aomi.chat). */
+  AGENT_MCP_HOST?: string;
   PORTAL_HOSTS?: string;
   /**
    * Comma-separated legacy-host=canonical-origin redirects. The canonical

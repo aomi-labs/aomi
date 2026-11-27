@@ -60,7 +60,7 @@ function hasDpopPresentation(request: Request): boolean {
 
 export function protectedResourceMetadataUrl(resource: string): string {
   return new URL(
-    `/.well-known/oauth-protected-resource${new URL(resource).pathname}`,
+    `/.well-known/oauth-protected-resource${new URL(resource).pathname.replace(/^\/$/, "")}`,
     resource,
   ).toString();
 }
@@ -153,7 +153,7 @@ async function verifyWithJwks(
     fetchImpl: (input: Request) => ctx.auth().handler(input),
     cache: ctx.env.EDGE_CACHE,
     now: ctx.now,
-    jwksUrl: `${ctx.portalOrigin}/api/auth/jwks`,
+    jwksUrl: `${ctx.resources.portalOrigin}/api/auth/jwks`,
   };
   const verify = async (fresh: boolean) =>
     (await jwtVerify(token, await portalJwks({ ...base, fresh }), { ...options, currentDate: new Date(ctx.now()) }))

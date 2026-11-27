@@ -279,9 +279,7 @@ async function enforceAomiRegistration(
       requestedResources.length > 1 ||
       (declared !== undefined &&
         !appMcp &&
-        ![resources.agentMcp, resources.pipelineMcp].includes(
-          declared as typeof resources.agentMcp,
-        )) ||
+        ![resources.agentMcp, resources.dedicatedAgentMcp, resources.pipelineMcp].includes(declared)) ||
       (appMcp && !(await registerAppMcpResource(declared!)))
     ) {
       return oauthError(

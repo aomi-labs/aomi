@@ -49,6 +49,8 @@ const describePostgres = isLoopbackPostgres(baseDatabaseUrl)
   : describe.skip;
 const origin = "http://localhost:3001";
 const originalDatabaseUrl = process.env.DATABASE_URL;
+const dedicatedOrigin = "https://mcp.example";
+const originalMcpHost = process.env.AGENT_MCP_HOST;
 const originalBetterAuthUrl = process.env.BETTER_AUTH_URL;
 
 describePostgres("MCP grants keep a refresh token", () => {
@@ -107,6 +109,7 @@ describePostgres("MCP grants keep a refresh token", () => {
     };
     process.env.DATABASE_URL = databaseUrl;
     process.env.BETTER_AUTH_URL = origin;
+    process.env.AGENT_MCP_HOST = new URL(dedicatedOrigin).host;
     const account = await import("@aomi-labs/account");
     pool = account.getPool();
     await pool.query(`create schema "${schemaName}"`);
@@ -122,6 +125,7 @@ describePostgres("MCP grants keep a refresh token", () => {
         await pool?.end();
       } finally {
         restoreEnv("DATABASE_URL", originalDatabaseUrl);
+        restoreEnv("AGENT_MCP_HOST", originalMcpHost);
         restoreEnv("BETTER_AUTH_URL", originalBetterAuthUrl);
       }
     }
@@ -135,6 +139,8 @@ describePostgres("MCP grants keep a refresh token", () => {
   // nothing to refresh. This drives the exact loop a client runs: read the
   // advertised scopes, ask for precisely those, then refresh.
   it.each([
+    ["dedicated DCR Agent MCP", "/", "dcr"],
+    ["dedicated CIMD Agent MCP", "/", "cimd-jwt"],
     ["DCR Agent MCP", "/v1/agent/mcp", "dcr"],
     ["DCR Pipeline MCP", "/v1/pipeline/mcp", "dcr"],
     ["extra-grant DCR Agent MCP", "/v1/agent/mcp", "dcr-extra-grant"],
@@ -146,14 +152,14 @@ describePostgres("MCP grants keep a refresh token", () => {
     ["CIMD private_key_jwt Agent MCP", "/v1/agent/mcp", "cimd-jwt"],
     ["CIMD private_key_jwt Pipeline MCP", "/v1/pipeline/mcp", "cimd-jwt"],
   ])(
-    "refreshes an %s grant built from the advertised scopes",
+    "refreshes a grant for %s built from the advertised scopes",
     async (_name, path, strategy) => {
-      const resource = `${origin}${path}`;
+      const resource = new URL(path, path === "/" ? dedicatedOrigin : origin).href;
       const dcr = strategy.startsWith("dcr");
       const extraGrant = strategy.endsWith("extra-grant");
       const redirectUri =
         strategy === "cimd-extra-grant" ? hostedRedirectUri : localRedirectUri;
-      const advertised = await protectedResourceMetadata(path);
+      const advertised = await protectedResourceMetadata(new URL(resource));
       expect(advertised.resource).toBe(resource);
       const scope = advertised.scopes.join(" ");
       expect(advertised.scopes).toContain("offline_access");
@@ -357,9 +363,9 @@ describePostgres("MCP grants keep a refresh token", () => {
     },
   );
 
-  async function protectedResourceMetadata(path: string) {
+  async function protectedResourceMetadata(resource: URL) {
     const response = await route.GET(
-      new Request(`${origin}/.well-known/oauth-protected-resource${path}`),
+      new Request(`${resource.origin}/.well-known/oauth-protected-resource${resource.pathname === "/" ? "" : resource.pathname}`),
     );
     expect(response.status).toBe(200);
     const body = (await response.json()) as Record<string, unknown>;
