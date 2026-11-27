@@ -81,6 +81,7 @@ export type Resources = {
   authorizationServerIssuer: string;
   agentMcp: string;
   dedicatedAgentMcp?: string;
+  dedicatedPipelineMcp?: string;
   pipelineMcp: string;
   agentRest: string;
   pipelineRest: string;
@@ -92,7 +93,7 @@ export type Resources = {
 export function resourcesFor(portalOrigin: string, mcpHost?: string): Resources {
   return {
     portalOrigin,
-    ...(mcpHost && { dedicatedAgentMcp: `https://${mcpHost}/` }),
+    ...(mcpHost && { dedicatedAgentMcp: `https://${mcpHost}/`, dedicatedPipelineMcp: `https://${mcpHost}/pipeline` }),
     authorizationServerIssuer: `${portalOrigin}${AOMI_OAUTH_BASE_PATH}`,
     agentMcp: `${portalOrigin}/v1/agent/mcp`,
     pipelineMcp: `${portalOrigin}/v1/pipeline/mcp`,
@@ -192,9 +193,11 @@ export function resourcePolicies(
       dpopBoundAccessTokensRequired: dpopRequired,
     },
   ];
-  if (resources.dedicatedAgentMcp) {
-    const agent = base.find((policy) => policy.kind === "agentMcp")!;
-    base.push({ ...agent, identifier: resources.dedicatedAgentMcp });
+  for (const [kind, identifier] of [
+    ["agentMcp", resources.dedicatedAgentMcp],
+    ["pipelineMcp", resources.dedicatedPipelineMcp],
+  ] as const) {
+    if (identifier) base.push({ ...base.find((policy) => policy.kind === kind)!, identifier });
   }
   return base.map((policy) => ({
     ...policy,

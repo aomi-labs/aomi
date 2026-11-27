@@ -33,8 +33,9 @@ async function document(request: Request, ctx: PortalContext): Promise<Response>
   }
   // The root names the agent MCP; a path names that resource, app-locked MCP paths included.
   const path = PROTECTED_RESOURCE.exec(pathname)?.[1];
-  const root = new URL(request.url).host === ctx.env.AGENT_MCP_HOST ? ctx.resources.dedicatedAgentMcp : ctx.resources.agentMcp;
-  const identifier = path ? `${ctx.resources.portalOrigin}${path}` : root;
+  const identifier = new URL(request.url).host === ctx.env.AGENT_MCP_HOST
+    ? (path ? ctx.resources.dedicatedPipelineMcp : ctx.resources.dedicatedAgentMcp)
+    : (path ? `${ctx.resources.portalOrigin}${path}` : ctx.resources.agentMcp);
   const policy = identifier && resourcePolicy(ctx.resources, MCP_DPOP_REQUIRED, identifier);
   if (!policy) return Response.json({ error: "not_found" }, { status: 404 });
   return Response.json(
