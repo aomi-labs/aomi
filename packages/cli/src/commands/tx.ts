@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   CommitApprovalForbiddenError,
   CommitExpiredError,
@@ -19,7 +21,7 @@ import {
   usage,
   type ConnectFlags,
 } from "../context";
-import { loadState } from "../state";
+import { loadState, STATE_DIR } from "../state";
 
 type Flags = ConnectFlags & { json?: boolean };
 const TIMEOUT_MS = 120_000;
@@ -227,17 +229,38 @@ export async function sign(flags: Flags, ref: string): Promise<void> {
   }
 }
 
+/** `aomi.commit.v1`: the reviewed commit and, for a Solana transaction, its
+ * unsigned wire bytes as base64. */
+export function exportJson(view: CommitRefView): string {
+  const payload =
+    view.action && "payload" in view.action ? view.action.payload : null;
+  const unsigned =
+    payload?.kind === "svm_transaction" ? payload.transaction_base64 : null;
+  return JSON.stringify(
+    {
+      format: "aomi.commit.v1",
+      commit: view,
+      unsigned_transaction_base64: unsigned,
+    },
+    null,
+    2,
+  );
+}
+
+/** Write the export to ~/.aomi/exports/<ref>.json; returns its path. */
+export function saveExport(view: CommitRefView): string {
+  const dir = join(STATE_DIR, "exports");
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const path = join(dir, `${view.commit_id}.json`);
+  writeFileSync(path, `${exportJson(view)}\n`, { mode: 0o600 });
+  return path;
+}
+
 /** The exact reviewed commit, for an external signer. */
 export async function exportCommit(flags: Flags, ref: string): Promise<void> {
   const handle = await open(await connect(flags), ref);
   try {
-    out(
-      JSON.stringify(
-        { format: "aomi.commit.v1", commit: handle.view },
-        null,
-        2,
-      ),
-    );
+    out(exportJson(handle.view));
   } finally {
     handle.close();
   }

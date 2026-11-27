@@ -12,6 +12,7 @@ import {
   type ConnectFlags,
 } from "../context";
 import { loadState, updateState } from "../state";
+import { isWatched } from "./wallets";
 import { chipsOf, paint, statusOf, stepLine } from "../trace";
 
 export type ChatFlags = ConnectFlags & {
@@ -92,7 +93,9 @@ export function commitHint(commit: CommitHandle, color: boolean): string {
   const [label, command] =
     commit.state === "awaiting_approval"
       ? ["Waiting for you", `aomi tx approve ${commit.ref}`]
-      : ["Sign it", `aomi tx sign ${commit.ref}`];
+      : isWatched(commit.view.signer)
+        ? ["Watch-only, export it", `aomi tx export ${commit.ref}`]
+        : ["Sign it", `aomi tx sign ${commit.ref}`];
   const head = `\n${color ? paint.yellow(label) : label}  ${command}`;
   if (!commit.signUrl) return head;
   return `${head}\n${color ? paint.dim(commit.signUrl) : commit.signUrl}`;

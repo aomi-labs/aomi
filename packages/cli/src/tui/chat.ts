@@ -32,9 +32,15 @@ import { MentionAutocomplete, mentionCatalog, walletGroups } from "./mentions";
 import packageJson from "../../package.json";
 import type { ChatFlags } from "../commands/chat";
 import { guardMode } from "../commands/guard";
-import { follow, reviewLines, reviewSummary, signable } from "../commands/tx";
+import {
+  follow,
+  reviewLines,
+  reviewSummary,
+  saveExport,
+  signable,
+} from "../commands/tx";
 import { signIn } from "../commands/account";
-import { signsWith } from "../commands/wallets";
+import { isWatched, signsWith, startWatching } from "../commands/wallets";
 import {
   baseUrlOf,
   connect,
@@ -88,6 +94,7 @@ function replyLines(turn: TurnView, width: number): string[] {
 const SLASH = [
   { name: "model", description: "Pick the model for this thread" },
   { name: "wallet", description: "Pick the wallet this thread trades with" },
+  { name: "watch", description: "Trade as an address you can't sign for" },
   { name: "threads", description: "Continue another thread" },
   { name: "guard", description: "Strict, Balanced or Yolo for this thread" },
   { name: "new", description: "Start a new thread" },
@@ -210,7 +217,8 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   const deciding = new Set<string>();
   /** Whether the local key signs `commit` here, in the chat. */
   const signsHere = (commit: CommitHandle) =>
-    !commit.settlement.done && commit.next.canSign();
+    !commit.settlement.done &&
+    (commit.next.canSign() || isWatched(commit.view.signer));
   const pending = () =>
     turns
       .flatMap((turn) => turn.commits)
@@ -300,11 +308,15 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       const wallet = wallets.find(
         (entry) => entry.id === (active.evm ?? active.svm),
       );
+      const watched = state.watch?.svm ?? state.watch?.evm;
       const left = [
-        // A local key signs everything itself; else the thread's wallet.
-        aomi.wallet?.evm || aomi.wallet?.svm || !wallet
-          ? bar.who
-          : `${wallet.label} (${signsWith(wallet)})`,
+        // A watched address, else a local key signs everything itself; else
+        // the thread's wallet.
+        watched
+          ? `${short(watched)} (watch-only)`
+          : aomi.wallet?.evm || aomi.wallet?.svm || !wallet
+            ? bar.who
+            : `${wallet.label} (${signsWith(wallet)})`,
         chain ? (CHAIN_NAMES[chain] ?? `chain ${chain}`) : undefined,
         state.model ? modelLabel(state.model) : "Auto model",
         guard && TRANSACTION_SAFETY_NAMES[guard].label,
@@ -359,7 +371,27 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       return { consume: true };
     }
     const commit = pending();
-    if (!commit || editor.getText() || !/^[arsod]$/.test(key)) return undefined;
+    if (!commit || editor.getText() || !/^[arsode]$/.test(key))
+      return undefined;
+    // Nothing here signs for a watched address: e exports it instead.
+    if (key === "e" && isWatched(commit.view.signer)) {
+      const turn = turns.findLast((entry) => entry.commits.includes(commit));
+      try {
+        const path = saveExport(commit.view);
+        // Exported is its decision: the box moves on to the next commit.
+        deciding.add(commit.ref);
+        if (turn) turn.decision = `✓ Exported ${path}`;
+      } catch (error) {
+        if (turn)
+          turn.decision = paint.red(
+            error instanceof Error ? error.message : String(error),
+          );
+      }
+      tui.requestRender();
+      return { consume: true };
+    }
+    // s does nothing for a watched address and is not typed into the composer.
+    if (key === "s" && isWatched(commit.view.signer)) return { consume: true };
     const go = commit.state === "awaiting_approval" ? "a" : "s";
     if (key === "o" && commit.signUrl) openUrl(commit.signUrl);
     if (key === "d") details = !details;
@@ -568,6 +600,13 @@ export async function runTui(flags: ChatFlags): Promise<void> {
           loadMentions();
         },
       );
+    }
+    if (name === "watch") {
+      try {
+        return note(startWatching(arg));
+      } catch (error) {
+        return note(error instanceof Error ? error.message : String(error));
+      }
     }
     if (name === "wallet") {
       if (aomi.auth.mode === "guest")
@@ -818,15 +857,16 @@ function commitBox(
     `${paint.yellow("│")} ${truncateToWidth(text, inner, "…", true)} ${paint.yellow("│")}`;
   const label = commit.kind.endsWith("message") ? "message" : "transaction";
   const approve = commit.state === "awaiting_approval";
+  const watched = isWatched(commit.view.signer);
   const key = (letter: string) => paint.cyan(paint.bold(letter));
-  const titleText = `┌ ${approve ? "Approve" : "Sign"} ${label} `;
+  const titleText = `┌ ${approve ? "Approve" : watched ? "Export" : "Sign"} ${label} `;
   const lines = [
     paint.yellow(
       `${titleText}${"─".repeat(Math.max(0, width - visibleWidth(titleText) - 1))}┐`,
     ),
     row(reviewSummary(commit.review)),
     row(
-      `${paint.dim("Signs with")} ${short(commit.view.signer)} ${paint.dim(approve ? "· Ask" : "· this key, here")}`,
+      `${paint.dim("Signs with")} ${short(commit.view.signer)} ${paint.dim(approve ? "· Ask" : watched ? "· watch-only, your own signer" : "· this key, here")}`,
     ),
   ];
   if (details)
@@ -834,7 +874,7 @@ function commitBox(
       lines.push(row(paint.dim(line)));
   lines.push(
     row(
-      `${approve ? `${key("a")} Approve` : `${key("s")} Sign`}   ${key("r")} Reject   ${key("o")} Open in browser   ${key("d")} Details`,
+      `${approve ? `${key("a")} Approve` : watched ? `${key("e")} Export` : `${key("s")} Sign`}   ${key("r")} Reject   ${key("o")} Open in browser   ${key("d")} Details`,
     ),
     paint.yellow(`└${"─".repeat(width - 2)}┘`),
   );

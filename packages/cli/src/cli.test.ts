@@ -1193,3 +1193,55 @@ describe("aomi policy", () => {
     expect((await cli("rules")).code).toBe(2);
   });
 });
+
+describe("aomi watch", () => {
+  const VAULT = "49mmYSJPUMgu2AcV7u3U3vQ3vean6PbDzV9pw1RmQeQh";
+  beforeEach(() =>
+    state({
+      thread: "thread-1",
+      guest: { baseUrl: BASE, token: "guest-token" },
+    }),
+  );
+
+  it("sends a watched address as the family's wallet, until removed", async () => {
+    expect((await cli("watch", VAULT)).stdout).toContain("watch-only");
+    expect((await cli("watch")).stdout).toBe(`SVM  ${VAULT}\n`);
+    await cli("-p", "show my positions");
+    const body = requests.find((r) => r.key === "POST /v1/agent/chat")!.body;
+    expect(JSON.parse(body).userState.svm.address).toBe(VAULT);
+    await cli("watch", "--remove", VAULT);
+    expect((await cli("watch")).stdout).toContain("Not watching");
+    // An EVM address is removed in any hex case.
+    await cli("watch", "0x8f3a00000000000000000000000000000000091c");
+    await cli(
+      "watch",
+      "--remove",
+      "0x8F3A00000000000000000000000000000000091C",
+    );
+    expect((await cli("watch")).stdout).toContain("Not watching");
+    expect((await cli("watch", "nope")).code).toBe(2);
+  });
+
+  it("exports the unsigned Solana transaction", async () => {
+    routes["GET /v1/commits/w1"] = {
+      ...view("w1", "needs_signature"),
+      chain_family: "svm",
+      signer: VAULT,
+      sign_url: `${BASE}/sign/w1`,
+      action: {
+        kind: "sign",
+        payload: {
+          kind: "svm_transaction",
+          signer: VAULT,
+          transaction_base64: "AQID",
+        },
+      },
+    };
+    const exported = JSON.parse((await cli("tx", "export", "w1")).stdout);
+    expect(exported).toMatchObject({
+      format: "aomi.commit.v1",
+      commit: { commit_id: "w1" },
+      unsigned_transaction_base64: "AQID",
+    });
+  });
+});

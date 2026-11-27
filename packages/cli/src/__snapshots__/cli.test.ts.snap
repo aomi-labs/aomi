@@ -195,6 +195,7 @@ ACCOUNT
 
 WALLETS & TRADES
   wallets    Agent wallets, local signer
+  watch      Plan for an address you can't sign for
   policy     What the agent may sign
   tx         Review, approve, sign, export
   guard      Spending limits for signing

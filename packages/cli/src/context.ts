@@ -326,8 +326,9 @@ export function turnOptions(
 ) {
   const app = overrides.app;
   const target: AgentTarget = app ? { mode: "direct", app } : { mode: "auto" };
-  const evm = aomi.wallet?.evm?.address;
-  const svm = aomi.wallet?.svm?.address;
+  // A watched address is the family's wallet, over any local key.
+  const evm = state.watch?.evm ?? aomi.wallet?.evm?.address;
+  const svm = state.watch?.svm ?? aomi.wallet?.svm?.address;
   const chainId = overrides.chain ?? state.chain;
   const userState = UserState.withExt(
     {
@@ -339,7 +340,7 @@ export function turnOptions(
             svm: {
               address: svm,
               cluster: clusterOf(overrides, state),
-              ...(aomi.wallet?.svm?.canSignV1Transaction
+              ...(!state.watch?.svm && aomi.wallet?.svm?.canSignV1Transaction
                 ? { capabilities: ["can_sign_v1_transaction"] }
                 : {}),
             },
