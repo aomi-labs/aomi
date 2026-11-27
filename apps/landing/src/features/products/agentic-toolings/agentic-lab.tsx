@@ -44,12 +44,12 @@ const mcpClients: Record<
   codex: {
     label: "Codex",
     format: "Terminal",
-    code: "codex mcp add aomi-agent --url https://aomi.chat/v1/agent/mcp\ncodex mcp login aomi-agent",
+    code: "codex mcp add aomi-agent --url https://mcp.aomi.dev\ncodex mcp login aomi-agent",
   },
   claude: {
     label: "Claude Code",
     format: "Terminal",
-    code: "claude mcp add --transport http aomi-agent https://aomi.chat/v1/agent/mcp",
+    code: "claude mcp add --transport http aomi-agent https://mcp.aomi.dev",
   },
   cursor: {
     label: "Cursor",
@@ -57,7 +57,7 @@ const mcpClients: Record<
     code: `{
   "mcpServers": {
     "aomi-agent": {
-      "url": "https://aomi.chat/v1/agent/mcp"
+      "url": "https://mcp.aomi.dev"
     }
   }
 }`,
@@ -84,7 +84,7 @@ const surfaceMatrix = [
   {
     id: "mcp-agent",
     name: "MCP · agent",
-    sub: "/v1/agent/mcp",
+    sub: "mcp.aomi.dev",
     api: "Agent API · aomi_chat",
     runs: "Aomi server",
     state: "Thread on your account",
@@ -100,7 +100,7 @@ const surfaceMatrix = [
   {
     id: "mcp-pipeline",
     name: "MCP · pipeline",
-    sub: "/v1/pipeline/mcp",
+    sub: "mcp.aomi.dev/pipeline",
     api: "Pipeline API · catalog + tools",
     runs: "Aomi server",
     state: "Stateless · App passed per call",

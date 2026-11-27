@@ -17,13 +17,13 @@ compatibility: >
   Verified against published CLI 0.2.0 and SDK 0.11.2. Require CLI 0.2.0 or newer
   and check command capabilities. Installing a skill does not upgrade a global binary.
 license: MIT
-version: "0.14.1"
+version: "0.14.2"
 author: 'aomi-labs <hello@aomi.dev>'
 tags: [crypto, defi, web3, evm, ethereum, wallet, account-abstraction, trading, mcp, agent]
 allowed-tools: 'Bash(aomi:*), Bash(npx:*)'
 metadata:
   author: 'aomi-labs <hello@aomi.dev>'
-  version: "0.14.1"
+  version: "0.14.2"
   repository: aomi-labs/skills
   homepage: https://github.com/aomi-labs/skills/tree/main/aomi-transact
 permissions:
@@ -32,7 +32,7 @@ permissions:
     write: [~/.aomi/]
     deny_write: [SOUL.md, MEMORY.md, AGENTS.md]
   network:
-    allow: [aomi.chat]
+    allow: [aomi.chat, mcp.aomi.dev]
     deny: "*"
   shell:
     - aomi
@@ -112,16 +112,16 @@ Source: https://github.com/aomi-labs/skills/tree/main/aomi-transact
 
 ## Hosted MCP
 
-Use `https://aomi.chat` as the production origin. If your CLI still targets the
+Use `https://aomi.chat` as the production CLI backend. If your CLI still targets the
 retired host, run `aomi config set-backend https://aomi.chat` and update any
-`AOMI_BACKEND_URL` or `--backend-url` override. For an existing MCP connection,
-change its URL and authorize again; old-origin OAuth grants do not carry over.
+`AOMI_BACKEND_URL` or `--backend-url` override. Existing Chat MCP connections continue to work. When switching URLs,
+authorize the new resource.
 
 For hosted tools, connect Agent and Pipeline separately with OAuth:
 
 ```sh
-codex mcp add aomi-agent --url https://aomi.chat/v1/agent/mcp
-codex mcp add aomi-pipeline --url https://aomi.chat/v1/pipeline/mcp
+codex mcp add aomi-agent --url https://mcp.aomi.dev
+codex mcp add aomi-pipeline --url https://mcp.aomi.dev/pipeline
 ```
 
 Codex derives the resource from each URL; omit `--oauth-resource` to avoid a

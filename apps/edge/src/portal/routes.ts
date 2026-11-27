@@ -131,9 +131,9 @@ async function toScopedApi(
   ctx: PortalContext,
 ): Promise<Response> {
   const { pathname, search } = new URL(request.url);
-  const dedicated = resource === ctx.resources.dedicatedAgentMcp;
-  const upstreamResource = dedicated ? ctx.resources.agentMcp : resource;
-  const upstreamPath = dedicated ? new URL(upstreamResource).pathname : pathname;
+  const upstreamResource = resource === ctx.resources.dedicatedAgentMcp ? ctx.resources.agentMcp
+    : resource === ctx.resources.dedicatedPipelineMcp ? ctx.resources.pipelineMcp : resource;
+  const upstreamPath = upstreamResource === resource ? pathname : new URL(upstreamResource).pathname;
   const oauth = principal.kind === "oauth" ? principal : null;
   const bearer = await mint(ctx, request, {
     role: "user",
@@ -302,7 +302,8 @@ async function catalog(request: Request, kind: string, ctx: PortalContext): Prom
 export async function handlePortalRequest(request: Request, ctx: PortalContext): Promise<Response> {
   const { host, pathname } = new URL(request.url);
   if (host === ctx.env.AGENT_MCP_HOST) {
-    if (pathname === "/.well-known/oauth-protected-resource") return oauthDiscovery(request, ctx);
+    if (pathname === "/.well-known/oauth-protected-resource" || pathname === "/.well-known/oauth-protected-resource/pipeline") return oauthDiscovery(request, ctx);
+    if (pathname === "/pipeline") return served(ROUTES.filter((row) => row.on === "pipelineMcp"), request, ctx, ctx.resources.dedicatedPipelineMcp);
     if (pathname === "/") return served(ROUTES.filter((row) => row.on === "agentMcp"), request, ctx, ctx.resources.dedicatedAgentMcp);
     return new Response(null, { status: 404 });
   }
