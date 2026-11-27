@@ -376,7 +376,17 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     // Nothing here signs for a watched address: e exports it instead.
     if (key === "e" && isWatched(commit.view.signer)) {
       const turn = turns.findLast((entry) => entry.commits.includes(commit));
-      if (turn) turn.decision = `✓ Exported ${saveExport(commit.view)}`;
+      try {
+        const path = saveExport(commit.view);
+        // Exported is its decision: the box moves on to the next commit.
+        deciding.add(commit.ref);
+        if (turn) turn.decision = `✓ Exported ${path}`;
+      } catch (error) {
+        if (turn)
+          turn.decision = paint.red(
+            error instanceof Error ? error.message : String(error),
+          );
+      }
       tui.requestRender();
       return { consume: true };
     }

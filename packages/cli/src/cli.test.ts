@@ -1211,6 +1211,14 @@ describe("aomi watch", () => {
     expect(JSON.parse(body).userState.svm.address).toBe(VAULT);
     await cli("watch", "--remove", VAULT);
     expect((await cli("watch")).stdout).toContain("Not watching");
+    // An EVM address is removed in any hex case.
+    await cli("watch", "0x8f3a00000000000000000000000000000000091c");
+    await cli(
+      "watch",
+      "--remove",
+      "0x8F3A00000000000000000000000000000000091C",
+    );
+    expect((await cli("watch")).stdout).toContain("Not watching");
     expect((await cli("watch", "nope")).code).toBe(2);
   });
 

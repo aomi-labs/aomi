@@ -69,7 +69,7 @@ vi.mock("../context", () => ({
 vi.mock("../commands/account", () => ({ signIn: vi.fn() }));
 vi.mock("../commands/guard", () => ({ guardMode: vi.fn() }));
 vi.mock("../commands/wallets", () => ({
-  isWatched: () => false,
+  isWatched: vi.fn(() => false),
   signsWith: vi.fn(),
   startWatching: vi.fn(),
 }));
@@ -77,11 +77,13 @@ vi.mock("../commands/tx", () => ({
   follow: vi.fn(async () => ({})),
   reviewLines: vi.fn(),
   reviewSummary: vi.fn(),
+  saveExport: vi.fn((view: { commit_id: string }) => `/x/${view.commit_id}`),
   signable: vi.fn(),
 }));
 
 import { connect } from "../context";
-import { follow, signable } from "../commands/tx";
+import { follow, saveExport, signable } from "../commands/tx";
+import { isWatched } from "../commands/wallets";
 import { runTui } from "./chat";
 
 function deferred<T>() {
@@ -196,6 +198,55 @@ it("signs a commit with the local key without leaving the chat", async () => {
     expect(follow).toHaveBeenCalledWith(local, true);
     expect(local.close).toHaveBeenCalled();
   } finally {
+    screen.input?.("ctrl+c");
+    await finished;
+  }
+});
+
+it("exports each watched commit in turn, not the first one again", async () => {
+  vi.mocked(isWatched).mockReturnValue(true);
+  const commit = (ref: string) => ({
+    ref,
+    state: "needs_signature",
+    kind: "svm_tx",
+    view: { signer: "Vault1111", commit_id: ref },
+    settlement: { done: false },
+    get next() {
+      return { canSign: () => false };
+    },
+    subscribe: () => () => {},
+    close() {},
+  });
+  const send = vi.fn(() =>
+    Object.assign(
+      Promise.resolve({
+        threadId: "t",
+        title: "Move",
+        reply: "Ready",
+        commits: [commit("a"), commit("b")],
+      }),
+      { steps: async function* () {}, interrupt: vi.fn() },
+    ),
+  );
+  vi.mocked(connect).mockResolvedValue({
+    auth: { mode: "guest" },
+    agent: {
+      thread: () => ({ send, history: async () => ({ activeWallet: {} }) }),
+    },
+  } as unknown as Awaited<ReturnType<typeof connect>>);
+  const finished = runTui({});
+  try {
+    await vi.waitFor(() => expect(screen.editor).toBeDefined());
+    screen.editor!.onSubmit("move it");
+    await vi.waitFor(() =>
+      expect(screen.input?.("e")).toEqual({ consume: true }),
+    );
+    screen.input?.("e");
+    expect(
+      vi.mocked(saveExport).mock.calls.map(([view]) => view.commit_id),
+    ).toEqual(["a", "b"]);
+  } finally {
+    vi.mocked(isWatched).mockReturnValue(false);
     screen.input?.("ctrl+c");
     await finished;
   }

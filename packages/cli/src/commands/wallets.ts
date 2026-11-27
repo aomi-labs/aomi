@@ -1,5 +1,6 @@
 import type { AomiAccountWallet } from "@aomi-labs/client";
 import bs58 from "bs58";
+import { isAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import {
   connect,
@@ -101,12 +102,15 @@ export async function setSigner(
   await signer(flags);
 }
 
+/** The same address: EVM in any hex case, Solana exactly. */
+const sameAddress = (held: string, other: string) =>
+  held === other ||
+  (held.startsWith("0x") && held.toLowerCase() === other.toLowerCase());
+
 /** Whether `signer` is a watched address: nothing here signs for it. */
 export const isWatched = (signer: string) =>
-  Object.values(loadState().watch ?? {}).some(
-    (held) =>
-      held === signer ||
-      (held.startsWith("0x") && held.toLowerCase() === signer.toLowerCase()),
+  Object.values(loadState().watch ?? {}).some((held) =>
+    sameAddress(held, signer),
   );
 
 /** Watch `address` as its family's wallet: `0x` hex is EVM, base58 Solana. */
@@ -118,7 +122,7 @@ export function startWatching(address: string): string {
       return false;
     }
   };
-  const family = /^0x[0-9a-fA-F]{40}$/.test(address)
+  const family = isAddress(address, { strict: false })
     ? "evm"
     : base58Key()
       ? "svm"
@@ -138,7 +142,9 @@ export async function watch(
   if (flags.remove) {
     updateState({
       watch: Object.fromEntries(
-        Object.entries(watched).filter(([, held]) => held !== flags.remove),
+        Object.entries(watched).filter(
+          ([, held]) => !sameAddress(held, flags.remove!),
+        ),
       ),
     });
     return out(`No longer watching ${flags.remove}`);
