@@ -21,7 +21,16 @@ requests: `/api/auth/widget/*` (widget sign-in), `/api/delegation/{para,privy}/*
 `/v1/agent/*`, `/v1/pipeline/*`, `/v1/agent/mcp`, and `/v1/pipeline/mcp`.
 The deploy and launch routes below belong to Aomi Build, not the portal.
 
-The two MCP paths are unversioned OAuth resources and require a valid exact-
+Each environment also has an MCP host (`AGENT_MCP_HOST`: `mcp.aomi.dev`,
+`mcp-staging.aomi.dev`, `mcp-rc.aomi.dev`). It serves the agent MCP at `/`
+and the pipeline MCP at `/pipeline`, each with its protected-resource
+document, and answers 404 on every other path. Its resources are separate
+audiences: a token for `https://mcp.aomi.dev/` is refused at
+`/v1/agent/mcp` and the reverse. The Edge forwards an accepted request to the
+same backend route with the portal resource, so the backend sees no
+difference. Sign-in, consent and token refresh stay on the portal host.
+
+The MCP paths are unversioned OAuth resources and require a valid exact-
 resource token even for `initialize` and `tools/list`. `/api/mcp` and
 `/api/mcp/direct` are removed, without aliases. REST accepts either the exact
 resource OAuth grant or a first-party Better Auth session; anonymous/Bearer
