@@ -2,7 +2,9 @@
 import { expect, it, vi } from "vitest";
 
 const screen = vi.hoisted(() => ({
-  editor: undefined as undefined | { onSubmit: (text: string) => void },
+  editor: undefined as
+    | undefined
+    | { onSubmit: (text: string) => void; text: string },
   input: undefined as undefined | ((key: string) => unknown),
   updates: [] as object[],
 }));
@@ -27,12 +29,13 @@ vi.mock("@earendil-works/pi-tui", () => ({
   },
   Editor: class {
     onSubmit = (_text: string) => {};
+    text = "";
     constructor() {
       screen.editor = this;
     }
     setAutocompleteProvider() {}
     getText() {
-      return "";
+      return this.text;
     }
     addToHistory() {}
   },
@@ -245,6 +248,62 @@ it("exports each watched commit in turn, not the first one again", async () => {
     expect(
       vi.mocked(saveExport).mock.calls.map(([view]) => view.commit_id),
     ).toEqual(["a", "b"]);
+  } finally {
+    vi.mocked(isWatched).mockReturnValue(false);
+    screen.input?.("ctrl+c");
+    await finished;
+  }
+});
+
+it("ignores s on a watched commit without typing it, so e still exports", async () => {
+  vi.mocked(isWatched).mockReturnValue(true);
+  const commit = (ref: string) => ({
+    ref,
+    state: "needs_signature",
+    kind: "svm_tx",
+    view: { signer: "Vault1111", commit_id: ref },
+    settlement: { done: false },
+    get next() {
+      return { canSign: () => false };
+    },
+    subscribe: () => () => {},
+    close() {},
+  });
+  const send = vi.fn(() =>
+    Object.assign(
+      Promise.resolve({
+        threadId: "t",
+        title: "Move",
+        reply: "Ready",
+        commits: [commit("a"), commit("b")],
+      }),
+      { steps: async function* () {}, interrupt: vi.fn() },
+    ),
+  );
+  vi.mocked(connect).mockResolvedValue({
+    auth: { mode: "guest" },
+    agent: {
+      thread: () => ({ send, history: async () => ({ activeWallet: {} }) }),
+    },
+  } as unknown as Awaited<ReturnType<typeof connect>>);
+  const finished = runTui({});
+  try {
+    await vi.waitFor(() => expect(screen.editor).toBeDefined());
+    screen.editor!.onSubmit("move it");
+    // A key the listener does not consume is typed into the composer.
+    const press = (key: string) => {
+      if (!(screen.input?.(key) as { consume?: boolean } | undefined)?.consume)
+        screen.editor!.text += key;
+    };
+    // d (details) is consumed only once a commit box is up.
+    await vi.waitFor(() =>
+      expect(screen.input?.("d")).toEqual({ consume: true }),
+    );
+    vi.mocked(saveExport).mockClear();
+    press("s");
+    press("e");
+    expect(saveExport).toHaveBeenCalledTimes(1);
+    expect(screen.editor!.text).toBe("");
   } finally {
     vi.mocked(isWatched).mockReturnValue(false);
     screen.input?.("ctrl+c");

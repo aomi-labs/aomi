@@ -390,7 +390,8 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       tui.requestRender();
       return { consume: true };
     }
-    if (key === "s" && isWatched(commit.view.signer)) return undefined;
+    // s does nothing for a watched address and is not typed into the composer.
+    if (key === "s" && isWatched(commit.view.signer)) return { consume: true };
     const go = commit.state === "awaiting_approval" ? "a" : "s";
     if (key === "o" && commit.signUrl) openUrl(commit.signUrl);
     if (key === "d") details = !details;
