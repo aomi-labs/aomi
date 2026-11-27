@@ -79,8 +79,9 @@ Credential and key values come from stdin or a hidden prompt, never argv.
 ## The chat screen
 
 `aomi` opens it. Each turn shows "Worked Ns · N steps" (ctrl+o expands the
-steps), the reply, and a box for a commit waiting for your approval: `a`
-approve, `r` reject, `o` open in the browser, `d` details. Type `/` for
+steps), the reply, and a box for a commit waiting for you: `a` approves one
+parked for your approval, `s` signs one with the local key right there, `r`
+rejects, `o` opens it in the browser, `d` shows details. Type `/` for
 `/model` (a list, Auto first), `/guard` (Strict, Balanced or Yolo for the
 thread), `/new`, `/help`. Chat routes to every app (Auto); `--app` pins one
 for a run. Esc stops a turn; ctrl+c quits.
