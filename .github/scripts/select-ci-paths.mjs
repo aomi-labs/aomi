@@ -128,7 +128,7 @@ function classifyPath(selection, path) {
   }
 
   // The edge Worker has no Vercel project; its unit tests run with the
-  // workspace suite and its deploy is driven from product-mono.
+  // workspace suite and its deploy is driven from aomi-labs/release.
   if (path.startsWith("apps/edge/")) {
     select(selection, "packages");
     return selection;

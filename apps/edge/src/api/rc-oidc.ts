@@ -22,7 +22,6 @@ export const RC_OIDC_ISSUER = "https://token.actions.githubusercontent.com";
 export const RC_OIDC_AUDIENCE = "aomi-rc-edge";
 /** Repositories that may run RC workflows, pinned by id against rename and re-creation. */
 const REPOSITORY_IDS: Readonly<Record<string, string>> = {
-  "aomi-labs/product-mono": "1033482171",
   "aomi-labs/release": "1471576963",
 };
 const REF = "refs/heads/main";
