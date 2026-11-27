@@ -85,11 +85,6 @@ function classifyPath(selection, path) {
     return selection;
   }
 
-  if (path === ".github/scripts/resolve-preview-urls.sh") {
-    select(selection, "workflow_policy", "preview");
-    return selection;
-  }
-
   if (path.startsWith(".github/")) {
     select(selection, "workflow_policy");
     return selection;

@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: read
-  deployments: read
 
 concurrency:
   group: preview-e2e-${{ github.event.pull_request.number }}
@@ -40,22 +39,12 @@ jobs:
     if: needs.changes.outputs.preview == 'true' && vars.PLAYWRIGHT_PREVIEW_MODE != 'nightly'
     continue-on-error: true
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 20
     steps:
       - name: Checkout exact PR source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Resolve the immutable Build preview for this PR
-        id: previews
-        timeout-minutes: 16
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PREVIEW_SHA: ${{ github.event.pull_request.head.sha }}
-          # Cold builds in this repo take 11–13 minutes to publish same-SHA URLs.
-          PREVIEW_TIMEOUT_SECONDS: "900"
-        run: .github/scripts/resolve-preview-urls.sh
 
       - name: Enable corepack
         run: corepack enable
@@ -81,10 +70,10 @@ jobs:
         timeout-minutes: 5
         run: pnpm exec playwright install chromium
 
-      - name: Smoke test staging Chat and the PR Build preview
+      - name: Smoke test staging Chat and Build
         env:
           PORTAL_PREVIEW_URL: https://staging.aomi.chat
-          BUILD_PREVIEW_URL: ${{ steps.previews.outputs.build_url }}
+          BUILD_PREVIEW_URL: https://staging.aomi.build
         run: pnpm exec playwright test --project=preview
 
       - name: Upload Playwright diagnostics
@@ -107,6 +96,6 @@ jobs:
             echo "- Owner: CI/release DRI"
             echo "- PR SHA: \`${{ github.event.pull_request.head.sha }}\`"
             echo "- Chat target: Cloudflare staging"
-            echo "- Build target: immutable PR preview"
+            echo "- Build target: Cloudflare staging"
             echo "- Diagnostics: \`preview-e2e-${{ github.event.pull_request.head.sha }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
