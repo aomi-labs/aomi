@@ -86,7 +86,7 @@ function outcome(view: CommitRefView): string {
 }
 
 /** Follow the whole batch until it is over, or the timeout. */
-async function follow(
+export async function follow(
   handle: CommitHandle,
   sign = false,
 ): Promise<CommitRefView> {
@@ -191,19 +191,27 @@ export async function reject(flags: Flags, ref: string): Promise<void> {
   }
 }
 
-/** Sign with the local signer, every member of the batch in order. */
-export async function sign(flags: Flags, ref: string): Promise<void> {
-  let handle = await open(await connect(flags), ref);
-  // The local EVM key signs on the commit's chain, not the saved default.
+/** The commit `ref` with the local signer, its EVM key on the commit's chain
+ * rather than the saved default. */
+export async function signable(
+  flags: ConnectFlags,
+  ref: string,
+): Promise<CommitHandle> {
+  const handle = await open(await connect(flags), ref);
   const chain = Number(handle.view.chain_ref);
   if (
-    handle.view.chain_family === "evm" &&
-    flags.chain === undefined &&
-    chain !== (loadState().chain ?? 1)
-  ) {
-    handle.close();
-    handle = await open(await connect({ ...flags, chain }), ref);
-  }
+    handle.view.chain_family !== "evm" ||
+    flags.chain !== undefined ||
+    chain === (loadState().chain ?? 1)
+  )
+    return handle;
+  handle.close();
+  return open(await connect({ ...flags, chain }), ref);
+}
+
+/** Sign with the local signer, every member of the batch in order. */
+export async function sign(flags: Flags, ref: string): Promise<void> {
+  const handle = await signable(flags, ref);
   try {
     if (handle.state === "awaiting_approval")
       throw new CliError(`It waits for approval: aomi tx approve ${ref}`, 3);
