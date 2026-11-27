@@ -143,11 +143,11 @@ describe("rc oidc exchange", () => {
   });
 
   describe("configured for aomi-labs/release", () => {
-    const RELEASE_SUBJECT = "repo:aomi-labs/release:environment:rc";
+    const RELEASE_SUBJECT = "repo:aomi-labs@224878687/release@1471576963:environment:rc";
     const RELEASE_WORKFLOW = "aomi-labs/release/.github/workflows/release-test.yml@refs/heads/main";
-    const release = (overrides: Claims = {}) => oidc({
+    const release = (overrides: Claims = {}, sub = RELEASE_SUBJECT) => oidc({
       repository: "aomi-labs/release", repository_id: "1471576963", workflow_ref: RELEASE_WORKFLOW, ...overrides,
-    }, { sub: RELEASE_SUBJECT });
+    }, { sub });
     beforeEach(() => {
       env = { ...env, RC_OIDC_SUBJECT: RELEASE_SUBJECT, RC_OIDC_WORKFLOWS: RELEASE_WORKFLOW };
     });
@@ -159,6 +159,7 @@ describe("rc oidc exchange", () => {
     it.each([
       ["product-mono's id under release's name", () => release({ repository_id: "1033482171" })],
       ["a product-mono token", () => oidc({}, { sub: SUBJECT })],
+      ["a subject naming another repository id", () => release({}, "repo:aomi-labs@224878687/release@1:environment:rc")],
     ] as const)("rejects %s", async (_name, make) => {
       expect((await exchange(await make())).status).toBe(403);
     });
