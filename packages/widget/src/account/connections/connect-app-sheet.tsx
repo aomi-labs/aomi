@@ -45,16 +45,24 @@ const MCP_SERVERS = [
   {
     title: "Agent MCP",
     path: "/v1/agent/mcp",
+    publicPath: "/",
     detail:
       "Chat with Aomi's agent. It picks the tools, stages trades and asks before signing.",
   },
   {
     title: "Pipeline MCP",
     path: "/v1/pipeline/mcp",
+    publicPath: "/pipeline",
     detail:
       "Your client's own model searches and calls Aomi's tools directly. For agents that plan for themselves.",
   },
 ];
+
+const MCP_ORIGINS: Record<string, string> = {
+  "https://aomi.chat": "https://mcp.aomi.dev",
+  "https://staging.aomi.chat": "https://mcp-staging.aomi.dev",
+  "https://rc.aomi.chat": "https://mcp-rc.aomi.dev",
+};
 
 const SDK_GUIDE = "https://aomi.dev/docs/reference/sdk";
 
@@ -146,7 +154,9 @@ export function ConnectAppSheet({ onClose }: { onClose: () => void }) {
                       </span>
                     </div>
                     <CopyRow
-                      value={new URL(server.path, window.location.origin).href}
+                      value={MCP_ORIGINS[window.location.origin]
+                        ? MCP_ORIGINS[window.location.origin] + server.publicPath
+                        : new URL(server.path, window.location.origin).href}
                     />
                   </div>
                 ))}

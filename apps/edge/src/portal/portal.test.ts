@@ -1512,16 +1512,18 @@ describe("dedicated agent MCP host", () => {
     }
   });
 
-  it("requires the transport's exact audience and forwards to the existing Rust route", async () => {
-    const legacy = PORTAL + "/v1/agent/mcp";
+  it.each([["/", "/v1/agent/mcp", "mcp:agent agent:read"], ["/pipeline", "/v1/pipeline/mcp", "mcp:pipeline pipeline:catalog"]])("requires the transport's exact audience and forwards to the existing Rust route (%s)", async (path, backendPath, scope) => {
+    const resource = origin + path;
+    const legacy = PORTAL + backendPath;
     const post = async (url: string, aud: string) => {
-      const token = await oauthToken({ sub: "user", scope: "mcp:agent agent:read", aud });
+      const token = await oauthToken({ sub: "user", scope, aud });
       return call(url, { method: "POST", headers: { authorization: `Bearer ${token}` }, body: "{}" });
     };
+    expect((await post(resource, origin + (path === "/" ? "/pipeline" : "/"))).status).toBe(401);
     expect((await post(resource, legacy)).status).toBe(401);
     expect((await post(legacy, resource)).status).toBe(401);
     expect((await post(resource, resource)).status).toBe(200);
-    expect(seen[0].url).toBe(AGENT + "/v1/agent/mcp");
-    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ resource: legacy, scope: "mcp:agent agent:read" });
+    expect(seen[0].url).toBe(AGENT + backendPath);
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ resource: legacy, scope });
   });
 });

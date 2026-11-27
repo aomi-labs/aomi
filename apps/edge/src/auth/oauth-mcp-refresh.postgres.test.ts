@@ -139,6 +139,8 @@ describePostgres("MCP grants keep a refresh token", () => {
   // nothing to refresh. This drives the exact loop a client runs: read the
   // advertised scopes, ask for precisely those, then refresh.
   it.each([
+    ["dedicated DCR Pipeline MCP", "/pipeline", "dcr"],
+    ["dedicated CIMD Pipeline MCP", "/pipeline", "cimd-jwt"],
     ["dedicated DCR Agent MCP", "/", "dcr"],
     ["dedicated CIMD Agent MCP", "/", "cimd-jwt"],
     ["DCR Agent MCP", "/v1/agent/mcp", "dcr"],
@@ -154,7 +156,7 @@ describePostgres("MCP grants keep a refresh token", () => {
   ])(
     "refreshes a grant for %s built from the advertised scopes",
     async (_name, path, strategy) => {
-      const resource = new URL(path, path === "/" ? dedicatedOrigin : origin).href;
+      const resource = new URL(path, !path.startsWith("/v1/") ? dedicatedOrigin : origin).href;
       const dcr = strategy.startsWith("dcr");
       const extraGrant = strategy.endsWith("extra-grant");
       const redirectUri =
