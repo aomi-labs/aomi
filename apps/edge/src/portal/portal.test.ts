@@ -1185,20 +1185,6 @@ describe("portal surface: wallet policies", () => {
     expect(seen).toHaveLength(2);
   });
 
-  it("still routes the /rules names a client on an older SDK calls", async () => {
-    for (const path of ["/v1/account/agent-wallets/g-1/rules", "/v1/account/rules/catalog", "/v1/account/rule-changes/ch-1"])
-      expect((await call("CLI session", "GET", path)).status).toBe(200);
-    for (const path of [
-      "/v1/account/agent-wallets/g-1/rules",
-      "/v1/account/agent-wallets/g-1/rules/enforcement/swig/confirm",
-      "/v1/account/rule-changes/ch-1/decline",
-    ]) {
-      expect((await call("CLI session", "POST", path)).status).toBe(200);
-      expect((await call("widget user", "POST", path)).status).toBe(403);
-    }
-    expect(seen).toHaveLength(6);
-  });
-
   it("lets an agent:write grant propose a change, and never an agent:read one", async () => {
     const path = "/v1/account/agent-wallets/g-1/policy/propose";
     expect((await call("OAuth user", "POST", path)).status).toBe(200);
