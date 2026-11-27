@@ -27,6 +27,7 @@ const OPTIONAL_ORIGINS = [
 // Per-environment settings, passed through when set.
 const SETTINGS = [
   "PORTAL_HOSTS",
+  "AGENT_MCP_HOST",
   "PORTAL_HOST_REDIRECTS",
   "PORTAL_TRUSTED_ORIGINS",
   "BETTER_AUTH_URL",

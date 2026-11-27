@@ -390,6 +390,7 @@ export type ConsentWalletsProps = {
 export type ConsentWalletsState = {
     ready: boolean;
     update: AomiConnectionWalletsUpdate | null;
+    instant?: string[];
 };
 
 // @public (undocumented)
@@ -720,7 +721,10 @@ export function useConsentAskModes(client: {
 }): {
     onChange: (next: ConsentWalletsState) => void;
     ready: boolean;
-    save: (key: string) => Promise<boolean>;
+    save: (key: string) => Promise<{
+        saved: boolean;
+        note?: string;
+    }>;
 };
 
 // @public (undocumented)

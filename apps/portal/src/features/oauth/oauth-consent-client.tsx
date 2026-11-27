@@ -120,10 +120,12 @@ export function ConsentSheet({ name }: { name: string }) {
   }, [params, guest]);
   const lines = scopeLines(scopes);
   const [pending, setPending] = useState(false);
-  const [connected, setConnected] = useState(false);
+  // Where to hand back once connected.
+  const [connected, setConnected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // The grant went through but the wallet settings did not: where to go next.
   const [unsaved, setUnsaved] = useState<string | null>(null);
+  const [note, setNote] = useState<string>();
   const client = useMemo(() => createPortalAomi(), []);
   const resource = params.get("resource");
   const app = consentApp(resource);
@@ -167,14 +169,18 @@ export function ConsentSheet({ name }: { name: string }) {
    */
   const saveWallets = async (redirect: string) => {
     setPending(true);
-    const saved =
-      guest || !connectionKey || (await askModes.save(connectionKey));
+    const { saved, note } =
+      guest || !connectionKey
+        ? { saved: true }
+        : await askModes.save(connectionKey);
     setPending(false);
+    setNote(note);
     if (!saved) return setUnsaved(redirect);
     setUnsaved(null);
-    // Show "connected" for a moment before handing back to the client.
-    setConnected(true);
-    setTimeout(() => window.location.assign(redirect), 1200);
+    // Show "connected" for a moment before handing back to the client; a
+    // note waits to be read.
+    setConnected(redirect);
+    if (!note) setTimeout(() => window.location.assign(redirect), 1200);
   };
 
   if (unsaved)
@@ -188,7 +194,7 @@ export function ConsentSheet({ name }: { name: string }) {
         <div className="flex flex-col gap-4 px-5 pb-5">
           <SheetAlert>
             {name} is connected, but its wallet settings didn’t save. Set them
-            in Settings → Connections.
+            in Settings → Connections.{note ? ` (${note})` : null}
           </SheetAlert>
           <AomiButton
             variant="primary"
@@ -221,8 +227,17 @@ export function ConsentSheet({ name }: { name: string }) {
             className="text-aomi-success size-12"
             strokeWidth={1.5}
           />
+          {note ? <SheetAlert>{note}</SheetAlert> : null}
           <SheetFootnote>
             Change which wallets it may use in Settings → Connections.
+            {note ? (
+              <>
+                {" "}
+                <FootnoteLink onClick={() => window.location.assign(connected)}>
+                  Go back to {name}
+                </FootnoteLink>
+              </>
+            ) : null}
           </SheetFootnote>
         </div>
       </AomiSheet>

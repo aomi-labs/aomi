@@ -40,8 +40,11 @@ code of its own.
 - One-shot: the reply on stdout, the trace on stderr (one line per step from
   `@aomi-labs/client/trace` `decode`, status glyphs), `--json` NDJSON.
 - Exit codes: 0 ok, 1 error, 2 usage, 3 approval, signature or sign-in needed.
-- The chat screen is pi-tui (`src/tui/chat.ts`): turns, folded steps, an
-  approve box (a/r/o/d), slash commands and a status bar. Esc interrupts.
+- The chat screen is pi-tui (`src/tui/chat.ts`): turns, folded steps, a
+  commit box (a approve or s sign with the local key, r, o, d), slash
+  commands and a status bar. Esc interrupts. `s` signs as `aomi tx sign`
+  does (`signable` and `follow` in `src/commands/tx.ts`), so the chat never
+  has to be left to sign.
 
 ## Related Topics
 

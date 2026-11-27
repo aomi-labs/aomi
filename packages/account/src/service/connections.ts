@@ -72,7 +72,9 @@ export async function listAccountConnections(
   userId: AomiUserId,
 ): Promise<AccountConnections> {
   const resources = aomiOAuthResources();
-  const mcp = new Set<string>([resources.agentMcp, resources.pipelineMcp]);
+  const mcp = new Set([resources.agentMcp, resources.pipelineMcp]);
+  if (resources.dedicatedPipelineMcp) mcp.add(resources.dedicatedPipelineMcp);
+  if (resources.dedicatedAgentMcp) mcp.add(resources.dedicatedAgentMcp);
   const [oauth, telegram, settings] = await Promise.all([
     listOAuthConnections(userId),
     findTelegramConnection(userId),
@@ -119,11 +121,11 @@ export async function listAccountConnections(
               CLI_CLIENT_NAME
           : (client.name ?? client.clientId),
         {
-          detail: client.resources.includes(resources.pipelineMcp)
+          detail: client.resources.some((id) => id === resources.pipelineMcp || id === resources.dedicatedPipelineMcp)
             ? "Pipeline MCP"
             : client.resources.some(
                   (resource) =>
-                    resource === resources.agentMcp || appMcpName(resource),
+                    resource === resources.agentMcp || resource === resources.dedicatedAgentMcp || appMcpName(resource),
                 )
               ? "Agent MCP"
               : null,
