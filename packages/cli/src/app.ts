@@ -177,6 +177,7 @@ const BRIEFS = {
   whoami: "Who you're signed in as",
   account: "Profile, connections, credits",
   wallets: "Agent wallets, local signer",
+  watch: "Plan for an address you can't sign for",
   policy: "What the agent may sign",
   tx: "Review, approve, sign, export",
   guard: "Spending limits for signing",
@@ -377,6 +378,12 @@ const root = routes(
         set: signerSet,
       },
       { default: "list", hidden: ["current", "set"] },
+    ),
+    watch: command(
+      BRIEFS.watch,
+      { remove: text("Stop watching it", { placeholder: "address" }) },
+      [arg("A 0x EVM or Solana address to trade as", "address", true)],
+      wallets.watch,
     ),
     policy: routes(
       BRIEFS.policy,
@@ -793,7 +800,7 @@ export const app = buildApplication(root, {
 const GROUPS: [string, (keyof typeof BRIEFS)[]][] = [
   ["CHAT", ["chat", "threads"]],
   ["ACCOUNT", ["login", "logout", "whoami", "account"]],
-  ["WALLETS & TRADES", ["wallets", "policy", "tx", "guard"]],
+  ["WALLETS & TRADES", ["wallets", "watch", "policy", "tx", "guard"]],
   ["APPS", ["apps", "pipeline", "deploy"]],
 ];
 const SETTINGS: (keyof typeof BRIEFS)[] = [

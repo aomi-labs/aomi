@@ -1,4 +1,5 @@
 import type { AomiAccountWallet } from "@aomi-labs/client";
+import bs58 from "bs58";
 import { privateKeyToAccount } from "viem/accounts";
 import {
   connect,
@@ -98,6 +99,55 @@ export async function setSigner(
     ...(flags.cluster ? { cluster: flags.cluster } : {}),
   });
   await signer(flags);
+}
+
+/** Whether `signer` is a watched address: nothing here signs for it. */
+export const isWatched = (signer: string) =>
+  Object.values(loadState().watch ?? {}).some(
+    (held) =>
+      held === signer ||
+      (held.startsWith("0x") && held.toLowerCase() === signer.toLowerCase()),
+  );
+
+/** Watch `address` as its family's wallet: `0x` hex is EVM, base58 Solana. */
+export function startWatching(address: string): string {
+  const base58Key = () => {
+    try {
+      return bs58.decode(address).length === 32;
+    } catch {
+      return false;
+    }
+  };
+  const family = /^0x[0-9a-fA-F]{40}$/.test(address)
+    ? "evm"
+    : base58Key()
+      ? "svm"
+      : undefined;
+  if (!family)
+    throw usage(`${address} is neither a 0x EVM nor a Solana address`);
+  updateState({ watch: { ...loadState().watch, [family]: address } });
+  return `Watching ${address} (watch-only): Aomi plans and simulates for it, and a transaction it prepares is exported for your own signer`;
+}
+
+/** `aomi watch [address]`, `aomi watch --remove <address>`. */
+export async function watch(
+  flags: { remove?: string },
+  address?: string,
+): Promise<void> {
+  const watched = loadState().watch ?? {};
+  if (flags.remove) {
+    updateState({
+      watch: Object.fromEntries(
+        Object.entries(watched).filter(([, held]) => held !== flags.remove),
+      ),
+    });
+    return out(`No longer watching ${flags.remove}`);
+  }
+  if (address) return out(startWatching(address));
+  const rows = Object.entries(watched);
+  if (!rows.length)
+    return out("Not watching any address; aomi watch <address>");
+  rows.forEach(([family, held]) => out(`${family.toUpperCase()}  ${held}`));
 }
 
 export async function clearSigner(): Promise<void> {

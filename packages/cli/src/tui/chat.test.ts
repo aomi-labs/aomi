@@ -68,7 +68,11 @@ vi.mock("../context", () => ({
 }));
 vi.mock("../commands/account", () => ({ signIn: vi.fn() }));
 vi.mock("../commands/guard", () => ({ guardMode: vi.fn() }));
-vi.mock("../commands/wallets", () => ({ signsWith: vi.fn() }));
+vi.mock("../commands/wallets", () => ({
+  isWatched: () => false,
+  signsWith: vi.fn(),
+  startWatching: vi.fn(),
+}));
 vi.mock("../commands/tx", () => ({
   follow: vi.fn(async () => ({})),
   reviewLines: vi.fn(),

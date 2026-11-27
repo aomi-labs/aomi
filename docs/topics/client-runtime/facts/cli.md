@@ -35,6 +35,18 @@ code of its own.
   and the EVM signer (`viemSigner`).
 - Otherwise a guest, whose bearer is kept in `~/.aomi/cli.json`.
 
+## Watch-only
+
+`aomi watch <address>` (or `/watch` in the chat screen) keeps a public
+address in `~/.aomi/cli.json` as its family's wallet: `0x` hex is EVM, 32-byte
+base58 is Solana. Turns send it as `userState.<family>.address`, over any
+local key, so the agent plans and simulates as that address, and Commit
+Service, which holds no key for it, leaves its commits at `needs_signature`.
+The status bar says `(watch-only)`; the commit box offers `e` Export, which
+writes `aomi.commit.v1` to `~/.aomi/exports/<ref>.json` (`aomi tx export`
+prints the same, with a Solana transaction's unsigned bytes as
+`unsigned_transaction_base64`). `aomi watch` lists, `--remove` drops.
+
 ## Output
 
 - One-shot: the reply on stdout, the trace on stderr (one line per step from

@@ -20,9 +20,11 @@ export type CliState = {
   evmKey?: string;
   svmKey?: string;
   cluster?: SvmCluster;
+  /** Watched addresses (`aomi watch`): each family's wallet, no local signer. */
+  watch?: { evm?: string; svm?: string };
 };
 
-const STATE_DIR = process.env.AOMI_STATE_DIR ?? join(homedir(), ".aomi");
+export const STATE_DIR = process.env.AOMI_STATE_DIR ?? join(homedir(), ".aomi");
 const STATE_FILE = join(STATE_DIR, "cli.json");
 export const grants = fileGrants(join(STATE_DIR, "grants.json"));
 
