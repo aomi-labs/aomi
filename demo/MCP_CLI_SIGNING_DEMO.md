@@ -207,8 +207,8 @@ secret file.
 
 ## Troubleshooting and recovery
 
-- **OAuth discovery or connection fails:** verify the exact HTTPS `/v1/agent/mcp`
-  URL with the deterministic smoke or MCP Inspector. Refresh the MCP connection
+- **OAuth discovery or connection fails:** verify the exact agent MCP URL
+  (`https://mcp-staging.aomi.dev/`) with the deterministic smoke or MCP Inspector. Refresh the MCP connection
   after server metadata changes.
 - **Wrong account or wallet:** stop before signing. Clear the isolated take and
   repeat SIWE/OAuth with the intended test wallet; do not override a mismatch.
